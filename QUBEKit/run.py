@@ -13,7 +13,7 @@
 #==================================================================================================
 #Utility for the derivation of specific ligand parameters
 
-import argparse, sys
+import argparse, sys, os, subprocess
 
 #Main function parser
 def main():
@@ -44,24 +44,60 @@ Final file name QuBe will be wrote when xml and GMX files are made
 qm: theory, vib_scaling, processors, memory.
 fitting: dihstart, increment, numscan, T_weight, new_dihnum, Q_file, tor_limit, div_index
 example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
+    parser.add_argument('-g', '--geometric', action='store_false', default=True, help='Use geometric/crank(tosiondrive) in optimizations?')
     parser.add_argument('-e', '--engine', default="psi4", choices=["psi4","g09"], help='select the qm engine used for optimisation calculations')
+    parser.add_argument('-sm', "--smiles", help='Enter the SMILES notation of the molecule')
     args = parser.parse_args()
-    if not args.zmat and not args.PDB and args.type!='analyse':
-       sys.exit('Zmat or PDB missing please enter')
+    if not args.zmat and not args.PDB and not args.smiles and args.type!='analyse':
+       sys.exit('Zmat, PDB or smiles missing please enter')
     elif args.function == 'bonds' and args.type == 'write' and args.PDB:
        import bonds
-       #test if psi4 is avilable
-       try:
-           import psi4
-           print('psi4 imported!')
-       except:
-           sys.exit('ImportError psi4 not found!')
        #pull in the config settings needed to use QM software
        theory, basis, vib_scaling, processors, memory, dihstart, increment, numscan, T_weight, new_dihnum, Q_file,tor_limit, div_index = bonds.config_setup()
        molecule_name = args.PDB[:-4]
        #convert the ligpargen pdb to psi4 format
-       bonds.pdb_to_psi4(args.PDB, args.charge, args.multiplicity, basis, theory) 
-       #Now run the optimiziation in psi4 using geometric
+       molecule = bonds.read_pdb(args.PDB)
+       if args.engine == 'psi4' and args.geometric == True:
+          print('writing psi4 style input file for geometric')
+          bonds.pdb_to_psi4_geo(args.PDB, molecule, args.charge, args.multiplicity, basis, theory)
+          #Now run the optimiziation in psi4 using geometric
+          run=input('''would you like to run the optimization?
+>''')
+          if run.lower() == 'y' or run.lower() == 'yes':
+             #test if psi4 or g09 is avaible (add function to look for g09!) search the enviroment list not import 
+             try:
+                import psi4
+                print('psi4 imported!')
+             except:
+                 sys.exit('ImportError psi4 not found!')
+             os.chdir('BONDS/')
+             print('calling geometric and psi4 to optimizie')
+             log = open('log.txt','w+')
+             subprocess.call('geometric-optimize --%s %s.psi4in --nt %s'%(args.engine, molecule_name, processors), shell=True, stdout=log)
+             log.close()
+             #make sure optimization has finished
+             opt_molecule = bonds.get_molecule_from_psi4()
+             #optimized molecule structure stored in opt_molecule now prep psi4 file
+             bonds.freq_psi4(args.PDB, opt_molecule, args.charge, args.multiplicity, basis, theory, memory)
+             print('calling psi4 to calculate frequencies and Hessian matrix')
+             #call psi4 to perform frequency calc
+             subprocess.call('psi4 %s_freq.dat freq_out.dat -n %s'%(molecule_name, processors), shell=True)
+             #now check and extract the formated hessian in N * N form 
+             form_hess = bonds.extract_hessian_psi4(opt_molecule)
+             print(form_hess)
+       elif args.engine == 'psi4' and args.geometric == False:
+            print('writing psi4 style input file')
+            bonds.pdb_to_psi4(args.PDB, molecule, args.charge, args.multiplicity, basis, theory, memory)
+             #now make new pdb from output xyz? Do we need it apart from for ONETEP?
+             #feed the xzy back to psi4 to run frequency calc and get hessian out
+       elif args.engine == 'g09':
+          print('writing g09 style input file')
+          bonds.pdb_to_g09(args.PDB, molecule, args.charge, args.multiplicity, basis, theory, processors, memory) 
+    #smiles processing
+    elif args.smiles: 
+         import smiles
+         smiles.smiles_to_pdb(args.smiles)     
+
        
         
 
