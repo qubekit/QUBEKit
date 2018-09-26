@@ -14,6 +14,10 @@
 #Utility for the derivation of specific ligand parameters
 
 import argparse, sys, os, subprocess
+#TODO josh add doc strings to all functions
+
+#TODO move old QUBEKit functions that surport boss to function list
+ 
 
 #Main function parser
 def main():

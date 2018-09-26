@@ -1,7 +1,4 @@
-OPLS bond type CA-CA forces and bond lengths
-frequencey
-bond lengths
-
+#TODO josh finish getting the seminario method to work from any qm engine hessian should be in np.array format
 
 def modified_Seminario_method(vibrational_scaling, hessian_in, engine, molecule):
     #   Program to implement the Modified Seminario Method
