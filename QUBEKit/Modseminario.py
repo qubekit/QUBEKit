@@ -1,6 +1,12 @@
-def modified_Seminario_method(vibrational_scaling):
+OPLS bond type CA-CA forces and bond lengths
+frequencey
+bond lengths
+
+
+def modified_Seminario_method(vibrational_scaling, hessian_in, engine, molecule):
     #   Program to implement the Modified Seminario Method
     #   Written by Alice E. A. Allen, TCM, University of Cambridge
+    #   Modified by Joshua T. Horton University of Newcastle 
     #   Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 
     # Pass as arguements the input folder containing the zmat.log/lig.log,
@@ -13,17 +19,29 @@ def modified_Seminario_method(vibrational_scaling):
     import os.path 
 
     #Create log file 
-    fid_log = open((inputfilefolder + 'MSM_log'), "w")
+    fid_log = open('MSM_log', "w+")
     fid_log.write('Modified Seminario Method \n')
-    fid_log.write('Parametrization started for files in folder' + inputfilefolder + '\n')
+    fid_log.write('Parametrization started\n')
     fid_log.write('Time is now: '+ time.strftime('%X %x %Z') + '\n')
 
     #Square the vibrational scaling used for frequencies
     vibrational_scaling_squared = vibrational_scaling**2; 
 
-    #Import all input data
-    [ bond_list, angle_list, coords, N, hessian, atom_names ] = input_data_processing( inputfilefolder)
-
+    #Import all input data from gaussian outputfile
+    if engine == 'g09':
+       [ bond_list, angle_list, coords, N, hessian, atom_names ] = input_data_processing_g09()
+    elif engine == 'psi4':
+       N = int(len(molecule))
+       #numpy object of the hessian 
+       hessian = hessian_in 
+       coords = []
+       for i in range(len(molecule)):
+           for j in range(3):
+             coords.append(molecule[i][j+1])
+       coords = np.reshape(coords ,(N,3))
+       print(coords)
+       atom_names = []
+       #[ bond_list, angle_list ] = input_data_processing_psi4()
     #Find bond lengths
     bond_lengths = np.zeros((N, N))
 
@@ -31,6 +49,7 @@ def modified_Seminario_method(vibrational_scaling):
         for j in range(0,N):
             diff_i_j = np.array(coords[i,:]) - np.array(coords[j,:])
             bond_lengths[i][j] =  np.linalg.norm(diff_i_j)
+    print(bond_lengths)
 
     eigenvectors = np.empty((3, 3, N, N), dtype=complex)
     eigenvalues = np.empty((N, N, 3), dtype=complex)
@@ -157,10 +176,8 @@ def angles_calculated_printed( outputfilefolder, vibrational_scaling_squared, an
     #Finds the angle force constants with the scaling factors included for each angle
     for i in range(0,len(angle_list) ):
         #Ensures that there is no difference when the ordering is changed 
-        [AB_k_theta, AB_theta_0] = force_angle_constant( angle_list[i][0], angle_list[i][1], angle_list[i][2], bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_f
-actors_angles_list[i][1] ) 
-        [BA_k_theta, BA_theta_0] = force_angle_constant( angle_list[i][2], angle_list[i][1], angle_list[i][0], bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][1], scaling_f
-actors_angles_list[i][0] ) 
+        [AB_k_theta, AB_theta_0] = force_angle_constant( angle_list[i][0], angle_list[i][1], angle_list[i][2], bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1] ) 
+        [BA_k_theta, BA_theta_0] = force_angle_constant( angle_list[i][2], angle_list[i][1], angle_list[i][0], bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][1], scaling_factors_angles_list[i][0] ) 
         k_theta[i] = ( AB_k_theta + BA_k_theta ) / 2
         theta_0[i] = ( AB_theta_0 +  BA_theta_0 ) / 2
     
@@ -503,7 +520,7 @@ def force_constant_bond(atom_A, atom_B, eigenvalues, eigenvectors, coords):
 
 
 
-def input_data_processing( inputfilefolder ):
+def input_data_processing_g09():
     #This function takes input data that is need from the files supplied
     #Function extracts input coords and hessian from .fchk file, bond and angle
     #lists from .log file and atom names if a z-matrix is supplied
@@ -513,10 +530,10 @@ def input_data_processing( inputfilefolder ):
 
 
     #Gets Hessian in unprocessed form and writes .xyz file too 
-    [unprocessed_Hessian, N, names, coords] =  coords_from_fchk( inputfilefolder, 'lig.fchk' );
+    [unprocessed_Hessian, N, names, coords] =  coords_from_fchk( 'lig.fchk' );
 
     #Gets bond and angle lists
-    [bond_list, angle_list] = bond_angle_list(inputfilefolder)
+    [bond_list, angle_list] = bond_angle_list_gaussian()
 
     with open("Number_to_Atom_type") as f:
         OPLS_number_to_name = f.readlines()
@@ -588,16 +605,16 @@ def input_data_processing( inputfilefolder ):
             
     return(bond_list, angle_list, coords, N, hessian, atom_names)
 
-def coords_from_fchk(inputfilefolder, fchk_file):
+def coords_from_fchk( fchk_file):
     #Function extracts xyz file from the .fchk output file from Gaussian, this
     #provides the coordinates of the molecules
     import os.path
     import numpy as np
 
-    if os.path.exists(inputfilefolder + fchk_file):
-        fid = open((inputfilefolder + fchk_file), "r")
+    if os.path.exists(fchk_file):
+        fid = open( fchk_file, "r")
     else:
-        fid_log = open((inputfilefolder + 'MSM_log'), "a")
+        fid_log = open( 'MSM_log', "a")
         fid_log.write('ERROR = No .fchk file found.')
         fid_log.close()
         return 0,0
@@ -646,7 +663,7 @@ def coords_from_fchk(inputfilefolder, fchk_file):
     list_coords = [float(x)*float(0.529) for x in list_coords]
 
     #Opens the new xyz file 
-    file = open(inputfilefolder + 'input_coords.xyz', "w")
+    file = open( 'input_coords.xyz', "w+")
     file.write(str(N) + '\n \n')
 
     xyz = np.zeros((N,3))
@@ -680,19 +697,19 @@ def coords_from_fchk(inputfilefolder, fchk_file):
     file.close()
     return (hessian, N, names, xyz) 
 
-def bond_angle_list(inputfilefolder):
+def bond_angle_list_gaussian():
 #This function extracts a list of bond and angles from the Gaussian .log
 #file
     import os.path
 
-    fname = inputfilefolder + '/zmat.log'
+    fname =  '/zmat.log'
 
     if os.path.isfile(fname) :
         fid = open(fname, "r")
-    elif os.path.isfile(inputfilefolder + '/lig.log'):
-        fid = open((inputfilefolder + '/lig.log'), "r")
+    elif os.path.isfile( '/lig.log'):
+        fid = open('/lig.log', "r")
     else:
-        fid_log = open((inputfilefolder + 'MSM_log'), "a")
+        fid_log = open('MSM_log', "a")
         fid_log.write('ERROR - No .log file found. \n')
         fid_log.close
         return 
@@ -741,7 +758,7 @@ def bond_angle_list(inputfilefolder):
             #Leave loop
             tline = -1
 
-return(bond_list, angle_list)
+    return(bond_list, angle_list)
 
 
 

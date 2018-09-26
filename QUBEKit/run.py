@@ -50,10 +50,10 @@ example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
     args = parser.parse_args()
     if not args.zmat and not args.PDB and not args.smiles and args.type!='analyse':
        sys.exit('Zmat, PDB or smiles missing please enter')
-    elif args.function == 'bonds' and args.type == 'write' and args.PDB:
-       import bonds
-       #pull in the config settings needed to use QM software
-       theory, basis, vib_scaling, processors, memory, dihstart, increment, numscan, T_weight, new_dihnum, Q_file,tor_limit, div_index = bonds.config_setup()
+    import bonds
+    #pull in the config settings needed to use QM software
+    theory, basis, vib_scaling, processors, memory, dihstart, increment, numscan, T_weight, new_dihnum, Q_file,tor_limit, div_index = bonds.config_setup()
+    if args.function == 'bonds' and args.type == 'write' and args.PDB:
        molecule_name = args.PDB[:-4]
        #convert the ligpargen pdb to psi4 format
        molecule = bonds.read_pdb(args.PDB)
@@ -66,10 +66,10 @@ example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
           if run.lower() == 'y' or run.lower() == 'yes':
              #test if psi4 or g09 is avaible (add function to look for g09!) search the enviroment list not import 
              try:
-                import psi4
-                print('psi4 imported!')
+                 if 'psi4' in os.environ:
+                     print('psi4 found!')
              except:
-                 sys.exit('ImportError psi4 not found!')
+                 sys.exit('RunError psi4 not found!')
              os.chdir('BONDS/')
              print('calling geometric and psi4 to optimizie')
              log = open('log.txt','w+')
@@ -77,6 +77,7 @@ example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
              log.close()
              #make sure optimization has finished
              opt_molecule = bonds.get_molecule_from_psi4()
+             #print(opt_molecule)
              #optimized molecule structure stored in opt_molecule now prep psi4 file
              bonds.freq_psi4(args.PDB, opt_molecule, args.charge, args.multiplicity, basis, theory, memory)
              print('calling psi4 to calculate frequencies and Hessian matrix')
@@ -84,7 +85,10 @@ example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
              subprocess.call('psi4 %s_freq.dat freq_out.dat -n %s'%(molecule_name, processors), shell=True)
              #now check and extract the formated hessian in N * N form 
              form_hess = bonds.extract_hessian_psi4(opt_molecule)
-             print(form_hess)
+             print('calling modified seminario method to calculate bonded force constants')
+             import Modseminario
+             Modseminario.modified_Seminario_method(vib_scaling, form_hess, )
+             
        elif args.engine == 'psi4' and args.geometric == False:
             print('writing psi4 style input file')
             bonds.pdb_to_psi4(args.PDB, molecule, args.charge, args.multiplicity, basis, theory, memory)
@@ -93,6 +97,36 @@ example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
        elif args.engine == 'g09':
           print('writing g09 style input file')
           bonds.pdb_to_g09(args.PDB, molecule, args.charge, args.multiplicity, basis, theory, processors, memory) 
+          print('geometric does not surport gausssian09 please optimize seperatly')
+    elif args.function == 'bonds' and args.type == 'fit' and args.PDB and args.engine == 'psi4':
+         import Modseminario
+         print('calling the modified seminario method to callculate bonded terms from psi4 output')
+         print('searching for hessian matrix')
+         #get optimized structure from psi4
+         try:
+            opt_molecule = bonds.get_molecule_from_psi4()
+         except:
+            try:
+              os.chdir('BONDS/')
+              opt_molecule = bonds.get_molecule_from_psi4()
+            except:
+               sys.exit('opt.xyz file not found!')
+         try:
+            form_hess = bonds.extract_hessian_psi4(opt_molecule)
+         except:
+             try:
+                os.chdir('BONDS/')
+                print(os.getcwd())
+                form_hess = bonds.extract_hessian_psi4(opt_molecule)
+             except:
+                try:
+                  os.chdir('FREQ/')
+                  print(os.getcwd())
+                  form_hess = bonds.extract_hessian_psi4(opt_molecule)
+                except:
+                  sys.exit('hessian missing')
+         #needs a section to make sure there is a general parameter file
+         Modseminario.modified_Seminario_method(vib_scaling, form_hess, args.engine, opt_molecule)
     #smiles processing
     elif args.smiles: 
          import smiles
