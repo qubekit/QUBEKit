@@ -11,16 +11,16 @@
 #==================================================================================================
 #|                                 Quantum Bespoke-kit                                            |
 #==================================================================================================
-#Utility for the derivation of specific ligand parameters
+# Utility for the derivation of specific ligand parameters
 
 import argparse, sys, os, subprocess
-#TODO josh add doc strings to all functions
+# TODO josh add doc strings to all functions
 
-#TODO move old QUBEKit functions that surport boss to function list
+# TODO move old QUBEKit functions that support boss to function list
  
 
-#Main function parser
 def main():
+    """Main function parser. Reads commands from terminal and executes accordingly."""
     parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
 description="""
 Utility for the derivation of specific ligand parameters
@@ -50,96 +50,97 @@ fitting: dihstart, increment, numscan, T_weight, new_dihnum, Q_file, tor_limit, 
 example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
     parser.add_argument('-g', '--geometric', action='store_false', default=True, help='Use geometric/crank(tosiondrive) in optimizations?')
     parser.add_argument('-e', '--engine', default="psi4", choices=["psi4","g09"], help='select the qm engine used for optimisation calculations')
-    parser.add_argument('-sm', "--smiles", help='Enter the SMILES notation of the molecule')
+    parser.add_argument('-sm', '--smiles', help='Enter the SMILES notation of the molecule')
     args = parser.parse_args()
-    if not args.zmat and not args.PDB and not args.smiles and args.type!='analyse':
-       sys.exit('Zmat, PDB or smiles missing please enter')
+    if not args.zmat and not args.PDB and not args.smiles and args.type != 'analyse':
+        sys.exit('Zmat, PDB or smiles missing please enter')
     import bonds
-    #pull in the config settings needed to use QM software
+    # Pull in the config settings needed to use QM software
     theory, basis, vib_scaling, processors, memory, dihstart, increment, numscan, T_weight, new_dihnum, Q_file,tor_limit, div_index = bonds.config_setup()
     if args.function == 'bonds' and args.type == 'write' and args.PDB:
-       molecule_name = args.PDB[:-4]
-       #convert the ligpargen pdb to psi4 format
-       molecule = bonds.read_pdb(args.PDB)
-       if args.engine == 'psi4' and args.geometric == True:
-          print('writing psi4 style input file for geometric')
-          bonds.pdb_to_psi4_geo(args.PDB, molecule, args.charge, args.multiplicity, basis, theory)
-          #Now run the optimiziation in psi4 using geometric
-          run=input('''would you like to run the optimization?
->''')
-          if run.lower() == 'y' or run.lower() == 'yes':
-             #test if psi4 or g09 is avaible (add function to look for g09!) search the enviroment list not import 
-             try:
-                 if 'psi4' in os.environ:
-                     print('psi4 found!')
-             except:
-                 sys.exit('RunError psi4 not found!')
-             os.chdir('BONDS/')
-             print('calling geometric and psi4 to optimizie')
-             log = open('log.txt','w+')
-             subprocess.call('geometric-optimize --%s %s.psi4in --nt %s'%(args.engine, molecule_name, processors), shell=True, stdout=log)
-             log.close()
-             #make sure optimization has finished
-             opt_molecule = bonds.get_molecule_from_psi4()
-             #print(opt_molecule)
-             #optimized molecule structure stored in opt_molecule now prep psi4 file
-             bonds.freq_psi4(args.PDB, opt_molecule, args.charge, args.multiplicity, basis, theory, memory)
-             print('calling psi4 to calculate frequencies and Hessian matrix')
-             #call psi4 to perform frequency calc
-             subprocess.call('psi4 %s_freq.dat freq_out.dat -n %s'%(molecule_name, processors), shell=True)
-             #now check and extract the formated hessian in N * N form 
-             form_hess = bonds.extract_hessian_psi4(opt_molecule)
-             print('calling modified seminario method to calculate bonded force constants')
-             import Modseminario
-             Modseminario.modified_Seminario_method(vib_scaling, form_hess, )
-             
-       elif args.engine == 'psi4' and args.geometric == False:
+        molecule_name = args.PDB[:-4]
+        # Convert the ligpargen pdb to psi4 format
+        molecule = bonds.read_pdb(args.PDB)
+        if args.engine == 'psi4' and args.geometric:
+            print('writing psi4 style input file for geometric')
+            bonds.pdb_to_psi4_geo(args.PDB, molecule, args.charge, args.multiplicity, basis, theory)
+            # Now run the optimiziation in psi4 using geometric
+            run = input('would you like to run the optimization? >')
+            if run.lower() == ('y' or 'yes'):
+                # Test if psi4 or g09 is available (add function to look for g09) search the environment list not import
+                os.chdir('BONDS/')
+                try:
+                    print('calling geometric and psi4 to optimizie')
+                    log = open('log.txt', 'w+')
+                    subprocess.call('geometric-optimize --{} {}.psi4in --nt {}'.format(args.engine, molecule_name, processors), shell=True, stdout=log)
+                    log.close()
+                except:
+                    print('psi4 missing.')
+
+                # Make sure optimization has finished
+                opt_molecule = bonds.get_molecule_from_psi4()
+                # print(opt_molecule)
+                # optimized molecule structure stored in opt_molecule now prep psi4 file
+                bonds.input_psi4(args.PDB, opt_molecule, args.charge, args.multiplicity, basis, theory, memory)
+                print('calling psi4 to calculate frequencies and Hessian matrix')
+                # Call psi4 to perform frequency calc
+                subprocess.call('psi4 %s_freq.dat freq_out.dat -n %s'%(molecule_name, processors), shell=True)
+                # Now check and extract the formated hessian in N * N form
+                form_hess = bonds.extract_hessian_psi4(opt_molecule)
+                print('calling modified seminario method to calculate bonded force constants')
+                print(form_hess)
+                # import Modseminario
+                # Modseminario.modified_Seminario_method(vib_scaling, form_hess)
+
+        elif args.engine == 'psi4' and not args.geometric:
             print('writing psi4 style input file')
             bonds.pdb_to_psi4(args.PDB, molecule, args.charge, args.multiplicity, basis, theory, memory)
-             #now make new pdb from output xyz? Do we need it apart from for ONETEP?
-             #feed the xzy back to psi4 to run frequency calc and get hessian out
-       elif args.engine == 'g09':
-          print('writing g09 style input file')
-          bonds.pdb_to_g09(args.PDB, molecule, args.charge, args.multiplicity, basis, theory, processors, memory) 
-          print('geometric does not surport gausssian09 please optimize seperatly')
+            # Now make new pdb from output xyz? Do we need it apart from for ONETEP?
+            # Feed the xzy back to psi4 to run frequency calc and get hessian out
+        elif args.engine == 'g09':
+            print('writing g09 style input file')
+            bonds.pdb_to_g09(args.PDB, molecule, args.charge, args.multiplicity, basis, theory, processors, memory)
+            print('geometric does not surport gausssian09 please optimize seperatly')
+
     elif args.function == 'bonds' and args.type == 'fit' and args.PDB and args.engine == 'psi4':
-         import Modseminario
-         print('calling the modified seminario method to callculate bonded terms from psi4 output')
-         print('searching for hessian matrix')
-         #get optimized structure from psi4
-         try:
+        import bonds
+        bonds.extract_hessian_psi4(molecule=bonds.read_pdb(args.PDB))
+        import Modseminario
+        print('calling the modified seminario method to callculate bonded terms from psi4 output')
+        print('searching for hessian matrix')
+
+        # Get optimized structure from psi4
+        try:
             opt_molecule = bonds.get_molecule_from_psi4()
-         except:
+        except:
             try:
-              os.chdir('BONDS/')
-              opt_molecule = bonds.get_molecule_from_psi4()
+                os.chdir('BONDS/')
+                opt_molecule = bonds.get_molecule_from_psi4()
             except:
-               sys.exit('opt.xyz file not found!')
-         try:
-            form_hess = bonds.extract_hessian_psi4(opt_molecule)
-         except:
-             try:
+                sys.exit('opt.xyz file not found!')
+        try:
+            form_hess = bonds.extract_hess_psi4(opt_molecule)
+        except:
+            try:
                 os.chdir('BONDS/')
                 print(os.getcwd())
-                form_hess = bonds.extract_hessian_psi4(opt_molecule)
-             except:
+                form_hess = bonds.extract_hess_psi4(opt_molecule)
+            except:
                 try:
-                  os.chdir('FREQ/')
-                  print(os.getcwd())
-                  form_hess = bonds.extract_hessian_psi4(opt_molecule)
+                    os.chdir('FREQ/')
+                    print(os.getcwd())
+                    form_hess = bonds.extract_hess_psi4(opt_molecule)
                 except:
-                  sys.exit('hessian missing')
-         #needs a section to make sure there is a general parameter file
-         Modseminario.modified_Seminario_method(vib_scaling, form_hess, args.engine, opt_molecule)
-    #smiles processing
+                    sys.exit('hessian missing')
+
+        # Needs a section to make sure there is a general parameter file
+        Modseminario.modified_Seminario_method(vib_scaling, form_hess, args.engine, opt_molecule)
+
+    # Smiles processing
     elif args.smiles: 
-         import smiles
-         smiles.smiles_to_pdb(args.smiles)     
-
-       
-        
+        import smiles
+        smiles.smiles_to_pdb(args.smiles)
 
 
-       
 if __name__ == '__main__':
-   main()
+    main()
