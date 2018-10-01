@@ -21,7 +21,6 @@ def config_setup():
             config.readfp( source )
             theory = str(config['qm']['theory'])
 
-    # config.read('config.ini')
     basis = str(config['qm']['basis'])
     vib_scaling = float(config['qm']['vib_scaling'])
     processors = int(config['qm']['processors'])
