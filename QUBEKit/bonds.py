@@ -81,7 +81,7 @@ def pdb_to_psi4_geo(input_file, molecule, charge, multiplicity, basis, theory):
     out.write('molecule {} {{\n {} {} \n'.format(molecule_name, charge, multiplicity))
 
     for i in range(len(molecule)):
-        out.write('  {}    {: .6f}  {: .6f}  {: .6f}\n'.format(molecule[i][0], float(molecule[i][1]), float(molecule[i][2]) , float(molecule[i][3])))
+        out.write('  {}    {: .6f}  {: .6f}  {: .6f}\n'.format(molecule[i][0], float(molecule[i][1]), float(molecule[i][2]), float(molecule[i][3])))
     out.write("}}\nset basis {}\ngradient('{}')".format(basis, theory.lower()))
     out.close()
 
