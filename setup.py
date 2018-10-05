@@ -1,3 +1,6 @@
+# !/usr/bin/env python
+
+
 from setuptools import setup
 
 setup(
@@ -6,7 +9,7 @@ setup(
     url='https://github.com/cole-group/QuBeKit',
     author='Joshua Thomas Horton',
     packages=['QUBEKit'],
-    python_requires='>=3',
+    python_requires='3.6 or above',
     entry_points={'console_scripts': [
         'QUBEKit = QUBEKit.run:main',
     ],},

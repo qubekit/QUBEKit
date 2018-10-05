@@ -1,7 +1,9 @@
+#!/usr/bin/env python
+
 # QuBeKit config file allows users to reset the global variables
 
 
-qm = {'theory': 'wB97X-D', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'threads': 2, 'memory': 2}
+qm = {'theory': 'BB1K', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'threads': 2, 'memory': 2}
 
 # qm configs:
 
@@ -34,7 +36,7 @@ fitting = {'dih_start': 0, 'increment': 15, 'num_scan': 25, 't_weight': 'infinit
 
 # tor_limit: torsion Vn limit to speed up fitting
 
-# div_index: fitting starting index in the divisonarray
+# div_index: fitting starting index in the division array
 
 
 paths = {'chargemol': '/home/b8009890/Programs/chargemol_09_26_2017'}
