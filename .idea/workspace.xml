@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="Config fixes and options, added timings, better psi4 and chargemol integration.">
-      <change beforePath="$PROJECT_DIR$/QUBEKit/bonds.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/bonds.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/tests.py" afterDir="false" />
-    </list>
+    <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="Config fixes and options, added timings, better psi4 and chargemol integration." />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -15,7 +12,7 @@
     <session id="1722581518">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="7" />
+          <entry key="project.closed" value="8" />
           <entry key="project.open.time.0" value="1" />
           <entry key="project.open.time.11" value="1" />
           <entry key="project.open.time.3" value="4" />
@@ -96,11 +93,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/QUBEKit/run.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="244">
-              <caret line="64" selection-start-line="64" selection-end-line="64" />
+            <state relative-caret-position="584">
+              <caret line="66" lean-forward="true" selection-start-line="66" selection-end-line="66" />
               <folding>
                 <element signature="e#1207#1222#0" expanded="true" />
                 <marker date="1538753025395" expanded="true" signature="9546:9549" ph="..." />
@@ -122,11 +119,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/QUBEKit/bonds.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="221">
-              <caret line="55" selection-start-line="55" selection-end-line="55" />
+            <state relative-caret-position="374">
+              <caret line="22" column="11" lean-forward="true" selection-start-line="22" selection-start-column="11" selection-end-line="22" selection-end-column="11" />
             </state>
           </provider>
         </entry>
@@ -345,9 +342,8 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="64" y="-11" width="1857" height="1092" extended-state="6" />
-    <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.12008733" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.12008733" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -359,7 +355,7 @@
       <window_info anchor="bottom" id="TODO" order="6" />
       <window_info anchor="bottom" id="Version Control" order="7" />
       <window_info anchor="bottom" id="Terminal" order="8" weight="0.3294979" />
-      <window_info active="true" anchor="bottom" id="Event Log" order="9" sideWeight="0.50054586" side_tool="true" visible="true" weight="0.3294979" />
+      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.50054586" side_tool="true" visible="true" weight="0.3294979" />
       <window_info anchor="bottom" id="Python Console" order="10" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
@@ -495,10 +491,14 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/bonds.py">
+    <entry file="file://$PROJECT_DIR$/QUBEKit/run.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="221">
-          <caret line="55" selection-start-line="55" selection-end-line="55" />
+        <state relative-caret-position="584">
+          <caret line="66" lean-forward="true" selection-start-line="66" selection-end-line="66" />
+          <folding>
+            <element signature="e#1207#1222#0" expanded="true" />
+            <marker date="1538753025395" expanded="true" signature="9546:9549" ph="..." />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -512,14 +512,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/run.py">
+    <entry file="file://$PROJECT_DIR$/QUBEKit/bonds.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="244">
-          <caret line="64" selection-start-line="64" selection-end-line="64" />
-          <folding>
-            <element signature="e#1207#1222#0" expanded="true" />
-            <marker date="1538753025395" expanded="true" signature="9546:9549" ph="..." />
-          </folding>
+        <state relative-caret-position="374">
+          <caret line="22" column="11" lean-forward="true" selection-start-line="22" selection-start-column="11" selection-end-line="22" selection-end-column="11" />
         </state>
       </provider>
     </entry>
