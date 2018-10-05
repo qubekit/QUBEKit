@@ -20,6 +20,7 @@ def timer_func(orig_func):
     return wrapper
 
 
+@timer_func
 def config_loader(config_name='default_config'):
     """Sets up the desired global parameters from the config_file input.
     Allows different config settings for different projects, simply change the input config_name."""
