@@ -2,10 +2,19 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/b8009890.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.pytest_cache/v/cache/nodeids" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QUBEKit/Chargemol_09_26_2017_linux_serial" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/QUBEKit/charges.py" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/QUBEKit/configs/__init__.py" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/QUBEKit/configs/default_config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QUBEKit/geom.xyz" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/QUBEKit/tests.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/build/lib/QUBEKit/Modseminario.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/build/lib/QUBEKit/charges.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/build/lib/QUBEKit/smiles.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/build/lib/QUBEKit/tests.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/timer.dat" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QUBEKit/bonds.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/bonds.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QUBEKit/config.ini" beforeDir="false" />
