@@ -1,29 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/b8009890.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.pytest_cache/v/cache/nodeids" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/QUBEKit/Chargemol_09_26_2017_linux_serial" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/QUBEKit/charges.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/QUBEKit/configs/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/QUBEKit/configs/default_config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/QUBEKit/geom.xyz" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/QUBEKit/tests.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib/QUBEKit/Modseminario.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib/QUBEKit/charges.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib/QUBEKit/smiles.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib/QUBEKit/tests.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/timer.dat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="Config fixes and options, added timings, better psi4 and chargemol integration.">
       <change beforePath="$PROJECT_DIR$/QUBEKit/bonds.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/bonds.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/config.ini" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/run.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/run.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/timer.dat" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/timer.dat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/QUBEKit/bonds.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/QUBEKit/bonds.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/QUBEKit/run.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/QUBEKit/run.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/qubekit-0.0.0-py3.6.egg" beforeDir="false" afterPath="$PROJECT_DIR$/dist/qubekit-0.0.0-py3.6.egg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/qubekit.egg-info/SOURCES.txt" beforeDir="false" afterPath="$PROJECT_DIR$/qubekit.egg-info/SOURCES.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QUBEKit/tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/tests.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -35,7 +15,7 @@
     <session id="1722581518">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="6" />
+          <entry key="project.closed" value="7" />
           <entry key="project.open.time.0" value="1" />
           <entry key="project.open.time.11" value="1" />
           <entry key="project.open.time.3" value="4" />
@@ -89,7 +69,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../chargemol_09_26_2017/chargemol_FORTRAN_09_26_2017/sourcecode_windows_command_line/module_format_total_cube_density.f08">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="70">
+            <state relative-caret-position="1241">
               <caret line="73" column="28" selection-start-line="73" selection-start-column="28" selection-end-line="73" selection-end-column="28" />
             </state>
           </provider>
@@ -98,8 +78,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/QUBEKit/tests.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="306">
-              <caret line="18" lean-forward="true" selection-start-line="18" selection-end-line="18" />
+            <state>
+              <caret column="21" selection-start-column="21" selection-end-column="21" />
               <folding>
                 <element signature="e#23#32#0" expanded="true" />
               </folding>
@@ -110,8 +90,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/QUBEKit/configs/default_config.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="635">
-              <caret line="44" lean-forward="true" selection-start-line="44" selection-end-line="44" />
+            <state relative-caret-position="748">
+              <caret line="44" selection-start-line="44" selection-end-line="44" />
             </state>
           </provider>
         </entry>
@@ -119,11 +99,11 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/QUBEKit/run.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="516">
-              <caret line="98" column="53" lean-forward="true" selection-start-line="98" selection-start-column="53" selection-end-line="98" selection-end-column="53" />
+            <state relative-caret-position="244">
+              <caret line="64" selection-start-line="64" selection-end-line="64" />
               <folding>
                 <element signature="e#1207#1222#0" expanded="true" />
-                <marker date="1538751508214" expanded="true" signature="9546:9549" ph="..." />
+                <marker date="1538753025395" expanded="true" signature="9546:9549" ph="..." />
               </folding>
             </state>
           </provider>
@@ -135,8 +115,8 @@
             <state relative-caret-position="527">
               <caret line="31" selection-start-line="31" selection-end-line="31" />
               <folding>
-                <marker date="1538733986585" expanded="true" signature="108:118" ph="..." />
-                <marker date="1538733986585" expanded="true" signature="108:781" ph="..." />
+                <marker date="1538753025379" expanded="true" signature="108:118" ph="..." />
+                <marker date="1538753025379" expanded="true" signature="108:781" ph="..." />
               </folding>
             </state>
           </provider>
@@ -145,8 +125,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/QUBEKit/bonds.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="340">
-              <caret line="20" lean-forward="true" selection-start-line="20" selection-end-line="20" />
+            <state relative-caret-position="221">
+              <caret line="55" selection-start-line="55" selection-end-line="55" />
             </state>
           </provider>
         </entry>
@@ -171,6 +151,7 @@
     </findStrings>
   </component>
   <component name="Git.Settings">
+    <option name="UPDATE_TYPE" value="MERGE" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="IdeDocumentHistory">
@@ -182,9 +163,9 @@
         <option value="$PROJECT_DIR$/QUBEKit/charges.py" />
         <option value="$PROJECT_DIR$/QUBEKit/test_alt_config.py" />
         <option value="$PROJECT_DIR$/QUBEKit/configs/default_config.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/run.py" />
         <option value="$PROJECT_DIR$/QUBEKit/bonds.py" />
         <option value="$PROJECT_DIR$/QUBEKit/tests.py" />
-        <option value="$PROJECT_DIR$/QUBEKit/run.py" />
       </list>
     </option>
   </component>
@@ -347,6 +328,14 @@
       <option name="presentableId" value="Default" />
       <updated>1538407637902</updated>
     </task>
+    <task id="LOCAL-00001" summary="Config fixes and options, added timings, better psi4 and chargemol integration.">
+      <created>1538752363103</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1538752363103</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TestHistory">
@@ -355,22 +344,22 @@
     </history-entry>
   </component>
   <component name="ToolWindowManager">
-    <frame x="65" y="-4" width="1855" height="1084" extended-state="6" />
+    <frame x="64" y="-11" width="1857" height="1092" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.12008733" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.12008733" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3294979" />
-      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.1746862" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49945414" weight="0.1746862" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" />
       <window_info anchor="bottom" id="Version Control" order="7" />
       <window_info anchor="bottom" id="Terminal" order="8" weight="0.3294979" />
-      <window_info anchor="bottom" id="Event Log" order="9" side_tool="true" />
+      <window_info active="true" anchor="bottom" id="Event Log" order="9" sideWeight="0.50054586" side_tool="true" visible="true" weight="0.3294979" />
       <window_info anchor="bottom" id="Python Console" order="10" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
@@ -379,6 +368,10 @@
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Config fixes and options, added timings, better psi4 and chargemol integration." />
+    <option name="LAST_COMMIT_MESSAGE" value="Config fixes and options, added timings, better psi4 and chargemol integration." />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/timer.dat">
@@ -391,15 +384,9 @@
     <entry file="file://$PROJECT_DIR$/QUBEKit/psi.16556.clean" />
     <entry file="file://$PROJECT_DIR$/QUBEKit/Psi_b_1_1-A.cube" />
     <entry file="file://$PROJECT_DIR$/QUBEKit/Psi_a_1_1-A.cube" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Ds.cube">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Db.cube">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Da.cube">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/Ds.cube" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/Db.cube" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/Da.cube" />
     <entry file="file://$USER_HOME$/anaconda3/lib/python3.6/subprocess.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="204">
@@ -462,9 +449,7 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/methane_freq.out">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/methane_freq.out" />
     <entry file="file://$PROJECT_DIR$/qubekit.egg-info/SOURCES.txt">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="238">
@@ -482,59 +467,45 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/methane_freq.dat">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="306">
-          <caret line="18" lean-forward="true" selection-start-line="18" selection-end-line="18" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Dt.cube">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/methane_freq.dat" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/Dt.cube" />
     <entry file="file://$PROJECT_DIR$/../chargemol_09_26_2017/chargemol_FORTRAN_09_26_2017/sourcecode_windows_command_line/module_format_total_cube_density.f08">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="70">
+        <state relative-caret-position="1241">
           <caret line="73" column="28" selection-start-line="73" selection-start-column="28" selection-end-line="73" selection-end-column="28" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/a.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="476">
-          <caret line="28" column="33" selection-start-line="28" selection-start-column="33" selection-end-line="28" selection-end-column="33" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/a.py" />
     <entry file="file://$PROJECT_DIR$/QUBEKit/charges.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="527">
           <caret line="31" selection-start-line="31" selection-end-line="31" />
           <folding>
-            <marker date="1538733986585" expanded="true" signature="108:118" ph="..." />
-            <marker date="1538733986585" expanded="true" signature="108:781" ph="..." />
+            <marker date="1538753025379" expanded="true" signature="108:118" ph="..." />
+            <marker date="1538753025379" expanded="true" signature="108:781" ph="..." />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/QUBEKit/configs/default_config.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="635">
-          <caret line="44" lean-forward="true" selection-start-line="44" selection-end-line="44" />
+        <state relative-caret-position="748">
+          <caret line="44" selection-start-line="44" selection-end-line="44" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/QUBEKit/bonds.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="340">
-          <caret line="20" lean-forward="true" selection-start-line="20" selection-end-line="20" />
+        <state relative-caret-position="221">
+          <caret line="55" selection-start-line="55" selection-end-line="55" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/QUBEKit/tests.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="306">
-          <caret line="18" lean-forward="true" selection-start-line="18" selection-end-line="18" />
+        <state>
+          <caret column="21" selection-start-column="21" selection-end-column="21" />
           <folding>
             <element signature="e#23#32#0" expanded="true" />
           </folding>
@@ -543,11 +514,11 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/QUBEKit/run.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="516">
-          <caret line="98" column="53" lean-forward="true" selection-start-line="98" selection-start-column="53" selection-end-line="98" selection-end-column="53" />
+        <state relative-caret-position="244">
+          <caret line="64" selection-start-line="64" selection-end-line="64" />
           <folding>
             <element signature="e#1207#1222#0" expanded="true" />
-            <marker date="1538751508214" expanded="true" signature="9546:9549" ph="..." />
+            <marker date="1538753025395" expanded="true" signature="9546:9549" ph="..." />
           </folding>
         </state>
       </provider>
