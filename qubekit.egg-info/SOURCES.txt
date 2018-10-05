@@ -1,7 +1,12 @@
+README.md
 setup.py
+QUBEKit/Modseminario.py
 QUBEKit/__init__.py
 QUBEKit/bonds.py
+QUBEKit/charges.py
 QUBEKit/run.py
+QUBEKit/smiles.py
+QUBEKit/tests.py
 qubekit.egg-info/PKG-INFO
 qubekit.egg-info/SOURCES.txt
 qubekit.egg-info/dependency_links.txt

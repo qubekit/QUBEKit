@@ -1,40 +1,34 @@
+#!/usr/bin/env python
+
 # Bond and angle related functions used to optimize molecules in Psi4
 
 
-def config_setup():
-    """Set up the config file with the correct global parameters to be used throughout."""
+def timer_func(orig_func):
+    """Gives the runtime of a function when applied as a decorator (@timer_func)."""
 
-    from os import path, environ
-    import configparser
+    import time
+    from functools import wraps
 
-    config = configparser.RawConfigParser()
-    # Look for config file
-    loc = environ.get("QUBEKit")
+    @wraps(orig_func)
+    def wrapper(*args, **kwargs):
+        t1 = time.time()
+        result = orig_func(*args, **kwargs)
+        t2 = time.time() - t1
+        print('{} ran in: {} seconds'.format(orig_func.__name__, t2))
 
-    try: 
-        with open(path.join(loc, "QUBEKit/new_config.ini")) as source:
-            config.readfp( source )
-            theory = str(config['qm']['theory'])
+        return result
+    return wrapper
 
-    except:
-        with open(path.join(loc, "QUBEKit/config.ini")) as source:
-            config.readfp( source )
-            theory = str(config['qm']['theory'])
 
-    basis = str(config['qm']['basis'])
-    vib_scaling = float(config['qm']['vib_scaling'])
-    processors = int(config['qm']['processors'])
-    memory = int(config['qm']['memory'])
-    dihstart = int(config['fitting']['dihstart'])
-    increment = int(config['fitting']['increment'])
-    numscan = int(config['fitting']['numscan'])
-    T_weight = str(config['fitting']['T_weight'])
-    new_dihnum = int(config['fitting']['new_dihnum'])
-    Q_file = config['fitting']['Q_file']
-    tor_limit = int(config['fitting']['tor_limit'])
-    div_index = int(config['fitting']['div_index'])
+def config_loader(config_name='default_config'):
+    """Sets up the desired global parameters from the config_file input.
+    Allows different config settings for different projects, simply change the input config_name."""
 
-    return theory, basis, vib_scaling, processors, memory, dihstart, increment, numscan, T_weight, new_dihnum, Q_file, tor_limit, div_index
+    from importlib import import_module
+
+    config = import_module('configs.{}'.format(config_name))
+
+    return [config.qm, config.fitting, config.paths]
 
 
 def read_pdb(input_file):
@@ -48,24 +42,13 @@ def read_pdb(input_file):
         molecule = []
 
         for line in lines:
-            if 'ATOM' in line:
+            if 'ATOM' in line or 'HETATM' in line:
                 element = str(line[76:78])
                 # If the element column is missing from the pdb extract the element from the name.
                 if len(element) < 1:
                     element = str(line.split()[2])[:-1]
                     element = sub('[0-9]+', '', element)
                 molecule.append([element, float(line[30:38]), float(line[38:46]), float(line[46:54])])
-
-            elif 'HETATM' in line:
-                element = str(line[76:78])
-                # If the element column is missing from the pdb extract the element from the name.
-                if len(element) < 1:
-                    element = str(line.split()[2])[:-1]
-                    element = sub('[0-9]+', '', element)
-                molecule.append([element, float(line[30:38]), float(line[38:46]), float(line[46:54])])
-
-            else:
-                print('Incorrect file format; please use ATOM or HETATM.')
 
     return molecule
 
@@ -80,7 +63,8 @@ def pdb_to_psi4_geo(input_file, molecule, charge, multiplicity, basis, theory):
     out.write('molecule {} {{\n {} {} \n'.format(molecule_name, charge, multiplicity))
 
     for i in range(len(molecule)):
-        out.write('  {}    {: .6f}  {: .6f}  {: .6f}\n'.format(molecule[i][0], float(molecule[i][1]), float(molecule[i][2]), float(molecule[i][3])))
+        out.write('  {}    {: .6f}  {: .6f}  {: .6f}\n'.format(molecule[i][0], float(molecule[i][1]),
+                                                               float(molecule[i][2]), float(molecule[i][3])))
     out.write("}}\nset basis {}\ngradient('{}')".format(basis, theory.lower()))
     out.close()
 
@@ -90,14 +74,13 @@ def pdb_to_psi4_geo(input_file, molecule, charge, multiplicity, basis, theory):
         pass
 
     system('mv {}.psi4in BONDS'.format(molecule_name))
-    view = input('''psi4 input made and moved to BONDS\nwould you like to view the file\n>''')
+    view = input('psi4 input made and moved to BONDS\nwould you like to view the file\n>')
 
-    if view.lower() == ('y' or 'yes'):
+    if view.lower() in ('y' or 'yes'):
         psi4in = open('BONDS/{}.psi4in'.format(molecule_name), 'r').read()
         print(psi4in)
 
 
-# Convert to psi4 format to be run in psi4 without geometric
 def pdb_to_psi4(input_file, molecule, charge, multiplicity, basis, theory, memory):
     """Converts to psi4 format to be run in psi4 without using geometric"""
 
@@ -123,37 +106,54 @@ def pdb_to_psi4(input_file, molecule, charge, multiplicity, basis, theory, memor
     system('mv input.dat BONDS')
     view = input('psi4 input made and moved to BONDS\nwould you like to view the file\n>')
 
-    if view.lower() == ('y' or 'yes'):
+    if view.lower() in ('y' or 'yes'):
         psi4in = open('BONDS/input.dat', 'r').read()
         print(psi4in)
 
 
 def input_psi4(input_file, opt_molecule, charge, multiplicity, basis, theory, memory, input_option=''):
-    """Generates the name_freq.dat file in the correct format for psi4."""
+    """Generates the name_freq.dat file in the correct format for psi4.
+    If charges are required, this function will generate the cube files needed."""
 
     molecule_name = input_file[:-4]
 
     out = open('{}_freq.dat'.format(molecule_name), 'w+')
-    out.write('memory {} GB \n\nmolecule {} {{ \n {} {} \n'.format(memory, molecule_name, charge, multiplicity))
+    out.write('memory {} GB\n\nmolecule {} {{\n {} {}\n'.format(memory, molecule_name, charge, multiplicity))
 
     for i in range(len(opt_molecule)):
-        out.write('  {}    {: .6f}  {: .6f}  {: .6f} \n'.format(opt_molecule[i][0], float(opt_molecule[i][1]),
-                                                  float(opt_molecule[i][2]), float(opt_molecule[i][3])))
+        out.write(' {}    {: .6f}  {: .6f}  {: .6f}\n'.format(opt_molecule[i][0], float(opt_molecule[i][1]),
+                                                              float(opt_molecule[i][2]), float(opt_molecule[i][3])))
 
-    out.write("}} \n\nset basis {} \nenergy, wfn = frequency('{}', return_wfn=True) \n".format(basis, theory.lower()))
-    out.write('set hessian_write on \nwfn.hessian().print_out() \n')
+    if input_option in ('c' or 'charge' or 'charges'):
 
-    if input_option == ('c' or 'charge' or 'charges'):
-        out.write('cubeprop(wfn)')
-    elif input_option == ('t' or 'torsion' or 'torsions'):
-        # TODO handle torsions correctly.
+        # TODO Fix chargemol.
+        # Currently chargemol will not accept the written job file, nor will it read files from QUBEKit's location,
+        # only chargemol's install location.
+        # Renaming files also does not work, cube file must be named 'total_densities.cube'
+
+        out.write("}}\n\nset basis {}\nenergy, wfn = energy('{}', return_wfn=True)\n".format(basis, theory.lower()))
+        # Changed grid spacing from 0.2 (default) to 0.14, to 0.1, to 0.25 for testing.
+        # \nset cubic_grid_spacing [0.17, 0.17, 0.17]
+        out.write("set cubeprop_tasks ['density']\ncubeprop(wfn)\n")
+        out.write("energy, wfn = frequency('{}', return_wfn=True)\n".format(theory.lower()))
+        out.write('set hessian_write on\nwfn.hessian().print_out()\n')
+
+    elif input_option in ('t' or 'torsion' or 'torsions'):
+        # TODO handle torsions properly.
         pass
+
+    # No charges/torsions required:
+    else:
+
+        out.write("}}\n\nset basis {}\nenergy, wfn = frequency('{}', return_wfn=True)\n".format(basis, theory.lower()))
+        out.write('set hessian_write on\nwfn.hessian().print_out()\n')
 
     out.close()
 
 
-# Function to use the modified seminario method
 def modified_seminario():
+    """"""
+
     pass
 
 
@@ -167,7 +167,8 @@ def pdb_to_g09(input_file, molecule, charge, multiplicity, basis, theory, proces
     out.write("%%Mem={}GB\n%%NProcShared={}\n%%Chk=lig\n# {}/{} SCF=XQC Opt=tight freq\n\nligand\n\n{} {}".format(memory, processors, theory, basis, charge, multiplicity))
 
     for i in range(len(molecule)):
-        out.write('  {}    {: .6f}  {: .6f}  {: .6f} \n\n\n\n\n'.format(molecule[i][0], float(molecule[i][1]), float(molecule[i][2]), float(molecule[i][3])))
+        out.write('  {}    {: .6f}  {: .6f}  {: .6f} \n\n\n\n\n'.format(molecule[i][0], float(molecule[i][1]),
+                                                                        float(molecule[i][2]), float(molecule[i][3])))
     out.close()
 
     try:
@@ -177,7 +178,7 @@ def pdb_to_g09(input_file, molecule, charge, multiplicity, basis, theory, proces
 
     system('mv {}.com BONDS'.format(molecule_name))
     view = input('gaussian09 input made and moved to BONDS \nwould you like to view the file? \n>')
-    if view.lower() == ('y' or 'yes'):
+    if view.lower() in ('y' or 'yes'):
         g09 = open('BONDS/{}.com'.format(molecule_name), 'r').read()
         print(g09)
 
@@ -233,6 +234,7 @@ def extract_hessian_psi4(molecule):
                     # Only the actual floats are added, not the separating numbers
                     row_vals = [float(val) for val in file_line.split() if len(val) > 5]
                     hess_vals.append(row_vals)
+
                     # Removes blank list entries
                     hess_vals = [elem for elem in hess_vals if elem != []]
 
@@ -246,7 +248,7 @@ def extract_hessian_psi4(molecule):
                         row += hess_vals[i + j * hess_size]
                     reshaped.append(row)
                 hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
-    return hess_matrix
+                return hess_matrix
 
 
 def extract_all_modes_psi4(molecule):
@@ -277,7 +279,7 @@ def extract_all_modes_psi4(molecule):
 
                 all_modes = [float(val) for val in structures]
 
-    return array(all_modes)
+                return array(all_modes)
 
 
 def extract_final_opt_struct_psi4(molecule):
@@ -308,9 +310,8 @@ def extract_final_opt_struct_psi4(molecule):
 
             # Append the first 4 columns of each row, converting to float as necessary.
             struct_row = [lines[start_of_vals + row].split()[0]]
-            struct_row.append(float(lines[start_of_vals + row].split()[1]))
-            struct_row.append(float(lines[start_of_vals + row].split()[2]))
-            struct_row.append(float(lines[start_of_vals + row].split()[3]))
+            for indx in range(1, 4):
+                struct_row.append(float(lines[start_of_vals + row].split()[indx]))
 
             f_opt_struct.append(struct_row)
 
@@ -328,7 +329,7 @@ def get_molecule_from_psi4(loc=''):
         lines = opt.readlines()
         for line in lines:
             if 'Iteration' in line:
-                print('optimization converged at iteration {} with final energy {}'.format(int(line.split()[1]), float(line.split()[3])))
+                print('Optimisation converged at iteration {} with final energy {}'.format(int(line.split()[1]), float(line.split()[3])))
                 write = True
 
             elif write:
@@ -337,6 +338,7 @@ def get_molecule_from_psi4(loc=''):
     return opt_molecule
 
 
-# Function to get the optimized molecule from g09
 def get_molecule_from_g09():
+    """"""
+
     pass
