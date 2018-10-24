@@ -1,51 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="Config fixes and options, added timings, better psi4 and chargemol integration.">
-      <change afterPath="$PROJECT_DIR$/QUBEKit/engines.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/QUBEKit/helpers.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/QUBEKit/run_old.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/QUBEKitdev.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/QUBEKitdev.iml" afterDir="false" />
+    <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/FREQ/ethane_freq.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/FREQ/freq_out.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/FREQ/freq_out.ethane.38109.hess" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/FREQ/timer.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/energy.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/ethane.tmp/input.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/ethane.tmp/output.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/ethane.tmp/timer.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/ethane_optim.xyz" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/input.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/log.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/methane.tmp/input.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/methane.tmp/timer.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/opt.xyz" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/test/input.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/test/output.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/BONDS/test/timer.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/Modseminario.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/modseminario.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/OldTheoryTests/ethane_PBE0_001/ethane.psi4in" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/OldTheoryTests/methane_PBE0_001/methane.psi4in" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/OldTheoryTests/methane_PBE0_001/output.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/benzene.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/benzene.pdb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/bonds.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/bonds.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/charges.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/charges.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/configs/default_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/configs/default_config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/dmso.mol" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/ethane.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/ethane.mol" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/ethane.mol2" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/methane.mol" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/propane.mol" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/run.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/run.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/smiles.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/smiles.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/tests.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUBEKit/timer.dat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/QUBEKit/run.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/QUBEKit/run.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -117,14 +74,14 @@
           <entry key="ini" value="36" />
           <entry key="md" value="10075" />
           <entry key="py" value="38646" />
-          <entry key="txt" value="459" />
+          <entry key="txt" value="578" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="Ini" value="36" />
           <entry key="Markdown" value="10075" />
-          <entry key="PLAIN_TEXT" value="505" />
+          <entry key="PLAIN_TEXT" value="624" />
           <entry key="Python" value="37719" />
           <entry key="Scratch" value="937" />
         </counts>
@@ -150,16 +107,16 @@
         <entry file="file://$PROJECT_DIR$/QUBEKit/engines.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="391">
-              <caret line="23" column="4" lean-forward="true" selection-start-line="23" selection-start-column="4" selection-end-line="23" selection-end-column="4" />
+              <caret line="23" lean-forward="true" selection-start-line="23" selection-end-line="23" />
               <folding>
-                <marker date="1540393646838" expanded="true" signature="22:23" ph="..." />
-                <marker date="1540393646838" expanded="true" signature="22:28" ph="..." />
-                <marker date="1540393646838" expanded="true" signature="114:120" ph="..." />
-                <marker date="1540393646838" expanded="true" signature="138:145" ph="..." />
-                <marker date="1540393646838" expanded="true" signature="163:170" ph="..." />
-                <marker date="1540393646838" expanded="true" signature="200:207" ph="..." />
-                <marker date="1540393646838" expanded="true" signature="224:225" ph="..." />
-                <marker date="1540393646838" expanded="true" signature="247:252" ph="..." />
+                <marker date="1540393944550" expanded="true" signature="22:23" ph="..." />
+                <marker date="1540393944550" expanded="true" signature="22:28" ph="..." />
+                <marker date="1540393944550" expanded="true" signature="114:120" ph="..." />
+                <marker date="1540393944550" expanded="true" signature="138:145" ph="..." />
+                <marker date="1540393944550" expanded="true" signature="163:170" ph="..." />
+                <marker date="1540393944550" expanded="true" signature="200:207" ph="..." />
+                <marker date="1540393944550" expanded="true" signature="224:225" ph="..." />
+                <marker date="1540393944550" expanded="true" signature="247:248" ph="..." />
               </folding>
             </state>
           </provider>
@@ -286,6 +243,11 @@
     </findStrings>
   </component>
   <component name="Git.Settings">
+    <option name="PREVIOUS_COMMIT_AUTHORS">
+      <list>
+        <option value="Chris Ringrose" />
+      </list>
+    </option>
     <option name="UPDATE_TYPE" value="MERGE" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -564,7 +526,14 @@
       <option name="project" value="LOCAL" />
       <updated>1538752363103</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Added functionality wrt charges and bonds; documentation additions; beginning of class rewrite.">
+      <created>1540393950940</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1540393950940</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TestHistory">
@@ -609,7 +578,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Config fixes and options, added timings, better psi4 and chargemol integration." />
-    <option name="LAST_COMMIT_MESSAGE" value="Config fixes and options, added timings, better psi4 and chargemol integration." />
+    <MESSAGE value="Added functionality wrt charges and bonds; documentation additions; beginning of class rewrite." />
+    <option name="LAST_COMMIT_MESSAGE" value="Added functionality wrt charges and bonds; documentation additions; beginning of class rewrite." />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/QUBEKit/acetone.mol" />
@@ -870,16 +840,16 @@
     <entry file="file://$PROJECT_DIR$/QUBEKit/engines.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="391">
-          <caret line="23" column="4" lean-forward="true" selection-start-line="23" selection-start-column="4" selection-end-line="23" selection-end-column="4" />
+          <caret line="23" lean-forward="true" selection-start-line="23" selection-end-line="23" />
           <folding>
-            <marker date="1540393646838" expanded="true" signature="22:23" ph="..." />
-            <marker date="1540393646838" expanded="true" signature="22:28" ph="..." />
-            <marker date="1540393646838" expanded="true" signature="114:120" ph="..." />
-            <marker date="1540393646838" expanded="true" signature="138:145" ph="..." />
-            <marker date="1540393646838" expanded="true" signature="163:170" ph="..." />
-            <marker date="1540393646838" expanded="true" signature="200:207" ph="..." />
-            <marker date="1540393646838" expanded="true" signature="224:225" ph="..." />
-            <marker date="1540393646838" expanded="true" signature="247:252" ph="..." />
+            <marker date="1540393944550" expanded="true" signature="22:23" ph="..." />
+            <marker date="1540393944550" expanded="true" signature="22:28" ph="..." />
+            <marker date="1540393944550" expanded="true" signature="114:120" ph="..." />
+            <marker date="1540393944550" expanded="true" signature="138:145" ph="..." />
+            <marker date="1540393944550" expanded="true" signature="163:170" ph="..." />
+            <marker date="1540393944550" expanded="true" signature="200:207" ph="..." />
+            <marker date="1540393944550" expanded="true" signature="224:225" ph="..." />
+            <marker date="1540393944550" expanded="true" signature="247:248" ph="..." />
           </folding>
         </state>
       </provider>
