@@ -89,11 +89,13 @@ Imports should be as specific as is reasonable, to avoid excessive module loadin
     # Best
     ans = 3
     
-If writing a new function, a docstring should be given describing its core purpose, including its inputs and outputs (if not obvious).
+If writing a new function or class, a docstring should be given describing its core purpose, including its inputs and outputs (if not obvious).
 Comments should also be used to explain obscure or confusing code, or, ideally, rewrite the code to be more readable.
 
 All functions should be independently testable. If a function requires a specific input file to run, it should be tested on 
 files of varying size and complexity. Functions will not be merged until proven to be robust.
+
+If a function or class is carrying out something complex or slow, add a print statement so the user understands something is happening.
 
 Developers are strongly encouraged to use the "DRY" principle when coding.
 
@@ -134,7 +136,7 @@ change the object's name:
     charges = [...]
     for charge in charges:
     
-Avoid using short, ambiguous variable names. This is sometimes acceptable (dummy variables for example):
+Avoid using short, ambiguous variable names. This is occasionally acceptable (dummy variables for example):
 
     # Bad
     atoms = [...]
@@ -179,7 +181,7 @@ In general, list comprehensions are preferred over the map, filter and reduce fu
 It should be obvious what a piece of code is doing, the above functions can be obfuscatory.
 Of course, if the reverse is true, it is fine to use them.
 
-In the same vein, lambda functions and ternary operators should be avoided.
+In the same vein, lambda functions and ternary operators should be used sparingly.
 
 Avoid bare exceptions.
 Be explicit about what exception you're expecting and the error that should be raised as a result.
@@ -204,7 +206,7 @@ With the above bare except, you do not know if the script failed to import bonds
     except ImportError:
         print('Could not import bonds.')
 
-It's a good idea to include a finally clause as well in case the import error isn't the problem.
+It's a good idea to include an else clause as well in case the import error isn't the problem.
 
     # Best
     try:
@@ -215,10 +217,10 @@ It's a good idea to include a finally clause as well in case the import error is
     except ImportError:
         print('Could not import bonds.')
     
-    finally:
+    else:
         print('bonds.perform_function not working.')
         
-Else clauses should also be used where appropriate.
+Finally clauses should also be used where appropriate.
 
 
 #### Style Exceptions

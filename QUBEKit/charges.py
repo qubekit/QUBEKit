@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 
+# Added to engines
 def charge_gen(ddec_version, chargemol_path):
     """Given a DDEC version (from the defaults), this function writes the job file for chargemol."""
 
@@ -21,8 +22,3 @@ def charge_gen(ddec_version, chargemol_path):
         file.write('\n\n<charge type>\nDDEC{}\n</charge type>'.format(ddec_version))
 
         file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
-
-
-def extract_charges():
-
-    pass
