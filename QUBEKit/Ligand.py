@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-class Molecule(object):
+class Ligand(object):
 
     def __init__(self, filename, smilesstring=None):
         self.name = filename
@@ -18,6 +18,7 @@ class Molecule(object):
         self.QMoptimized = None
         self.parameters = None
         self.parameter_engine = None
+        self.hessian = None
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -27,7 +28,7 @@ class Molecule(object):
         self.get_angle_values()
 
     def __repr__(self):
-        return "Molcule object infomation\n molecule name: {}\n molecule array : {}\n MMoptimized structure array : {}\n QMoptimized structure array : {} \nmolecule topology : [nodes : {}, edges : {}]\n" \
+        return "Molcule object infomation\n molecule name: {}\n molecule array : {}\n MMoptimized structure array : {}\n QMoptimized structure array : {} \n molecule topology : [nodes : {}, edges : {}]\n" \
                " molecule smiles : {}\n bonds : {}\n angles : {}\n dihedrals : {}\n rotatable dihedrals : {}\n" \
                " dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n".format(self.name, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
                self.topology.edges, self.smiles, self.topology.edges, self.angles, self.dihedrals, self.rotatable, self.dih_phis, self.bond_lengths, self.angle_values, self.parameters, self.parameter_engine )
