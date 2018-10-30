@@ -2,17 +2,12 @@
 
 import bonds
 import charges
+import engines
+import helpers
 
 import os
 import subprocess
 import numpy as np
-import matplotlib.pyplot as plt
-
-
-# TODO
-# Run molecules with different functionals (PBE, B3LYP, etc)
-# Run tests for benzene, acetone, methanol, ethane, methane.
-# Generate graphs to distinguish differences in the charge files generated.
 
 
 def gather_charges():
@@ -90,8 +85,3 @@ def plot_charges(charges=gather_charges()):
 
 # print(gather_charges())
 # print(plot_charges())
-
-molecules = ['methane', 'ethane', 'methanol', 'benzene', 'acetone']
-
-for molecule in molecules:
-    print(bonds.get_overage(molecule))

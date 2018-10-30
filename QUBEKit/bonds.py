@@ -54,6 +54,7 @@ def timer_logger(orig_func):
     return wrapper
 
 
+# Added to helpers
 def config_loader(config_name='default_config'):
     """Sets up the desired global parameters from the config_file input.
     Allows different config settings for different projects, simply change the input config_name."""
@@ -65,6 +66,7 @@ def config_loader(config_name='default_config'):
     return [config.qm, config.fitting, config.paths]
 
 
+# Added to helpers
 @timer_logger
 def read_pdb(input_file):
     """Reads the ATOM or HETATM file to individual pdb."""
@@ -88,13 +90,14 @@ def read_pdb(input_file):
     return molecule
 
 
+# Added to engines
 @timer_logger
 def pdb_to_psi4_geo(input_file, molecule, charge, multiplicity, basis, theory):
     """Converts to psi4in format to be used for geometric"""
 
     molecule_name = input_file[:-4]
 
-    with open(molecule_name+'.psi4in', 'w+') as file:
+    with open(molecule_name + '.psi4in', 'w+') as file:
         file.write('molecule {} {{\n {} {} \n'.format(molecule_name, charge, multiplicity))
 
         for i in range(len(molecule)):
@@ -103,6 +106,7 @@ def pdb_to_psi4_geo(input_file, molecule, charge, multiplicity, basis, theory):
         file.write("}}\nset basis {}\ngradient('{}')".format(basis, theory.lower()))
 
 
+# Added to engines
 @timer_logger
 def pdb_to_psi4(input_file, molecule, charge, multiplicity, basis, theory, memory):
     """Converts to psi4 format to be run in psi4 without using geometric"""
@@ -126,6 +130,7 @@ def pdb_to_psi4(input_file, molecule, charge, multiplicity, basis, theory, memor
         # file.write('\n    }}\n}}')
 
 
+# Added to engines
 @timer_logger
 def input_psi4(input_file, opt_molecule, charge, multiplicity, basis, theory, memory, input_option=''):
     """Generates the name_freq.dat file in the correct format for psi4.
@@ -223,8 +228,6 @@ def modified_seminario():
 def pdb_to_g09(input_file, molecule, charge, multiplicity, basis, theory, processors, memory):
     """Creates g09 optimisation and frequency input files."""
 
-    from os import mkdir, system
-
     molecule_name = input_file[:-4]
     with open('{}.com'.format(molecule_name), 'w+') as file:
         file.write("%%Mem={}GB\n%%NProcShared={}\n%%Chk=lig\n# {}/{} SCF=XQC Opt=tight freq\n\nligand\n\n{} {}".format(memory, processors, theory, basis, charge, multiplicity))
@@ -233,22 +236,8 @@ def pdb_to_g09(input_file, molecule, charge, multiplicity, basis, theory, proces
             file.write('  {}    {: .6f}  {: .6f}  {: .6f} \n\n\n\n\n'.format(molecule[i][0], float(molecule[i][1]),
                                                                             float(molecule[i][2]), float(molecule[i][3])))
 
-    # TODO Remove?
-    # try:
-    #     mkdir('BONDS')
-    #     system('mv {}.com BONDS'.format(molecule_name))
-    #
-    #     view = input('gaussian09 input made and moved to BONDS \nwould you like to view the file? \n>')
-    #
-    #     if any(s in view.lower() for s in ('y', 'yes')):
-    #         g09 = open('BONDS/{}.com'.format(molecule_name), 'r').read()
-    #         print(g09)
-    #         return g09
-    #
-    # except not mkdir('BONDS'):
-    #     raise Exception('Cannot create BONDS directory.')
 
-
+# Added to engines
 @timer_logger
 def extract_hess_psi4(molecule):
     """Obtains the Hessian matrix from the .hess file."""
@@ -280,6 +269,7 @@ def extract_hess_psi4(molecule):
         raise Exception('Hessian not found.')
 
 
+# Added to engines
 @timer_logger
 def extract_hess_psi4_geo(molecule):
     """Parses the Hessian from the output.dat file (from psi4) into a numpy array.
@@ -323,6 +313,7 @@ def extract_hess_psi4_geo(molecule):
                 return hess_matrix
 
 
+# Added to engines
 @timer_logger
 def extract_all_modes_psi4(molecule):
     """Takes the final optimised structure from the output.dat file."""
@@ -356,15 +347,16 @@ def extract_all_modes_psi4(molecule):
                 return array(all_modes)
 
 
+# Added to engines
 @timer_logger
 def extract_final_opt_struct_psi4(molecule):
     """Takes the final optimised structure from the output.dat file."""
 
     from numpy import array
 
-    # Run through the file backwards until '==> Geometry' is found.
-    # This is the initial start point.
-    # Jump down to the first atom and set this as the start point
+    # Run through the file and find all lines containing '==> Geometry', add these lines to a list.
+    # Reverse the list
+    # from the start of this list, jump down to the first atom and set this as the start point
     # Split the row into 4 columns: centre, x, y, z.
     # Add each row to a matrix.
     # Return the matrix.
@@ -392,6 +384,7 @@ def extract_final_opt_struct_psi4(molecule):
     return array(f_opt_struct)
 
 
+# Added to engines
 @timer_logger
 def get_molecule_from_psi4(loc=''):
     """Gets the optimised structure from psi4 ready to be used for the frequency.
