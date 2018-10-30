@@ -1,6 +1,7 @@
 #TODO josh finish getting the seminario method to work from any qm engine hessian should be in np.array format
 
-def modified_Seminario_method(vibrational_scaling, hessian_in, engine, molecule):
+def modified_Seminario_method(vibrational_scaling, hessian_in, engine, opt_molecule):
+    """Calculate the new bond and angle terms after being passed the symetric hessian and optimized molecule may also need the a parameter file"""
     #   Program to implement the Modified Seminario Method
     #   Written by Alice E. A. Allen, TCM, University of Cambridge
     #   Modified by Joshua T. Horton University of Newcastle 
@@ -15,35 +16,39 @@ def modified_Seminario_method(vibrational_scaling, hessian_in, engine, molecule)
     import numpy as np
     import os.path 
 
-    #Create log file 
+    #Create log file
+    # TODO this needs changing to match the other log files
     fid_log = open('MSM_log', "w+")
     fid_log.write('Modified Seminario Method \n')
     fid_log.write('Parametrization started\n')
     fid_log.write('Time is now: '+ time.strftime('%X %x %Z') + '\n')
 
-    #Square the vibrational scaling used for frequencies
+    # Square the vibrational scaling used for frequencies
     vibrational_scaling_squared = vibrational_scaling**2; 
 
-    #Import all input data from gaussian outputfile
+    # Import all input data from gaussian outputfile
+    # TODO once new class system works these steps can be removed!
     if engine == 'g09':
        [ bond_list, angle_list, coords, N, hessian, atom_names ] = input_data_processing_g09()
     elif engine == 'psi4':
-       N = int(len(molecule))
+       N = int(len(opt_molecule))
        #numpy object of the hessian 
        hessian = hessian_in 
        coords = []
-       for i in range(len(molecule)):
+       for i in range(len(opt_molecule)):
            for j in range(3):
-             coords.append(molecule[i][j+1])
+             coords.append(opt_molecule[i][j+1])
        coords = np.reshape(coords ,(N,3))
        print(coords)
+       # atom names will just be atom numbers
        atom_names = []
+       # bond and angle list should come from the pdb from the intial paramertization?
        #[ bond_list, angle_list ] = input_data_processing_psi4()
     #Find bond lengths
     bond_lengths = np.zeros((N, N))
 
-    for i in range (0,N):
-        for j in range(0,N):
+    for i in range (N):
+        for j in range(N):
             diff_i_j = np.array(coords[i,:]) - np.array(coords[j,:])
             bond_lengths[i][j] =  np.linalg.norm(diff_i_j)
     print(bond_lengths)
