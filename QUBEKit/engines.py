@@ -24,7 +24,7 @@ class Engines:
     #     return 'class: {}, args: ("{}")'.format(self.__class__.__name__, self.molecule_name.__name__)
 
 
-@decs.for_all_methods(decs.timer_func)
+@decs.for_all_methods(decs.timer_logger)
 class PSI4(Engines):
     """Psi4 class (child of Engines).
     Used to extract optimised structures, hessians, frequencies, etc.
@@ -78,14 +78,12 @@ class PSI4(Engines):
                         row_vals = [float(val) for val in file_line.split() if len(val) > 5]
                         hess_vals.append(row_vals)
 
-                    # TODO Test
                     # Remove blank list entries
                     hess_vals = [elem for elem in hess_vals if elem]
-                    print(len(hess_vals))
-                    print(hess_vals)
 
                     reshaped = []
 
+                    # Convert from list of (lists, length 5) to 2d array of size hess_size x hess_size
                     for i in range(hess_size):
                         row = []
                         for j in range(hess_size // 5):
@@ -95,6 +93,14 @@ class PSI4(Engines):
 
                     # Units conversion.
                     hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
+
+                    # Check matrix is symmetric to within some error.
+                    error = 0.00001
+
+                    for i in range(len(hess_matrix)):
+                        for j in range(len(hess_matrix)):
+                            if abs(hess_matrix[i, j] - hess_matrix[j, i]) > error:
+                                raise Exception('Hessian is not symmetric.')
 
                     print('Extracted Hessian for {} from psi4 output.'.format(self.engine_mol.name))
 
