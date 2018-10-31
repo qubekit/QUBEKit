@@ -4,6 +4,7 @@ import bonds
 import charges
 import engines
 import helpers
+from QUBEKit.Ligand import Ligand
 
 import os
 import subprocess
@@ -84,4 +85,3 @@ def plot_charges(charges=gather_charges()):
 
 
 # print(gather_charges())
-# print(plot_charges())
