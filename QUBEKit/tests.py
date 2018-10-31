@@ -2,7 +2,7 @@
 
 from engines import PSI4
 from ligand import Ligand
-from QUBEKit.modseminario import modified_Seminario_method
+from QUBEKit.modseminario import modified_seminario_method
 
 # def gather_charges():
 #     """Takes the TheoryTests files and extracts the net charge as a tuple with the molecule + functional
@@ -86,7 +86,7 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
                  'run number': '999', 'config': 'default_config'}
 
 
-file = 'methane.pdb'
+file = 'ethane.pdb'
 mol = Ligand(file)
 # print(mol)
 if defaults_dict['bonds engine'] == 'psi4':
@@ -96,16 +96,15 @@ if defaults_dict['bonds engine'] == 'psi4':
     #os.chdir('methane_999')
 
     if defaults_dict['geometric']:
-        # call_geo = Geometric(mol, defaults_dict['config'])
-        # print('writing the input files')
-        # call_geo.pdb_to_psi4_geo(defaults_dict['charge'], defaults_dict['multiplicity'])
-        # print('extracting the optimized structure')
+        #print('writing the input files')
+        #QMengine.geo_gradiant(0, 1)
+        print('extracting the optimized structure')
         mol = mol.read_xyz_geo()
-        # print(mol)
-        # print('now write the hessian input file and run')
-        # QMengine.generate_input(0, 1, QM=True)
+        print(mol)
+        #print('now write the hessian input file and run')
+        #QMengine.generate_input(0, 1, QM=True)
         # print(mol.get_bond_lengths(QM=True))
-        # print('extracting hessian')
+        print('extracting hessian')
         mol = QMengine.hessian()
 
 
@@ -116,9 +115,9 @@ if defaults_dict['bonds engine'] == 'psi4':
                         return False
             return True
         print(isSymmetric(mol.hessian, 15))
-        #print(mol)
+        print(len(mol.hessian))
         # need to give the vib scalling from the configs folder
-        #modified_Seminario_method(0.957, mol)
+        modified_seminario_method(0.957, mol)
 
 
 
