@@ -2,7 +2,6 @@
 
 
 from helpers import config_loader, get_overage
-import helpers
 import decs
 from subprocess import call as sub_call
 
@@ -76,14 +75,23 @@ class PSI4(Engines):
                         # Compile lists of the 5 Hessian floats for each row.
                         # Number of floats in last row may be less than 5.
                         # Only the actual floats are added, not the separating numbers.
-                        hess_vals.append([float(val) for val in file_line.split() if len(val) > 5])
+                        row_vals = [float(val) for val in file_line.split() if len(val) > 5]
+                        hess_vals.append(row_vals)
 
-                    # Convert the list of of lists to one long ordered list of values.
-                    flattened_list = [item for sublist in hess_vals for item in sublist]
+                    # TODO Test
+                    # Remove blank list entries
+                    hess_vals = [elem for elem in hess_vals if elem]
+                    print(len(hess_vals))
+                    print(hess_vals)
 
-                    reshaped = array(flattened_list)
+                    reshaped = []
 
-                    reshaped = reshape(reshaped, (hess_size, hess_size))
+                    for i in range(hess_size):
+                        row = []
+                        for j in range(hess_size // 5):
+                            row += hess_vals[i + j * hess_size]
+
+                        reshaped.append(row)
 
                     # Units conversion.
                     hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
