@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
-class Ligand(object):
+
+class Ligand:
 
     def __init__(self, filename, smilesstring=None):
+
         self.filename = filename
         self.name = filename[:-4]
         self.molecule = None
@@ -35,7 +37,12 @@ class Ligand(object):
                " dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n hessian : {}\n".format(self.name, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
                self.topology.edges, self.smiles, self.topology.edges, self.angles, self.dihedrals, self.rotatable, self.dih_phis, self.bond_lengths, self.angle_values, self.parameters, self.parameter_engine, self.hessian )
 
-    def read_pdb(self):
+    # def __repr__(self):
+    #     """Display all class dictionary keys and values excluding callables."""
+    #
+    #     return {key: value for key, value in __class__.__dict__.items() if not key.startswith('__') and not callable(key)}
+
+    def read_pdb(self, QM=False, MM=False):
         """Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
         Then read through the connection tags and build connectivity network only works if connections present in PDB file.
         Bonds are easily found through the edges of the network.
@@ -43,15 +50,15 @@ class Ligand(object):
 
         from re import sub
         from networkx import Graph, draw
-        #import matplotlib.pyplot as plt
+        # import matplotlib.pyplot as plt
 
         with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
 
-        self.molecule = []
+        molecule = []
         self.topology = Graph()
 
-        j = 1  # atom counter used for graph node generation
+        atom_count = 1  # atom counter used for graph node generation
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
                 element = str(line[76:78])
@@ -59,25 +66,32 @@ class Ligand(object):
                 element = element.replace(" ", "")
 
                 # If the element column is missing from the pdb, extract the element from the name.
-                if  len(element) == 0:
+                if not element:
                     element = str(line.split()[2])[:-1]
                     element = sub('[0-9]+', '', element)
 
-                self.topology.add_node(j) # Also add the atom number as the node in the graph
-                j += 1
-                self.molecule.append([element, float(line[30:38]), float(line[38:46]), float(line[46:54])])
+                # Also add the atom number as the node in the graph
+                self.topology.add_node(atom_count)
+                atom_count += 1
+                molecule.append([element, float(line[30:38]), float(line[38:46]), float(line[46:54])])
 
-            if 'CONECT' in line: # Now look through the conectivitty section and add all edges to the graph coresponding to the bonds.
-                for i in range(2,len(line.split())):
+            if 'CONECT' in line:
+                # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
+                for i in range(2, len(line.split())):
                     if int(line.split()[i]) != 0:
                         self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
 
-        #draw(topology, with_labels=True, font_weight='bold') # uncomment these lines to draw the graph network generated from the pdb.
-        #plt.show()
+        # draw(topology, with_labels=True, font_weight='bold') # uncomment these lines to draw the graph network generated from the pdb.
+        # plt.show()
 
-        return self.molecule, self.topology
+        if QM:
+            self.QMoptimized = molecule
+        elif MM:
+            self.MMoptimized = molecule
+        else:
+            self.molecule = molecule
 
-
+        return self
 
     def find_angles(self):
         """Take the topology graph network and return a list of all angle combinations.
@@ -101,8 +115,6 @@ class Ligand(object):
 
         return self.angles
 
-
-
     def find_dihedrals(self):
         """Take the topology graph network and again return a dictionary of all possible dihedral combinations stored under
         the central bond keys which describe the angle."""
@@ -111,31 +123,28 @@ class Ligand(object):
 
         self.dihedrals = {}
 
-        for edge in self.topology.edges: # Work through the network using each edge as a central dihedral bond
+        # Work through the network using each edge as a central dihedral bond
+        for edge in self.topology.edges:
 
             for start in list(neighbors(self.topology, edge[0])):
 
-                if start != edge[0] and start != edge[1]: # Check atom not in main bond
+                # Check atom not in main bond
+                if start != edge[0] and start != edge[1]:
 
                     for end in list(neighbors(self.topology, edge[1])):
 
-                        if end != edge[0] and end != edge[1]: # Check atom not in main bond
+                        # Check atom not in main bond
+                        if end != edge[0] and end != edge[1]:
 
                             if edge not in self.dihedrals.keys():
-                                self.dihedrals[edge] = [(start, edge[0], edge[1], end)] # Add the central edge as a key the first time it is used
+                                # Add the central edge as a key the first time it is used
+                                self.dihedrals[edge] = [(start, edge[0], edge[1], end)]
 
                             else:
-
-                                self.dihedrals[edge].append((start, edge[0], edge[1], end)) # Add the tuple to the correct key.
-
-                        else:
-
-                            continue
+                                # Add the tuple to the correct key.
+                                self.dihedrals[edge].append((start, edge[0], edge[1], end))
 
         return self.dihedrals
-
-
-
 
     def find_rotatable_dihedrals(self):
         """Take the topology graph network and dihedrals dictionary and for each dihedral in there work out if the torsion is
@@ -148,17 +157,17 @@ class Ligand(object):
         for key in self.dihedrals.keys(): # For each dihedral key remove the edge from the network
             self.topology.remove_edge(*key)
 
-            if has_path(self.topology, key[0], key[1]): # Check if their is still a path between the two atoms in the edges.
+            # Check if there is still a path between the two atoms in the edges.
+            if has_path(self.topology, key[0], key[1]):
                 pass
 
             else:
-
                 self.rotatable.append(key)
 
-            self.topology.add_edge(*key) # Add edge back to the network and try next key
+            # Add edge back to the network and try next key
+            self.topology.add_edge(*key)
 
         return self.rotatable
-
 
     def get_dihedral_values(self, QM=False, MM=False):
         """Taking the molecules xyz coordinates and dihedrals dictionary the function returns a dictionary of dihedral
@@ -167,7 +176,7 @@ class Ligand(object):
         from numpy import array, linalg, dot, degrees, cross, arctan2
 
         self.dih_phis = {}
-        # Check to see if a ratable tuple list is supplied else calculate the angles for all dihedrals in the molecule.
+        # Check if a rotatable tuple list is supplied, else calculate the angles for all dihedrals in the molecule.
         if self.rotatable:
             keys = self.rotatable
 
@@ -202,7 +211,6 @@ class Ligand(object):
 
         return self.dih_phis
 
-
     def get_bond_lengths(self, QM=False, MM=False):
         """For the given molecule and topology find the length of all of the bonds."""
 
@@ -225,8 +233,6 @@ class Ligand(object):
             self.bond_lengths[edge] = bond_dist
 
         return self.bond_lengths
-
-
 
     def get_angle_values(self, QM=False, MM=False):
         """For the given molecule and list of angle terms measure the angle values
@@ -285,5 +291,5 @@ class Ligand(object):
         return self
 
     def read_xyz(self, QM=False, MM=True):
-        """Read a general xyz file format and return the structure array. QM and MM decide where it will be stored in the molecule."""
-
+        """Read a general xyz file format and return the structure array.
+        QM and MM decide where it will be stored in the molecule."""

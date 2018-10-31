@@ -6,11 +6,9 @@ from os import mkdir, chdir
 from subprocess import call as sub_call
 
 
-from QUBEKit.engines import PSI4
-from QUBEKit.ligand import Ligand
-
-
-
+from engines import PSI4
+from ligand import Ligand
+import smiles
 
 
 defaults_dict = {'charge': 0, 'multiplicity': 1,
@@ -38,6 +36,7 @@ def main():
 
     for count, cmd in enumerate(commands):
 
+        # Call help then stop.
         if any(s in cmd for s in ('-h', '-help')):
 
             if commands[count + 1] in help_dict:
@@ -46,14 +45,7 @@ def main():
                 print('Unrecognised help command; the valid help commands are:', help_dict.keys())
             return
 
-        if any(s in cmd for s in ('-sm', '-smiles')):
-
-            import smiles
-
-            smiles.smiles_to_pdb(commands[count + 1])
-            return
-
-        # Changing defaults for each test run
+        # Change defaults for each analysis.
         if cmd == '-c':
             defaults_dict['charge'] = int(commands[count + 1])
 
@@ -91,71 +83,84 @@ def main():
 
     for count, cmd in enumerate(commands):
 
-        if 'pdb' in cmd:
+        # Check if a smiles string is given. If it is, generate the pdb and optimise it.
+        if any(s in cmd for s in ('-sm', '-smiles')):
 
-            from datetime import datetime
+            # Generate pdb from smiles string.
+            file = smiles.smiles_to_pdb(commands[count + 1])
+
+        # If a pdb is given instead, use that.
+        elif 'pdb' in cmd:
 
             file = cmd
-            mol = Ligand(file)
-            # Make working directory here with correct name.
-            log_string = file[:-4] + '_' + defaults_dict['run number']
-            mkdir(log_string)
-            # Copy active pdb into new directory.
-            sub_call(f'cp {file} {str(log_string) + "/" + file}', shell=True)
-            # Change into new directory.
-            chdir(log_string)
-            # Create log file.
-            with open('QUBEKit_log_', 'r') as log_file:
-                log_file.write(f'Beginning log file: {datetime.now()}')
 
-            if 'charges' in commands:
-
-                if defaults_dict['charges engine'] == 'chargemol':
-                    print('Running chargemol charge analysis.')
-                    return
-
-                elif defaults_dict['charges engine'] == 'onetep':
-                    # TODO Add ONETEP engine function
-                    print('Running onetep charge analysis.')
-                    return
-
-                else:
-                    raise Exception('Invalid charge engine given. Please use either chargemol or onetep.')
-
-            elif 'dihedrals' in commands:
-
-                # TODO Add dihedral calcs
-                print('Running dihedrals ...')
-                return
-
-            # else: run default bonds analysis
-            else:
-
-                if defaults_dict['bonds engine'] == 'psi4':
-                    print('Running psi4 bonds analysis.')
-
-                    # Initialisations
-                    call_psi4 = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
-                    call_geo = Geometric(file, defaults_dict['config'])
-
-                    # Calls
-                    call_psi4.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])
-                    if defaults_dict['geometric']:
-                        call_geo.pdb_to_psi4_geo(defaults_dict['charge'], defaults_dict['multiplicity'])
-                        opt_mol = call_geo.optimised_structure()
-                        call_psi4.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])
-                    return
-
-                elif defaults_dict['bonds engine'] == 'g09':
-                    # TODO Add g09 engine function
-                    return
-
-                else:
-                    raise Exception('Invalid bond engine given. Please use either psi4 or g09.')
+        # If neither a smiles string nor a pdb is given, raise exception.
         else:
             raise Exception('''Missing valid file type or smiles command.
             Please use zmat or pdb files and be sure to give the extension when typing the file name into the terminal.
             Alternatively, use the smiles command to generate a molecule.''')
+
+        # Initialise file with pdb params.
+        mol = Ligand(file)
+
+        # Make working directory here with correct name.
+        from datetime import datetime
+
+        log_string = file[:-4] + '_' + defaults_dict['run number']
+        mkdir(log_string)
+        # Copy active pdb into new directory.
+        sub_call(f'cp {file} {str(log_string) + "/" + file}', shell=True)
+        # Change into new directory.
+        chdir(log_string)
+        # Create log file.
+        date = datetime.now().strftime('%Y_%m_%d')
+
+        with open(f'QUBEKit_log_{date}_{mol.name}_{defaults_dict["run number"]}', 'w+') as log_file:
+            log_file.write(f'Beginning log file: {datetime.now()}')
+
+        # Having been provided a smiles string or pdb, perform a preliminary optimisation.
+
+        # Optimise the molecule from the pdb.
+        mol.filename = smiles.smiles_mm_optimise(mol.filename)
+        # Initialise the molecule's pdb with its optimised form.
+        mol.read_pdb(MM=True)
+        print(mol)
+
+        if 'charges' in commands:
+
+            if defaults_dict['charges engine'] == 'chargemol':
+                print('Running chargemol charge analysis.')
+                return
+
+            elif defaults_dict['charges engine'] == 'onetep':
+                # TODO Add ONETEP engine function
+                print('Running onetep charge analysis.')
+                return
+
+            else:
+                raise Exception('Invalid charge engine given. Please use either chargemol or onetep.')
+
+        elif 'dihedrals' in commands:
+
+            # TODO Add dihedral calcs
+            print('Running dihedrals ...')
+            return
+
+        # else: run default bonds analysis
+        else:
+
+            if defaults_dict['bonds engine'] == 'psi4':
+                print('Running psi4 bonds analysis.')
+                QMEngine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
+                QMEngine.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])
+                return
+
+            elif defaults_dict['bonds engine'] == 'g09':
+                # TODO Add g09 engine function
+                return
+
+            else:
+                raise Exception('Invalid bond engine given. Please use either psi4 or g09.')
 
 
 if __name__ == '__main__':
