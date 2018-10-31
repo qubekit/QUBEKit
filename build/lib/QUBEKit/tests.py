@@ -1,19 +1,110 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 
-# import os
 import bonds
+import charges
+import engines
+import helpers
+from QUBEKit.ligand import Ligand
+from QUBEKit.engines import PSI4, Geometric
 
+import os
 import subprocess
-
-# opt_molecule = bonds.read_pdb('methane.pdb')
-
-# test_file = bonds.input_psi4(input_file='methane.pdb', opt_molecule=opt_molecule, charge=0, multiplicity=1, basis='6-311G', theory='wb97x-d', memory=2, input_option='c')
-
-# subprocess.call('psi4 %s_freq.dat -n %i' % ('methane', 2), shell=True)
-
-theory, basis, vib_scaling, processors, memory, dihstart, increment, numscan, T_weight, new_dihnum, Q_file, tor_limit, div_index, chargemol = bonds.config_setup()
-print(chargemol)
+import numpy as np
 
 
-# charges.charge_gen('Dt.cube', 6, path)
+def gather_charges():
+    """Takes the TheoryTests files and extracts the net charge as a tuple with the molecule + functional
+    For example, opens the benzene_PBE0_001 folder, finds the charges file from DDEC6,
+    finds the net charge from the carbon atoms and finally returns them as:
+    {net charge, benzene_PBE0}
+
+    These charges can then be output to a graph."""
+
+    from operator import itemgetter
+
+    molecules = ['/benzene', '/methane', '/ethane', '/acetone', '/methanol']
+    charges_list = []
+
+    for root, dirs, files in os.walk('./TheoryTests'):
+        for file in files:
+            for i in range(len(molecules)):
+                if molecules[i] in root:
+                    if file.startswith('DDEC6_even_tempered_net'):
+                        name = file
+                        # print(root + '/' + name)
+                        with open(root + '/' + name, 'r') as charge_file:
+                            net_charge = 0
+                            lines = charge_file.readlines()
+                            for count, line in enumerate(lines):
+                                if line[0:2] == 'C ':
+                                    net_charge += float(line.split()[4])
+                            # Find average charge
+                            #         net_charge /= (count + 1)
+                        charges_list.append([molecules[i][1:], root.split('_')[-2], round(net_charge, 4)])
+                        # Sort list by molecule
+                        charges_list = sorted(charges_list, key=itemgetter(0))
+                        # Sort list by functional
+                        charges_list = sorted(charges_list, key=itemgetter(1))
+
+    return np.array(charges_list)
+
+
+def plot_charges(charges=gather_charges()):
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    N = 5
+    ind = np.arange(N)  # The x locations for the groups
+    width = 0.18  # The width of the bars
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    # Segregate data according to molecule and functional
+    charges = [float(charge[2]) for charge in charges]
+    B3LYP = charges[0:5]
+    BB1K = charges[5:10]
+    PBE = charges[10:15]
+    wB97X_D = charges[15:20]
+
+    # Set group separation
+    rects1 = ax.bar(ind, B3LYP, width)
+    rects2 = ax.bar(ind + width, BB1K, width)
+    rects3 = ax.bar(ind + width * 2, PBE, width)
+    rects4 = ax.bar(ind + width * 3, wB97X_D, width)
+
+    plt.title('Net Charges Across Carbon Atoms')
+    ax.set_ylabel('Net Charges')
+    ax.set_xticks(ind + width)
+    ax.set_xticklabels(('Acetone', 'benzene', 'ethane', 'methane', 'methanol'))
+    ax.legend((rects1[0], rects2[0], rects3[0], rects4[0]), ('B3LYP', 'BB1K', 'PBE', 'wB97X-D'))
+
+    ax.yaxis.grid(which="both", linewidth=0.7)
+
+    plt.show()
+
+
+# print(gather_charges())
+# print(plot_charges())
+
+defaults_dict = {'charge': 0, 'multiplicity': 1,
+                 'bonds engine': 'psi4', 'charges engine': 'chargemol',
+                 'ddec version': 6, 'geometric': True, 'solvent': False,
+                 'run number': '999', 'config': 'default_config'}
+
+
+file = 'methane.pdb'
+mol = Ligand(file)
+print(mol)
+if defaults_dict['bonds engine'] == 'psi4':
+    QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
+
+if defaults_dict['geometric']:
+    call_geo = Geometric(mol, defaults_dict['config'])
+    call_geo.pdb_to_psi4_geo(defaults_dict['charge'], defaults_dict['multiplicity'])
+    mol = call_geo.optimised_structure()
+#QMengine.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])
+
+
 

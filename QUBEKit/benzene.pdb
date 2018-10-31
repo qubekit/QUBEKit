@@ -1,27 +1,20 @@
-REMARK LIGPARGEN GENERATED PDB FILE
-ATOM      1  C00 UNK     1       1.000   1.000   0.000
-ATOM      2  C01 UNK     1      -0.395   1.000   0.000
-ATOM      3  C02 UNK     1      -1.091   1.000   1.209
-ATOM      4  C03 UNK     1      -0.392   1.000   2.415
-ATOM      5  C04 UNK     1       1.003   1.000   2.412
-ATOM      6  C05 UNK     1       1.696   1.000   1.209
-ATOM      7  H06 UNK     1       1.543   1.001  -0.942
-ATOM      8  H07 UNK     1      -0.937   0.999  -0.942
-ATOM      9  H08 UNK     1      -2.178   1.001   1.209
-ATOM     10  H09 UNK     1      -0.934   1.001   3.357
-ATOM     11  H0A UNK     1       1.548   0.999   3.352
-ATOM     12  H0B UNK     1       2.783   1.001   1.209
-TER 
-CONECT    1    2 
-CONECT    2    3 
-CONECT    3    4 
-CONECT    4    5 
-CONECT    1    6 
-CONECT    1    7 
-CONECT    2    8 
-CONECT    3    9 
-CONECT    4   10 
-CONECT    5   11 
-CONECT    6   12 
-CONECT    5    6 
+COMPND    benzene
+HETATM    1  C1  UNL     1       0.794  -1.149   0.015  1.00  0.00           C  
+HETATM    2  C2  UNL     1       1.361   0.130  -0.002  1.00  0.00           C  
+HETATM    3  C3  UNL     1       0.590   1.268  -0.017  1.00  0.00           C  
+HETATM    4  C4  UNL     1      -0.787   1.145  -0.015  1.00  0.00           C  
+HETATM    5  C5  UNL     1      -1.341  -0.112   0.002  1.00  0.00           C  
+HETATM    6  C6  UNL     1      -0.581  -1.266   0.017  1.00  0.00           C  
+HETATM    7  H1  UNL     1       1.403  -2.043   0.027  1.00  0.00           H  
+HETATM    8  H2  UNL     1       2.418   0.211  -0.004  1.00  0.00           H  
+HETATM    9  H3  UNL     1       1.007   2.269  -0.030  1.00  0.00           H  
+HETATM   10  H4  UNL     1      -1.418   2.029  -0.026  1.00  0.00           H  
+HETATM   11  H5  UNL     1      -2.422  -0.217   0.004  1.00  0.00           H  
+HETATM   12  H6  UNL     1      -1.024  -2.265   0.030  1.00  0.00           H  
+CONECT    1    2    2    6    7
+CONECT    2    3    8
+CONECT    3    4    4    9
+CONECT    4    5   10
+CONECT    5    6    6   11
+CONECT    6   12
 END

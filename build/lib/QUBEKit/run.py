@@ -87,7 +87,7 @@ example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
                 # Call psi4 to perform frequency calc
                 subprocess.call('psi4 %s_freq.dat freq_out.dat -n %s'%(molecule_name, processors), shell=True)
                 # Now check and extract the formated hessian in N * N form
-                form_hess = bonds.extract_hessian_psi4(opt_molecule)
+                form_hess = bonds.extract_hess_psi4_geo(opt_molecule)
                 print('calling modified seminario method to calculate bonded force constants')
                 print(form_hess)
                 # import Modseminario
@@ -105,7 +105,7 @@ example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
 
     elif args.function == 'bonds' and args.type == 'fit' and args.PDB and args.engine == 'psi4':
         import bonds
-        bonds.extract_hessian_psi4(molecule=bonds.read_pdb(args.PDB))
+        bonds.extract_hess_psi4_geo(molecule=bonds.read_pdb(args.PDB))
         import Modseminario
         print('calling the modified seminario method to callculate bonded terms from psi4 output')
         print('searching for hessian matrix')

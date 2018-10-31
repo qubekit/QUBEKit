@@ -1,177 +1,324 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#==================================================================================================
-#|      _____                ____               __  __             __                             |
-#|     /\  __`\             /\  _`\            /\ \/\ \     __    /\ \__                          |
-#|     \ \ \/\ \    __  __  \ \ \L\ \     __   \ \ \/'/'   /\_\   \ \ ,_\                         |
-#|      \ \ \ \ \  /\ \/\ \  \ \  _ <'  /'__`\  \ \ , <    \/\ \   \ \ \/                         |
-#|       \ \ \\'\\ \ \ \_\ \  \ \ \L\ \/\  __/   \ \ \\`\   \ \ \   \ \ \_                        |
-#|        \ \___\_\ \ \____/   \ \____/\ \____\   \ \_\ \_\  \ \_\   \ \__\                       | 
-#|         \/__//_/  \/___/     \/___/  \/____/    \/_/\/_/   \/_/    \/__/                       |
-#==================================================================================================
-#|                                 Quantum Bespoke-kit                                            |
-#==================================================================================================
-# Utility for the derivation of specific ligand parameters
 
-import argparse
-import sys
-import os
+
+"""
+Given a list of commands, such as: "bonds", "-h", "psi4" some are taken as single word commands.
+Others however, such as changing defaults: ("-c", "0") ("-m", "1") etc are taken as tuple commands.
+All tuple commands are preceeding by a "-", while single word commands are not.
+An error is raised for hanging commands e.g. "-c", "1" or "-h".
+Single-word commands are taken in any order, assuming they are given, tuple commands are taken as ("-key", "val").
+All commands are optional. If nothing at all is given, the program will run entirely with defaults.
+Help can be called with the tuple command "-help" or just "-h" followed by the argument the user wants help with.
+Files to be analysed must be written with their file extension (.pdb) attached or they will not be recognised commands.
+All commands should be given in lower case.
+
+Some examples:
+
+Getting help with the bonds command:
+python run.py -h bonds
+
+Running a charges analysis with a non-default charge of 1 and the default charge engine (chargemol):
+Note, ordering does not matter as long as tuples commands are together.
+python run.py molecule.pdb charges -c 1
+python run.py -c 1 molecule.pdb charges
+
+Running a bonds analysis (default) with a non-default engine (g09):
+python run.py molecule.pdb g09
+More explicitly:
+python run.py molecule.pdb bonds g09
+
+Help is always checked for first and will stop any further action until the script is re-called.
+
+The program will tell the user which defaults are being used, and which commands were given.
+Errors will be raised for any invalid commands and the program will not run.
+
+Each time the program runs, a new log file will be created with today's date and a run number.
+This log number is also used to create the directory where all the job files and outputs are stored.
+If using QUBEKit multiple times per day, it is therefore necessary to update the 'run number' else the log files and directory may be overwritten.
+This can be done with the command:
+python run.py -log #
+where '#' is any number or string you like.
+"""
+
+
+from sys import argv as cmdline
+import bonds
+import charges
+import engines
+from os import system, mkdir
 import subprocess
 
 
-# TODO move old QUBEKit functions that support boss to function list.
+defaults_dict = {'charge': 0, 'multiplicity': 1,
+                 'bonds engine': 'psi4', 'charges engine': 'chargemol',
+                 'ddec version': 6, 'geometric': True, 'solvent': True,
+                 'run number': '999', 'config': 'default_config'}
 
-# TODO Add intelligent order handling to future-proof any new functionality.
- 
+# TODO Complete help dict to cover everything.
+help_dict = {'bonds': 'Bonds help, default={}'.format(defaults_dict['bonds engine']),
+             'charges': 'Charges help, default={}'.format(defaults_dict['charges engine']),
+             'dihedrals': 'Dihedrals help, default=???',
+             'smiles': 'Enter the smiles code for the molecule.',
+             '-c': 'The charge of the molecule, default={}'.format(defaults_dict['charge']),
+             '-m': 'The multiplicity of the molecule, default={}'.format(defaults_dict['multiplicity']),
+             'qubekit': 'Welcome to QUBEKit\n{}'.format(__doc__),
+             'ddec': 'It is recommended to use the default DDEC6, however DDEC3 is available.',
+             'log': 'The name applied to the log files and directory for the current analysis.'}
+
+
+def get_opt_structure_geo(file, molecule, molecule_name):
+    """Obtains the optimised structure from geometric."""
+
+    qm, fitting, paths = bonds.config_loader(defaults_dict['config'])
+
+    if defaults_dict['geometric']:
+        print('Writing psi4 style input file for geometric')
+        bonds.pdb_to_psi4_geo(file, molecule, defaults_dict['charge'], defaults_dict['multiplicity'], qm['basis'], qm['theory'])
+
+    else:
+        bonds.pdb_to_psi4(file, molecule, defaults_dict['charge'], defaults_dict['multiplicity'], qm['basis'], qm['theory'], qm['threads'])
+
+    # Now run the optimisation in psi4 using geometric
+    run = input('would you like to run the optimisation?\n>')
+    if any(s in run.lower() for s in ('y', 'yes')):
+
+        if defaults_dict['geometric']:
+
+            print('Calling geometric and psi4 to optimise.')
+
+            with open('log.txt', 'w+') as log:
+                subprocess.call('geometric-optimize --psi4 {}.psi4in --nt {}'.format(molecule_name, qm['threads']), shell=True, stdout=log)
+
+            # Make sure optimisation has finished
+            opt_molecule = bonds.get_molecule_from_psi4()
+            return opt_molecule
+
+
+def bonds_psi4(file, molecule, molecule_name):
+    """Run function for psi4 bonds.
+    Will create all relevant files according to whether geometric is enabled or not."""
+
+    qm, fitting, paths = bonds.config_loader(defaults_dict['config'])
+
+    if defaults_dict['geometric']:
+        print('Writing psi4 style input file for geometric')
+        bonds.pdb_to_psi4_geo(file, molecule, defaults_dict['charge'], defaults_dict['multiplicity'], qm['basis'], qm['theory'])
+
+    else:
+        bonds.pdb_to_psi4(file, molecule, defaults_dict['charge'], defaults_dict['multiplicity'], qm['basis'], qm['theory'], qm['threads'])
+
+    # Now run the optimisation in psi4 using geometric
+    run = input('would you like to run the optimisation?\n>')
+    if any(s in run.lower() for s in ('y', 'yes')):
+
+        if defaults_dict['geometric']:
+
+            print('Calling geometric and psi4 to optimise.')
+
+            with open('log.txt', 'w+') as log:
+                subprocess.call('geometric-optimize --psi4 {}.psi4in --nt {}'.format(molecule_name, qm['threads']), shell=True, stdout=log)
+
+            # Make sure optimisation has finished
+            opt_molecule = bonds.get_molecule_from_psi4()
+
+            # Optimised molecule structure stored in opt_molecule; now prep psi4 file
+            bonds.input_psi4(file, opt_molecule, defaults_dict['charge'], defaults_dict['multiplicity'], qm['basis'], qm['theory'], qm['memory'])
+
+            print('Calling psi4 to calculate frequencies and Hessian matrix.')
+            subprocess.call('psi4 {}_freq.dat freq_out.dat -n {}'.format(molecule_name, qm['threads']), shell=True)
+
+            # Move files out of temp folder and delete temp folder.
+            print('Moving files to {}_{} folder.'.format(molecule_name, defaults_dict['run number']))
+            system('mv {}.tmp/* .'.format(molecule_name))
+            system('rmdir {}.tmp'.format(molecule_name))
+
+            # Now check and extract the formatted hessian in N * N form
+            print('Extracting Hessian.')
+            form_hess = bonds.extract_hess_psi4_geo(opt_molecule)
+
+            print('Geometric and psi4 bonds analysis successful; files ready in {}_{} directory.'.format(molecule_name, defaults_dict['run number']))
+
+        else:
+            print('Calling psi4 without geometric to optimise.')
+            bonds.pdb_to_psi4(file, molecule, defaults_dict['charge'], defaults_dict['multiplicity'], qm['basis'], qm['theory'], qm['memory'])
+            subprocess.call('psi4 input.dat -n {}'.format(qm['threads']))
+
+            # Move files out of temp folder and delete temp folder.
+            print('Moving files to {}_{} folder.'.format(molecule_name, defaults_dict['run number']))
+            system('mv {}.tmp/* .'.format(molecule_name))
+            system('rmdir {}.tmp'.format(molecule_name))
+
+            print('Extracting Hessian.')
+            form_hess = bonds.extract_hess_psi4(molecule)
+
+            print('Extracting final optimised structure.')
+            opt_molecule = bonds.extract_final_opt_struct_psi4(molecule)
+
+            print('Psi4 bonds analysis successful; files ready in {}_{} directory.'.format(molecule_name, defaults_dict['run number']))
+
+        freq = bonds.extract_all_modes_psi4(molecule)
+
+        system('mv *.dat *.xyz *.txt *.psi4in {}_{}'.format(molecule_name, defaults_dict['run number']))
+
+        return form_hess, freq, opt_molecule
+
+
+def bonds_g09():
+
+    print('g09 not currently supported.')
+    pass
+
+
+def charges_chargemol(file, molecule, molecule_name):
+    """"Run function for chargemol charges."""
+
+    qm, fitting, paths = bonds.config_loader(defaults_dict['config'])
+
+    print('Using geometric regardless of defaults.')
+    f_opt = get_opt_structure_geo(file, molecule, molecule_name)
+
+    bonds.input_psi4(file, f_opt, defaults_dict['charge'], defaults_dict['multiplicity'], qm['basis'], qm['theory'], qm['threads'], 'c')
+
+    subprocess.call('psi4 {}_charge.dat -n {}'.format(molecule_name, qm['threads']), shell=True)
+
+    print('Running chargemol with DDEC version {}.'.format(defaults_dict['ddec version']))
+    charges.charge_gen(defaults_dict['ddec version'], '/home/b8009890/Programs/chargemol_09_26_2017')
+
+    subprocess.call('mv Dt.cube total_density.cube', shell=True)
+    subprocess.call(paths['chargemol'] + '/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt', shell=True)
+
+    print('Moving files to {} folder.'.format(molecule_name))
+    system('mv {}.tmp/* .'.format(molecule_name))
+    system('rmdir {}.tmp'.format(molecule_name))
+
+    ###
+
+    system('mv *.dat *.cube *.xyz *.txt *.out *.output *.psi4in {}_{}'.format(molecule_name, defaults_dict['run number']))
+
+    print('Chargemol charges analysis successful; files ready in {}_{} directory.'.format(molecule_name, defaults_dict['run number']))
+
+
+def charges_onetep():
+
+    print('onetep not currently supported.')
+    pass
+
 
 def main():
-    """Main function parser. Reads commands from terminal and executes accordingly."""
+    """Interprets commands from the terminal. Stores defaults, returns help or executes relevant functions."""
 
-    parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
-description="""
-Utility for the derivation of specific ligand parameters
-Requires BOSS make sure BOSSdir is set in bashrc
-Example input to write the bond and angles input file for g09 from a zmat file
-python QUBEKit.py -f bonds -t write -z toluene.z -c 0 -m 1
-File names NB/NBV non-bonded with/out virtual sites, BA bonds and angles fited, D dihedrals fitted
-Final file name QuBe will be wrote when xml and GMX files are made
-""")
+    commands = cmdline[1:]
+    print('These are the commands you gave:', commands)
 
-    parser.add_argument('-f', '--function', help='Enter the function you wish to use bonds (covers bonds and angles terms), dihedrals and charges etc')
-    parser.add_argument('-t', '--type', help='Enter the function type you want this can be write , fit or analyse in the case of dihedrals (xyz charge input is wrote when bonds are fit) when writing and fitting dihedrals you will be promted for the zmat index scanning')
-    parser.add_argument('-X', '--XML', help='Option for making a XML file  and GMX gro and itp files if needed options yes default is no')
-    parser.add_argument('-z', '--zmat', help='The name of the zmat with .z')
-    parser.add_argument('-p', '--PDB', help='The name of the pdb file with .pdb')
-    parser.add_argument('-c', '--charge', default=0, help='The charge of the molecule nedded for the g09 input files, defulat = 0')
-    parser.add_argument('-m', '--multiplicity', default=1, help='The multiplicity of the molecule nedded for the g09 input files, defult = 1')
-    parser.add_argument('-s', '--submission', help='Write a submission script for the function called default no ')
-    parser.add_argument('-v', '--Vn', help='The amount of Vn coefficients to fit in the dihedral fitting, default = 4 ')
-    parser.add_argument('-l', '--penalty', help='The penalty used in torsion fitting between new parameters and opls reference, default = 0')
-    parser.add_argument('-d', '--dihedral', help='Enter the dihedral number to be fit, default will look at what SCAN folder it is running in')
-    parser.add_argument('-FR', '--frequency', help='Option to perform a QM MM frequency comparison, options yes default no')
-    parser.add_argument('-SP', '--singlepoint', help='Option to perform a single point energy calculation in openMM to make sure the eneries match (OPLS combination rule is used)')
-    parser.add_argument('-r', '--replace', help='Option to replace any valid dihedral terms in a molecule with QuBeKit previously optimised values. These dihedrals will be ignored in subsequent optimizations')
-    parser.add_argument('-con', '--config', nargs='+', help='''Update global default options
-qm: theory, vib_scaling, processors, memory.
-fitting: dihstart, increment, numscan, T_weight, new_dihnum, Q_file, tor_limit, div_index
-example: QuBeKit.py -con qm.theory wB97XD/6-311++G(d,p)''')
-    parser.add_argument('-g', '--geometric', action='store_false', default=True, help='Use geometric/crank(torsiondrive) in optimisations?')
-    parser.add_argument('-e', '--engine', default="psi4", choices=["psi4","g09"], help='Select the qm engine used for optimisation calculations')
-    parser.add_argument('-sm', '--smiles', help='Enter the SMILES code for the molecule')
-    args = parser.parse_args()
+    for count, cmd in enumerate(commands):
 
-    # if not args.zmat and not args.PDB and not args.smiles and args.type != 'analyse':
-    #     sys.exit('Zmat, PDB or smiles missing please enter')
+        if any(s in cmd for s in ('-h', '-help')):
 
-    from QUBEKit import bonds
+            if commands[count + 1] in help_dict:
+                print(help_dict[commands[count + 1]])
+            else:
+                print('Unrecognised help command; the valid help commands are:', help_dict.keys())
+            return
 
-    # Load config dictionaries
-    qm, fitting, paths = bonds.config_loader()
+        if any(s in cmd for s in ('-sm', '-smiles')):
 
-    if args.function == 'bonds' and args.type == 'write' and args.PDB:
-        molecule_name = args.PDB[:-4]
-        # Convert the ligpargen pdb to psi4 format
-        molecule = bonds.read_pdb(args.PDB)
+            import smiles
 
-        if args.engine == 'psi4' and args.geometric:
-            print('writing psi4 style input file for geometric')
-            bonds.pdb_to_psi4_geo(args.PDB, molecule, args.charge, args.multiplicity, qm['basis'], qm['theory'])
-            # Now run the optimisation in psi4 using geometric
-            run = input('would you like to run the optimization? >')
+            smiles.smiles_to_pdb(commands[count + 1])
+            return
 
-            if run.lower() in ('y' or 'yes'):
-                # Test if psi4 or g09 is available (add function to look for g09) search the environment list not import
-                os.chdir('BONDS/')
+        # Changing defaults for each test run
+        if cmd == '-c':
+            defaults_dict['charge'] = int(commands[count + 1])
 
-                try:
-                    print('calling geometric and psi4 to optimizie')
-                    log = open('log.txt', 'w+')
-                    subprocess.call('geometric-optimize --{} {}.psi4in --nt {}'.format(args.engine, molecule_name, qm['threads']), shell=True, stdout=log)
-                    log.close()
+        if cmd == '-m':
+            defaults_dict['multiplicity'] = int(commands[count + 1])
 
-                except:
+        if cmd == '-ddec':
+            defaults_dict['ddec version'] = int(commands[count + 1])
 
-                    # TODO Find a way of running psi4 from anywhere. Currently this only works inconsistently.
+        if any(s in cmd for s in ('geo', 'geometric')):
+            defaults_dict['geometric'] = bool(commands[count + 1])
 
-                    print('psi4 missing.')
-                    sys.exit()
+        if cmd == 'psi4':
+            defaults_dict['bonds engine'] = 'psi4'
 
-                # Make sure optimization has finished
-                opt_molecule = bonds.get_molecule_from_psi4()
+        if cmd == 'g09':
+            defaults_dict['bonds engine'] = 'g09'
 
-                # Optimised molecule structure stored in opt_molecule now prep psi4 file
-                bonds.input_psi4(args.PDB, opt_molecule, args.charge, args.multiplicity, qm['basis'], qm['theory'], qm['memory'])
+        if any(s in cmd for s in ('cmol', 'chargemol')):
+            defaults_dict['charges engine'] = 'chargemol'
 
-                print('calling psi4 to calculate frequencies and Hessian matrix')
+        if cmd == 'onetep':
+            defaults_dict['charges engine'] = 'onetep'
 
-                # Call psi4 to perform frequency calc
-                subprocess.call('psi4 {}_freq.dat freq_out.dat -n {}'.format(molecule_name, qm['threads']), shell=True)
+        if cmd == '-log':
+            defaults_dict['run number'] = str(commands[count + 1])
 
-                # Now check and extract the formated hessian in N * N form
-                form_hess = bonds.extract_hessian_psi4(opt_molecule)
+        if cmd == '-config':
+            defaults_dict['config'] = str(commands[count + 1])
 
-                print('calling modified seminario method to calculate bonded force constants')
-                print(form_hess)
+    print('These are the current defaults:', defaults_dict, 'Please note, some values may not be used.')
 
-                # import Modseminario
-                # Modseminario.modified_Seminario_method(vib_scaling, form_hess)
+    for count, cmd in enumerate(commands):
 
-        elif args.engine == 'psi4' and not args.geometric:
-            print('writing psi4 style input file')
-            bonds.pdb_to_psi4(args.PDB, molecule, args.charge, args.multiplicity, qm['basis'], qm['theory'], qm['memory'])
+        if 'pdb' in cmd:
 
-            # Now make new pdb from output xyz? Do we need it apart from for ONETEP?
-            # Feed the xzy back to psi4 to run frequency calc and get hessian out
+            file = cmd
+            molecule_name = file.split('.')[count]
+            print('Analysing:', molecule_name)
+            molecule = bonds.read_pdb(file)
 
-        elif args.engine == 'g09':
-            print('writing g09 style input file')
-            bonds.pdb_to_g09(args.PDB, molecule, args.charge, args.multiplicity, qm['basis'], qm['theory'], qm['threads'], qm['memory'])
-            print('geometric does not support gaussian09 please optimise separately')
+            from datetime import datetime
 
-    elif args.function == 'bonds' and args.type == 'fit' and args.PDB and args.engine == 'psi4':
+            log_file_name = 'QUBEKit_log_file_{date}_{name}_{num}'.format(date=datetime.now().strftime('%Y_%m_%d'), name=molecule_name, num=defaults_dict['run number'])
+            with open(log_file_name + '.txt', 'a+') as log_file:
+                log_file.write('Began {name} log {num} at {date}\n\n\n'.format(name=molecule_name, num=defaults_dict['run number'], date=datetime.now()))
 
-        from QUBEKit import bonds, Modseminario
+            # Create a working directory for the molecule being analysed.
+            mkdir('{}_{}'.format(molecule_name, defaults_dict['run number']))
 
-        bonds.extract_hessian_psi4(molecule=bonds.read_pdb(args.PDB))
+            if 'charges' in commands:
 
-        print('calling the modified seminario method to calculate bonded terms from psi4 output')
-        print('searching for hessian matrix')
+                if defaults_dict['charges engine'] == 'chargemol':
+                    print('Running chargemol charge analysis.')
+                    charges_chargemol(file, molecule, molecule_name)
+                    break
 
-        # Get optimized structure from psi4
-        try:
-            opt_molecule = bonds.get_molecule_from_psi4()
-        except:
-            try:
-                os.chdir('BONDS/')
-                opt_molecule = bonds.get_molecule_from_psi4()
-            except:
-                sys.exit('opt.xyz file not found!')
+                elif defaults_dict['charges engine'] == 'onetep':
+                    # TODO Add ONETEP engine function
+                    print('Running onetep charge analysis.')
+                    charges_onetep()
+                    break
 
-        try:
-            form_hess = bonds.extract_hess_psi4(opt_molecule)
-        except:
-            try:
-                os.chdir('BONDS/')
-                print(os.getcwd())
-                form_hess = bonds.extract_hess_psi4(opt_molecule)
-            except:
-                try:
-                    os.chdir('FREQ/')
-                    print(os.getcwd())
-                    form_hess = bonds.extract_hess_psi4(opt_molecule)
-                except:
-                    sys.exit('hessian missing')
+                else:
+                    raise Exception('Invalid charge engine given. Please use either chargemol or onetep.')
 
-        # Needs a section to make sure there is a general parameter file
-        Modseminario.modified_Seminario_method(qm['vib_scaling'], form_hess, args.engine, opt_molecule)
+            elif 'dihedrals' in commands:
 
-    # Smiles processing
-    elif args.smiles:
+                # TODO Add dihedral calcs
+                print('Running dihedrals ...')
 
-        from QUBEKit import smiles
+            # else run default bonds analysis
+            else:
 
-        smiles.smiles_to_pdb(args.smiles)
+                if defaults_dict['bonds engine'] == 'psi4':
+                    print('Running psi4 bonds analysis.')
+                    bonds_psi4(file, molecule, molecule_name)
+                    break
+
+                elif defaults_dict['bonds engine'] == 'g09':
+                    # TODO Add g09 engine function
+                    print('Running g09 bonds analysis.')
+                    bonds_g09()
+                    break
+
+                else:
+                    raise Exception('Invalid bond engine given. Please use either psi4 or g09.')
+        else:
+            raise Exception('Missing valid file type or smiles command.\nPlease use zmat or pdb files and be sure to give the extension when typing the file name into the terminal.\nAlternatively, use the smiles command to generate a molecule.')
 
 
 if __name__ == '__main__':
+
     main()

@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="Config fixes and options, added timings, better psi4 and chargemol integration." />
+    <list default="true" id="74174615-cf92-4bbb-b8aa-ff4d0e08a03e" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/QUBEKitdev.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/QUBEKitdev.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QUBEKit/tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUBEKit/tests.py" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -12,83 +17,145 @@
     <session id="1722581518">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="8" />
+          <entry key="project.closed" value="34" />
           <entry key="project.open.time.0" value="1" />
+          <entry key="project.open.time.1" value="1" />
           <entry key="project.open.time.11" value="1" />
-          <entry key="project.open.time.3" value="4" />
-          <entry key="project.open.time.5" value="1" />
-          <entry key="project.open.time.7" value="1" />
-          <entry key="project.opened" value="8" />
+          <entry key="project.open.time.16" value="1" />
+          <entry key="project.open.time.20" value="1" />
+          <entry key="project.open.time.21" value="1" />
+          <entry key="project.open.time.24" value="1" />
+          <entry key="project.open.time.3" value="5" />
+          <entry key="project.open.time.31" value="1" />
+          <entry key="project.open.time.32" value="2" />
+          <entry key="project.open.time.33" value="1" />
+          <entry key="project.open.time.4" value="13" />
+          <entry key="project.open.time.5" value="3" />
+          <entry key="project.open.time.6" value="1" />
+          <entry key="project.open.time.7" value="2" />
+          <entry key="project.opened" value="35" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
-          <entry key="" value="4" />
-          <entry key="cube" value="19" />
-          <entry key="dat" value="14" />
+          <entry key="" value="8" />
+          <entry key="01d714fc" value="1" />
+          <entry key="QUBEKit_log_file_2018_10_11___1" value="8" />
+          <entry key="clean" value="3" />
+          <entry key="cube" value="21" />
+          <entry key="dat" value="37" />
           <entry key="f08" value="1" />
+          <entry key="f53349db" value="1" />
+          <entry key="html" value="1" />
           <entry key="ini" value="1" />
           <entry key="job_control" value="2" />
-          <entry key="mol" value="1" />
-          <entry key="out" value="7" />
-          <entry key="output" value="6" />
-          <entry key="pdb" value="6" />
-          <entry key="py" value="13" />
-          <entry key="txt" value="7" />
-          <entry key="xyz" value="2" />
+          <entry key="md" value="8" />
+          <entry key="mol" value="5" />
+          <entry key="out" value="10" />
+          <entry key="output" value="8" />
+          <entry key="pdb" value="18" />
+          <entry key="properties" value="1" />
+          <entry key="psi4in" value="9" />
+          <entry key="py" value="105" />
+          <entry key="pyi" value="2" />
+          <entry key="txt" value="69" />
+          <entry key="xyz" value="25" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="Ini" value="1" />
-          <entry key="PLAIN_TEXT" value="69" />
-          <entry key="Python" value="13" />
+          <entry key="Markdown" value="8" />
+          <entry key="PLAIN_TEXT" value="225" />
+          <entry key="Python" value="90" />
+          <entry key="PythonStub" value="2" />
+          <entry key="Scratch" value="17" />
+          <entry key="UNKNOWN" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="dummy" value="12" />
+          <entry key="dummy" value="46" />
+          <entry key="html" value="10" />
           <entry key="ini" value="36" />
-          <entry key="py" value="6099" />
+          <entry key="md" value="11167" />
+          <entry key="py" value="47869" />
+          <entry key="txt" value="589" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="Ini" value="36" />
-          <entry key="PLAIN_TEXT" value="12" />
-          <entry key="Python" value="6099" />
+          <entry key="Markdown" value="11167" />
+          <entry key="PLAIN_TEXT" value="635" />
+          <entry key="Python" value="46942" />
+          <entry key="Scratch" value="937" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.vcs.git.usages">
+        <counts>
+          <entry key="git.branch.create.new" value="1" />
+        </counts>
+      </usages-collector>
+    </session>
+    <session id="1895200856">
+      <usages-collector id="statistics.lifecycle.project">
+        <counts>
+          <entry key="project.closed" value="1" />
+          <entry key="project.open.time.8" value="1" />
+          <entry key="project.opened" value="1" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.open">
+        <counts>
+          <entry key="py" value="1" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.open">
+        <counts>
+          <entry key="Python" value="1" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.edit">
+        <counts>
+          <entry key="py" value="23" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.edit">
+        <counts>
+          <entry key="Python" value="23" />
         </counts>
       </usages-collector>
     </session>
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/../chargemol_09_26_2017/chargemol_FORTRAN_09_26_2017/sourcecode_windows_command_line/module_format_total_cube_density.f08">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1241">
-              <caret line="73" column="28" selection-start-line="73" selection-start-column="28" selection-end-line="73" selection-end-column="28" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/QUBEKit/tests.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state>
-              <caret column="21" selection-start-column="21" selection-end-column="21" />
+            <state relative-caret-position="1335">
+              <caret line="89" column="14" selection-start-line="89" selection-start-column="14" selection-end-line="89" selection-end-column="14" />
               <folding>
-                <element signature="e#23#32#0" expanded="true" />
+                <element signature="e#24#36#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/QUBEKit/configs/default_config.py">
+        <entry file="file://$PROJECT_DIR$/QUBEKit/bonds.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="748">
-              <caret line="44" selection-start-line="44" selection-end-line="44" />
+            <state>
+              <caret column="15" selection-end-line="1" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/QUBEKit/engines.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="3990">
+              <caret line="267" selection-start-line="267" selection-end-line="267" />
             </state>
           </provider>
         </entry>
@@ -96,35 +163,31 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/QUBEKit/run.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="584">
-              <caret line="66" lean-forward="true" selection-start-line="66" selection-end-line="66" />
+            <state relative-caret-position="-726">
+              <caret line="48" column="17" selection-start-line="48" selection-start-column="17" selection-end-line="48" selection-end-column="17" />
               <folding>
-                <element signature="e#1207#1222#0" expanded="true" />
-                <marker date="1538753025395" expanded="true" signature="9546:9549" ph="..." />
+                <element signature="e#2066#2097#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/QUBEKit/charges.py">
+        <entry file="file://$PROJECT_DIR$/QUBEKit/run_new.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="527">
-              <caret line="31" selection-start-line="31" selection-end-line="31" />
+            <state relative-caret-position="440">
+              <caret line="129" column="27" selection-start-line="129" selection-start-column="27" selection-end-line="129" selection-end-column="27" />
               <folding>
-                <marker date="1538753025379" expanded="true" signature="108:118" ph="..." />
-                <marker date="1538753025379" expanded="true" signature="108:781" ph="..." />
+                <element signature="e#24#55#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/QUBEKit/bonds.py">
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/QUBEKit/Molecule.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="374">
-              <caret line="22" column="11" lean-forward="true" selection-start-line="22" selection-start-column="11" selection-end-line="22" selection-end-column="11" />
-            </state>
+            <state relative-caret-position="-99" />
           </provider>
         </entry>
       </file>
@@ -139,17 +202,51 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>input_psi</find>
       <find>incorr</find>
       <find>subprocess.call('psi</find>
       <find>charges</find>
       <find>cube</find>
       <find>set</find>
+      <find>args.pdb</find>
+      <find>zmat</find>
+      <find>function</find>
+      <find>type</find>
+      <find>z</find>
+      <find>os.</find>
+      <find>false</find>
+      <find>sys.</find>
+      <find>set bas</find>
+      <find>psi4 not fo</find>
+      <find>from Q</find>
+      <find>choose</find>
+      <find>yes</find>
+      <find>view</find>
+      <find>in (</find>
+      <find>psi4</find>
+      <find>pdb_</find>
+      <find>config</find>
+      <find>psi4i</find>
+      <find>converged a</find>
+      <find>set basis</find>
+      <find>read_</find>
+      <find>overage</find>
+      <find>solvent</find>
+      <find>ternar</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
+    <option name="PREVIOUS_COMMIT_AUTHORS">
+      <list>
+        <option value="Chris Ringrose" />
+      </list>
+    </option>
     <option name="UPDATE_TYPE" value="MERGE" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="charges" />
+      </map>
+    </option>
   </component>
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
@@ -157,11 +254,45 @@
         <option value="$PROJECT_DIR$/QUBEKit/config.ini" />
         <option value="$PROJECT_DIR$/QUBEKit/config.py" />
         <option value="$PROJECT_DIR$/QUBEKit/default_config.py" />
-        <option value="$PROJECT_DIR$/QUBEKit/charges.py" />
         <option value="$PROJECT_DIR$/QUBEKit/test_alt_config.py" />
+        <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/job_control.txt" />
+        <option value="$PROJECT_DIR$/QUBEKit/__init__.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/run2_5.py" />
+        <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch_1.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/run3.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/run4.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/run2.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/ideal run.txt" />
+        <option value="$PROJECT_DIR$/QUBEKit/run5.py" />
+        <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch_2.py" />
+        <option value="$PROJECT_DIR$/setup.py" />
+        <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch.html" />
+        <option value="$PROJECT_DIR$/plan.txt" />
+        <option value="$PROJECT_DIR$/QUBEKit/DatetimeTests.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/walk tests.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/time tests.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/file search test.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/configs/test_conf.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/smiles test.py" />
+        <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch_3.py" />
+        <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch_4.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/smiles.py" />
+        <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch_5.py" />
+        <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch_6.py" />
+        <option value="$PROJECT_DIR$/README.md" />
+        <option value="$PROJECT_DIR$/Style.md" />
+        <option value="$PROJECT_DIR$/QUBEKit/Engines.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/TestPlan.py" />
         <option value="$PROJECT_DIR$/QUBEKit/configs/default_config.py" />
         <option value="$PROJECT_DIR$/QUBEKit/run.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/charges.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/helpers.py" />
         <option value="$PROJECT_DIR$/QUBEKit/bonds.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/decs.py" />
+        <option value="$PROJECT_DIR$/QUBEKit/engines.py" />
+        <option value="$PROJECT_DIR$/style.md" />
+        <option value="$PROJECT_DIR$/QUBEKit/run_new.py" />
         <option value="$PROJECT_DIR$/QUBEKit/tests.py" />
       </list>
     </option>
@@ -171,6 +302,20 @@
     <option name="y" value="-4" />
     <option name="width" value="928" />
     <option name="height" value="1084" />
+  </component>
+  <component name="ProjectInspectionProfilesVisibleTreeState">
+    <entry key="Project Default">
+      <profile-state>
+        <expanded-state>
+          <State />
+        </expanded-state>
+        <selected-state>
+          <State>
+            <id>BashSupport</id>
+          </State>
+        </selected-state>
+      </profile-state>
+    </entry>
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
@@ -187,7 +332,18 @@
             <path>
               <item name="QUBEKitdev" type="b2602c69:ProjectViewProjectNode" />
               <item name="QUBEKitdev" type="462c0819:PsiDirectoryNode" />
+              <item name="build" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="QUBEKitdev" type="b2602c69:ProjectViewProjectNode" />
+              <item name="QUBEKitdev" type="462c0819:PsiDirectoryNode" />
               <item name="QUBEKit" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="QUBEKitdev" type="b2602c69:ProjectViewProjectNode" />
+              <item name="QUBEKitdev" type="462c0819:PsiDirectoryNode" />
+              <item name="QUBEKit" type="462c0819:PsiDirectoryNode" />
+              <item name="configs" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -197,15 +353,29 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../chargemol_09_26_2017/chargemol_FORTRAN_09_26_2017/sourcecode_windows_command_line/module_format_total_cube_density.f08" />
-    <property name="settings.editor.selected.configurable" value="configurable.group.tools" />
+    <property name="com.intellij.ide.scratch.LRUPopupBuilder$1/New Scratch File" value="Python&#10;HTML" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="settings.github" />
+  </component>
+  <component name="PyConsoleOptionsProvider">
+    <option name="myPythonConsoleState">
+      <console-settings module-name="QUBEKitdev" is-module-sdk="true">
+        <option name="myUseModuleSdk" value="true" />
+        <option name="myModuleName" value="QUBEKitdev" />
+      </console-settings>
+    </option>
   </component>
   <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/QUBEKit/configs" />
-    </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/QUBEKit/configs" />
       <recent name="$PROJECT_DIR$/QUBEKit" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/QUBEKit" />
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/QUBEKit/OldTheoryTests" />
+      <recent name="$PROJECT_DIR$/QUBEKit/TheoryTests" />
+      <recent name="$PROJECT_DIR$/Theory Tests" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -220,7 +390,28 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.tests">
+  <component name="RunManager" selected="Python.TestPlan">
+    <configuration name="TestPlan" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="QUBEKitdev" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/QUBEKit" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/QUBEKit/TestPlan.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="bonds" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="QUBEKitdev" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -242,7 +433,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="run" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration name="scratch_5" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="QUBEKitdev" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -250,11 +441,32 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/QUBEKit" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="WORKING_DIRECTORY" value="$APPLICATION_CONFIG_DIR$/scratches" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/QUBEKit/run.py" />
+      <option name="SCRIPT_NAME" value="$APPLICATION_CONFIG_DIR$/scratches/scratch_5.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="scratch_6" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="QUBEKitdev" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$APPLICATION_CONFIG_DIR$/scratches" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$APPLICATION_CONFIG_DIR$/scratches/scratch_6.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -284,33 +496,20 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="pytest in a.py" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
-      <module name="QUBEKitdev" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/QUBEKit" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="_new_keywords" value="&quot;&quot;" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/QUBEKit/a.py&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
-      <method v="2" />
-    </configuration>
     <list>
       <item itemvalue="Python.tests" />
-      <item itemvalue="Python.run" />
-      <item itemvalue="Python tests.pytest in a.py" />
+      <item itemvalue="Python.scratch_5" />
       <item itemvalue="Python.bonds" />
+      <item itemvalue="Python.scratch_6" />
+      <item itemvalue="Python.TestPlan" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.tests" />
+        <item itemvalue="Python.TestPlan" />
+        <item itemvalue="Python.scratch_6" />
         <item itemvalue="Python.bonds" />
-        <item itemvalue="Python tests.pytest in a.py" />
-        <item itemvalue="Python.run" />
+        <item itemvalue="Python.scratch_5" />
+        <item itemvalue="Python.tests" />
       </list>
     </recent_temporary>
   </component>
@@ -332,7 +531,28 @@
       <option name="project" value="LOCAL" />
       <updated>1538752363103</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Added functionality wrt charges and bonds; documentation additions; beginning of class rewrite.">
+      <created>1540393950940</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1540393950940</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Added functionality wrt charges and bonds; documentation additions; beginning of class rewrite.">
+      <created>1540394132711</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1540394132711</updated>
+    </task>
+    <task id="LOCAL-00004" summary="TODO Test">
+      <created>1540394610694</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1540394610694</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TestHistory">
@@ -340,182 +560,232 @@
       <configuration name="pytest in test_alt_config.py" configurationId="tests" />
     </history-entry>
   </component>
+  <component name="TodoView">
+    <todo-panel id="selected-file">
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+    <todo-panel id="all">
+      <are-packages-shown value="true" />
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+  </component>
   <component name="ToolWindowManager">
     <frame x="64" y="-11" width="1857" height="1092" extended-state="6" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.12008733" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.11189956" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3294979" />
-      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49945414" weight="0.1746862" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49399564" weight="0.2248954" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Version Control" order="7" />
-      <window_info anchor="bottom" id="Terminal" order="8" weight="0.3294979" />
-      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.50054586" side_tool="true" visible="true" weight="0.3294979" />
-      <window_info anchor="bottom" id="Python Console" order="10" />
+      <window_info anchor="bottom" id="TODO" order="6" sideWeight="0.49945414" weight="0.23953974" />
+      <window_info anchor="bottom" id="Version Control" order="7" sideWeight="0.49836245" weight="0.3294979" />
+      <window_info anchor="bottom" id="Event Log" order="8" sideWeight="0.5016376" side_tool="true" weight="0.3294979" />
+      <window_info anchor="bottom" id="Python Console" order="9" sideWeight="0.49945414" visible="true" weight="0.32845187" />
+      <window_info anchor="bottom" id="Terminal" order="10" sideWeight="0.4989083" weight="0.22129436" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
     </layout>
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="RECENTLY_FILTERED_USER_GROUPS">
+                <collection />
+              </option>
+              <option name="RECENTLY_FILTERED_BRANCH_GROUPS">
+                <collection />
+              </option>
+              <option name="COLUMN_ORDER">
+                <list>
+                  <option value="0" />
+                  <option value="1" />
+                  <option value="2" />
+                  <option value="3" />
+                </list>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Config fixes and options, added timings, better psi4 and chargemol integration." />
-    <option name="LAST_COMMIT_MESSAGE" value="Config fixes and options, added timings, better psi4 and chargemol integration." />
+    <MESSAGE value="Added functionality wrt charges and bonds; documentation additions; beginning of class rewrite." />
+    <MESSAGE value="TODO Test" />
+    <option name="LAST_COMMIT_MESSAGE" value="TODO Test" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/timer.dat">
+    <entry file="file://$PROJECT_DIR$/QUBEKit/methane.tmp/input.dat" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/methane.tmp/output.dat" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/TheoryTests/benzene_wB97X-D_001/DDEC6_even_tempered_net_atomic_charges.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/TheoryTests/methane_BB1K_001/DDEC6_even_tempered_net_atomic_charges.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/TheoryTests/methane_B3LYP_001/DDEC6_even_tempered_net_atomic_charges.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/output." />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/TheoryTests/benzene_B3LYP_001/benzene_optim.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/TheoryTests/benzene_PBE_001/benzene_optim.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/TheoryTests/benzene_wB97X-D_001/benzene_optim.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/benzene.psi4in" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/QUBEKit_log_file_2018_10_19_benzene_BB1K_001.txt" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/benzene_optim.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/DDEC6_even_tempered_net_atomic_charges.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/Db.cube" />
+    <entry file="file://$APPLICATION_CONFIG_DIR$/scratches/scratch_1.py" />
+    <entry file="file://$APPLICATION_CONFIG_DIR$/scratches/scratch_2.py" />
+    <entry file="file://$APPLICATION_CONFIG_DIR$/scratches/scratch_3.py" />
+    <entry file="file://$APPLICATION_CONFIG_DIR$/scratches/scratch_5.py" />
+    <entry file="file://$APPLICATION_CONFIG_DIR$/scratches/scratch_4.py" />
+    <entry file="file://$APPLICATION_CONFIG_DIR$/scratches/scratch.py" />
+    <entry file="file://$APPLICATION_CONFIG_DIR$/scratches/scratch.properties" />
+    <entry file="file://$PROJECT_DIR$/build/lib/QUBEKit/run.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="615">
+          <caret line="84" column="26" lean-forward="true" selection-start-line="84" selection-start-column="26" selection-end-line="84" selection-end-column="26" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$APPLICATION_CONFIG_DIR$/scratches/scratch_6.py" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/benzene.pdb">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="340">
+          <caret line="20" selection-start-line="20" selection-end-line="20" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/README.md">
+      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+        <state split_layout="SPLIT">
+          <first_editor relative-caret-position="17">
+            <caret line="1" selection-start-line="1" selection-end-line="1" />
+          </first_editor>
+          <second_editor />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/methane.pdb">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="136">
+          <caret line="8" selection-start-line="8" selection-end-line="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/ethane.pdb">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="204">
           <caret line="12" lean-forward="true" selection-start-line="12" selection-end-line="12" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/psi.16556.clean" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Psi_b_1_1-A.cube" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Psi_a_1_1-A.cube" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Ds.cube" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Db.cube" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Da.cube" />
-    <entry file="file://$USER_HOME$/anaconda3/lib/python3.6/subprocess.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="204">
-          <caret line="258" column="4" selection-start-line="258" selection-start-column="4" selection-end-line="258" selection-end-column="4" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/anaconda3/lib/python3.6/posixpath.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="204">
-          <caret line="79" selection-start-line="79" selection-end-line="79" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/benzene.pdb">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/setup.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="272">
-          <caret line="16" selection-start-line="16" selection-end-line="16" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/__init__.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../chargemol_09_26_2017/examples_to_run/GPAW_example_total_density_cube/DDEC6/job_control.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="221">
-          <caret line="13" lean-forward="true" selection-start-line="13" selection-end-line="13" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../geomeTRIC-master/geometric/engine.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="17">
-          <caret line="334" column="13" selection-start-line="334" selection-start-column="13" selection-end-line="334" selection-end-column="13" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/job_control" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/output." />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/Dt.output" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/job_control.txt" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/ethane.mol">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="119">
-          <caret line="7" column="69" selection-start-line="7" selection-start-column="69" selection-end-line="7" selection-end-column="69" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/ethane.pdb">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/geom.xyz">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="119">
-          <caret line="7" lean-forward="true" selection-start-line="7" selection-end-line="7" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/methane_freq.out" />
-    <entry file="file://$PROJECT_DIR$/qubekit.egg-info/SOURCES.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="238">
-          <caret line="14" column="30" lean-forward="true" selection-start-line="14" selection-start-column="30" selection-end-line="14" selection-end-column="30" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/qubekit.egg-info/top_level.txt">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/methane.pdb">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="136">
-          <caret line="8" lean-forward="true" selection-start-line="8" selection-end-line="8" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/methane_freq.dat" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/acetone.pdb" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/log.txt" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/methane_optim.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/opt.xyz" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/methane.psi4in" />
     <entry file="file://$PROJECT_DIR$/QUBEKit/Dt.cube" />
-    <entry file="file://$PROJECT_DIR$/../chargemol_09_26_2017/chargemol_FORTRAN_09_26_2017/sourcecode_windows_command_line/module_format_total_cube_density.f08">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1241">
-          <caret line="73" column="28" selection-start-line="73" selection-start-column="28" selection-end-line="73" selection-end-column="28" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/a.py" />
-    <entry file="file://$PROJECT_DIR$/QUBEKit/charges.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="527">
-          <caret line="31" selection-start-line="31" selection-end-line="31" />
-          <folding>
-            <marker date="1538753025379" expanded="true" signature="108:118" ph="..." />
-            <marker date="1538753025379" expanded="true" signature="108:781" ph="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/@pcmsolver.14676.f53349db" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/@pcmsolver.14598.01d714fc" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/TestPlan.py" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/methanol.pdb" />
     <entry file="file://$PROJECT_DIR$/QUBEKit/configs/default_config.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="748">
-          <caret line="44" selection-start-line="44" selection-end-line="44" />
+        <state relative-caret-position="119">
+          <caret line="7" column="13" selection-start-line="7" selection-start-column="13" selection-end-line="7" selection-end-column="13" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/run.py">
+    <entry file="file://$PROJECT_DIR$/QUBEKit/input.dat" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/charges.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="584">
-          <caret line="66" lean-forward="true" selection-start-line="66" selection-end-line="66" />
-          <folding>
-            <element signature="e#1207#1222#0" expanded="true" />
-            <marker date="1538753025395" expanded="true" signature="9546:9549" ph="..." />
-          </folding>
+        <state relative-caret-position="408">
+          <caret line="24" lean-forward="true" selection-start-line="24" selection-end-line="24" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/QUBEKit/tests.py">
+    <entry file="file://$USER_HOME$/.PyCharmCE2018.2/system/python_stubs/-37532851/builtins.py" />
+    <entry file="file://$PROJECT_DIR$/QUBEKit/helpers.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="21" selection-start-column="21" selection-end-column="21" />
-          <folding>
-            <element signature="e#23#32#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="338">
+          <caret line="28" selection-start-line="28" selection-end-line="28" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/decs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="323">
+          <caret line="19" selection-start-line="19" selection-end-line="19" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/style.md">
+      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+        <state split_layout="SPLIT">
+          <first_editor relative-caret-position="386">
+            <caret line="191" column="8" lean-forward="true" selection-start-line="191" selection-start-column="8" selection-end-line="191" selection-end-column="8" />
+          </first_editor>
+          <second_editor />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/QUBEKit/bonds.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="374">
-          <caret line="22" column="11" lean-forward="true" selection-start-line="22" selection-start-column="11" selection-end-line="22" selection-end-column="11" />
+        <state>
+          <caret column="15" selection-end-line="1" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/run_old.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/Molecule.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-99" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/run.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-726">
+          <caret line="48" column="17" selection-start-line="48" selection-start-column="17" selection-end-line="48" selection-end-column="17" />
+          <folding>
+            <element signature="e#2066#2097#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/run_new.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="440">
+          <caret line="129" column="27" selection-start-line="129" selection-start-column="27" selection-end-line="129" selection-end-column="27" />
+          <folding>
+            <element signature="e#24#55#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/engines.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3990">
+          <caret line="267" selection-start-line="267" selection-end-line="267" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/QUBEKit/tests.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1335">
+          <caret line="89" column="14" selection-start-line="89" selection-start-column="14" selection-end-line="89" selection-end-column="14" />
+          <folding>
+            <element signature="e#24#36#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
