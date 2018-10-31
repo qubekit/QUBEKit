@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-
-import helpers
+from QUBEKit.helpers import config_loader, get_overage
 from subprocess import call as sub_call
 
 
@@ -12,28 +11,16 @@ class Engines:
 
     def __init__(self, molecule, config_file):
         # Obtains the molecule name and a list of elements in the molecule with their respective coordinates.
-        self.molecule_name, self.molecule = helpers.pdb_to_coord_list(molecule)
+        #self.molecule_name, self.molecule = molecule.name, molecule.molecule
+        self.engine_mol = molecule
         # Load the configs using the config_file name.
-        confs = helpers.config_loader(config_file)
+        confs = config_loader(config_file)
         self.qm, self.fitting, self.paths = confs
 
     # def __repr__(self):
     #     """Returns representation of the object"""
     #     return 'class: {}, args: ("{}")'.format(self.__class__.__name__, self.molecule_name.__name__)
 
-
-class Parametrisation(Engines):
-    """Class of functions which perform the initial parametrisation for the molecules."""
-
-    def __init__(self, molecule, config_file):
-
-        super().__init__(molecule, config_file)
-
-    def antechamber(self):
-        pass
-
-    def openff(self):
-        pass
 
 
 class PSI4(Engines):
@@ -55,7 +42,7 @@ class PSI4(Engines):
 
         from numpy import array
 
-        hess_size = len(self.molecule) * 3
+        hess_size = len(self.engine_mol.molecule) * 3
         # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
 
@@ -67,10 +54,11 @@ class PSI4(Engines):
                     # Set the start of the hessian to the row of the first value.
                     start_of_hess = count + 5
                     # Set the end of the Hessian to the row of the last value (+1 to be sure).
-                    end_of_hess = start_of_hess + hess_size * (hess_size // 5 + 1) + (hess_size // 5 - 1) * 4 + 1
+                    end_of_hess = start_of_hess + (hess_size * (hess_size // 5 + 1)) + (hess_size // 5 - 1))
                     hess_vals = []
 
                     for file_line in lines[start_of_hess:end_of_hess]:
+                        print(file_line)
                         # Compile lists of the 5 Hessian floats for each row.
                         # Number of floats in last row may be less than 5.
                         # Only the actual floats are added, not the separating numbers.
@@ -85,6 +73,7 @@ class PSI4(Engines):
                         # This will give a matrix of size n x m as desired.
 
                     reshaped = []
+                    print(hess_vals)
 
                     for i in range(hess_size):
                         row = []
@@ -96,9 +85,10 @@ class PSI4(Engines):
                     # Units conversion.
                     hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
 
-                    print('Extracted Hessian for {} from psi4 output.'.format(self.molecule_name))
+                    print('Extracted Hessian for {} from psi4 output.'.format(self.engine_mol.name))
 
-                    return hess_matrix
+                    self.engine_mol.hessian = hess_matrix
+                    return self.engine_mol
 
     def density(self):
         pass
@@ -129,7 +119,7 @@ class PSI4(Engines):
 
             f_opt_struct = []
 
-            for row in range(len(self.molecule)):
+            for row in range(len(self.engine_mol.molecule)):
 
                 # Append the first 4 columns of each row, converting to float as necessary.
                 struct_row = [lines[start_of_vals + row].split()[0]]
@@ -137,44 +127,50 @@ class PSI4(Engines):
                     struct_row.append(float(lines[start_of_vals + row].split()[indx]))
 
                 f_opt_struct.append(struct_row)
-        print('Extracted optimised structure for {} from psi4 output.'.format(self.molecule_name))
-        return array(f_opt_struct)
+        print('Extracted optimised structure for {} from psi4 output.'.format(self.engine_mol.name))
+        self.engine_mol.QMoptimized = array(f_opt_struct)
+        return self.engine_mol
 
     def energy(self):
         pass
 
-    def generate_input(self, charge, multiplicity):
+    def generate_input(self, charge, multiplicity, QM=False, MM=False):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
-
+        if QM:
+            molecule = self.engine_mol.QMoptimized
+        elif MM:
+            molecule = self.engine_mol.MMoptimized
+        else:
+            molecule = self.engine_mol.molecule
         # input.dat is the psi4 input file.
 
         # TODO Change file name wrt analysis.
 
         with open('input.dat', 'w+') as input_file:
-            input_file.write('memory {} GB\n\nmolecule {} {{\n{} {} \n'.format(self.qm['threads'], self.molecule_name,
+            input_file.write('memory {} GB\n\nmolecule {} {{\n{} {} \n'.format(self.qm['threads'], self.engine_mol.name,
                                                                                charge, multiplicity))
 
-            for i in range(len(self.molecule)):
-                input_file.write(' {}    {: .6f}  {: .6f}  {: .6f} \n'.format(self.molecule[i][0], float(self.molecule[i][1]),
-                                                                        float(self.molecule[i][2]), float(self.molecule[i][3])))
+            for i in range(len(molecule)):
+                input_file.write(' {}    {: .6f}  {: .6f}  {: .6f} \n'.format(molecule[i][0], float(molecule[i][1]),
+                                                                        float(molecule[i][2]), float(molecule[i][3])))
             input_file.write('}}\n\nset basis {}'.format(self.qm['basis']))
 
-            if not self.geometric:
-                input_file.write("\noptimize('{}')".format(self.qm['theory'].lower()))
+            # if not self.geometric:
+            #     input_file.write("\noptimize('{}')".format(self.qm['theory'].lower()))
             input_file.write("\nenergy, wfn = frequency('{}', return_wfn=True)".format(self.qm['theory'].lower()))
             input_file.write('\nset hessian_write on\nwfn.hessian().print_out()\n\n')
 
-            print('Setting chargemol parameters.')
-            input_file.write("set cubeprop_tasks ['density']\n")
-
-            # TODO Handle overage correctly (should be dependent on the size of the molecule)
-            # See helpers.get_overage or bonds.get_overage for info.
-
-            print('Calculating overage for psi4 and chargemol.')
-            overage = helpers.get_overage(self.molecule_name)
-            input_file.write("set CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage))
-            input_file.write("set CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n\n")
-            input_file.write("grad, wfn = gradient('{}', return_wfn=True)\ncubeprop(wfn)".format(self.qm['theory'].lower()))
+            # print('Setting chargemol parameters.')
+            # input_file.write("set cubeprop_tasks ['density']\n")
+            #
+            # # TODO Handle overage correctly (should be dependent on the size of the molecule)
+            # # See helpers.get_overage or bonds.get_overage for info.
+            #
+            # print('Calculating overage for psi4 and chargemol.')
+            # overage = get_overage(self.engine_mol.name)
+            # input_file.write("set CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage))
+            # input_file.write("set CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n\n")
+            # input_file.write("grad, wfn = gradient('{}', return_wfn=True)\ncubeprop(wfn)".format(self.qm['theory'].lower()))
 
             if self.solvent:
                 print('Setting pcm parameters.')
@@ -204,7 +200,7 @@ class PSI4(Engines):
                     start_of_vals = count
 
                     # Barring the first (and sometimes last) line, dat file has 6 values per row.
-                    end_of_vals = count + (3 * len(self.molecule)) // 6
+                    end_of_vals = count + (3 * len(self.engine_mol.molecule)) // 6
 
                     structures = lines[start_of_vals][24:].replace("'", "").split()
                     structures = structures[6:]
@@ -214,56 +210,79 @@ class PSI4(Engines):
                         structures += lines[start_of_vals + row].replace("'", "").replace("]", "").split()
 
                     all_modes = [float(val) for val in structures]
+                    self.engine_mol.modes = array(all_modes)
+                    return self.engine_mol
 
-                    return array(all_modes)
+    def geo_gradiant(self, charge, multiplicity, QM=False, MM=False):
+        """"Write the psi4 style input file to get the gradient for geometric
+        and run geometric optimization."""
 
+        if QM:
+            molecule = self.engine_mol.QMoptimized
+        elif MM:
+            molecule = self.engine_mol.MMoptimized
+        else:
+            molecule = self.engine_mol.molecule
 
-class Geometric(Engines):
-
-    def __init__(self, molecule, config_file):
-
-        super().__init__(molecule, config_file)
-
-    def pdb_to_psi4_geo(self, charge, multiplicity):
-        """Writes molecule data from pdb to psi4 input file.
-        Also requires some default values such as basis and theory,
-        and some values taken from the run prompt such as charge and multiplicity.
-        """
-
-        # TODO Allow alternative configs to be loaded.
-
-        with open(self.molecule_name + '.psi4in', 'w+') as file:
-            file.write('molecule {} {{\n {} {} \n'.format(self.molecule_name, charge, multiplicity))
-            for i in range(len(self.molecule)):
-                file.write('  {}    {: .6f}  {: .6f}  {: .6f}\n'.format(self.molecule[i][0], float(self.molecule[i][1]),
-                                                                        float(self.molecule[i][2]), float(self.molecule[i][3])))
+        with open(self.engine_mol.name + '.psi4in', 'w+') as file:
+            file.write('molecule {} {{\n {} {} \n'.format(self.engine_mol.name, charge, multiplicity))
+            for i in range(len(self.engine_mol.molecule)):
+                file.write('  {}    {: .6f}  {: .6f}  {: .6f}\n'.format(self.engine_mol.molecule[i][0], float(self.engine_mol.molecule[i][1]),
+                                                                        float(self.engine_mol.molecule[i][2]), float(self.engine_mol.molecule[i][3])))
 
             file.write("}}\nset basis {}\ngradient('{}')".format(self.qm['basis'], self.qm['theory']))
 
         with open('log.txt', 'w+') as log:
-            sub_call('geometric-optimize --psi4 {}.psi4in --nt {}'.format(self.molecule_name, self.qm['threads']),
+            sub_call('geometric-optimize --psi4 {}.psi4in --nt {}'.format(self.engine_mol.name, self.qm['threads']),
                      shell=True, stdout=log)
 
-    @staticmethod
-    def optimised_structure():
-        """Gets the optimised structure from psi4 ready to be used for the frequency.
-        Option to change the location of the file for testing purposes."""
 
-        opt_molecule = []
-        write = False
-        # opt.xyz is the geometric optimised structure file.
-        with open('opt.xyz', 'r') as opt:
-            lines = opt.readlines()
-            for line in lines:
-                if 'Iteration' in line:
-                    print('Optimisation converged at iteration {} with final energy {}'.format(int(line.split()[1]), float(line.split()[3])))
-                    write = True
-
-                elif write:
-                    opt_molecule.append([line.split()[0], float(line.split()[1]),
-                                         float(line.split()[2]), float(line.split()[3])])
-
-        return opt_molecule
+# class Geometric(Engines):
+#
+#     def __init__(self, molecule, config_file, maxiter=None):
+#         self.iter = maxiter
+#
+#         super().__init__(molecule, config_file)
+#
+#     def pdb_to_psi4_geo(self, charge, multiplicity):
+#         """Writes molecule data from pdb to psi4 input file.
+#         Also requires some default values such as basis and theory,
+#         and some values taken from the run prompt such as charge and multiplicity.
+#         """
+#
+#         # TODO Allow alternative configs to be loaded.
+#
+#         with open(self.engine_mol.name + '.psi4in', 'w+') as file:
+#             file.write('molecule {} {{\n {} {} \n'.format(self.engine_mol.name, charge, multiplicity))
+#             for i in range(len(self.engine_mol.molecule)):
+#                 file.write('  {}    {: .6f}  {: .6f}  {: .6f}\n'.format(self.engine_mol.molecule[i][0], float(self.engine_mol.molecule[i][1]),
+#                                                                         float(self.engine_mol.molecule[i][2]), float(self.engine_mol.molecule[i][3])))
+#
+#             file.write("}}\nset basis {}\ngradient('{}')".format(self.qm['basis'], self.qm['theory']))
+#
+#         with open('log.txt', 'w+') as log:
+#             sub_call('geometric-optimize --psi4 {}.psi4in --nt {}'.format(self.engine_mol.name, self.qm['threads']),
+#                      shell=True, stdout=log)
+#
+#     def optimised_structure(self):
+#         """Gets the optimised structure from psi4 ready to be used for the frequency.
+#         Option to change the location of the file for testing purposes."""
+#
+#         opt_molecule = []
+#         write = False
+#         # opt.xyz is the geometric optimised structure file.
+#         with open('opt.xyz', 'r') as opt:
+#             lines = opt.readlines()
+#             for line in lines:
+#                 if 'Iteration' in line:
+#                     print('Optimisation converged at iteration {} with final energy {}'.format(int(line.split()[1]), float(line.split()[3])))
+#                     write = True
+#
+#                 elif write:
+#                     opt_molecule.append([line.split()[0], float(line.split()[1]),
+#                                          float(line.split()[2]), float(line.split()[3])])
+#         self.engine_mol.QMoptimized = opt_molecule
+#         return self.engine_mol
 
 
 class Chargemol(Engines):
