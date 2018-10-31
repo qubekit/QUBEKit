@@ -3,7 +3,8 @@
 class Ligand(object):
 
     def __init__(self, filename, smilesstring=None):
-        self.name = filename
+        self.filename = filename
+        self.name = filename[:-4]
         self.molecule = None
         self.topology = None
         self.smiles = smilesstring
@@ -19,6 +20,7 @@ class Ligand(object):
         self.parameters = None
         self.parameter_engine = None
         self.hessian = None
+        self.modes = None
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -30,8 +32,8 @@ class Ligand(object):
     def __repr__(self):
         return "Molcule object infomation\n molecule name: {}\n molecule array : {}\n MMoptimized structure array : {}\n QMoptimized structure array : {} \n molecule topology : [nodes : {}, edges : {}]\n" \
                " molecule smiles : {}\n bonds : {}\n angles : {}\n dihedrals : {}\n rotatable dihedrals : {}\n" \
-               " dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n".format(self.name, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
-               self.topology.edges, self.smiles, self.topology.edges, self.angles, self.dihedrals, self.rotatable, self.dih_phis, self.bond_lengths, self.angle_values, self.parameters, self.parameter_engine )
+               " dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n hessian : {}\n".format(self.name, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
+               self.topology.edges, self.smiles, self.topology.edges, self.angles, self.dihedrals, self.rotatable, self.dih_phis, self.bond_lengths, self.angle_values, self.parameters, self.parameter_engine, self.hessian )
 
     def read_pdb(self):
         """Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
@@ -43,8 +45,7 @@ class Ligand(object):
         from networkx import Graph, draw
         #import matplotlib.pyplot as plt
 
-
-        with open(self.name, 'r') as pdb:
+        with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
 
         self.molecule = []
@@ -159,7 +160,7 @@ class Ligand(object):
         return self.rotatable
 
 
-    def get_dihedral_values(self):
+    def get_dihedral_values(self, QM=False, MM=False):
         """Taking the molecules xyz coordinates and dihedrals dictionary the function returns a dictionary of dihedral
         angle keys and values. There is also the option to supply just the keys of the dihedrals you want to calculate."""
 
@@ -173,14 +174,23 @@ class Ligand(object):
         else:
            keys = list(self.dihedrals.keys())
 
+        if QM:
+            molecule = self.QMoptimized
+
+        elif MM:
+            molecule = self.MMoptimized
+
+        else:
+            molecule = self.molecule
+
         for key in keys:
             torsions = self.dihedrals[key]
             for torsion in torsions:
                 # Calculate the dihedral angle in the molecule using the molecule data array.
-                x1 = array(self.molecule[int(torsion[0])-1][1:])
-                x2 = array(self.molecule[int(torsion[1])-1][1:])
-                x3 = array(self.molecule[int(torsion[2])-1][1:])
-                x4 = array(self.molecule[int(torsion[3])-1][1:])
+                x1 = array(molecule[int(torsion[0])-1][1:])
+                x2 = array(molecule[int(torsion[1])-1][1:])
+                x3 = array(molecule[int(torsion[2])-1][1:])
+                x4 = array(molecule[int(torsion[3])-1][1:])
                 b1 = x2 - x1
                 b2 = x3 - x2
                 b3 = x4 - x3
@@ -193,17 +203,24 @@ class Ligand(object):
         return self.dih_phis
 
 
-    def get_bond_lengths(self):
+    def get_bond_lengths(self, QM=False, MM=False):
         """For the given molecule and topology find the length of all of the bonds."""
 
         from numpy import array, linalg
 
         self.bond_lengths = {}
+        if QM:
+            molecule = self.QMoptimized
 
+        elif MM:
+            molecule = self.MMoptimized
+
+        else:
+            molecule = self.molecule
 
         for edge in self.topology.edges:
-            atom1 = array(self.molecule[int(edge[0])-1][1:])
-            atom2 = array(self.molecule[int(edge[1])-1][1:])
+            atom1 = array(molecule[int(edge[0])-1][1:])
+            atom2 = array(molecule[int(edge[1])-1][1:])
             bond_dist = linalg.norm(atom2 - atom1)
             self.bond_lengths[edge] = bond_dist
 
@@ -211,17 +228,26 @@ class Ligand(object):
 
 
 
-    def get_angle_values(self):
+    def get_angle_values(self, QM=False, MM=False):
         """For the given molecule and list of angle terms measure the angle values
         return a dictionary of angles and values."""
 
         from numpy import array, linalg, dot, arccos, degrees
         self.angle_values = {}
 
+        if QM:
+            molecule = self.QMoptimized
+
+        elif MM:
+            molecule = self.MMoptimized
+
+        else:
+            molecule = self.molecule
+
         for angle in self.angles:
-            x1 = array(self.molecule[int(angle[0])-1][1:])
-            x2 = array(self.molecule[int(angle[1])-1][1:])
-            x3 = array(self.molecule[int(angle[2])-1][1:])
+            x1 = array(molecule[int(angle[0])-1][1:])
+            x2 = array(molecule[int(angle[1])-1][1:])
+            x3 = array(molecule[int(angle[2])-1][1:])
             b1 = x1 - x2
             b2 = x3 - x2
             cosine_angle = dot(b1, b2) / (linalg.norm(b1) * linalg.norm(b2))
@@ -230,10 +256,34 @@ class Ligand(object):
 
         return self.angle_values
 
-    def write_PDB(self):
+    def write_PDB(self, QM=False, MM=False):
         """Take the current molecule and topology and write a pdb file for the molecule."""
         pass
 
     def write_parameters(self):
         """Take the molecules parameter set and write an xml file for the molecule."""
         pass
+
+    def read_xyz_geo(self):
+        """Read a geometric opt.xyz file to find the molecule array structure."""
+
+        opt_molecule = []
+        write = False
+        # opt.xyz is the geometric optimised structure file.
+        with open('opt.xyz', 'r') as opt:
+            lines = opt.readlines()
+            for line in lines:
+                if 'Iteration' in line:
+                    print('Optimisation converged at iteration {} with final energy {}'.format(int(line.split()[1]),
+                                                                                               float(line.split()[3])))
+                    write = True
+
+                elif write:
+                    opt_molecule.append([line.split()[0], float(line.split()[1]),
+                                         float(line.split()[2]), float(line.split()[3])])
+        self.QMoptimized = opt_molecule
+        return self
+
+    def read_xyz(self, QM=False, MM=True):
+        """Read a general xyz file format and return the structure array. QM and MM decide where it will be stored in the molecule."""
+

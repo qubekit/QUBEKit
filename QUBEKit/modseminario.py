@@ -1,7 +1,8 @@
 #TODO josh finish getting the seminario method to work from any qm engine hessian should be in np.array format
 
-def modified_Seminario_method(vibrational_scaling, hessian_in, engine, opt_molecule):
-    """Calculate the new bond and angle terms after being passed the symetric hessian and optimized molecule may also need the a parameter file"""
+def modified_Seminario_method(vibrational_scaling, molecule):
+    """Calculate the new bond and angle terms after being passed the symetric hessian and optimized
+     molecule may also need the a parameter file"""
     #   Program to implement the Modified Seminario Method
     #   Written by Alice E. A. Allen, TCM, University of Cambridge
     #   Modified by Joshua T. Horton University of Newcastle 
@@ -28,18 +29,18 @@ def modified_Seminario_method(vibrational_scaling, hessian_in, engine, opt_molec
 
     # Import all input data from gaussian outputfile
     # TODO once new class system works these steps can be removed!
-    if engine == 'g09':
-       [ bond_list, angle_list, coords, N, hessian, atom_names ] = input_data_processing_g09()
-    elif engine == 'psi4':
-       N = int(len(opt_molecule))
-       #numpy object of the hessian 
-       hessian = hessian_in 
-       coords = []
-       for i in range(len(opt_molecule)):
-           for j in range(3):
+    # if engine == 'g09':
+    #   [ bond_list, angle_list, coords, N, hessian, atom_names ] = input_data_processing_g09()
+    #elif engine == 'psi4':
+    N = int(len(molecule.QMoptimized)) # only want to deal with the qm structure here.
+    #numpy object of the hessian
+    hessian = molecule.hessian  # the molecule brings its own hessian with it.
+    coords = []
+    for i in range(len(opt_molecule)):
+        for j in range(3):
              coords.append(opt_molecule[i][j+1])
-       coords = np.reshape(coords ,(N,3))
-       print(coords)
+    coords = np.reshape(coords ,(N,3))
+    print(coords)
        # atom names will just be atom numbers
        atom_names = []
        # bond and angle list should come from the pdb from the intial paramertization?

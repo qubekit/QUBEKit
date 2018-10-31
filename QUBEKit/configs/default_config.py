@@ -3,7 +3,7 @@
 # QuBeKit config file allows users to reset the global variables
 
 
-qm = {'theory': 'BB1K', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'threads': 2, 'memory': 2}
+qm = {'theory': 'wb97x-d', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'threads': 2, 'memory': 2}
 
 # qm configs:
 

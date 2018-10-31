@@ -5,7 +5,12 @@ from sys import argv as cmdline
 from os import mkdir, chdir
 from subprocess import call as sub_call
 
-from engines import PSI4, Geometric
+
+from QUBEKit.engines import PSI4
+from QUBEKit.ligand import Ligand
+
+
+
 
 
 defaults_dict = {'charge': 0, 'multiplicity': 1,
@@ -91,6 +96,7 @@ def main():
             from datetime import datetime
 
             file = cmd
+            mol = Ligand(file)
             # Make working directory here with correct name.
             log_string = file[:-4] + '_' + defaults_dict['run number']
             mkdir(log_string)
@@ -129,7 +135,7 @@ def main():
                     print('Running psi4 bonds analysis.')
 
                     # Initialisations
-                    call_psi4 = PSI4(file, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
+                    call_psi4 = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
                     call_geo = Geometric(file, defaults_dict['config'])
 
                     # Calls
