@@ -92,7 +92,9 @@ mol = Ligand(file)
 if defaults_dict['bonds engine'] == 'psi4':
     QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
 
+
     #os.chdir('methane_999')
+
     if defaults_dict['geometric']:
         # call_geo = Geometric(mol, defaults_dict['config'])
         # print('writing the input files')

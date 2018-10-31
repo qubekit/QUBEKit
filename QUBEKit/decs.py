@@ -46,18 +46,24 @@ def timer_logger(orig_func):
                 file_name = file
 
                 with open(file_name, 'a+') as log_file:
-                    log_file.write('{name} began at {starttime}.\n\nDocstring for {name}: {doc}\n\n'.format(name=orig_func.__name__, starttime=start_time, doc=orig_func.__doc__))
-                    log_file.write('{name} finished in {runtime} seconds.\n\n--------------------------------------\n\n'.format(name=orig_func.__name__, runtime=time_taken))
-
+                    log_file.write(f'{orig_func.__name__} began at {start_time}.\n\nDocstring for {orig_func.__name__}: {orig_func.__doc__}\n\n')
+                    log_file.write(f'{orig_func.__name__} finished in {time_taken} seconds.')
+                    # Add some separation space between function / method logs.
+                    log_file.write('\n\n-------------------------------------------------------\n\n')
         return result
     return wrapper
 
 
 def for_all_methods(decorator):
-    """Applies decorator to all methods of a class (includes sub-classes and init; it is literally all callables)."""
+    """Applies decorator to all methods of a class (includes sub-classes and init; it is literally all callables).
+    This class decorator is applied using '@for_all_methods(timer_func)' for example."""
+
     def decorate(cls):
+        # Examine all class attributes.
         for attr in cls.__dict__:
+            # Check if each class attribute is a callable method.
             if callable(getattr(cls, attr)):
+                # Set the callables to be decorated.
                 setattr(cls, attr, decorator(getattr(cls, attr)))
         return cls
     return decorate
