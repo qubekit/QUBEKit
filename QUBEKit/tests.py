@@ -92,7 +92,6 @@ mol = Ligand(file)
 if defaults_dict['bonds engine'] == 'psi4':
     QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
 
-
     #os.chdir('methane_999')
 
     if defaults_dict['geometric']:
@@ -106,7 +105,6 @@ if defaults_dict['bonds engine'] == 'psi4':
         # print(mol.get_bond_lengths(QM=True))
         print('extracting hessian')
         mol = QMengine.hessian()
-
 
         def isSymmetric(mat, N):
             for i in range(N):
