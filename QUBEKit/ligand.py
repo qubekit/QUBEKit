@@ -21,6 +21,7 @@ class Ligand(object):
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
+        self.atom_names = None
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -30,9 +31,9 @@ class Ligand(object):
         self.get_angle_values()
 
     def __repr__(self):
-        return "Molcule object infomation\n molecule name: {}\n molecule array : {}\n MMoptimized structure array : {}\n QMoptimized structure array : {} \n molecule topology : [nodes : {}, edges : {}]\n" \
+        return "Molcule object infomation\n molecule name: {}\n atom names : {}\n molecule array : {}\n MMoptimized structure array : {}\n QMoptimized structure array : {} \n molecule topology : [nodes : {}, edges : {}]\n" \
                " molecule smiles : {}\n bonds : {}\n angles : {}\n dihedrals : {}\n rotatable dihedrals : {}\n" \
-               " dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n hessian : {}\n".format(self.name, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
+               " dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n hessian : {}\n".format(self.name, self.atom_names, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
                self.topology.edges, self.smiles, self.topology.edges, self.angles, self.dihedrals, self.rotatable, self.dih_phis, self.bond_lengths, self.angle_values, self.parameters, self.parameter_engine, self.hessian )
 
     def read_pdb(self):
@@ -50,6 +51,7 @@ class Ligand(object):
 
         self.molecule = []
         self.topology = Graph()
+        self.atom_names = []
 
         j = 1  # atom counter used for graph node generation
         for line in lines:
@@ -57,6 +59,7 @@ class Ligand(object):
                 element = str(line[76:78])
                 element = sub('[0-9]+', '', element)
                 element = element.replace(" ", "")
+                self.atom_names.append(str(line.split()[2]))
 
                 # If the element column is missing from the pdb, extract the element from the name.
                 if  len(element) == 0:
@@ -75,7 +78,7 @@ class Ligand(object):
         #draw(topology, with_labels=True, font_weight='bold') # uncomment these lines to draw the graph network generated from the pdb.
         #plt.show()
 
-        return self.molecule, self.topology
+        return self.molecule, self.topology, self.atom_names
 
 
 
@@ -286,4 +289,6 @@ class Ligand(object):
 
     def read_xyz(self, QM=False, MM=True):
         """Read a general xyz file format and return the structure array. QM and MM decide where it will be stored in the molecule."""
+        pass
+
 

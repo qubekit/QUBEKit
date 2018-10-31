@@ -43,7 +43,7 @@ class PSI4(Engines):
         molecule is a numpy array of size N x N
         """
 
-        from numpy import array, reshape
+        from numpy import array, reshape, zeros
 
         hess_size = len(self.engine_mol.molecule) * 3
 

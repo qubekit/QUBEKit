@@ -1,6 +1,6 @@
 #TODO josh finish getting the seminario method to work from any qm engine hessian should be in np.array format
 
-def modified_Seminario_method(vibrational_scaling, molecule):
+def modified_Seminario_method(vibrational_scaling, molecule, outputfilefolder='Seminario'):
     """Calculate the new bond and angle terms after being passed the symetric hessian and optimized
      molecule may also need the a parameter file"""
     #   Program to implement the Modified Seminario Method
@@ -14,8 +14,9 @@ def modified_Seminario_method(vibrational_scaling, molecule):
     # required.
 
     import time
-    import numpy as np
-    import os.path 
+    from numpy import empty, zeros, reshape, array, linalg
+    import os.path
+    import sys
 
     #Create log file
     # TODO this needs changing to match the other log files
@@ -25,49 +26,59 @@ def modified_Seminario_method(vibrational_scaling, molecule):
     fid_log.write('Time is now: '+ time.strftime('%X %x %Z') + '\n')
 
     # Square the vibrational scaling used for frequencies
-    vibrational_scaling_squared = vibrational_scaling**2; 
+    vibrational_scaling_squared = vibrational_scaling**2;
+
+    # Take required from the molecule object always use QMoptimized structure
+    hessian = molecule.hessian
+    N = len(molecule.QMoptimized)
+    bond_list = list(molecule.topology.edges) # with pdb numbering starting from 1 not 0
+    bond_lengths = molecule.get_bond_lengths(QM=True)
+    print(bond_list)
+    print(bond_lengths)
+    atom_names = molecule.atom_names
+
+
 
     # Import all input data from gaussian outputfile
     # TODO once new class system works these steps can be removed!
     # if engine == 'g09':
     #   [ bond_list, angle_list, coords, N, hessian, atom_names ] = input_data_processing_g09()
-    #elif engine == 'psi4':
-    N = int(len(molecule.QMoptimized)) # only want to deal with the qm structure here.
-    #numpy object of the hessian
-    hessian = molecule.hessian  # the molecule brings its own hessian with it.
+    # This should work the same when using g09 as well as the molecule will already come in with the infomation
+
+
     coords = []
-    for i in range(len(opt_molecule)):
+    for i in range(len(molecule.QMoptimized)):
         for j in range(3):
-             coords.append(opt_molecule[i][j+1])
-    coords = np.reshape(coords ,(N,3))
+             coords.append(molecule.QMoptimized[i][j+1])
+    coords = reshape(coords ,(N,3))
     print(coords)
-       # atom names will just be atom numbers
-       atom_names = []
-       # bond and angle list should come from the pdb from the intial paramertization?
-       #[ bond_list, angle_list ] = input_data_processing_psi4()
+
+    print(atom_names)
+
     #Find bond lengths
-    bond_lengths = np.zeros((N, N))
+
+    bond_lengths = zeros((N, N))
 
     for i in range (N):
         for j in range(N):
-            diff_i_j = np.array(coords[i,:]) - np.array(coords[j,:])
-            bond_lengths[i][j] =  np.linalg.norm(diff_i_j)
+            diff_i_j = array(coords[i,:]) - array(coords[j,:])
+            bond_lengths[i][j] =  linalg.norm(diff_i_j)
     print(bond_lengths)
 
-    eigenvectors = np.empty((3, 3, N, N), dtype=complex)
-    eigenvalues = np.empty((N, N, 3), dtype=complex)
-    partial_hessian = np.zeros((3, 3))
+    eigenvectors = empty((3, 3, N, N), dtype=complex)
+    eigenvalues = empty((N, N, 3), dtype=complex)
+    partial_hessian = zeros((3, 3))
 
     for i in range(0,N):
         for j in range(0,N):
             partial_hessian = hessian[(i * 3):((i + 1)*3),(j * 3):((j + 1)*3)]
-            [a, b] = np.linalg.eig(partial_hessian)
+            [a, b] = linalg.eig(partial_hessian)
             eigenvalues[i,j,:] = (a)
             eigenvectors[:,:,i,j] = (b)
-
     # The bond values are calculated and written to file
     unique_values_bonds = bonds_calculated_printed( outputfilefolder, vibrational_scaling_squared, bond_list, bond_lengths, atom_names, eigenvalues, eigenvectors, coords )
-
+    print(unique_values_bonds)
+    sys.exit()
     # The angle values are calculated and written to file
     unique_values_angles = angles_calculated_printed( outputfilefolder, vibrational_scaling_squared, angle_list, bond_lengths, atom_names, eigenvalues, eigenvectors, coords )
 
@@ -83,8 +94,7 @@ def angles_calculated_printed( outputfilefolder, vibrational_scaling_squared, an
     #parameters and print them to file
 
     from operator import itemgetter
-    import numpy as np
-    from force_angle_constant import u_PA_from_angles, force_angle_constant
+    from numpy import zeros
 
     #Open output file angle parameters are written to 
     fid = open(outputfilefolder + 'Modified_Seminario_Angle', 'w')
@@ -275,33 +285,33 @@ def bonds_calculated_printed(outputfilefolder, vibrational_scaling_squared, bond
     #This function uses the Seminario method to find the bond
     #parameters and print them to file
 
-    import numpy as np
-    from force_constant_bond import force_constant_bond
+    from numpy import real, zeros
+    import sys
 
     #Open output file bond parameters are written to 
     fid = open((outputfilefolder + 'Modified_Seminario_Bonds'), 'w')
     
-    k_b = np.zeros(len(bond_list))
-    bond_length_list = np.zeros(len(bond_list))
+    k_b = zeros(len(bond_list))
+    bond_length_list = zeros(len(bond_list))
     unique_values_bonds = [] # Used to find average values 
 
-    for i in range(0, len(bond_list)):
-        AB = force_constant_bond(bond_list[i][0], bond_list[i][1],eigenvalues, eigenvectors, coords)
-        BA = force_constant_bond(bond_list[i][1], bond_list[i][0],eigenvalues, eigenvectors, coords)
+    for i in range(len(bond_list)):
+        AB = force_constant_bond(bond_list[i][0]-1, bond_list[i][1]-1,eigenvalues, eigenvectors, coords)
+        BA = force_constant_bond(bond_list[i][1]-1, bond_list[i][0]-1,eigenvalues, eigenvectors, coords)
         
         # Order of bonds sometimes causes slight differences, find the mean
-        k_b[i] = np.real(( AB + BA ) /2); 
+        k_b[i] = real(( AB + BA ) /2);
 
         # Vibrational_scaling takes into account DFT deficities/ anharmocity    
         k_b[i] = k_b[i] * vibrational_scaling_squared
 
-        bond_length_list[i] =  bond_lengths[bond_list[i][0]][bond_list[i][1]]
-        fid.write(atom_names[bond_list[i][0]] + '-' + atom_names[bond_list[i][1]] + '  ')
+        bond_length_list[i] =  bond_lengths[bond_list[i][0]-1][bond_list[i][1]-1]
+        fid.write(atom_names[bond_list[i][0]-1] + '-' + atom_names[bond_list[i][1]-1] + '  ')
         fid.write(str("%.3f" % k_b[i])+ '   ' + str("%.3f" % bond_length_list[i]) +  '   ' +
-                  str(bond_list[i][0] + 1) +  '   ' + str(bond_list[i][1] + 1))
+                  str(bond_list[i][0]) +  '   ' + str(bond_list[i][1]))
         fid.write('\n')
 
-        unique_values_bonds.append([atom_names[bond_list[i][0]], atom_names[bond_list[i][1]], k_b[i], bond_length_list[i], 1 ])
+        unique_values_bonds.append([atom_names[bond_list[i][0]-1], atom_names[bond_list[i][1]-1], k_b[i], bond_length_list[i], 1 ])
     
     fid.close()
 
@@ -497,9 +507,11 @@ def force_constant_bond(atom_A, atom_B, eigenvalues, eigenvectors, coords):
     #Force Constant - Equation 10 of Seminario paper - gives force
     #constant for bond
     import numpy as np
+    print(atom_A, atom_B)
 
     #Eigenvalues and eigenvectors calculated 
     eigenvalues_AB = eigenvalues[atom_A,atom_B,:]
+    print(eigenvalues_AB)
 
     eigenvectors_AB = eigenvectors[:,:,atom_A,atom_B]
 
