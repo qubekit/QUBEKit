@@ -65,7 +65,7 @@ class PSI4(Engines):
                     # length_of_hess: #of cols * length of each col
                     #                +#of cols - 1 * #blank lines per row of hess_vals
                     #                +#blank lines per row of hess_vals if the hess_size continues over onto more lines.
-                    length_of_hess = (hess_size // 5) * hess_size + (hess_size // 5 - 1) * 3 + extra * (3 + hess_size)
+                    length_of_hess = (hess_size // 5) * hess_size + (hess_size // 5 -1 ) * 3 + extra * (3 + hess_size)
 
                     end_of_hess = start_of_hess + length_of_hess
 
