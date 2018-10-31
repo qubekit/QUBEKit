@@ -85,7 +85,3 @@ def plot_charges(charges=gather_charges()):
 
 
 # print(gather_charges())
-# print(plot_charges())
-
-mol = Ligand('ethane.pdb')
-print(mol)

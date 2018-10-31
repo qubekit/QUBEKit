@@ -2,6 +2,7 @@
 
 
 import helpers
+import decs
 from subprocess import call as sub_call
 
 
@@ -36,6 +37,7 @@ class Parametrisation(Engines):
         pass
 
 
+@decs.for_all_methods(decs.timer_func)
 class PSI4(Engines):
     """Psi4 class (child of Engines).
     Used to extract optimised structures, hessians, frequencies, etc.
