@@ -4,8 +4,8 @@ import bonds
 import charges
 import engines
 import helpers
-from QUBEKit.ligand import Ligand
-from QUBEKit.engines import PSI4
+from ligand import Ligand
+from engines import PSI4
 
 import os
 import subprocess
@@ -96,22 +96,23 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
 
 file = 'methane.pdb'
 mol = Ligand(file)
-print(mol)
+# print(mol)
 if defaults_dict['bonds engine'] == 'psi4':
     QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
 
-if defaults_dict['geometric']:
-    #call_geo = Geometric(mol, defaults_dict['config'])
-    # print('writing the input files')
-    # call_geo.pdb_to_psi4_geo(defaults_dict['charge'], defaults_dict['multiplicity'])
-    print('extracting the optimized structure')
-    mol = mol.read_xyz_geo()
-    print(mol)
-    #print('now write the hessian input file and run')
-    #QMengine.generate_input(0, 1, QM=True)
-    #print(mol.get_bond_lengths(QM=True))
-    print('extracting hessian')
-    mol = QMengine.hessian()
-    print(mol)
+    os.chdir('methane_999')
+    if defaults_dict['geometric']:
+        # call_geo = Geometric(mol, defaults_dict['config'])
+        # print('writing the input files')
+        # call_geo.pdb_to_psi4_geo(defaults_dict['charge'], defaults_dict['multiplicity'])
+        # print('extracting the optimized structure')
+        # mol = mol.read_xyz_geo()
+        # print(mol)
+        # print('now write the hessian input file and run')
+        # QMengine.generate_input(0, 1, QM=True)
+        # print(mol.get_bond_lengths(QM=True))
+        # print('extracting hessian')
+        mol = QMengine.hessian()
+        print(mol)
 
 # QMengine.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-from QUBEKit.helpers import config_loader, get_overage
+from helpers import config_loader, get_overage
 import helpers
 import decs
 from subprocess import call as sub_call
@@ -14,7 +14,7 @@ class Engines:
 
     def __init__(self, molecule, config_file):
         # Obtains the molecule name and a list of elements in the molecule with their respective coordinates.
-        #self.molecule_name, self.molecule = molecule.name, molecule.molecule
+        # self.molecule_name, self.molecule = molecule.name, molecule.molecule
         self.engine_mol = molecule
         # Load the configs using the config_file name.
         confs = config_loader(config_file)
@@ -23,7 +23,6 @@ class Engines:
     # def __repr__(self):
     #     """Returns representation of the object"""
     #     return 'class: {}, args: ("{}")'.format(self.__class__.__name__, self.molecule_name.__name__)
-
 
 
 @decs.for_all_methods(decs.timer_func)
@@ -44,9 +43,10 @@ class PSI4(Engines):
         molecule is a numpy array of size N x N
         """
 
-        from numpy import array
+        from numpy import array, reshape
 
         hess_size = len(self.engine_mol.molecule) * 3
+
         # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
 
@@ -57,34 +57,33 @@ class PSI4(Engines):
                 if '## Hessian' in line:
                     # Set the start of the hessian to the row of the first value.
                     start_of_hess = count + 5
-                    # Set the end of the Hessian to the row of the last value (+1 to be sure).
-                    end_of_hess = start_of_hess + (hess_size * (hess_size // 5 + 1)) + (hess_size // 5 - 1))
+
+                    # Check if the hessian continues over onto more lines (i.e. if hess_size is not divisible by 5)
+                    if hess_size % 5 == 0:
+                        extra = 0
+                    else:
+                        extra = 1
+                    # length_of_hess: #of cols * length of each col
+                    #                +#of cols - 1 * #blank lines per row of hess_vals
+                    #                +#blank lines per row of hess_vals if the hess_size continues over onto more lines.
+                    length_of_hess = (hess_size // 5) * hess_size + (hess_size // 5 - 1) * 3 + extra * (3 + hess_size)
+
+                    end_of_hess = start_of_hess + length_of_hess
+
                     hess_vals = []
 
                     for file_line in lines[start_of_hess:end_of_hess]:
-                        print(file_line)
                         # Compile lists of the 5 Hessian floats for each row.
                         # Number of floats in last row may be less than 5.
                         # Only the actual floats are added, not the separating numbers.
-                        row_vals = [float(val) for val in file_line.split() if len(val) > 5]
-                        hess_vals.append(row_vals)
+                        hess_vals.append([float(val) for val in file_line.split() if len(val) > 5])
 
-                        # Removes blank list entries.
-                        hess_vals = [elem for elem in hess_vals if elem]
+                    # Convert the list of of lists to one long ordered list of values.
+                    flattened_list = [item for sublist in hess_vals for item in sublist]
 
-                        # Currently, every list within hess_vals is a list of 5 floats.
-                        # The lists need to be concatenated so that there are n=hess_size lists of m=hess_size length.
-                        # This will give a matrix of size n x m as desired.
+                    reshaped = array(flattened_list)
 
-                    reshaped = []
-                    print(hess_vals)
-
-                    for i in range(hess_size):
-                        row = []
-                        for j in range(hess_size // 5 + 1):
-                            row += hess_vals[i + j * hess_size]
-
-                        reshaped.append(row)
+                    reshaped = reshape(reshaped, (hess_size, hess_size))
 
                     # Units conversion.
                     hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
