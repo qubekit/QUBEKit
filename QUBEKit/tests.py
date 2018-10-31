@@ -115,6 +115,3 @@ if defaults_dict['geometric']:
     print(mol)
 
 # QMengine.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])
-
-
-

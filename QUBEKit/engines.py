@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
+
 from QUBEKit.helpers import config_loader, get_overage
+import helpers
+import decs
 from subprocess import call as sub_call
 
 
@@ -23,6 +26,7 @@ class Engines:
 
 
 
+@decs.for_all_methods(decs.timer_func)
 class PSI4(Engines):
     """Psi4 class (child of Engines).
     Used to extract optimised structures, hessians, frequencies, etc.

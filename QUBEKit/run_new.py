@@ -5,8 +5,13 @@ from sys import argv as cmdline
 from os import mkdir, chdir
 from subprocess import call as sub_call
 
-from QUBEKit.engines import PSI4, Geometric
+
+from QUBEKit.engines import PSI4
 from QUBEKit.ligand import Ligand
+
+
+
+
 
 defaults_dict = {'charge': 0, 'multiplicity': 1,
                  'bonds engine': 'psi4', 'charges engine': 'chargemol',
@@ -88,6 +93,8 @@ def main():
 
         if 'pdb' in cmd:
 
+            from datetime import datetime
+
             file = cmd
             mol = Ligand(file)
             # Make working directory here with correct name.
@@ -97,6 +104,9 @@ def main():
             sub_call(f'cp {file} {str(log_string) + "/" + file}', shell=True)
             # Change into new directory.
             chdir(log_string)
+            # Create log file.
+            with open('QUBEKit_log_', 'r') as log_file:
+                log_file.write(f'Beginning log file: {datetime.now()}')
 
             if 'charges' in commands:
 
