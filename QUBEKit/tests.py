@@ -2,8 +2,8 @@
 
 from engines import PSI4
 from ligand import Ligand
-from QUBEKit.modseminario import modified_Seminario_method
 import os
+from QUBEKit.modseminario import modified_seminario_method
 
 
 # def gather_charges():
@@ -88,30 +88,40 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
                  'run number': '999', 'config': 'default_config'}
 
 
-file = 'methane.pdb'
+file = 'ethane.pdb'
 mol = Ligand(file)
 # print(mol)
 if defaults_dict['bonds engine'] == 'psi4':
     QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
 
-
     os.chdir('QUBEKit_2018_10_31_methane_666')
 
     if defaults_dict['geometric']:
-        # call_geo = Geometric(mol, defaults_dict['config'])
-        # print('writing the input files')
-        # call_geo.pdb_to_psi4_geo(defaults_dict['charge'], defaults_dict['multiplicity'])
-        # print('extracting the optimized structure')
-        # print(mol)
-        # print('now write the hessian input file and run')
-        # QMengine.generate_input(0, 1, QM=True)
+        #print('writing the input files')
+        #QMengine.geo_gradiant(0, 1)
+        print('extracting the optimized structure')
+        mol = mol.read_xyz_geo()
+        print(mol)
+        #print('now write the hessian input file and run')
+        #QMengine.generate_input(0, 1, QM=True)
         # print(mol.get_bond_lengths(QM=True))
-        # print('extracting hessian')
+        print('extracting hessian')
         mol = QMengine.hessian()
 
         print(mol)
         # need to give the vib scalling from the configs folder
         # modified_Seminario_method(0.957, mol)
+        def isSymmetric(mat, N):
+            for i in range(N):
+                for j in range(N):
+                    if (mat[i,j] != mat[j,i]):
+                        return False
+            return True
+        print(isSymmetric(mol.hessian, 15))
+        print(len(mol.hessian))
+        # need to give the vib scalling from the configs folder
+        modified_seminario_method(0.957, mol)
+
 
 
 # QMengine.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])

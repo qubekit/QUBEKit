@@ -10,9 +10,11 @@ def timer_func(orig_func):
 
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
+
         t1 = time()
         result = orig_func(*args, **kwargs)
         t2 = time() - t1
+
         print('{} ran in: {} seconds.'.format(orig_func.__name__, t2))
 
         return result
@@ -39,9 +41,11 @@ def timer_logger(orig_func):
 
         time_taken = time() - t1
 
+        # Find all files in current directory.
         files = [f for f in listdir('.') if path.isfile(f)]
 
         for file in files:
+            # Find log file.
             if file.startswith('QUBEKit_log'):
                 file_name = file
 
