@@ -4,6 +4,8 @@ from engines import PSI4
 from ligand import Ligand
 from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
 from QUBEKit.modified_Seminario_method import modified_Seminario_method
+import os
+
 
 # def gather_charges():
 #     """Takes the TheoryTests files and extracts the net charge as a tuple with the molecule + functional
@@ -93,7 +95,7 @@ mol = Ligand(file)
 if defaults_dict['bonds engine'] == 'psi4':
     QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
 
-    #os.chdir('methane_999')
+    os.chdir('QUBEKit_2018_10_31_methane_666')
 
     if defaults_dict['geometric']:
         # print('writing the input files')
@@ -116,6 +118,7 @@ if defaults_dict['bonds engine'] == 'psi4':
         #     return True
         # print(isSymmetric(mol.hessian, 15))
         #print(len(mol.hessian))
+
         # need to give the vib scalling from the configs folder
         modified_Seminario_method(mol, 0.957)
 
