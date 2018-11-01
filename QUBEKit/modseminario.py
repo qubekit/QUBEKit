@@ -48,7 +48,7 @@ def modified_seminario_method(vibrational_scaling, molecule):
         for j in range(3):
             coords.append(molecule.QMoptimized[i][j+1])
     coords = reshape(coords, (N, 3))
-    # print(coords)
+    print(coords)
 
     # print(atom_names)
 
@@ -521,12 +521,12 @@ def input_data_processing_g09():
     [unprocessed_Hessian, N, names, coords] =  coords_from_fchk( 'lig.fchk' );
 
     #Gets bond and angle lists
-    [bond_list, angle_list] = bond_angle_list_gaussian()
-
-    with open("Number_to_Atom_type") as f:
-        OPLS_number_to_name = f.readlines()
-
-    OPLS_number_to_name = [x.split() for x in OPLS_number_to_name]; 
+    # [bond_list, angle_list] = bond_angle_list_gaussian()
+    #
+    # with open("Number_to_Atom_type") as f:
+    #     OPLS_number_to_name = f.readlines()
+    #
+    # OPLS_number_to_name = [x.split() for x in OPLS_number_to_name];
 
     length_hessian = 3 * N
     hessian = np.zeros((length_hessian, length_hessian))
@@ -542,56 +542,57 @@ def input_data_processing_g09():
     hessian = (hessian * (627.509391) )/ (0.529**2) ; #Change from Hartree/bohr to kcal/mol /ang
 
     # if zmat exists part here 
-    atom_names = []
-
-    for i in range(0,len(names)):
-        atom_names.append(names[i].strip() + str(i + 1))
-
-    if os.path.exists(inputfilefolder + 'Zmat.z'):    
-        atom_names = []
-        
-        fid = open(inputfilefolder + 'Zmat.z') #Boss type Zmat
-   
-        tline = fid.readline()
-        tline = fid.readline()
-
-        #Find number of dummy atoms
-        number_dummy = 0
-        tmp = tline.split()
-        
-        while tmp[2] == '-1':
-            number_dummy = number_dummy + 1
-            tline = fid.readline()
-            tmp = tline.split()
-
-        if int(tmp[3]) < 800:
-            for i in range(0,N):
-                for j in range(0, len(OPLS_number_to_name)):
-                    if OPLS_number_to_name[j][0] == tmp[3]:
-                        atom_names.append(OPLS_number_to_name[j][1])
-                
-                tline = fid.readline()
-                tmp = tline.split()
-        else:
-            #For CM1A format
-            while len(tmp) < 2 or tmp[1] != 'Non-Bonded':
-                tline = fid.readline()
-                tmp = tline.split()
+    # atom_names = []
+    #
+    # for i in range(0,len(names)):
+    #     atom_names.append(names[i].strip() + str(i + 1))
+    #
+    # if os.path.exists(inputfilefolder + 'Zmat.z'):
+    #     atom_names = []
+    #
+    #     fid = open(inputfilefolder + 'Zmat.z') #Boss type Zmat
+    #
+    #     tline = fid.readline()
+    #     tline = fid.readline()
+    #
+    #     #Find number of dummy atoms
+    #     number_dummy = 0
+    #     tmp = tline.split()
+    #
+    #     while tmp[2] == '-1':
+    #         number_dummy = number_dummy + 1
+    #         tline = fid.readline()
+    #         tmp = tline.split()
+    #
+    #     if int(tmp[3]) < 800:
+    #         for i in range(0,N):
+    #             for j in range(0, len(OPLS_number_to_name)):
+    #                 if OPLS_number_to_name[j][0] == tmp[3]:
+    #                     atom_names.append(OPLS_number_to_name[j][1])
+    #
+    #             tline = fid.readline()
+    #             tmp = tline.split()
+    #     else:
+    #         #For CM1A format
+    #         while len(tmp) < 2 or tmp[1] != 'Non-Bonded':
+    #             tline = fid.readline()
+    #             tmp = tline.split()
+    #
+    #         tline = fid.readline()
+    #         tline = fid.readline()
+    #         tmp = tline.split()
+    #
+    #         for i in range(0,N):
+    #             atom_names.append(tmp[2])
+    #             tline = fid.readline()
+    #             tmp = tline.split()
+    #
+    #     for i in range(0,N):
+    #         if len(atom_names[i]) == 1:
+    #             atom_names[i] = atom_names[i] + ' '
             
-            tline = fid.readline()
-            tline = fid.readline()
-            tmp = tline.split()
-
-            for i in range(0,N):
-                atom_names.append(tmp[2])
-                tline = fid.readline()
-                tmp = tline.split()
-
-        for i in range(0,N):
-            if len(atom_names[i]) == 1:
-                atom_names[i] = atom_names[i] + ' '
-            
-    return(bond_list, angle_list, coords, N, hessian, atom_names)
+    # return(bond_list, angle_list, coords, N, hessian, atom_names)
+    return  hessian
 
 def coords_from_fchk( fchk_file):
     #Function extracts xyz file from the .fchk output file from Gaussian, this
@@ -690,7 +691,7 @@ def bond_angle_list_gaussian():
 #file
     import os.path
 
-    fname =  '/zmat.log'
+    fname =  'zmat.log'
 
     if os.path.isfile(fname) :
         fid = open(fname, "r")

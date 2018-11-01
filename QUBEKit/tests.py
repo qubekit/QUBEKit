@@ -2,8 +2,9 @@
 
 from engines import PSI4
 from ligand import Ligand
+from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
+from QUBEKit.modified_Seminario_method import modified_Seminario_method
 import os
-from QUBEKit.modseminario import modified_seminario_method
 
 
 # def gather_charges():
@@ -97,30 +98,29 @@ if defaults_dict['bonds engine'] == 'psi4':
     os.chdir('QUBEKit_2018_10_31_methane_666')
 
     if defaults_dict['geometric']:
-        #print('writing the input files')
-        #QMengine.geo_gradiant(0, 1)
+        # print('writing the input files')
+        # QMengine.generate_input(0, 1)
         print('extracting the optimized structure')
-        mol = mol.read_xyz_geo()
+        mol = QMengine.optimised_structure()
         print(mol)
-        #print('now write the hessian input file and run')
-        #QMengine.generate_input(0, 1, QM=True)
+        # print('now write the hessian input file and run')
+        # QMengine.generate_input(0, 1, QM=True)
         # print(mol.get_bond_lengths(QM=True))
         print('extracting hessian')
         mol = QMengine.hessian()
-
+        # mol.hessian = input_data_processing_g09()
         print(mol)
+        # def isSymmetric(mat, N):
+        #     for i in range(N):
+        #         for j in range(N):
+        #             if (mat[i,j] != mat[j,i]):
+        #                 return False
+        #     return True
+        # print(isSymmetric(mol.hessian, 15))
+        #print(len(mol.hessian))
+
         # need to give the vib scalling from the configs folder
-        # modified_Seminario_method(0.957, mol)
-        def isSymmetric(mat, N):
-            for i in range(N):
-                for j in range(N):
-                    if (mat[i,j] != mat[j,i]):
-                        return False
-            return True
-        print(isSymmetric(mol.hessian, 15))
-        print(len(mol.hessian))
-        # need to give the vib scalling from the configs folder
-        modified_seminario_method(0.957, mol)
+        modified_Seminario_method(mol, 0.957)
 
 
 
