@@ -56,6 +56,7 @@ class PSI4(Engines):
                 if '## Hessian' in line:
                     # Set the start of the hessian to the row of the first value.
                     start_of_hess = count + 5
+                    print(start_of_hess)
 
                     # Check if the hessian continues over onto more lines (i.e. if hess_size is not divisible by 5)
                     if hess_size % 5 == 0:
@@ -80,13 +81,15 @@ class PSI4(Engines):
 
                     # Remove blank list entries
                     hess_vals = [elem for elem in hess_vals if elem]
+                    print(hess_vals)
 
+                    # Make a matrix of the correct size and start filling it up with the lists
                     reshaped = []
 
                     # Convert from list of (lists, length 5) to 2d array of size hess_size x hess_size
                     for i in range(hess_size):
                         row = []
-                        for j in range(hess_size // 5):
+                        for j in range(hess_size // 5 + 1):
                             row += hess_vals[i + j * hess_size]
 
                         reshaped.append(row)
@@ -145,7 +148,7 @@ class PSI4(Engines):
 
                 f_opt_struct.append(struct_row)
         print('Extracted optimised structure for {} from psi4 output.'.format(self.engine_mol.name))
-        self.engine_mol.QMoptimized = array(f_opt_struct)
+        self.engine_mol.QMoptimized = f_opt_struct
         return self.engine_mol
 
     def energy(self):
@@ -170,10 +173,10 @@ class PSI4(Engines):
             for i in range(len(molecule)):
                 input_file.write(' {}    {: .6f}  {: .6f}  {: .6f} \n'.format(molecule[i][0], float(molecule[i][1]),
                                                                         float(molecule[i][2]), float(molecule[i][3])))
-            input_file.write('}}\n\nset basis {}'.format(self.qm['basis']))
+            input_file.write('}}\n\nset {{\nbasis {}\nG_CONVERGENCE GAU_TIGHT\n}}'.format(self.qm['basis']))
 
             # if not self.geometric:
-            #     input_file.write("\noptimize('{}')".format(self.qm['theory'].lower()))
+            input_file.write("\noptimize('{}')".format(self.qm['theory'].lower()))
             input_file.write("\nenergy, wfn = frequency('{}', return_wfn=True)".format(self.qm['theory'].lower()))
             input_file.write('\nset hessian_write on\nwfn.hessian().print_out()\n\n')
 
