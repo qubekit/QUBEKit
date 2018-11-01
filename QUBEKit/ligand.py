@@ -297,4 +297,3 @@ class Ligand:
     def read_xyz(self, QM=False, MM=True):
         """Read a general xyz file format and return the structure array. QM and MM decide where it will be stored in the molecule."""
         pass
-
