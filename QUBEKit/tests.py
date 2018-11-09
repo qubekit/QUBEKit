@@ -5,6 +5,7 @@ from ligand import Ligand
 from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
 from QUBEKit.dihedrals import Torsion_scan
 
+
 # def gather_charges():
 #     """Takes the TheoryTests files and extracts the net charge as a tuple with the molecule + functional
 #     For example, opens the benzene_PBE0_001 folder, finds the charges file from DDEC6,
@@ -114,7 +115,7 @@ MMengine = 'OpenMM' #  place holder for now
 if defaults_dict['bonds engine'] == 'psi4':
     QMengine = PSI4(mol, defaults_dict)
 
-    #os.chdir('methane_999')
+    os.chdir('QUBEKit_2018_10_31_methane_666')
 
     # if defaults_dict['geometric']:
         # print('writing the input files running geometric')
@@ -140,6 +141,7 @@ if defaults_dict['bonds engine'] == 'psi4':
         #     return True
         # print(isSymmetric(mol.hessian, 15))
         #print(len(mol.hessian))
+
         # need to give the vib scalling from the configs folder
         # modified_seminario_method(0.957, mol)
         # g09_B3LYP_modes = [307.763,  826.0159, 827.2216, 996.2495, 1216.8186, 1217.6571, 1407.3454, 1422.7768, 1503.0658, 1503.4704, 1505.2479, 1505.6004, 3024.1788, 3024.2981, 3069.7309, 3069.9317, 3094.7834, 3094.9185]
