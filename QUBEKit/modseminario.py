@@ -15,7 +15,6 @@ def modified_seminario_method(vibrational_scaling, molecule):
     # required.
 
     from numpy import empty, zeros, reshape, array, linalg
-    import sys
 
     # Create log file
     # TODO this needs changing to match the other log files

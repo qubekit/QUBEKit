@@ -13,6 +13,7 @@ class Ligand:
         self.angles = None
         self.dihedrals = None
         self.rotatable = None
+        self.scan_order = None
         self.dih_phis = None
         self.bond_lengths = None
         self.angle_values = None
@@ -24,6 +25,8 @@ class Ligand:
         self.hessian = None
         self.modes = None
         self.atom_names = None
+        self.polar = None
+        self.scan_energy = {}
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -33,10 +36,11 @@ class Ligand:
         self.get_angle_values()
 
     def __repr__(self):
-        return "Molcule object infomation\n molecule name: {}\n atom names : {}\n molecule array : {}\n MMoptimized structure array : {}\n QMoptimized structure array : {} \n molecule topology : [nodes : {}, edges : {}]\n" \
-               " molecule smiles : {}\n bonds : {}\n angles : {}\n dihedrals : {}\n rotatable dihedrals : {}\n" \
-               " dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n hessian : {}\n".format(self.name, self.atom_names, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
-               self.topology.edges, self.smiles, self.topology.edges, self.angles, self.dihedrals, self.rotatable, self.dih_phis, self.bond_lengths, self.angle_values, self.parameters, self.parameter_engine, self.hessian )
+        return "Molcule object infomation\n molecule name: {}\n atom names : {}\n molecule array : {}" \
+               "\n MMoptimized structure array : {}\n QMoptimized structure array : {} \n molecule topology : [nodes : {}, edges : {}]\n" \
+               " molecule smiles : {}\n polar hydrogens : {}\n bonds : {}\n angles : {}\n dihedrals : {}\n rotatable dihedrals : {}\n dihedral scan order : {}\n" \
+               " dihedral scan energies : {}\n dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n hessian : {}\n".format(self.name, self.atom_names, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
+               self.topology.edges, self.smiles, self.polar, self.topology.edges, self.angles, self.dihedrals, self.rotatable, self.scan_order, self.scan_energy, self.dih_phis, self.bond_lengths, self.angle_values, self.parameters, self.parameter_engine, self.hessian )
 
     # def __repr__(self):
     #     """Display all class dictionary keys and values excluding callables."""
@@ -185,7 +189,7 @@ class Ligand:
             keys = self.rotatable
 
         else:
-           keys = list(self.dihedrals.keys())
+            keys = list(self.dihedrals.keys())
 
         if QM:
             molecule = self.QMoptimized
@@ -295,5 +299,6 @@ class Ligand:
         return self
 
     def read_xyz(self, QM=False, MM=True):
-        """Read a general xyz file format and return the structure array. QM and MM decide where it will be stored in the molecule."""
+        """Read a general xyz file format and return the structure array.
+        QM and MM decide where it will be stored in the molecule."""
         pass

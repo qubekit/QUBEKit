@@ -115,7 +115,7 @@ def input_data_processing():
             hessian[j][i] = unprocessed_Hessian[m]
             m = m + 1
   
-    hessian = (hessian * (627.509391) )/ (0.1**2) ; #Change from Hartree/bohr to kcal/mol /ang
+    hessian = (hessian * (627.509391) )/ (0.529**2) ; #Change from Hartree/bohr to kcal/mol /ang
 
     # if zmat exists part here 
     atom_names = []
