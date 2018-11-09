@@ -272,14 +272,14 @@ def extract_hess_psi4(molecule):
 # Added to engines
 @timer_logger
 def extract_hess_psi4_geo(molecule):
-    """Parses the Hessian from the output.dat file (from psi4) into a numpy array.
+    """Parses the Hessian from the B3LYP_output.dat file (from psi4) into a numpy array.
     molecule is a numpy array of size N x N"""
 
     from numpy import array
 
     hess_size = 3 * len(molecule)
 
-    with open('output.dat', 'r') as file:
+    with open('B3LYP_output.dat', 'r') as file:
         lines = file.readlines()
         for count, line in enumerate(lines):
             if '## Hessian' in line:
@@ -316,7 +316,7 @@ def extract_hess_psi4_geo(molecule):
 # Added to engines
 @timer_logger
 def extract_all_modes_psi4(molecule):
-    """Takes the final optimised structure from the output.dat file."""
+    """Takes the final optimised structure from the B3LYP_output.dat file."""
 
     from numpy import array
 
@@ -326,7 +326,7 @@ def extract_all_modes_psi4(molecule):
     # continue onto next line.
     # Repeat until the following line is known to be empty.
 
-    with open('output.dat', 'r') as file:
+    with open('B3LYP_output.dat', 'r') as file:
         lines = file.readlines()
         for count, line in enumerate(lines):
             if "post-proj  all modes" in line:
@@ -350,7 +350,7 @@ def extract_all_modes_psi4(molecule):
 # Added to engines
 @timer_logger
 def extract_final_opt_struct_psi4(molecule):
-    """Takes the final optimised structure from the output.dat file."""
+    """Takes the final optimised structure from the B3LYP_output.dat file."""
 
     from numpy import array
 
@@ -361,7 +361,7 @@ def extract_final_opt_struct_psi4(molecule):
     # Add each row to a matrix.
     # Return the matrix.
 
-    with open('output.dat', 'r') as file:
+    with open('B3LYP_output.dat', 'r') as file:
         lines = file.readlines()
         geo_pos_list = []       # All the lines containing '==> Geometry'.
         for count, line in enumerate(lines):
