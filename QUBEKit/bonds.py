@@ -224,6 +224,7 @@ def modified_seminario():
     pass
 
 
+# Added to engines
 @timer_logger
 def pdb_to_g09(input_file, molecule, charge, multiplicity, basis, theory, processors, memory):
     """Creates g09 optimisation and frequency input files."""

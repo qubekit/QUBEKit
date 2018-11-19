@@ -1,9 +1,9 @@
 #! /usr/bin/env python
 
-from engines import PSI4
+from engines import PSI4, Gaussian
 from ligand import Ligand
 import os
-from QUBEKit.modseminario import modified_seminario_method
+from lennard_jones import lj_calc_coefficients
 
 
 # def gather_charges():
@@ -87,41 +87,28 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
                  'ddec version': 6, 'geometric': True, 'solvent': False,
                  'run number': '999', 'config': 'default_config'}
 
+# file = 'ethane.pdb'
+# mol = Ligand(file)
+#
+# if defaults_dict['bonds engine'] == 'psi4':
+#     QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
+#
+#     os.chdir('QUBEKit_2018_11_01_ethane_999')
 
-file = 'ethane.pdb'
-mol = Ligand(file)
-# print(mol)
-if defaults_dict['bonds engine'] == 'psi4':
-    QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
+#     if defaults_dict['geometric']:
+#
+#         # print('now write the hessian input file and run')
+#         # QMengine.generate_input(0, 1, QM=True)
+#         # print(mol.get_bond_lengths(QM=True))
+#         print('extracting hessian')
+#         mol = QMengine.hessian()
+#
+#         # need to give the vib scalling from the configs folder
+#         # modified_Seminario_method(0.957, mol)
+#
+# # QMengine.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])
 
-    os.chdir('QUBEKit_2018_10_31_methane_666')
-
-    if defaults_dict['geometric']:
-        #print('writing the input files')
-        #QMengine.geo_gradiant(0, 1)
-        print('extracting the optimized structure')
-        mol = mol.read_xyz_geo()
-        print(mol)
-        #print('now write the hessian input file and run')
-        #QMengine.generate_input(0, 1, QM=True)
-        # print(mol.get_bond_lengths(QM=True))
-        print('extracting hessian')
-        mol = QMengine.hessian()
-
-        print(mol)
-        # need to give the vib scalling from the configs folder
-        # modified_Seminario_method(0.957, mol)
-        def isSymmetric(mat, N):
-            for i in range(N):
-                for j in range(N):
-                    if (mat[i,j] != mat[j,i]):
-                        return False
-            return True
-        print(isSymmetric(mol.hessian, 15))
-        print(len(mol.hessian))
-        # need to give the vib scalling from the configs folder
-        modified_seminario_method(0.957, mol)
-
-
-
-# QMengine.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])
+#
+# gtest = Gaussian(mol, defaults_dict['config'], defaults_dict['charge'], defaults_dict['multiplicity'])
+#
+# gtest.generate_input()

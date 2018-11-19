@@ -15,22 +15,19 @@ To install, it is recommended to clone the QUBEKit folder into a home directory 
     cd QUBEKit
     ./QUBE_install.sh
     
-After relaunching the terminal you should now be able to use QuBeKit. Try the following command to bring up a short summary of the available commands and a description of how QuBeKit works:
+After relaunching the terminal you should now be able to use QUBEKit. Try the following command to bring up a short summary of the available commands and a description of how QUBEKit works:
 
     python run.py -h QUBEKit
 
 ## Requirements:
 * [Anaconda3](https://www.anaconda.com/download/)
-* [OpenMM](http://openmm.org/)
 * [Gaussian09](http://gaussian.com/)
-* [ONETEP](http://www.onetep.org/)
 ### Other Python modules used:
 
 Many packages come installed with the above requirements, however there are some which require further installation. All packages must be installed through conda and use conda as their path.
-* colorama
 * psi4
 * rdkit
 
 ## In Development
 
-QuBeKit should currently be considered a work in progress. While it is stable we are constantly working to improve the code and increase the amount of compatible software. A user tutorial can be found on our Github [wiki](https://github.com/cole-group/QuBeKit/wiki) page. 
+QUBEKit should currently be considered a work in progress. While it is stable we are constantly working to improve the code and increase the amount of compatible software. A user tutorial can be found on our Github [wiki](https://github.com/cole-group/QuBeKit/wiki) page. 

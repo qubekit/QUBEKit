@@ -42,4 +42,4 @@ def get_overage(molecule):
     """Bodge."""
 
     overage_dict = {'methane': 12.0, 'ethane': 16.0, 'acetone': 20.0, 'benzene': 24.0, 'methanol': 17.0}
-    return overage_dict[str(molecule)]
+    return overage_dict[molecule]

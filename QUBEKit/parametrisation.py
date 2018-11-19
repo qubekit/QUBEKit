@@ -3,20 +3,35 @@
 # maybe gromacs as well
 
 
+from helpers import config_loader
+
+
 class Parametrisation:
     """Class of functions which perform the initial parametrisation for the molecules."""
 
     def __init__(self, molecule, config_file):
-        self.molecule = molecule
+
+        self.engine_mol = molecule
+        confs = config_loader(config_file)
+        self.qm, self.fitting, self.paths = confs
 
 
+class Antechamber(Parametrisation):
 
-class antechamber(Parametrisation):
-        pass
+    def __init__(self, molecule, config_file):
 
-class openff(Parametrisation):
-        pass
+        super().__init__(molecule, config_file)
+
+
+class OpenFF(Parametrisation):
+
+    def __init__(self, molecule, config_file):
+
+        super().__init__(molecule, config_file)
 
 
 class BOSS(Parametrisation):
-        pass
+
+    def __init__(self, molecule, config_file):
+
+        super().__init__(molecule, config_file)
