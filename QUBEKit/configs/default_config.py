@@ -4,13 +4,13 @@
 # QuBeKit config file allows users to reset the global variables
 
 
-qm = {'theory': 'wb97x-d', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'threads': 2, 'memory': 2}
+qm = {'theory': 'B3LYP', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'threads': 2, 'memory': 2, 'convergence': 'GAU_TIGHT', 'iterations': 100}
 
 # qm configs:
 
 # theory: g09 theory to use in freq and dihedral scans recommended wB97XD/6-311++G(d,p)
 
-# basis:
+# basis: basis set used
 
 # vib_scaling: the associated scaling to the theory
 
@@ -18,6 +18,9 @@ qm = {'theory': 'wb97x-d', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'thre
 
 # memory: the amount of memory (in GB) to be specified in the g09 scripts
 
+# convergence criteria used during optimizations works using psi4 and geometric so far
+
+# iterations the max number of optimization iterations
 
 fitting = {'dih_start': 0, 'increment': 15, 'num_scan': 25, 't_weight': 'infinity', 'new_dih_num': 501, 'q_file': 'results.dat', 'tor_limit': 20, 'div_index': 0}
 

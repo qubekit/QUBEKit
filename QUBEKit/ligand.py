@@ -18,6 +18,7 @@ class Ligand:
         self.angles = None
         self.dihedrals = None
         self.rotatable = None
+        self.scan_order = None
         self.dih_phis = None
         self.bond_lengths = None
         self.angle_values = None
@@ -29,6 +30,8 @@ class Ligand:
         self.hessian = None
         self.modes = None
         self.atom_names = None
+        self.polar = None
+        self.scan_energy = {}
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
