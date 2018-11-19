@@ -5,6 +5,11 @@ class Ligand:
 
     def __init__(self, filename, smilesstring=None):
 
+        # TODO Check for consistent atom ordering across file types.
+        # e.g. does an xyz file order atoms the same as the pdb?
+        # This is highly important for L-J params which are stored
+        # according to their order in the xyz file.
+
         self.filename = filename
         self.name = filename[:-4]
         self.molecule = None
@@ -36,16 +41,7 @@ class Ligand:
         self.get_angle_values()
 
     def __repr__(self):
-        return "Molcule object infomation\n molecule name: {}\n atom names : {}\n molecule array : {}" \
-               "\n MMoptimized structure array : {}\n QMoptimized structure array : {} \n molecule topology : [nodes : {}, edges : {}]\n" \
-               " molecule smiles : {}\n polar hydrogens : {}\n bonds : {}\n angles : {}\n dihedrals : {}\n rotatable dihedrals : {}\n dihedral scan order : {}\n" \
-               " dihedral scan energies : {}\n dihedral angles : {}\n bond lengths : {}\n measured angles : {}\n molecule parameters : {}\n parameter engine used : {}\n hessian : {}\n".format(self.name, self.atom_names, self.molecule, self.MMoptimized, self.QMoptimized, self.topology.nodes,
-               self.topology.edges, self.smiles, self.polar, self.topology.edges, self.angles, self.dihedrals, self.rotatable, self.scan_order, self.scan_energy, self.dih_phis, self.bond_lengths, self.angle_values, self.parameters, self.parameter_engine, self.hessian )
-
-    # def __repr__(self):
-    #     """Display all class dictionary keys and values excluding callables."""
-    #
-    #     return {key: value for key, value in __class__.__dict__.items() if not key.startswith('__') and not callable(key)}
+        return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def read_pdb(self, QM=False, MM=False):
         """Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
@@ -64,7 +60,8 @@ class Ligand:
         self.topology = Graph()
         self.atom_names = []
 
-        atom_count = 1  # atom counter used for graph node generation
+        # atom counter used for graph node generation
+        atom_count = 1
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
                 element = str(line[76:78])
@@ -88,8 +85,8 @@ class Ligand:
                     if int(line.split()[i]) != 0:
                         self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
 
-
-        # draw(topology, with_labels=True, font_weight='bold') # uncomment these lines to draw the graph network generated from the pdb.
+        # Uncomment the following lines to draw the graph network generated from the pdb.
+        # draw(topology, with_labels=True, font_weight='bold')
         # plt.show()
 
         if QM:
@@ -105,18 +102,24 @@ class Ligand:
         """Take the topology graph network and return a list of all angle combinations.
         Checked against OPLS-AA on molecules containing 10-63 angles."""
 
-        from networkx import Graph, neighbors
+        from networkx import neighbors
 
         self.angles = []
 
         for node in self.topology.nodes:
             bonded = sorted(list(neighbors(self.topology, node)))
-            if len(bonded) < 2:         # Check that the atom has more than one bond
+            # Check that the atom has more than one bond
+            # TODO Reverse this? Currently I don't think it does anything.
+            """
+            if len(bonded) >= 2:
+                raise Exception('')
+            """
+            if len(bonded) < 2:
                 continue
 
             # Find all possible angle combinations from the list
             for i in range(len(bonded)):
-                for j in range(i+1, len(bonded)):
+                for j in range(i + 1, len(bonded)):
                     atom1, atom3 = bonded[i], bonded[j]
 
                     self.angles.append((atom1, node, atom3))
@@ -127,7 +130,7 @@ class Ligand:
         """Take the topology graph network and again return a dictionary of all possible dihedral combinations stored under
         the central bond keys which describe the angle."""
 
-        from networkx import Graph, neighbors
+        from networkx import neighbors
 
         self.dihedrals = {}
 
@@ -158,11 +161,12 @@ class Ligand:
         """Take the topology graph network and dihedrals dictionary and for each dihedral in there work out if the torsion is
         rotatable. Returns a list of dihedral dictionary keys representing the rotatable dihedrals."""
 
-        from networkx import Graph, has_path
+        from networkx import has_path
 
         self.rotatable = []
 
-        for key in self.dihedrals.keys(): # For each dihedral key remove the edge from the network
+        # For each dihedral key remove the edge from the network
+        for key in self.dihedrals.keys():
             self.topology.remove_edge(*key)
 
             # Check if there is still a path between the two atoms in the edges.
@@ -179,7 +183,8 @@ class Ligand:
 
     def get_dihedral_values(self, QM=False, MM=False):
         """Taking the molecules xyz coordinates and dihedrals dictionary the function returns a dictionary of dihedral
-        angle keys and values. There is also the option to supply just the keys of the dihedrals you want to calculate."""
+        angle keys and values. There is also the option to supply just the keys of the dihedrals you want to calculate.
+        """
 
         from numpy import array, linalg, dot, degrees, cross, arctan2
 
@@ -225,6 +230,7 @@ class Ligand:
         from numpy import array, linalg
 
         self.bond_lengths = {}
+
         if QM:
             molecule = self.QMoptimized
 
@@ -247,6 +253,7 @@ class Ligand:
         return a dictionary of angles and values."""
 
         from numpy import array, linalg, dot, arccos, degrees
+
         self.angle_values = {}
 
         if QM:
@@ -270,7 +277,7 @@ class Ligand:
 
         return self.angle_values
 
-    def write_PDB(self, QM=False, MM=False):
+    def write_pdb(self, QM=False, MM=False):
         """Take the current molecule and topology and write a pdb file for the molecule."""
         pass
 
@@ -283,6 +290,7 @@ class Ligand:
 
         opt_molecule = []
         write = False
+
         # opt.xyz is the geometric optimised structure file.
         with open('opt.xyz', 'r') as opt:
             lines = opt.readlines()

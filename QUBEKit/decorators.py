@@ -15,7 +15,7 @@ def timer_func(orig_func):
         result = orig_func(*args, **kwargs)
         t2 = time() - t1
 
-        print('{} ran in: {} seconds.'.format(orig_func.__name__, t2))
+        print(f'{orig_func.__qualname__} ran in: {t2} seconds.')
 
         return result
     return wrapper
@@ -50,10 +50,11 @@ def timer_logger(orig_func):
                 file_name = file
 
                 with open(file_name, 'a+') as log_file:
-                    log_file.write(f'{orig_func.__name__} began at {start_time}.\n\nDocstring for {orig_func.__name__}: {orig_func.__doc__}\n\n')
-                    log_file.write(f'{orig_func.__name__} finished in {time_taken} seconds.')
+                    log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
+                    log_file.write(f'Docstring for {orig_func.__name__}: {orig_func.__doc__}\n\n')
+                    log_file.write(f'{orig_func.__name__} finished in {time_taken} seconds.\n\n')
                     # Add some separation space between function / method logs.
-                    log_file.write('\n\n-------------------------------------------------------\n\n')
+                    log_file.write('-------------------------------------------------------\n\n')
         return result
     return wrapper
 

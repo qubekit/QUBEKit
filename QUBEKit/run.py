@@ -105,7 +105,7 @@ def main():
             defaults_dict['ddec version'] = int(commands[count + 1])
 
         if any(s in cmd for s in ('geo', 'geometric')):
-            defaults_dict['geometric'] = False if commands[count + 1] == 'False' or 'false' else True
+            defaults_dict['geometric'] = False if commands[count + 1] == 'false' else True
 
         if cmd == 'psi4':
             defaults_dict['bonds engine'] = 'psi4'
@@ -126,7 +126,7 @@ def main():
             defaults_dict['config'] = str(commands[count + 1])
 
         if cmd == '-solvent':
-            defaults_dict['solvent'] = False if commands[count + 1] == 'False' or 'false' else True
+            defaults_dict['solvent'] = False if commands[count + 1] == 'false' else True
 
     print('These are the current defaults:', defaults_dict, 'Please note, some values may not be used.')
 
@@ -158,13 +158,13 @@ def main():
         date = datetime.now().strftime('%Y_%m_%d')
 
         # Define name of working directory.
-        # This is formatted as 'QUBEKit_yy_mm_dd_moleculename_logname/num'.
-        log_string = 'QUBEKit_' + date + '_' + file[:-4] + '_' + defaults_dict['run number']
+        # This is formatted as 'QUBEKit_yy_mm_dd_moleculename_lognum'.
+        log_string = f'QUBEKit_{date}_{file[:-4]}_{defaults_dict["run number"]}'
         mkdir(log_string)
 
         # Copy active pdb into new directory.
-        sub_call(f'cp {file} {str(log_string) + "/" + file}', shell=True)
-        # Change into new directory.
+        sub_call(f'cp {file} {str(log_string)}/{file}', shell=True)
+        # Move into new working directory.
         chdir(log_string)
 
         # Create log file.

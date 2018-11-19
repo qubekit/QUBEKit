@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
 
-from helpers import config_loader, get_overage
-import decs
+from helpers import config_loader
+from decorators import for_all_methods, timer_logger
 from subprocess import call as sub_call
 
 
 class Engines:
-    """Engines superclass containing core information that all other engines (psi4, g09 etc) will have.
+    """Engines superclass containing core information that all other engines (PSI4, Gaussian etc) will have.
     Provides atoms' coordinates with name tags for each atom and entire molecule.
-    Also gives all configs from the appropriate config file."""
+    Also gives all configs from the appropriate config file.
+    """
 
     def __init__(self, molecule, config_dic):
         # Obtains the molecule name and a list of elements in the molecule with their respective coordinates.
@@ -23,15 +24,14 @@ class Engines:
         confs = config_loader(config_dic['config'])
         self.qm, self.fitting, self.paths = confs
 
-    # def __repr__(self):
-    #     """Returns representation of the object"""
-    #     return 'class: {}, args: ("{}")'.format(self.__class__.__name__, self.molecule_name.__name__)
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
 
 
-@decs.for_all_methods(decs.timer_logger)
+@for_all_methods(timer_logger)
 class PSI4(Engines):
     """Psi4 class (child of Engines).
-    Used to extract optimised structures, hessians, frequencies, etc.
+    Used to extract optimised structures, Hessians, frequencies, etc.
     """
 
     def __init__(self, molecule, config_dic, name='psi4'):
@@ -51,7 +51,7 @@ class PSI4(Engines):
         molecule is a numpy array of size N x N
         """
 
-        from numpy import array, reshape, zeros
+        from numpy import array
 
         hess_size = len(self.engine_mol.molecule) * 3
 
@@ -68,56 +68,54 @@ class PSI4(Engines):
                     print(start_of_hess)
 
                     # Check if the hessian continues over onto more lines (i.e. if hess_size is not divisible by 5)
-                    if hess_size % 5 == 0:
-                        extra = 0
-                    else:
-                        extra = 1
-                    # length_of_hess: #of cols * length of each col
-                    #                +#of cols - 1 * #blank lines per row of hess_vals
-                    #                +#blank lines per row of hess_vals if the hess_size continues over onto more lines.
-                    length_of_hess = (hess_size // 5) * hess_size + (hess_size // 5 - 1) * 3 + extra * (3 + hess_size)
 
-                    end_of_hess = start_of_hess + length_of_hess
+            if hess_size % 5 == 0:
+                extra = 0
+            else:
+                extra = 1
+            # length_of_hess: #of cols * length of each col
+            #                +#of cols - 1 * #blank lines per row of hess_vals
+            #                +#blank lines per row of hess_vals if the hess_size continues over onto more lines.
+            length_of_hess = (hess_size // 5) * hess_size + (hess_size // 5 - 1) * 3 + extra * (3 + hess_size)
 
-                    hess_vals = []
+            end_of_hess = start_of_hess + length_of_hess
 
-                    for file_line in lines[start_of_hess:end_of_hess]:
-                        # Compile lists of the 5 Hessian floats for each row.
-                        # Number of floats in last row may be less than 5.
-                        # Only the actual floats are added, not the separating numbers.
-                        row_vals = [float(val) for val in file_line.split() if len(val) > 5]
-                        hess_vals.append(row_vals)
+            hess_vals = []
 
-                    # Remove blank list entries
-                    hess_vals = [elem for elem in hess_vals if elem]
-                    print(hess_vals)
+            for file_line in lines[start_of_hess:end_of_hess]:
+                # Compile lists of the 5 Hessian floats for each row.
+                # Number of floats in last row may be less than 5.
+                # Only the actual floats are added, not the separating numbers.
+                row_vals = [float(val) for val in file_line.split() if len(val) > 5]
+                hess_vals.append(row_vals)
 
-                    # Make a matrix of the correct size and start filling it up with the lists
-                    reshaped = []
+            # Remove blank list entries
+            hess_vals = [elem for elem in hess_vals if elem]
 
-                    # Convert from list of (lists, length 5) to 2d array of size hess_size x hess_size
-                    for i in range(hess_size):
-                        row = []
-                        for j in range(hess_size // 5 + 1):
-                            row += hess_vals[i + j * hess_size]
+            reshaped = []
 
-                        reshaped.append(row)
+            # Convert from list of (lists, length 5) to 2d array of size hess_size x hess_size
+            for old_row in range(hess_size):
+                new_row = []
+                for col_block in range(hess_size // 5 + extra):
+                    new_row += hess_vals[old_row + col_block * hess_size]
 
-                    # Units conversion.
-                    hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
+                reshaped.append(new_row)
 
-                    # Check matrix is symmetric to within some error.
-                    error = 0.00001
+            # Units conversion.
+            hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
 
-                    for i in range(len(hess_matrix)):
-                        for j in range(len(hess_matrix)):
-                            if abs(hess_matrix[i, j] - hess_matrix[j, i]) > error:
-                                raise Exception('Hessian is not symmetric.')
+            # Check matrix is symmetric to within some error.
+            error = 0.00001
 
-                    print('Extracted Hessian for {} from psi4 output.'.format(self.engine_mol.name))
+            for i in range(len(hess_matrix)):
+                for j in range(len(hess_matrix)):
+                    if abs(hess_matrix[i, j] - hess_matrix[j, i]) > error:
+                        raise Exception('Hessian is not symmetric.')
 
-                    self.engine_mol.hessian = hess_matrix
-                    return self.engine_mol
+            print(f'Extracted Hessian for {self.engine_mol.name} from psi4 output.')
+            self.engine_mol.hessian = hess_matrix
+            return self.engine_mol
 
     def optimised_structure(self):
         """Parses the final optimised structure from the B3LYP_output.dat file (from psi4) to a numpy array.
@@ -151,15 +149,19 @@ class PSI4(Engines):
                     struct_row.append(float(lines[start_of_vals + row].split()[indx]))
 
                 f_opt_struct.append(struct_row)
-        print('Extracted optimised structure for {} from psi4 output.'.format(self.engine_mol.name))
-        self.engine_mol.QMoptimized = f_opt_struct
+
+        print(f'Extracted optimised structure for {self.engine_mol.name} from psi4 output.')
+        self.engine_mol.QMoptimized = array(f_opt_struct)
+
         return self.engine_mol
 
     def energy(self):
         pass
 
+      
     def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, threads=False):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
+
 
         if QM:
             molecule = self.engine_mol.QMoptimized
@@ -226,6 +228,7 @@ class PSI4(Engines):
         # sub_call('psi4 input.dat -n {}'.format(self.qm['threads']), shell=True)
 
     def all_modes(self):
+        """Extract all modes from the psi4 output file."""
 
         from numpy import array
 
@@ -258,7 +261,8 @@ class PSI4(Engines):
 
     def geo_gradiant(self, QM=False, MM=False, run=True, threads=False):
         """"Write the psi4 style input file to get the gradient for geometric
-        and run geometric optimization."""
+        and run geometric optimisation.
+        """
 
         if QM:
             molecule = self.engine_mol.QMoptimized
@@ -268,6 +272,7 @@ class PSI4(Engines):
             molecule = self.engine_mol.molecule
 
         with open(self.engine_mol.name + '.psi4in', 'w+') as file:
+
             file.write('molecule {} {{\n {} {} \n'.format(self.engine_mol.name, self.charge, self.multiplicity))
             for i in range(len(molecule)):
                 file.write('  {}    {: .10f}  {: .10f}  {: .10f}\n'.format(molecule[i][0], float(molecule[i][1]),
@@ -337,6 +342,7 @@ class PSI4(Engines):
 #         return self.engine_mol
 
 
+@for_all_methods(timer_logger)
 class Chargemol(Engines):
 
     def __init__(self, molecule, config_file):
@@ -346,7 +352,7 @@ class Chargemol(Engines):
         """Given a DDEC version (from the defaults), this function writes the job file for chargemol."""
 
         if ddec_version != 6 or ddec_version != 3:
-            print('Invalid DDEC version given, running with default version 6.')
+            print('Invalid or unsupported DDEC version given, running with default version 6.')
             ddec_version = 6
 
         # Write the charges job file.
@@ -365,7 +371,6 @@ class Chargemol(Engines):
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
         sub_call('psi4 input.dat -n {}'.format(self.qm['threads']), shell=True)
-
         sub_call('mv Dt.cube total_density.cube', shell=True)
         sub_call(self.paths[
                      'chargemol'] + '/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
@@ -375,3 +380,27 @@ class Chargemol(Engines):
         """Extract the charge data from the chargemol execution."""
 
         pass
+
+
+@for_all_methods(timer_logger)
+class Gaussian(Engines):
+
+    def __init__(self, molecule, config_file, charge, multiplicity):
+
+        super().__init__(molecule, config_file)
+        self.charge = charge
+        self.multiplicity = multiplicity
+
+    def generate_input(self):
+
+        with open('gaussian_job', 'w+') as charge_file:
+
+            charge_file.write(f'%Mem={self.qm["memory"]}GB\n%NProcShared={self.qm["threads"]}\n%Chk=lig\n')
+            charge_file.write(f'# {self.qm["theory"]}/{self.qm["basis"]} SCF=XQC freq\n\n{self.engine_mol.name}\n\n')
+            charge_file.write(f'{self.charge} {self.multiplicity}\n')
+
+            for atom in range(len(self.engine_mol.molecule)):
+                charge_file.write('{} {: .3f} {: .3f} {: .3f}\n'.format(self.engine_mol.molecule[atom][0],
+                                                                        float(self.engine_mol.molecule[atom][1]),
+                                                                        float(self.engine_mol.molecule[atom][2]),
+                                                                        float(self.engine_mol.molecule[atom][3])))

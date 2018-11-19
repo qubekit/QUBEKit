@@ -1,7 +1,8 @@
 #! /usr/bin/env python
 
-from engines import PSI4
+from engines import PSI4, Gaussian
 from ligand import Ligand
+
 from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
 from QUBEKit.dihedrals import Torsion_scan
 
@@ -86,6 +87,14 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
                  'bonds engine': 'psi4', 'charges engine': 'chargemol',
                  'ddec version': 6, 'geometric': True, 'solvent': None,
                  'run number': '999', 'config': 'default_config'}
+
+# file = 'ethane.pdb'
+# mol = Ligand(file)
+#
+# if defaults_dict['bonds engine'] == 'psi4':
+#     QMengine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
+#
+#     os.chdir('QUBEKit_2018_11_01_ethane_999')
 
 
 def mode_check(g09_modes, mol):
