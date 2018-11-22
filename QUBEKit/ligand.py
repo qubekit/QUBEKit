@@ -39,6 +39,8 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
+        self.sigmas = None
+        self.epsilons = None
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -170,10 +172,7 @@ class Ligand:
             self.topology.remove_edge(*key)
 
             # Check if there is still a path between the two atoms in the edges.
-            if has_path(self.topology, key[0], key[1]):
-                pass
-
-            else:
+            if not has_path(self.topology, key[0], key[1]):
                 self.rotatable.append(key)
 
             # Add edge back to the network and try next key

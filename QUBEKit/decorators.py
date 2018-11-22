@@ -51,8 +51,8 @@ def timer_logger(orig_func):
 
                 with open(file_name, 'a+') as log_file:
                     log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
-                    log_file.write(f'Docstring for {orig_func.__name__}: {orig_func.__doc__}\n\n')
-                    log_file.write(f'{orig_func.__name__} finished in {time_taken} seconds.\n\n')
+                    log_file.write(f'Docstring for {orig_func.__qualname__}: {orig_func.__doc__}\n\n')
+                    log_file.write(f'{orig_func.__qualname__} finished in {time_taken} seconds.\n\n')
                     # Add some separation space between function / method logs.
                     log_file.write('-------------------------------------------------------\n\n')
         return result

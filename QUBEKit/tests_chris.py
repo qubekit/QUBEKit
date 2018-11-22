@@ -1,10 +1,13 @@
 #! /usr/bin/env python
 
-from engines import PSI4, Gaussian
+from engines import PSI4, Gaussian, Chargemol
 from ligand import Ligand
-
+import os
 from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
-from QUBEKit.dihedrals import Torsion_scan
+from QUBEKit.dihedrals import TorsionScan
+from QUBEKit.lennard_jones import LennardJones as LJ
+
+from subprocess import call as sub_call
 
 
 # def gather_charges():
@@ -117,52 +120,89 @@ def mode_check(g09_modes, mol):
     print("Mean unsigned error across frequencies = %6.3f" % (mean_error))
 
 
-file = 'ethane.pdb'
+file = 'methanol.pdb'
 mol = Ligand(file)
+# QMengine = PSI4(mol, defaults_dict)
+
+# os.chdir('QUBEKit_2018_11_19_ethane_999')
+# os.chdir('QUBEKit_2018_11_20_methanol_999')
 # print(mol)
-MMengine = 'OpenMM' #  place holder for now
-if defaults_dict['bonds engine'] == 'psi4':
-    QMengine = PSI4(mol, defaults_dict)
+# MMengine = 'OpenMM' #  place holder for now
+# if defaults_dict['bonds engine'] == 'psi4':
+#     QMengine = PSI4(mol, defaults_dict)
+#
+#     if defaults_dict['geometric']:
+#         print('writing the input files running geometric')
+#         QMengine.geo_gradiant()
+#
+#         # QMengine.generate_input(0, 1)
+#         print('extracting the optimized structure')
+# mol.read_xyz_geo()
+# mol = QMengine.optimised_structure()
+#         print(mol)
+#         print('now write the hessian input file and run')
+#         # QMengine.generate_input(QM=True, hessian=True)
+#         print(mol.get_bond_lengths(QM=True))
+#         print('extracting hessian')
+# mol = QMengine.hessian()
+#         print(mol)
+#         print(len(mol.hessian))
+#
+#         # need to give the vib scaling from the configs folder
+# modified_seminario_method(0.957, mol)
+#         g09_B3LYP_modes = [307.763,  826.0159, 827.2216, 996.2495, 1216.8186, 1217.6571, 1407.3454, 1422.7768, 1503.0658, 1503.4704, 1505.2479, 1505.6004, 3024.1788, 3024.2981, 3069.7309, 3069.9317, 3094.7834, 3094.9185]
+#         g09_PBE_modes = [302.8884, 798.9961, 800.5292, 990.4741, 1172.8610, 1173.9200,  1353.9015, 1371.2520, 1453.8914, 1454.4174, 1454.5196, 1454.9089, 2966.7425, 2968.0405, 3020.3395, 3020.5401, 3045.1898, 3045.3219]
+#         # g09_wb97xd_modes = [306.5634, 829.3540, 834.2469, 1016.6714, 1219.6302, 1221.3450, 1406.3348, 1432.7911, 1505.4329, 1506.6761, 1511.0973, 1511.3159, 3051.1161, 3053.2269, 3110.2532, 3111.6376, 3133.7972, 3135.1898]
+# mol = QMengine.all_modes()
+#         print(mol.modes)
+#         print('comparing modes to g09')
+#         mode_check(g09_B3LYP_modes, mol)
+#
+# Scan = TorsionScan(mol, QMengine, 'OpenMM')
+# sub_call(f'{Scan.cmd}', shell=True)
+# print(Scan.cmd)
+# Scan.start_scan()
+#
+LennyJ = LJ(mol, 6)
+#
+# print(LennyJ.extract_params())
+# print(LennyJ.calc_ai_bi())
+# print(LennyJ.polar_hydrogens())
 
-    os.chdir('QUBEKit_2018_10_31_methane_666')
 
-    # if defaults_dict['geometric']:
-        # print('writing the input files running geometric')
-        # QMengine.geo_gradiant(0, 1)
+# print(LJ.lj_polar_hydrogens(mol))
+# print(mol.molecule)
+# print(mol.topology.edges)
+# print(list(mol.topology.neighbors(2)))
 
-        # QMengine.generate_input(0, 1)
-        # print('extracting the optimized structure')
-        # mol.read_xyz_geo()
-        # mol = QMengine.optimised_structure()
-        # print(mol)
-        # print('now write the hessian input file and run')
-        # QMengine.generate_input(0, 1, QM=True, hessian=True)
-        # print(mol.get_bond_lengths(QM=True))
-        # print('extracting hessian')
-        # mol = QMengine.hessian()
-        # mol.hessian = input_data_processing_g09()
-        # print(mol)
-        # def isSymmetric(mat, N):
-        #     for i in range(N):
-        #         for j in range(N):
-        #             if (mat[i,j] != mat[j,i]):
-        #                 return False
-        #     return True
-        # print(isSymmetric(mol.hessian, 15))
-        #print(len(mol.hessian))
+# same_type1 = Ligand('atom_type_test1.pdb')
+# # same_type2 = Ligand('atom_type_test2.pdb')
+#
+# G1 = Gaussian(same_type1, config_dict=defaults_dict, charge=0, multiplicity=1)
+#
+# # Generate with optimised structure and create job file for density/charges calc
+# G1.generate_input(density=True)
+#
+# # G2 = Gaussian(same_type2, config_dict=defaults_dict, charge=0, multiplicity=1)
+# #
+# # G2.generate_input(QM=True, density=True)
 
-        # need to give the vib scalling from the configs folder
-        # modified_seminario_method(0.957, mol)
-        # g09_B3LYP_modes = [307.763,  826.0159, 827.2216, 996.2495, 1216.8186, 1217.6571, 1407.3454, 1422.7768, 1503.0658, 1503.4704, 1505.2479, 1505.6004, 3024.1788, 3024.2981, 3069.7309, 3069.9317, 3094.7834, 3094.9185]
-        # g09_PBE_modes = [302.8884, 798.9961, 800.5292, 990.4741, 1172.8610, 1173.9200,  1353.9015, 1371.2520, 1453.8914, 1454.4174, 1454.5196, 1454.9089, 2966.7425, 2968.0405, 3020.3395, 3020.5401, 3045.1898, 3045.3219]
-        # g09_wb97xd_modes = [306.5634, 829.3540, 834.2469, 1016.6714, 1219.6302, 1221.3450, 1406.3348, 1432.7911, 1505.4329, 1506.6761, 1511.0973, 1511.3159, 3051.1161, 3053.2269, 3110.2532, 3111.6376, 3133.7972, 3135.1898]
-        # mol = QMengine.all_modes()
-        # print(mol.modes)
-        # print('comparing modes to g09')
-        # mode_check(g09_B3LYP_modes, mol)
+# benzene = Ligand('benzene.pdb')
+# dichlorobenzene = Ligand('dichlorobenzene.pdb')
+#
+# G1 = Gaussian(benzene, defaults_dict, 0, 1)
+# G2 = Gaussian(dichlorobenzene, defaults_dict, 0, 1)
+#
+# G1.generate_input(density=True)
+# G2.generate_input(density=True)
 
-scan = Torsion_scan(mol, QMengine, MMengine)
-print(scan.cmd)
-scan.start_scan()
+# print({mol.molecule[atom][0]: LennyJ.calc_ai_bi()[atom] for atom in range(len(mol.molecule))})
+#
+# # print([mol.molecule[atom][0] for atom in range(len(mol.molecule))])
+#
+benz = Ligand('benzene.pdb')
 
-print(mol)
+chargemol = Chargemol(benz, config_file=defaults_dict)
+chargemol.generate_input()
+
+LennyJ.amend_ai_bi()
