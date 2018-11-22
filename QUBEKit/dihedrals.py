@@ -3,7 +3,7 @@
 from subprocess import call as sub_call
 
 
-class Torsion_scan:
+class TorsionScan:
 
     def __init__(self, molecule, QMengine, MMengine, native_opt=False, verbose=False):
         self.QMengine = QMengine
@@ -47,7 +47,7 @@ class Torsion_scan:
             print(scans)
 
             scan_order = []
-            # now add the rottable dihedral keys chossen to an array
+            # now add the rotatable dihedral keys to an array
             for scan in scans:
                 scan_order.append(rotatable[int(scan)-1])
             self.scan_mol.scan_order = scan_order
@@ -60,11 +60,12 @@ class Torsion_scan:
 
         with open('dihedrals.txt', 'w+') as out:
 
-            out.write('# dihedral definition by atom indices starting from 0\n# i     j      k     l\n')
-            out.write('  {}     {}      {}     {}\n'.format(self.scan_mol.dihedrals[scan][0][0], self.scan_mol.dihedrals[scan][0][1], self.scan_mol.dihedrals[scan][0][2], self.scan_mol.dihedrals[scan][0][3]))
+            out.write('# dihedral definition by atom indices starting from 0\n# i     j     k     l\n')
+            out.write('  {}     {}     {}     {}\n'.format(self.scan_mol.dihedrals[scan][0][0], self.scan_mol.dihedrals[scan][0][1], self.scan_mol.dihedrals[scan][0][2], self.scan_mol.dihedrals[scan][0][3]))
 
         if self.native_opt:
-            self.QMengine.generate_input(optimize=True, threads=True)  # TODO should also set up the amount of threds to use in torsion drive!
+            # TODO should also set up the number of threads to use in torsion drive!
+            self.QMengine.generate_input(optimize=True, threads=True)
 
         else:
             self.QMengine.geo_gradiant(run=False, threads=True)
@@ -72,36 +73,36 @@ class Torsion_scan:
     def torsion_cmd(self):
         """Function generates a command string to run torsiondrive based on the input commands."""
 
-        # add the first basic comamnd elements
+        # add the first basic command elements
         self.cmd += 'torsiondrive-launch {}.psi4in dihedrals.txt '.format(self.scan_mol.name)
         if self.grid_space:
             self.cmd += '-g {} '.format(self.grid_space)
         if self.QMengine:
-            self.cmd += '-e {}'.format(self.QMengine.name)
+            self.cmd += '-e {}'.format(self.QMengine.__class__.__name__.lower())
         if self.native_opt:
             self.cmd += '--native_opt '
         if self.verbose:
             self.cmd += '-v '
-
-        return self
+        print(self.cmd)
+        return self.cmd
 
     def get_energy(self, scan):
         """Function will extract an array of energies from the scan results
         and store it back into the molecule in a dictionary using the scan order as keys."""
 
-        scan_file = open('scan.xyz', 'r').readlines()
-        scan_energy = []
-        for line in scan_file:
-            if 'Energy ' in line:
-                scan_energy.append(float(line.split()[3]))
+        with open('scan.xyz', 'r') as scan_file:
+            scan_energy = []
+            for line in scan_file:
+                if 'Energy ' in line:
+                    scan_energy.append(float(line.split()[3]))
 
-        self.scan_mol.scan_energy[scan] = scan_energy
+            self.scan_mol.scan_energy[scan] = scan_energy
 
-        return self.scan_mol
+            return self.scan_mol
 
     def start_scan(self):
         """Function makes a folder and writes a new a dihedral input file for each scan."""
-        # TODO put all the scans in a work queue so the scans can be performed in parallel
+        # TODO put all the scans in a work queue so they can be performed in parallel
 
         from os import mkdir, chdir
 
@@ -109,9 +110,9 @@ class Torsion_scan:
             try:
                 mkdir('SCAN_{}'.format(scan))
             except:
-                pass
+                raise Exception(f'Cannot create SCAN_{scan} dir.')
             chdir('SCAN_{}'.format(scan))
             # now make the scan input files
             self.scan_input(scan)
-            # sub_call(self.cmd)
+            sub_call(self.cmd, shell=True)
             self.get_energy(scan)
