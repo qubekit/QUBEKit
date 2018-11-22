@@ -25,13 +25,19 @@ class Ligand:
         self.bonds = None
         self.MMoptimized = None
         self.QMoptimized = None
-        self.parameters = None
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
         self.atom_names = None
         self.polar = None
+        self.xml_tree = None
         self.scan_energy = {}
+        self.AtomTypes = {}
+        self.Residues = {}
+        self.HarmonicBondForce = {}
+        self.HarmonicAngleForce = {}
+        self.PeriodicTorsionForce = {}
+        self.NonbondedForce = {}
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -39,6 +45,13 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
+
+    element_dict = {'H': 1.008000,  # Group 1
+                    'C': 12.011000,  # Group 4
+                    'N': 14.007000, 'P': 30.973762,  # Group 5
+                    'O': 15.999000, 'S': 32.060000,  # Group 6
+                    'F': 18.998403, 'Cl': 35.450000, 'Br': 79.904000, 'I': 126.904470  # Group 7
+                    }
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -283,7 +296,81 @@ class Ligand:
 
     def write_parameters(self):
         """Take the molecules parameter set and write an xml file for the molecule."""
-        pass
+
+        # first build the xml tree
+        self.build_tree()
+
+        import xml.etree.ElementTree as ET
+        import xml.dom.minidom
+
+        tree = self.xml_tree.getroot()
+        messy = ET.tostring(tree, 'utf-8')
+
+        xml = xml.dom.minidom.parseString(messy)
+        pretty_xml_as_string = xml.toprettyxml(indent="")
+
+        out = open('{}.xml'.format(self.name), 'w+')
+        out.write(pretty_xml_as_string)
+        out.close()
+
+        print('XML made!')
+
+
+    def build_tree(self):
+        """This method seperates the parameters and builds an xml tree ready for writing out."""
+
+        import xml.etree.ElementTree as ET
+
+        # create XML layout
+        root = ET.Element('ForceField')
+        AtomTypes = ET.SubElement(root, "AtomTypes")
+        Residues = ET.SubElement(root, "Residues")
+        Residue = ET.SubElement(Residues, "Residue", name="UNK")
+        HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
+        HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
+        PeriodicTorsionForce = ET.SubElement(root, "PeriodicTorsionForce")
+        NonbondedForce = ET.SubElement(root, "NonbondedForce", attrib={'coulomb14scale':"0.5", 'lj14scale':"0.5"})
+
+        # Add the AtomTypes
+        for i in range(len(self.AtomTypes)):
+            ET.SubElement(AtomTypes, "Type", attrib={'name': self.AtomTypes[i][1], 'class': self.AtomTypes[i][2],
+                                                     'element': self.molecule[i][0],
+                                                     'mass': str(self.element_dict[self.molecule[i][0]])})
+            ET.SubElement(Residue, "Atom", attrib={'name': self.AtomTypes[i][0], 'type': self.AtomTypes[i][1]})
+
+        # add the bonds/connections
+        for key in self.HarmonicBondForce.keys():
+            ET.SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
+            ET.SubElement(HarmonicBondForce, "Bond",
+                          attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
+                                  'length': self.HarmonicBondForce[key][0], 'k': self.HarmonicBondForce[key][1]})
+
+        # add the angles
+        for key in self.HarmonicAngleForce.keys():
+            ET.SubElement(HarmonicAngleForce, "Angle",
+                          attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
+                                  'class3': self.AtomTypes[key[2]][2], 'angle': self.HarmonicAngleForce[key][0], 'k': self.HarmonicAngleForce[key][1]})
+
+        # add the torsion terms
+        for key in self.PeriodicTorsionForce.keys():
+            ET.SubElement(PeriodicTorsionForce, "Proper",
+                          attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
+                                  'class3': self.AtomTypes[key[2]][2], 'class4': self.AtomTypes[key[3]][2],
+                                  'k1': self.PeriodicTorsionForce[key][0][1], 'k2': self.PeriodicTorsionForce[key][1][1],
+                                  'k3': self.PeriodicTorsionForce[key][2][1], 'k4': self.PeriodicTorsionForce[key][3][1], 'periodicity1': '1',
+                                  'periodicity2': '2', 'periodicity3': '3', 'periodicity4': '4',
+                                  'phase1': self.PeriodicTorsionForce[key][0][2], 'phase2': self.PeriodicTorsionForce[key][1][2],
+                                  'phase3': self.PeriodicTorsionForce[key][2][2], 'phase4': self.PeriodicTorsionForce[key][3][2]})
+
+        # add the nonbonded parameters
+        for key in self.NonbondedForce.keys():
+            ET.SubElement(NonbondedForce, "Atom",
+                          attrib={'type': self.AtomTypes[key][1], 'charge': self.NonbondedForce[key][0], 'sigma': self.NonbondedForce[key][1], 'epsilon': self.NonbondedForce[key][2]})
+
+
+        # Store the tree back into the molecule
+        tree = ET.ElementTree(root)
+        self.xml_tree = tree
 
     def read_xyz_geo(self):
         """Read a geometric opt.xyz file to find the molecule array structure."""

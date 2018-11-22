@@ -1,7 +1,8 @@
 #! /usr/bin/env python
 
-from engines import PSI4, Gaussian
-from ligand import Ligand
+from QUBEKit.engines import PSI4, Gaussian
+from QUBEKit.ligand import Ligand
+from QUBEKit.parametrisation import OpenFF, XML
 
 from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
 from QUBEKit.dihedrals import Torsion_scan
@@ -97,34 +98,34 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
 #     os.chdir('QUBEKit_2018_11_01_ethane_999')
 
 
-def mode_check(g09_modes, mol):
-    """"Compare the modes calculated by g09 and psi4 calculate the % error and MUE taking g09 as ref
-    no scalling as they are calculated at the same theroy"""
-    import numpy as np
+# def mode_check(g09_modes, mol):
+#     """"Compare the modes calculated by g09 and psi4 calculate the % error and MUE taking g09 as ref
+#     no scalling as they are calculated at the same theroy"""
+#     import numpy as np
+#
+#     MMfreq = np.array(mol.modes)
+#     N = len(list(mol.topology.nodes))
+#     print(N)
+#     front = 1 / (3 * N - 6)
+#     QMfreq = np.array(g09_modes)
+#     bot =  QMfreq
+#     # print(bot)
+#     top = bot - MMfreq
+#     # print(top)
+#     mean_percent = 100 * front * sum(abs(top / bot))
+#     mean_error = front * sum(abs(top))
+#     print("Mean percentage error across frequencies = %5.3f" % (mean_percent))
+#     print("Mean unsigned error across frequencies = %6.3f" % (mean_error))
+#
+#
+# file = 'ethane.pdb'
+# mol = Ligand(file)
+# # print(mol)
+# MMengine = 'OpenMM' #  place holder for now
+# if defaults_dict['bonds engine'] == 'psi4':
+#     QMengine = PSI4(mol, defaults_dict)
 
-    MMfreq = np.array(mol.modes)
-    N = len(list(mol.topology.nodes))
-    print(N)
-    front = 1 / (3 * N - 6)
-    QMfreq = np.array(g09_modes)
-    bot =  QMfreq
-    # print(bot)
-    top = bot - MMfreq
-    # print(top)
-    mean_percent = 100 * front * sum(abs(top / bot))
-    mean_error = front * sum(abs(top))
-    print("Mean percentage error across frequencies = %5.3f" % (mean_percent))
-    print("Mean unsigned error across frequencies = %6.3f" % (mean_error))
-
-
-file = 'ethane.pdb'
-mol = Ligand(file)
-# print(mol)
-MMengine = 'OpenMM' #  place holder for now
-if defaults_dict['bonds engine'] == 'psi4':
-    QMengine = PSI4(mol, defaults_dict)
-
-    os.chdir('QUBEKit_2018_10_31_methane_666')
+    # os.chdir('QUBEKit_2018_10_31_methane_666')
 
     # if defaults_dict['geometric']:
         # print('writing the input files running geometric')
@@ -161,8 +162,33 @@ if defaults_dict['bonds engine'] == 'psi4':
         # print('comparing modes to g09')
         # mode_check(g09_B3LYP_modes, mol)
 
-scan = Torsion_scan(mol, QMengine, MMengine)
-print(scan.cmd)
-scan.start_scan()
-
+mol = Ligand('3HA.pdb')
 print(mol)
+
+OpenFF(mol)
+
+print('writing parameters')
+mol.write_parameters()
+
+# now test that the new xml file can be used in a calculation
+from simtk.openmm.app import *
+from simtk.openmm import *
+from simtk.unit import *
+
+
+print('run the molecule')
+
+pdb = PDBFile('3HA.pdb')
+modeller = Modeller(pdb.topology, pdb.positions)
+forcefield = ForceField('3HA.xml')
+system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff,  constraints=None)
+integrator = LangevinIntegrator(
+        300*kelvin, 5 / picosecond,  0.0005 * picoseconds)
+simulation = Simulation(modeller.topology, system, integrator)
+simulation.context.setPositions(modeller.positions)
+#simulation = Minimize(simulation,100)
+#simulation.reporters.append(app.PDBReporter('gas_output.pdb', 1000))
+#simulation.reporters.append(app.StateDataReporter('gas.txt', 1000, step=True, temperature=True, potentialEnergy=True, density=True,totalSteps=10000, totalEnergy=True))
+#simulation.step(6000000)
+state = simulation.context.getState(getEnergy=True)
+print(state.getPotentialEnergy())

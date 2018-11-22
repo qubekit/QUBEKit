@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 
-from helpers import config_loader
-from decorators import for_all_methods, timer_logger
+from QUBEKit.helpers import config_loader
+from QUBEKit.decorators import for_all_methods, timer_logger
 from subprocess import call as sub_call
 
 
@@ -34,17 +34,11 @@ class PSI4(Engines):
     Used to extract optimised structures, Hessians, frequencies, etc.
     """
 
-    def __init__(self, molecule, config_dic, name='psi4'):
+    def __init__(self, molecule, config_dic):
 
         super().__init__(molecule, config_dic)
-        self.name = name
 
-    # def __init__(self, molecule, config_file, geometric, solvent):
-    #
-    #     super().__init__(molecule, config_file)
-    #     self.geometric = geometric
-    #     # if not self.solvent, calculation will be in vacuo.
-    #     self.solvent = solvent
+
 
     def hessian(self):
         """Parses the Hessian from the B3LYP_output.dat file (from psi4) into a numpy array.
@@ -279,7 +273,7 @@ class PSI4(Engines):
                                                                            float(molecule[i][2]),
                                                                            float(molecule[i][3])))
 
-            file.write("}}\nset basis {}\n".format(self.qm['basis']))
+            file.write("units angstrom\n no_reorient\n}}\nset basis {}\n".format(self.qm['basis']))
             if threads:
                 file.write('set_num_threads({})'.format(self.qm['threads']))
             file.write("\n\ngradient('{}')\n".format(self.qm['theory']))
@@ -385,15 +379,13 @@ class Chargemol(Engines):
 @for_all_methods(timer_logger)
 class Gaussian(Engines):
 
-    def __init__(self, molecule, config_file, charge, multiplicity):
+    def __init__(self, molecule, config_file):
 
         super().__init__(molecule, config_file)
-        self.charge = charge
-        self.multiplicity = multiplicity
 
     def generate_input(self):
 
-        with open('gaussian_job', 'w+') as charge_file:
+        with open('gaussian_job.com', 'w+') as charge_file:
 
             charge_file.write(f'%Mem={self.qm["memory"]}GB\n%NProcShared={self.qm["threads"]}\n%Chk=lig\n')
             charge_file.write(f'# {self.qm["theory"]}/{self.qm["basis"]} SCF=XQC freq\n\n{self.engine_mol.name}\n\n')

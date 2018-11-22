@@ -48,9 +48,9 @@ from os import mkdir, chdir
 from subprocess import call as sub_call
 
 
-from engines import PSI4
-from ligand import Ligand
-import smiles
+from QUBEKit.engines import PSI4
+from QUBEKit.ligand import Ligand
+import QUBEKit.smiles as smiles
 
 
 defaults_dict = {

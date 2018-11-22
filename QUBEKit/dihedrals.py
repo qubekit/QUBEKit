@@ -77,7 +77,7 @@ class Torsion_scan:
         if self.grid_space:
             self.cmd += '-g {} '.format(self.grid_space)
         if self.QMengine:
-            self.cmd += '-e {}'.format(self.QMengine.name)
+            self.cmd += '-e {}'.format(self.QMengine.__class__.__name__.lower())
         if self.native_opt:
             self.cmd += '--native_opt '
         if self.verbose:
@@ -113,5 +113,5 @@ class Torsion_scan:
             chdir('SCAN_{}'.format(scan))
             # now make the scan input files
             self.scan_input(scan)
-            # sub_call(self.cmd)
+            sub_call(self.cmd, shell=True)
             self.get_energy(scan)
