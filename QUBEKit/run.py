@@ -47,28 +47,28 @@ from sys import argv as cmdline
 from os import mkdir, chdir
 from subprocess import call as sub_call
 
-
+from QUBEKit import smiles, modseminario
 from QUBEKit.engines import PSI4
 from QUBEKit.ligand import Ligand
-import QUBEKit.smiles as smiles
+from QUBEKit.dihedrals import TorsionScan
 
 
 defaults_dict = {
     'charge': 0, 'multiplicity': 1,
     'bonds engine': 'psi4', 'charges engine': 'chargemol',
-    'ddec version': 6, 'geometric': True, 'solvent': True,
+    'ddec version': 6, 'geometric': True, 'solvent': False,
     'run number': '999', 'config': 'default_config'
 }
 
 # TODO Complete help dict to cover everything.
 help_dict = {
-    'bonds': 'Bonds help, default={}'.format(defaults_dict['bonds engine']),
-    'charges': 'Charges help, default={}'.format(defaults_dict['charges engine']),
+    'bonds': f'Bonds help, default={defaults_dict["bonds engine"]}',
+    'charges': f'Charges help, default={defaults_dict["charges engine"]}',
     'dihedrals': 'Dihedrals help, default=???',
     'smiles': 'Enter the smiles code for the molecule.',
-    '-c': 'The charge of the molecule, default={}'.format(defaults_dict['charge']),
-    '-m': 'The multiplicity of the molecule, default={}'.format(defaults_dict['multiplicity']),
-    'qubekit': 'Welcome to QUBEKit\n{}'.format(__doc__),
+    '-c': f'The charge of the molecule, default={defaults_dict["charge"]}',
+    '-m': f'The multiplicity of the molecule, default={defaults_dict["multiplicity"]}',
+    'qubekit': f'Welcome to QUBEKit!\n{__doc__}',
     'ddec': 'It is recommended to use the default DDEC6, however DDEC3 is available.',
     'log': 'The name applied to the log files and directory for the current analysis.'
 }
@@ -158,8 +158,8 @@ def main():
         date = datetime.now().strftime('%Y_%m_%d')
 
         # Define name of working directory.
-        # This is formatted as 'QUBEKit_yy_mm_dd_moleculename_lognum'.
-        log_string = f'QUBEKit_{date}_{file[:-4]}_{defaults_dict["run number"]}'
+        # This is formatted as 'QUBEKit_molecule name_yy_mm_dd_log_conf'.
+        log_string = f'QUBEKit_{file[:-4]}_{date}_{defaults_dict["run number"]}'
         mkdir(log_string)
 
         # Copy active pdb into new directory.
@@ -168,8 +168,8 @@ def main():
         chdir(log_string)
 
         # Create log file.
-        # This is formatted as 'QUBEKit_log_yy_mm_dd_moleculename_logname/num'.
-        with open(f'QUBEKit_log_{date}_{mol.name}_{defaults_dict["run number"]}', 'w+') as log_file:
+        # This is formatted as 'QUBEKit_log_molecule name_yy_mm_dd_log_conf'.
+        with open(f'QUBEKit_log_{mol.name}_{date}_{defaults_dict["run number"]}', 'w+') as log_file:
             log_file.write(f'Beginning log file: {datetime.now()}\n\n')
 
         # Having been provided a smiles string or pdb, perform a preliminary optimisation.
@@ -204,8 +204,33 @@ def main():
 
             if defaults_dict['bonds engine'] == 'psi4':
                 print('Running psi4 bonds analysis.')
-                QMEngine = PSI4(mol, defaults_dict['config'], defaults_dict['geometric'], defaults_dict['solvent'])
-                QMEngine.generate_input(defaults_dict['charge'], defaults_dict['multiplicity'])
+                QMEngine = PSI4(mol, defaults_dict)
+
+                if defaults_dict['geometric']:
+                    QMEngine.geo_gradiant(MM=True)
+                    mol.read_xyz_geo()
+                    QMEngine.generate_input(QM=True, hessian=True)
+                    mol.get_bond_lengths(QM=True)
+                    mol = QMEngine.hessian()
+
+                    modseminario.modified_seminario_method(0.957, mol)
+                    g09_B3LYP_modes = [307.763, 826.0159, 827.2216, 996.2495, 1216.8186, 1217.6571, 1407.3454,
+                                       1422.7768, 1503.0658, 1503.4704, 1505.2479, 1505.6004, 3024.1788, 3024.2981,
+                                       3069.7309, 3069.9317, 3094.7834, 3094.9185]
+                    g09_PBE_modes = [302.8884, 798.9961, 800.5292, 990.4741, 1172.8610, 1173.9200, 1353.9015, 1371.2520,
+                                     1453.8914, 1454.4174, 1454.5196, 1454.9089, 2966.7425, 2968.0405, 3020.3395,
+                                     3020.5401, 3045.1898, 3045.3219]
+                    # g09_wb97xd_modes = [306.5634, 829.3540, 834.2469, 1016.6714, 1219.6302, 1221.3450, 1406.3348,
+                    #                     1432.7911, 1505.4329, 1506.6761, 1511.0973, 1511.3159, 3051.1161, 3053.2269,
+                    #                     3110.2532, 3111.6376, 3133.7972, 3135.1898]
+
+                    mol = QMEngine.all_modes()
+
+                    Scan = TorsionScan(mol, QMEngine, 'OpenMM')
+                    sub_call(f'{Scan.cmd}', shell=True)
+                    Scan.start_scan()
+                    print(mol)
+
                 return
 
             elif defaults_dict['bonds engine'] == 'g09':
