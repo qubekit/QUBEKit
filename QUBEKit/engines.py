@@ -38,12 +38,7 @@ class PSI4(Engines):
 
         super().__init__(molecule, config_dict)
 
-    # def __init__(self, molecule, config_file, geometric, solvent):
-    #
-    #     super().__init__(molecule, config_file)
-    #     self.geometric = geometric
-    #     # if not self.solvent, calculation will be in vacuo.
-    #     self.solvent = solvent
+
 
     def hessian(self):
         """Parses the Hessian from the B3LYP_output.dat file (from psi4) into a numpy array.
@@ -275,7 +270,7 @@ class PSI4(Engines):
                                                                            float(molecule[i][2]),
                                                                            float(molecule[i][3])))
 
-            file.write("}}\nset basis {}\n".format(self.qm['basis']))
+            file.write("units angstrom\n no_reorient\n}}\nset basis {}\n".format(self.qm['basis']))
             if threads:
                 file.write('set_num_threads({})'.format(self.qm['threads']))
             file.write("\n\ngradient('{}')\n".format(self.qm['theory']))

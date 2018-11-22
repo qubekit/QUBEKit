@@ -22,7 +22,7 @@ qm = {'theory': 'B3LYP', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'thread
 
 # iterations the max number of optimization iterations
 
-fitting = {'dih_start': 0, 'increment': 15, 'num_scan': 25, 't_weight': 'infinity', 'new_dih_num': 501, 'q_file': 'results.dat', 'tor_limit': 20, 'div_index': 0}
+fitting = {'dih_start': 0, 'increment': 15, 'num_scan': 25, 't_weight': 'infinity', 'new_dih_num': 501, 'q_file': 'results.dat', 'tor_limit': 20, 'div_index': 0, 'parameter_enegine': 'openFF'}
 
 # fitting configs:
 
@@ -42,6 +42,7 @@ fitting = {'dih_start': 0, 'increment': 15, 'num_scan': 25, 't_weight': 'infinit
 
 # div_index: fitting starting index in the division array
 
+# parameter_engine: the method used to parametrise the molecule initially
 
 paths = {'chargemol': '/home/b8009890/Programs/chargemol_09_26_2017'}
 
