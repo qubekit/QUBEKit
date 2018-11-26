@@ -5,11 +5,6 @@ class Ligand:
 
     def __init__(self, filename, smilesstring=None):
 
-        # TODO Check for consistent atom ordering across file types.
-        # e.g. does an xyz file order atoms the same as the pdb?
-        # This is highly important for L-J params which are stored
-        # according to their order in the xyz file.
-
         self.filename = filename
         self.name = filename[:-4]
         self.molecule = None
@@ -45,8 +40,6 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
-        self.sigmas = None
-        self.epsilons = None
 
     element_dict = {'H': 1.008000,  # Group 1
                     'C': 12.011000,  # Group 4
@@ -253,8 +246,8 @@ class Ligand:
             molecule = self.molecule
 
         for edge in self.topology.edges:
-            atom1 = array(molecule[int(edge[0])-1][1:])
-            atom2 = array(molecule[int(edge[1])-1][1:])
+            atom1 = array(molecule[int(edge[0]) - 1][1:])
+            atom2 = array(molecule[int(edge[1]) - 1][1:])
             bond_dist = linalg.norm(atom2 - atom1)
             self.bond_lengths[edge] = bond_dist
 
@@ -308,12 +301,10 @@ class Ligand:
         xml = xml.dom.minidom.parseString(messy)
         pretty_xml_as_string = xml.toprettyxml(indent="")
 
-        out = open('{}.xml'.format(self.name), 'w+')
-        out.write(pretty_xml_as_string)
-        out.close()
+        with open(f'{self.name}.xml', 'w+') as xml_doc:
+            xml_doc.write(pretty_xml_as_string)
 
         print('XML made!')
-
 
     def build_tree(self):
         """This method seperates the parameters and builds an xml tree ready for writing out."""
@@ -361,11 +352,10 @@ class Ligand:
                                   'phase1': self.PeriodicTorsionForce[key][0][2], 'phase2': self.PeriodicTorsionForce[key][1][2],
                                   'phase3': self.PeriodicTorsionForce[key][2][2], 'phase4': self.PeriodicTorsionForce[key][3][2]})
 
-        # add the nonbonded parameters
+        # add the non-bonded parameters
         for key in self.NonbondedForce.keys():
             ET.SubElement(NonbondedForce, "Atom",
                           attrib={'type': self.AtomTypes[key][1], 'charge': self.NonbondedForce[key][0], 'sigma': self.NonbondedForce[key][1], 'epsilon': self.NonbondedForce[key][2]})
-
 
         # Store the tree back into the molecule
         tree = ET.ElementTree(root)
@@ -382,13 +372,11 @@ class Ligand:
             lines = opt.readlines()
             for line in lines:
                 if 'Iteration' in line:
-                    print('Optimisation converged at iteration {} with final energy {}'.format(int(line.split()[1]),
-                                                                                               float(line.split()[3])))
+                    print(f'Optimisation converged at iteration {int(line.split()[1])} with final energy {float(line.split()[3])}')
                     write = True
 
                 elif write:
-                    opt_molecule.append([line.split()[0], float(line.split()[1]),
-                                         float(line.split()[2]), float(line.split()[3])])
+                    opt_molecule.append([line.split()[0], float(line.split()[1]), float(line.split()[2]), float(line.split()[3])])
         self.QMoptimized = opt_molecule
         return self
 

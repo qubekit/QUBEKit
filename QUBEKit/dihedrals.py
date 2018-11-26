@@ -68,7 +68,7 @@ class TorsionScan:
             self.QMengine.generate_input(optimize=True, threads=True)
 
         else:
-            self.QMengine.geo_gradiant(run=False, threads=True)
+            self.QMengine.geo_gradient(run=False, threads=True)
 
     def torsion_cmd(self):
         """Function generates a command string to run torsiondrive based on the input commands."""

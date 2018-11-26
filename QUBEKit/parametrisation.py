@@ -2,7 +2,8 @@
 # all must return the same dic object that can be stored in the molecule and writen to xml format
 # maybe Gromacs as well
 
-from QUBEKit.ligand import Ligand
+
+from QUBEKit.decorators import for_all_methods, timer_logger
 
 
 class Parametrisation:
@@ -11,7 +12,7 @@ class Parametrisation:
     to a parameter tree.
 
     Note all parameters gathered here are indexed from 0,
-    where as the ligand object index starts from 1 for all networkx related properties such as bonds!
+    whereas the ligand object index starts from 1 for all networkx related properties such as bonds!
 
 
     Parameters
@@ -20,7 +21,8 @@ class Parametrisation:
 
     input_file : an OpenMM style xml file associated with the molecule object
 
-    fftype : the FF type the molecule will be parameterised with only needed in the case of gaff or gaff2 else will be asigned based on class used.
+    fftype : the FF type the molecule will be parametrised with
+             only needed in the case of gaff or gaff2 else will be assigned based on class used.
 
     Returns
     -------
@@ -28,13 +30,13 @@ class Parametrisation:
 
     Residues : dictionary of residue names indexed by the order they appear.
 
-    HarmonicBondForce: dictionary of equilibrium distances and force constants stored under the bond tupple.
+    HarmonicBondForce: dictionary of equilibrium distances and force constants stored under the bond tuple.
 
     HarmonicAngleForce: dictionary of equilibrium  angles and force constant stored under the angle tuple.
 
     PeriodicTorsionForce : dictionary of periodicity, barrier and phase stored under the torsion tuple.
 
-    NonbondedForce : dictionary of  charge, sigma and epsilon stored under the orginal atom ordering.
+    NonbondedForce : dictionary of charge, sigma and epsilon stored under the original atom ordering.
     """
 
     def __init__(self, molecule, config_file=None, input_file=None, fftype=None):
@@ -43,6 +45,7 @@ class Parametrisation:
         self.fftype = fftype
 
 
+@for_all_methods(timer_logger)
 class XML(Parametrisation):
     """Read in the parameters for a molecule from an XML file and store them into the molecule."""
 
@@ -57,10 +60,7 @@ class XML(Parametrisation):
         import xml.etree.ElementTree as ET
         tree = ET.parse(self.input)
         root = tree.getroot()
-        print('Parameters found...')
         for child in root:
-            print(child.tag, child.attrib)
-            print(len(list(child)))
             # print out the amount of children in each element
             if child.tag == 'PeriodicTorsionForce':
                 count = sum(1 for improper in child.iter('Improper'))
@@ -75,6 +75,7 @@ class XML(Parametrisation):
             raise FileExistsError('No .xml type file found did you supply one?')
 
 
+@for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
     """Use AnteChamber to parametrise the Ligand first using gaff  or gaff2
     then build and export the xml tree object."""
@@ -103,6 +104,7 @@ class AnteChamber(Parametrisation):
         print(self.fftype)
 
 
+@for_all_methods(timer_logger)
 class OpenFF(Parametrisation):
     """This class uses the openFF in openeye to parametrise the molecule using frost.
     A serialized XML is then reformatted into a standard XML tree and saved."""
@@ -110,10 +112,10 @@ class OpenFF(Parametrisation):
     def __init__(self, molecule, config_file=None, input_file=None, fftype='frost'):
 
         super().__init__(molecule, config_file, input_file, fftype)
-        self.parameterise()
+        self.parametrise()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
 
-    def parameterise(self):
+    def parametrise(self):
         """This is the master function of the class
         1 parametrise the molecule with frost and serialize the system into an xml
         2 parse the object and construct the parameter dictionaries
@@ -165,7 +167,6 @@ class OpenFF(Parametrisation):
         # Try to gather the AtomTypes first
         for i, atom in enumerate(self.molecule.atom_names):
             self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i), str(self.molecule.molecule[i][0]) + str(800 + i)]
-        print(self.molecule.AtomTypes)
 
         # Now parse the xml file for the rest of the data
         inputXML_file = 'serilized.xml'
@@ -177,12 +178,9 @@ class OpenFF(Parametrisation):
             self.molecule.HarmonicBondForce[(int(Bond.get('p1')), int(Bond.get('p2')))] = [Bond.get('d'),
                                                                                   Bond.get('k')]
 
-        print(self.molecule.HarmonicBondForce)
-
         # Extract all angle data
         for Angle in in_root.iter('Angle'):
             self.molecule.HarmonicAngleForce[int(Angle.get('p1')), int(Angle.get('p2')), int(Angle.get('p3'))] = [Angle.get('a'), Angle.get('k')]
-        print(self.molecule.HarmonicAngleForce)
 
         # Extract all nonbonded data
         i = 0
@@ -190,9 +188,8 @@ class OpenFF(Parametrisation):
             if "eps" in Atom.attrib:
                 self.molecule.NonbondedForce[i] = [Atom.get('q'), Atom.get('sig'), Atom.get('eps')]
                 i += 1
-        print(self.molecule.NonbondedForce)
 
-        #Extract all of the torsion data
+        # Extract all of the torsion data
         phases = ['0', str(pi), '0', str(pi)]
         for Torsion in in_root.iter('Torsion'):
             tor_string_forward = (int(Torsion.get('p1')), int(Torsion.get('p2')), int(Torsion.get(
@@ -220,15 +217,8 @@ class OpenFF(Parametrisation):
         # sort by periodicity using lambda function
         for key in self.molecule.PeriodicTorsionForce.keys():
             self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
-        print(self.molecule.PeriodicTorsionForce)
 
 
+@for_all_methods(timer_logger)
 class BOSS(Parametrisation):
     pass
-
-
-
-
-
-
-

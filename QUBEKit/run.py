@@ -43,114 +43,137 @@ where '#' is any number or string you like.
 """
 
 
+from QUBEKit import smiles, modseminario
+from QUBEKit.lennard_jones import LennardJones
+from QUBEKit.engines import PSI4, Chargemol, Gaussian
+from QUBEKit.ligand import Ligand
+from QUBEKit.dihedrals import TorsionScan
+from QUBEKit.parametrisation import OpenFF
+
 from sys import argv as cmdline
 from os import mkdir, chdir
 from subprocess import call as sub_call
 
-from QUBEKit import smiles, modseminario
-from QUBEKit.engines import PSI4
-from QUBEKit.ligand import Ligand
-from QUBEKit.dihedrals import TorsionScan
+# TODO Add defaults list and commands to start of log file.
 
 
-defaults_dict = {
-    'charge': 0, 'multiplicity': 1,
-    'bonds engine': 'psi4', 'charges engine': 'chargemol',
-    'ddec version': 6, 'geometric': True, 'solvent': False,
-    'run number': '999', 'config': 'default_config'
-}
-
-# TODO Complete help dict to cover everything.
-help_dict = {
-    'bonds': f'Bonds help, default={defaults_dict["bonds engine"]}',
-    'charges': f'Charges help, default={defaults_dict["charges engine"]}',
-    'dihedrals': 'Dihedrals help, default=???',
-    'smiles': 'Enter the smiles code for the molecule.',
-    '-c': f'The charge of the molecule, default={defaults_dict["charge"]}',
-    '-m': f'The multiplicity of the molecule, default={defaults_dict["multiplicity"]}',
-    'qubekit': f'Welcome to QUBEKit!\n{__doc__}',
-    'ddec': 'It is recommended to use the default DDEC6, however DDEC3 is available.',
-    'log': 'The name applied to the log files and directory for the current analysis.'
-}
-
-
-def main():
+class Main:
     """Interprets commands from the terminal.
     Stores defaults, returns help or executes relevant functions.
     """
 
-    # Parse the terminal inputs
-    commands = cmdline[1:]
-    print('These are the commands you gave:', commands)
+    def __init__(self):
 
-    for count, cmd in enumerate(commands):
+        self.defaults_dict = {
+            'charge': 0, 'multiplicity': 1,
+            'bonds engine': 'psi4', 'charges engine': 'chargemol',
+            'ddec version': 6, 'geometric': True, 'solvent': False,
+            'run number': '999', 'config': 'default_config'
+        }
 
-        # Call help then stop.
-        if any(s in cmd for s in ('-h', '-help')):
+        self.help_dict = {
+            'bonds': f'Bonds help, default={self.defaults_dict["bonds engine"]}',
+            'charges': f'Charges help, default={self.defaults_dict["charges engine"]}',
+            'dihedrals': 'Dihedrals help, default=???',
+            'smiles': 'Enter the smiles code for the molecule.',
+            '-c': f'The charge of the molecule, default={self.defaults_dict["charge"]}',
+            '-m': f'The multiplicity of the molecule, default={self.defaults_dict["multiplicity"]}',
+            'qubekit': f'Welcome to QUBEKit!\n{__doc__}',
+            'ddec': 'It is recommended to use the default DDEC6, however DDEC3 is available.',
+            'log': 'The name applied to the log files and directory for the current analysis.',
+            'lj': 'Lennard-Jones help.',
+            'param': 'Parametrisation help.',
+        }
 
-            if commands[count + 1] in help_dict:
-                print(help_dict[commands[count + 1]])
+        self.file, self.commands = self.parse_commands()
+        self.create_log()
+        self.execute()
+
+    def parse_commands(self):
+        """Parses commands from the terminal. Will return either:
+        The help information requested (this also terminates the program);
+        The pdb file to be used.
+        This method will also interpret any default changes when input correctly (see header docstring for more info).
+        """
+
+        import sys
+
+        # Parse the terminal inputs
+        self.commands = cmdline[1:]
+        print('These are the commands you gave:', self.commands)
+
+        for count, cmd in enumerate(self.commands):
+
+            # Call help then stop.
+            if any(s in cmd for s in ('-h', '-help')):
+
+                if self.commands[count + 1] in self.help_dict:
+                    print(self.help_dict[self.commands[count + 1]])
+                else:
+                    print('Unrecognised help command; the valid help commands are:', self.help_dict.keys())
+                sys.exit()
+
+            # Change defaults for each analysis.
+            if cmd == '-c':
+                self.defaults_dict['charge'] = int(self.commands[count + 1])
+
+            if cmd == '-m':
+                self.defaults_dict['multiplicity'] = int(self.commands[count + 1])
+
+            if cmd == '-ddec':
+                self.defaults_dict['ddec version'] = int(self.commands[count + 1])
+
+            if any(s in cmd for s in ('geo', 'geometric')):
+                self.defaults_dict['geometric'] = False if self.commands[count + 1] == 'false' else True
+
+            if cmd == 'psi4':
+                self.defaults_dict['bonds engine'] = 'psi4'
+
+            if cmd == 'g09':
+                self.defaults_dict['bonds engine'] = 'g09'
+
+            if any(s in cmd for s in ('cmol', 'chargemol')):
+                self.defaults_dict['charges engine'] = 'chargemol'
+
+            if cmd == 'onetep':
+                self.defaults_dict['charges engine'] = 'onetep'
+
+            if cmd == '-log':
+                self.defaults_dict['run number'] = str(self.commands[count + 1])
+
+            if cmd == '-config':
+                self.defaults_dict['config'] = str(self.commands[count + 1])
+
+            if cmd == '-solvent':
+                self.defaults_dict['solvent'] = False if self.commands[count + 1] == 'false' else True
+
+        print('These are the current defaults:', self.defaults_dict, '\nPlease note, some values may not be used.')
+
+        for count, cmd in enumerate(self.commands):
+
+            # Check if a smiles string is given. If it is, generate the pdb and optimise it.
+            if any(s in cmd for s in ('-sm', '-smiles')):
+
+                # Generate pdb from smiles string.
+                self.file = smiles.smiles_to_pdb(self.commands[count + 1])
+
+            # If a pdb is given instead, use that.
+            elif 'pdb' in cmd:
+
+                self.file = cmd
+
+            # If neither a smiles string nor a pdb is given, raise exception.
             else:
-                print('Unrecognised help command; the valid help commands are:', help_dict.keys())
-            return
+                raise Exception('''Missing valid file type or smiles command.
+                    Please use zmat or pdb files and be sure to give the extension when typing the file name into the terminal.
+                    Alternatively, use the smiles command to generate a molecule.''')
 
-        # Change defaults for each analysis.
-        if cmd == '-c':
-            defaults_dict['charge'] = int(commands[count + 1])
+            return self.file, self.commands
 
-        if cmd == '-m':
-            defaults_dict['multiplicity'] = int(commands[count + 1])
-
-        if cmd == '-ddec':
-            defaults_dict['ddec version'] = int(commands[count + 1])
-
-        if any(s in cmd for s in ('geo', 'geometric')):
-            defaults_dict['geometric'] = False if commands[count + 1] == 'false' else True
-
-        if cmd == 'psi4':
-            defaults_dict['bonds engine'] = 'psi4'
-
-        if cmd == 'g09':
-            defaults_dict['bonds engine'] = 'g09'
-
-        if any(s in cmd for s in ('cmol', 'chargemol')):
-            defaults_dict['charges engine'] = 'chargemol'
-
-        if cmd == 'onetep':
-            defaults_dict['charges engine'] = 'onetep'
-
-        if cmd == '-log':
-            defaults_dict['run number'] = str(commands[count + 1])
-
-        if cmd == '-config':
-            defaults_dict['config'] = str(commands[count + 1])
-
-        if cmd == '-solvent':
-            defaults_dict['solvent'] = False if commands[count + 1] == 'false' else True
-
-    print('These are the current defaults:', defaults_dict, 'Please note, some values may not be used.')
-
-    for count, cmd in enumerate(commands):
-
-        # Check if a smiles string is given. If it is, generate the pdb and optimise it.
-        if any(s in cmd for s in ('-sm', '-smiles')):
-
-            # Generate pdb from smiles string.
-            file = smiles.smiles_to_pdb(commands[count + 1])
-
-        # If a pdb is given instead, use that.
-        elif 'pdb' in cmd:
-
-            file = cmd
-
-        # If neither a smiles string nor a pdb is given, raise exception.
-        else:
-            raise Exception('''Missing valid file type or smiles command.
-            Please use zmat or pdb files and be sure to give the extension when typing the file name into the terminal.
-            Alternatively, use the smiles command to generate a molecule.''')
-
-        # Initialise file with pdb params from smiles string input or pdb input.
-        mol = Ligand(file)
+    def create_log(self):
+        """Creates the working directory for the job as well as the log file.
+        This log file is then extended every time the timer_logger decorator is called.
+        """
 
         # Make working directory with correct name and move into it.
         from datetime import datetime
@@ -158,89 +181,97 @@ def main():
         date = datetime.now().strftime('%Y_%m_%d')
 
         # Define name of working directory.
-        # This is formatted as 'QUBEKit_molecule name_yy_mm_dd_log_conf'.
-        log_string = f'QUBEKit_{file[:-4]}_{date}_{defaults_dict["run number"]}'
+        # This is formatted as 'QUBEKit_molecule name_yy_mm_dd_log_string'.
+        log_string = f'QUBEKit_{self.file[:-4]}_{date}_{self.defaults_dict["run number"]}'
         mkdir(log_string)
 
         # Copy active pdb into new directory.
-        sub_call(f'cp {file} {str(log_string)}/{file}', shell=True)
+        sub_call(f'cp {self.file} {str(log_string)}/{self.file}', shell=True)
         # Move into new working directory.
         chdir(log_string)
 
         # Create log file.
-        # This is formatted as 'QUBEKit_log_molecule name_yy_mm_dd_log_conf'.
-        with open(f'QUBEKit_log_{mol.name}_{date}_{defaults_dict["run number"]}', 'w+') as log_file:
+        # This is formatted as 'QUBEKit_log_molecule name_yy_mm_dd_log_string'.
+        with open(f'QUBEKit_log_{self.file[-4]}_{date}_{self.defaults_dict["run number"]}', 'w+') as log_file:
             log_file.write(f'Beginning log file: {datetime.now()}\n\n')
+
+            log_file.write(f'The commands given were: {self.commands}\n\n')
+
+            log_file.write('The defaults used are:\n')
+            for key, var in self.defaults_dict.items():
+                log_file.write(f'{key}: {var}\n')
+            log_file.write('\n\n\n')
+
+    def execute(self):
+        """Calls all the relevant classes and methods for the full QM calculation in the correct order.
+        # TODO Add proper entry and exit points to allow more customised analysis.
+        """
+
+        # Initialise file with pdb params from smiles string input or pdb input.
+        mol = Ligand(self.file)
 
         # Having been provided a smiles string or pdb, perform a preliminary optimisation.
 
-        # Optimise the molecule from the pdb.
+        # Optimise the molecule from the pdb using rdkit.
         mol.filename = smiles.smiles_mm_optimise(mol.filename)
+
         # Initialise the molecule's pdb with its optimised form.
         mol.read_pdb(MM=True)
 
-        if 'charges' in commands:
+        # Parametrise with openFF
+        OpenFF(mol)
 
-            if defaults_dict['charges engine'] == 'chargemol':
-                print('Running chargemol charge analysis.')
-                return
-
-            elif defaults_dict['charges engine'] == 'onetep':
-                # TODO Add ONETEP engine function
-                print('Running onetep charge analysis.')
-                return
-
-            else:
-                raise Exception('Invalid charge engine given. Please use either chargemol or onetep.')
-
-        elif 'dihedrals' in commands:
-
-            # TODO Add dihedral calcs
-            print('Running dihedrals ...')
-            return
-
-        # else: run default bonds analysis
+        if self.defaults_dict['bonds engine'] == 'psi4':
+            # Initialise for PSI4
+            QMEngine = PSI4(mol, self.defaults_dict)
         else:
+            raise Exception('No other bonds engine currently implemented.')
 
-            if defaults_dict['bonds engine'] == 'psi4':
-                print('Running psi4 bonds analysis.')
-                QMEngine = PSI4(mol, defaults_dict)
+        if self.defaults_dict['geometric']:
 
-                if defaults_dict['geometric']:
-                    QMEngine.geo_gradiant(MM=True)
-                    mol.read_xyz_geo()
-                    QMEngine.generate_input(QM=True, hessian=True)
-                    mol.get_bond_lengths(QM=True)
-                    mol = QMEngine.hessian()
+            # Calc geometric-related gradient and geometry
+            QMEngine.geo_gradient(MM=True)
+            mol.read_xyz_geo()
 
-                    modseminario.modified_seminario_method(0.957, mol)
-                    g09_B3LYP_modes = [307.763, 826.0159, 827.2216, 996.2495, 1216.8186, 1217.6571, 1407.3454,
-                                       1422.7768, 1503.0658, 1503.4704, 1505.2479, 1505.6004, 3024.1788, 3024.2981,
-                                       3069.7309, 3069.9317, 3094.7834, 3094.9185]
-                    g09_PBE_modes = [302.8884, 798.9961, 800.5292, 990.4741, 1172.8610, 1173.9200, 1353.9015, 1371.2520,
-                                     1453.8914, 1454.4174, 1454.5196, 1454.9089, 2966.7425, 2968.0405, 3020.3395,
-                                     3020.5401, 3045.1898, 3045.3219]
-                    # g09_wb97xd_modes = [306.5634, 829.3540, 834.2469, 1016.6714, 1219.6302, 1221.3450, 1406.3348,
-                    #                     1432.7911, 1505.4329, 1506.6761, 1511.0973, 1511.3159, 3051.1161, 3053.2269,
-                    #                     3110.2532, 3111.6376, 3133.7972, 3135.1898]
+        else:
+            QMEngine.generate_input(MM=True, optimize=True)
+            QMEngine.optimised_structure()
 
-                    mol = QMEngine.all_modes()
+        # Write input file for PSI4
+        QMEngine.generate_input(QM=True, hessian=True)
 
-                    Scan = TorsionScan(mol, QMEngine, 'OpenMM')
-                    sub_call(f'{Scan.cmd}', shell=True)
-                    Scan.start_scan()
-                    print(mol)
+        # Calc bond lengths from molecule topology
+        mol.get_bond_lengths(QM=True)
 
-                return
+        # Extract Hessian
+        mol = QMEngine.hessian()
 
-            elif defaults_dict['bonds engine'] == 'g09':
-                # TODO Add g09 engine function
-                return
+        # Modified Seminario for bonds and angles
+        modseminario.modified_seminario_method(QMEngine.qm['vib_scaling'], mol)
+        mol = QMEngine.all_modes()
 
-            else:
-                raise Exception('Invalid bond engine given. Please use either psi4 or g09.')
+        # Prepare for density calc
+        G09 = Gaussian(mol, self.defaults_dict)
+        G09.generate_input(QM=True, density=True)
+
+        # Perform DDEC calc
+        CMol = Chargemol(mol, self.defaults_dict)
+        CMol.generate_input()
+
+        # Calculate Lennard-Jones parameters
+        LJ = LennardJones(mol, self.defaults_dict['ddec version'])
+        LJ.amend_sig_eps()
+
+        # Perform torsion scan
+        Scan = TorsionScan(mol, QMEngine, 'OpenMM')
+        sub_call(f'{Scan.cmd}', shell=True)
+        Scan.start_scan()
+
+        print(mol)
+
+        return
 
 
 if __name__ == '__main__':
 
-    main()
+    Main()
