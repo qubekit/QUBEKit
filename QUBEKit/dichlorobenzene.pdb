@@ -1,0 +1,21 @@
+COMPND    dichlorobenzene
+HETATM    1 CL1  UNL     1       3.123  -0.058   0.084  1.00  0.00          CL  
+HETATM    2  C1  UNL     1       1.377  -0.008   0.036  1.00  0.00           C  
+HETATM    3  C2  UNL     1       0.728   1.206  -0.043  1.00  0.00           C  
+HETATM    4  C3  UNL     1      -0.659   1.184  -0.078  1.00  0.00           C  
+HETATM    5  C4  UNL     1      -1.376   0.006  -0.036  1.00  0.00           C  
+HETATM    6 CL2  UNL     1      -3.127   0.049  -0.083  1.00  0.00          CL  
+HETATM    7  C5  UNL     1      -0.726  -1.209   0.044  1.00  0.00           C  
+HETATM    8  C6  UNL     1       0.657  -1.188   0.078  1.00  0.00           C  
+HETATM    9  H1  UNL     1       1.302   2.126  -0.076  1.00  0.00           H  
+HETATM   10  H2  UNL     1      -1.144   2.153  -0.141  1.00  0.00           H  
+HETATM   11  H3  UNL     1      -1.305  -2.108   0.075  1.00  0.00           H  
+HETATM   12  H4  UNL     1       1.151  -2.153   0.141  1.00  0.00           H  
+CONECT    1    2
+CONECT    2    3    3    8
+CONECT    3    4    9
+CONECT    4    5    5   10
+CONECT    5    6    7
+CONECT    7    8    8   11
+CONECT    8   12
+END

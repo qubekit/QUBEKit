@@ -6,7 +6,7 @@
 # TODO Fix repeated definitions (remove unused).
 
 # Speed
-# TODO Use context managers. (ALMOST DONE)
+# TODO Use context managers. (almost DONE, waiting on function fix.)
 # TODO Conditional imports. (DONE)
 # TODO Convert while loops to for x in range().
 #      (Each loop using while is 10 ops, only 3 using range, therefore ~3.3x faster. Also much more readable.)
@@ -19,12 +19,12 @@
 # TODO Fix formatting.
 # TODO Docstrings. (DONE)
 # TODO Fix output writes. Currently they are extremely delicate e.g. (out.write('        +     var +         ')).
-# TODO Improve data structures. Dicts/sets over lists etc.
+# TODO Improve data structures. Dicts/sets/tuples over lists etc.
 # TODO Remove explicit defaults from simple functions. (DONE)
 
 
 def modified_seminario_method(vibrational_scaling, molecule):
-    """Calculate the new bond and angle terms after being passed the symetric hessian and optimized
+    """Calculate the new bond and angle terms after being passed the symmetric hessian and optimized
      molecule may also need the a parameter file"""
 
     #  Program to implement the Modified Seminario Method
@@ -484,8 +484,6 @@ def force_constant_bond(atom_a, atom_b, eigenvalues, eigenvectors, coords):
 
     from numpy import linalg, dot, array
 
-    # print(atom_a, atom_b)
-
     # Eigenvalues and eigenvectors calculated
     eigenvalues_ab = eigenvalues[atom_a, atom_b, :]
     # print(eigenvalues_ab)
@@ -505,7 +503,8 @@ def force_constant_bond(atom_a, atom_b, eigenvalues, eigenvectors, coords):
         dot_prod = abs(dot(unit_vectors_ab, eigenvectors_ab[:, i]))
         k_ab += (eigenvalues_ab[i] * dot_prod)
 
-    k_ab *= -0.5  # Convert to OPLS form
+    # Convert to OPLS form
+    k_ab *= -0.5
 
     return k_ab
 
@@ -715,7 +714,7 @@ def bond_angle_list_gaussian():
     while tline:
         tline = fid.readline()
         # Line starts at point when bond and angle list occurs
-        if len(tline) > 80 and tline[0:81].strip() == '! Name  Definition              Value          Derivative Info.                !':
+        if len(tline) > 80 and '! Name  Definition ' in tline[0:81].strip():
             tline = fid.readline()
             # Stops when all bond and angles recorded
             while (tmp[0] == 'R') or (tmp[0] == 'A'):
@@ -800,4 +799,5 @@ def unit_vector_n(u_bc, u_ab):
     cross_product = cross(u_bc, u_ab)
     norm_u_n = linalg.norm(cross_product)
     u_n = cross_product / norm_u_n
+
     return u_n

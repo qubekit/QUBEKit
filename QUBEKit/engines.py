@@ -3,7 +3,9 @@
 
 from QUBEKit.helpers import config_loader, get_overage
 from QUBEKit.decorators import for_all_methods, timer_logger
+
 from subprocess import call as sub_call
+from os import environ
 
 
 class Engines:
@@ -20,6 +22,7 @@ class Engines:
         self.multiplicity = config_dict['multiplicity']
         self.geometric = config_dict['geometric']
         self.solvent = config_dict['solvent']
+        self.ddec_version = config_dict['ddec version']
         # Load the configs using the config_file name.
         confs = config_loader(config_dict['config'])
         self.qm, self.fitting, self.paths = confs
@@ -37,8 +40,6 @@ class PSI4(Engines):
     def __init__(self, molecule, config_dict):
 
         super().__init__(molecule, config_dict)
-
-
 
     def hessian(self):
         """Parses the Hessian from the B3LYP_output.dat file (from psi4) into a numpy array.
@@ -161,6 +162,7 @@ class PSI4(Engines):
             molecule = self.engine_mol.MMoptimized
         else:
             molecule = self.engine_mol.molecule
+
         # input.dat is the psi4 input file.
         setters = ''
         tasks = ''
@@ -190,7 +192,7 @@ class PSI4(Engines):
                 print('Writing Psi4 Density calculation input')
                 setters += " cubeprop_tasks ['density']\n"
                 # TODO Handle overage correctly (should be dependent on the size of the molecule)
-                # See helpers.get_overage or bonds.get_overage for info.
+                # See helpers.get_overage for info.
 
                 # print('Calculating overage for psi4 and chargemol.')
                 overage = get_overage(self.engine_mol.name)
@@ -212,11 +214,11 @@ class PSI4(Engines):
 
             setters += '}\n'
             if threads:
-                setters += 'set_num_threads({})\n'.format(self.qm['threads'])
+                setters += f'set_num_threads({self.qm["threads"]})\n'
             input_file.write(setters)
             input_file.write(tasks)
 
-        sub_call('psi4 input.dat -n {}'.format(self.qm['threads']), shell=True)
+        sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     def all_modes(self):
         """Extract all modes from the psi4 output file."""
@@ -248,9 +250,10 @@ class PSI4(Engines):
 
                     all_modes = [float(val) for val in structures]
                     self.engine_mol.modes = array(all_modes)
+
                     return self.engine_mol
 
-    def geo_gradiant(self, QM=False, MM=False, run=True, threads=False):
+    def geo_gradient(self, QM=False, MM=False, run=True, threads=False):
         """"Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
         """
@@ -262,7 +265,7 @@ class PSI4(Engines):
         else:
             molecule = self.engine_mol.molecule
 
-        with open(self.engine_mol.name + '.psi4in', 'w+') as file:
+        with open(f'{self.engine_mol.name}.psi4in', 'w+') as file:
 
             file.write('molecule {} {{\n {} {} \n'.format(self.engine_mol.name, self.charge, self.multiplicity))
             for i in range(len(molecule)):
@@ -287,14 +290,15 @@ class PSI4(Engines):
 class Chargemol(Engines):
 
     def __init__(self, molecule, config_file):
+
         super().__init__(molecule, config_file)
 
-    def generate_input(self, ddec_version=6):
+    def generate_input(self):
         """Given a DDEC version (from the defaults), this function writes the job file for chargemol."""
 
-        if ddec_version != 6 or ddec_version != 3:
+        if self.ddec_version != 6 or self.ddec_version != 3:
             print('Invalid or unsupported DDEC version given, running with default version 6.')
-            ddec_version = 6
+            self.ddec_version = 6
 
         # Write the charges job file.
         with open('job_control.txt', 'w+') as charge_file:
@@ -309,14 +313,14 @@ class Chargemol(Engines):
             charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.paths["chargemol"]}/atomic_densities/')
             charge_file.write('\n</atomic densities directory complete path>')
 
-            charge_file.write(f'\n\n<charge type>\nDDEC{ddec_version}\n</charge type>')
+            charge_file.write(f'\n\n<charge type>\nDDEC{self.ddec_version}\n</charge type>')
 
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
         # sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
         # sub_call('mv Dt.cube total_density.cube', shell=True)
 
-        sub_call(self.paths['chargemol'] + '/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
+        sub_call(f'{self.paths["chargemol"]} /chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
                  shell=True)
 
     def extract_charges(self):
@@ -328,13 +332,11 @@ class Chargemol(Engines):
 @for_all_methods(timer_logger)
 class Gaussian(Engines):
 
-    def __init__(self, molecule, config_dict, charge, multiplicity):
+    def __init__(self, molecule, config_dict):
 
         super().__init__(molecule, config_dict)
-        self.charge = charge
-        self.multiplicity = multiplicity
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, threads=False):
+    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False):
 
         if QM:
             molecule = self.engine_mol.QMoptimized
@@ -350,13 +352,13 @@ class Gaussian(Engines):
             commands = f'# {self.qm["theory"]}/{self.qm["basis"]} SCF=XQC '
 
             if density:
-                commands += f'density=current OUTPUT=WFX '
+                commands += 'density=current OUTPUT=WFX '
 
             if optimize:
-                commands += f'opt '
+                commands += 'opt '
 
             if hessian:
-                commands += f'freq '
+                commands += 'freq '
 
             commands += f'\n\n{self.engine_mol.name}\n\n'
             commands += f'{self.charge} {self.multiplicity}\n'
@@ -370,3 +372,8 @@ class Gaussian(Engines):
                 input_file.write(f'\n{self.engine_mol.name}.wfx')
 
             input_file.write('\n\n\n\n\n')
+
+        if 'g09' in environ:
+            sub_call(f'g09 < gj_{self.engine_mol.name} > gj_{self.engine_mol.name}.log', shell=True)
+        else:
+            raise FileNotFoundError('cannot run Gaussian')
