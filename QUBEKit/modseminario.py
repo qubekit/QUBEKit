@@ -1,26 +1,22 @@
 # TODO Josh finish getting the Seminario method to work from any qm engine hessian should be in np.array format
 
-
 # Bugs
-# TODO Fix indentation. Multiple instances of ref called before assignment. (DONE)
 # TODO Fix repeated definitions (remove unused).
 
 # Speed
 # TODO Use context managers. (almost DONE, waiting on function fix.)
-# TODO Conditional imports. (DONE)
 # TODO Convert while loops to for x in range().
 #      (Each loop using while is 10 ops, only 3 using range, therefore ~3.3x faster. Also much more readable.)
 
 # Maintainability / Readability
-# TODO Remove unused variables and functions.
+# TODO Remove unused variables and functions. (almost DONE, waiting on function fix.)
 # TODO Appropriately name variables (not just i, j, k etc).
 # TODO Class structure.
-# TODO f strings.
-# TODO Fix formatting.
-# TODO Docstrings. (DONE)
-# TODO Fix output writes. Currently they are extremely delicate e.g. (out.write('        +     var +         ')).
+#      Class with static methods for dot product etc and class for main mod seminario work.
+# TODO f strings or .format(). (MOSTLY DONE)
+# TODO Fix formatting. (MOSTLY DONE)
 # TODO Improve data structures. Dicts/sets/tuples over lists etc.
-# TODO Remove explicit defaults from simple functions. (DONE)
+# TODO Change from list appending to generator expressions. (SOMEWHAT DONE)
 
 
 def modified_seminario_method(vibrational_scaling, molecule):
@@ -29,7 +25,7 @@ def modified_seminario_method(vibrational_scaling, molecule):
 
     #  Program to implement the Modified Seminario Method
     #  Written by Alice E. A. Allen, TCM, University of Cambridge
-    #  Modified by Joshua T. Horton University of Newcastle
+    #  Modified by Joshua T. Horton and Chris Ringrose, Newcastle University
     #  Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 
     # Pass as arguments the input folder containing the zmat.log/lig.log,
@@ -49,20 +45,13 @@ def modified_seminario_method(vibrational_scaling, molecule):
     angle_list = molecule.angles
     atom_names = molecule.atom_names
 
-    # Import all input data from gaussian output file
-    # TODO once new class system works these steps can be removed!
-    # if engine == 'g09':
-    #   [bond_list, angle_list, coords, N, hessian, atom_names] = input_data_processing_g09()
-    # This should work the same when using g09 as well as the molecule will already come in with the infomation
-
     coords = []
-    for i in range(len(molecule.QMoptimized)):
+    for atom in molecule.QMoptimized:
         for j in range(3):
-            coords.append(molecule.QMoptimized[i][j + 1])
+            coords.append(atom[j + 1])
     coords = reshape(coords, (size_mol, 3))
 
-    # Find bond lengths
-    # Create empty matrix of correct size.
+    # Find bond lengths and create empty matrix of correct size.
     bond_lengths = zeros((size_mol, size_mol))
 
     for i in range(size_mol):
@@ -76,15 +65,13 @@ def modified_seminario_method(vibrational_scaling, molecule):
     for i in range(size_mol):
         for j in range(size_mol):
             partial_hessian = hessian[(i * 3):((i + 1) * 3), (j * 3):((j + 1) * 3)]
-            # print(f'partial hessian {i} {j} : {partial_hessian}')
             [a, b] = linalg.eig(partial_hessian)
             eigenvalues[i, j, :] = a
             eigenvectors[:, :, i, j] = b
     # The bond values are calculated and written to file
-    unique_values_bonds = bonds_calculated_printed(vibrational_scaling_squared, bond_list, bond_lengths, atom_names, eigenvalues, eigenvectors, coords)
-    # print(unique_values_bonds)
+    bonds_calculated_printed(vibrational_scaling_squared, bond_list, bond_lengths, atom_names, eigenvalues, eigenvectors, coords)
     # The angle values are calculated and written to file
-    unique_values_angles = angles_calculated_printed(vibrational_scaling_squared, angle_list, bond_lengths, atom_names, eigenvalues, eigenvectors, coords)
+    angles_calculated_printed(vibrational_scaling_squared, angle_list, bond_lengths, atom_names, eigenvalues, eigenvectors, coords)
 
     # The final section finds the average bond and angle terms for each
     # bond/angle class if the .z exists to supply angle/bond classes and then
@@ -100,14 +87,7 @@ def angles_calculated_printed(vibrational_scaling_squared, angle_list, bond_leng
     from operator import itemgetter
     from numpy import zeros, dot
 
-    # Open output file angle parameters are written to
-    fid = open('Modified_Seminario_Angle', 'w')
-
-    k_theta = zeros(len(angle_list))
-    theta_0 = zeros(len(angle_list))
-
-    # Used to find average values
-    unique_values_angles = []
+    k_theta = theta_0 = zeros(len(angle_list))
 
     # Connectivity information for Modified Seminario Method
     central_atoms_angles = []
@@ -116,16 +96,14 @@ def angles_calculated_printed(vibrational_scaling_squared, angle_list, bond_leng
     # an array then lists the angles with that central atom.
     # e.g. central_atoms_angles{3} contains an array of angles with central atom 3.
     for coord in range(len(coords)):
-        central_atoms_angles.append([])
-        for angle in range(len(angle_list)):
-            if coord == angle_list[angle][1] - 1:
-
+        for count, angle in enumerate(angle_list):
+            if coord == angle[1] - 1:
                 # For angle ABC, atoms A C are written to array
-                ac_array = [angle_list[angle][0] - 1,  angle_list[angle][2] - 1, angle]
+                ac_array = [angle[0] - 1, angle[2] - 1, count]
                 central_atoms_angles[coord].append(ac_array)
 
                 # For angle ABC, atoms C A are written to array
-                ca_array = [angle_list[angle][2] - 1,  angle_list[angle][0] - 1, angle]
+                ca_array = [angle[2] - 1, angle[0] - 1, count]
                 central_atoms_angles[coord].append(ca_array)
 
     # Sort rows by atom number
@@ -145,16 +123,14 @@ def angles_calculated_printed(vibrational_scaling_squared, angle_list, bond_leng
             unit_pa_all_angles[i].append(u_pa_from_angles(central_atoms_angles[i][j][0], i, central_atoms_angles[i][j][1], coords))
 
     # Finds the contributing factors from the other angle terms
-    # scaling_factor_all_angles = cell(max(max(angle_list))); %This array will contain scaling factor and angle list position
+    # scaling_factor_all_angles = cell(max(max(angle_list))) This will contain scaling factor and angle list position
     scaling_factor_all_angles = []
 
     for i in range(len(central_atoms_angles)):
         scaling_factor_all_angles.append([])
         for j in range(len(central_atoms_angles[i])):
-            n = 1
-            m = 1
-            angles_around = 0 
-            additional_contributions = 0 
+            n = m = 1
+            angles_around = additional_contributions = 0
             scaling_factor_all_angles[i].append([0, 0])
         
             # Position in angle list
@@ -165,47 +141,50 @@ def angles_calculated_printed(vibrational_scaling_squared, angle_list, bond_leng
 
             # Forwards directions, finds the same bonds with the central atom i
             while ((j + n) < len(central_atoms_angles[i])) and central_atoms_angles[i][j][0] == central_atoms_angles[i][j + n][0]:
-                additional_contributions = additional_contributions + (abs(dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j + n][:]))) ** 2
+                additional_contributions += (abs(dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j + n][:]))) ** 2
                 n += 1
                 angles_around += 1
         
             # Backwards direction, finds the same bonds with the central atom i
             while ((j - m) >= 0) and central_atoms_angles[i][j][0] == central_atoms_angles[i][j - m][0]:
-                additional_contributions = additional_contributions + (abs(dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j - m][:]))) ** 2
+                additional_contributions += (abs(dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j - m][:]))) ** 2
                 m += 1
                 angles_around += 1
 
             scaling_factor_all_angles[i][j][0] = 1
             if n != 1 or m != 1:
                 # Finds the mean value of the additional contribution
-                # To change to normal Seminario method comment out + part
                 scaling_factor_all_angles[i][j][0] += (additional_contributions / (m + n - 2))
 
-    scaling_factors_angles_list = []
-    for i in range(len(angle_list)):
-        scaling_factors_angles_list.append([]) 
+    scaling_factors_angles_list = [[]] * len(angle_list)
 
     # Orders the scaling factors according to the angle list
     for i in range(len(central_atoms_angles)):
         for j in range(len(central_atoms_angles[i])):
             scaling_factors_angles_list[scaling_factor_all_angles[i][j][1]].append(scaling_factor_all_angles[i][j][0])
 
+    # Used to find average values
+    unique_values_angles = []
+
     # Finds the angle force constants with the scaling factors included for each angle
-    for i in range(len(angle_list)):
+    for i, angle in enumerate(angle_list):
         # Ensures that there is no difference when the ordering is changed
-        [ab_k_theta, ab_theta_0] = force_angle_constant(angle_list[i][0] - 1, angle_list[i][1] - 1, angle_list[i][2] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1])
-        [ba_k_theta, ba_theta_0] = force_angle_constant(angle_list[i][2] - 1, angle_list[i][1] - 1, angle_list[i][0] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][1], scaling_factors_angles_list[i][0])
+        [ab_k_theta, ab_theta_0] = force_angle_constant(angle[0] - 1, angle[1] - 1, angle[2] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1])
+        [ba_k_theta, ba_theta_0] = force_angle_constant(angle[2] - 1, angle[1] - 1, angle[0] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][1], scaling_factors_angles_list[i][0])
         k_theta[i] = (ab_k_theta + ba_k_theta) / 2
         theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
     
-        # Vibrational_scaling takes into account DFT deficiencies/ anharmonicity
+        # Vibrational_scaling takes into account DFT deficiencies / anharmonicity
         k_theta[i] *= vibrational_scaling_squared
 
-        fid.write(f'{str(i)}  {atom_names[angle_list[i][0]-1]}-{atom_names[angle_list[i][1]-1]}-{atom_names[angle_list[i][2]-1]}  ')
+        # Open output file angle parameters are written to
+        with open('Modified_Seminario_Angle', 'w') as angle_file:
 
-        fid.write('{:.3f}   {:.3f}   {}   {}   {}\n'.format(k_theta[i], theta_0[i], angle_list[i][0], angle_list[i][1], angle_list[i][2]))
+            angle_file.write(f'{str(i)}  {atom_names[angle[0] - 1]}-{atom_names[angle[1] - 1]}-{atom_names[angle[2] - 1]}  ')
 
-        unique_values_angles.append([atom_names[angle_list[i][0]-1], atom_names[angle_list[i][1]-1], atom_names[angle_list[i][2]-1], k_theta[i], theta_0[i], 1])
+            angle_file.write('{:.3f}   {:.3f}   {}   {}   {}\n'.format(k_theta[i], theta_0[i], angle[0], angle[1], angle[2]))
+
+        unique_values_angles.append([atom_names[angle[0] - 1], atom_names[angle[1] - 1], atom_names[angle[2] - 1], k_theta[i], theta_0[i], 1])
 
     return unique_values_angles
 
@@ -213,26 +192,24 @@ def angles_calculated_printed(vibrational_scaling_squared, angle_list, bond_leng
 def average_values_across_classes(unique_values_bonds, unique_values_angles):
     """Finds the average bond and angle term for each class."""
 
-    ignore_rows = []
-
-    num_bonds = len(unique_values_bonds)
+    ignore_rows_bonds = []
 
     # Find Average Values Bonds
-    for i in range(num_bonds):
-        for j in range((i + 1), num_bonds):
+    for i in range(len(unique_values_bonds)):
+        for j in range(i + 1, len(unique_values_bonds)):
             # Finds if the bond class has already been encountered
             if (unique_values_bonds[i][0] == unique_values_bonds[j][0]) and (unique_values_bonds[i][1] == unique_values_bonds[j][1]) or ((unique_values_bonds[i][0] == unique_values_bonds[j][1]) and (unique_values_bonds[i][1] == unique_values_bonds[j][0])):
                 unique_values_bonds[i][2] += unique_values_bonds[j][2]
                 unique_values_bonds[i][3] += unique_values_bonds[j][3]
                 unique_values_bonds[i][4] += 1
-                ignore_rows.append(j)
+                ignore_rows_bonds.append(j)
     
     # Average Bonds Printed
     with open('Average_Modified_Seminario_Bonds', 'w+') as bond_file:
 
         # Remove bond classes that were already present and find mean value
-        for i in range(num_bonds):
-            if i not in ignore_rows:
+        for i in range(len(unique_values_bonds)):
+            if i not in ignore_rows_bonds:
                 unique_values_bonds[i][2] /= unique_values_bonds[i][4]
                 unique_values_bonds[i][3] /= unique_values_bonds[i][4]
                 bond_file.write(unique_values_bonds[i][0] + '-' + unique_values_bonds[i][1] + '  ' + str("%.2f" % unique_values_bonds[i][2]) + '  ' + str("%.3f" % unique_values_bonds[i][3]) + '\n')
@@ -240,11 +217,9 @@ def average_values_across_classes(unique_values_bonds, unique_values_angles):
     # Find average values angles
     ignore_rows_angles = []
 
-    num_angles = len(unique_values_angles)
-
     # Find Average Values Angles
-    for i in range(num_angles):
-        for j in range((i + 1), num_angles):
+    for i in range(len(unique_values_angles)):
+        for j in range((i + 1), len(unique_values_angles)):
             # Finds if the angle class has already been encountered
             if (unique_values_angles[i][0] == unique_values_angles[j][0] and unique_values_angles[i][1] == unique_values_angles[j][1] and unique_values_angles[i][2] == unique_values_angles[j][2]) or (unique_values_angles[i][0] == unique_values_angles[j][2] and unique_values_angles[i][1] == unique_values_angles[j][1] and unique_values_angles[i][2] == unique_values_angles[j][0]):
                 unique_values_angles[i][3] += unique_values_angles[j][3]
@@ -256,7 +231,7 @@ def average_values_across_classes(unique_values_bonds, unique_values_angles):
     with open('Average_Modified_Seminario_Angles', 'w+') as angle_file:
 
         # Remove angles classes that were already present and find mean value
-        for i in range(num_angles):
+        for i in range(len(unique_values_angles)):
             if i not in ignore_rows_angles:
                 unique_values_angles[i][3] /= unique_values_angles[i][5]
                 unique_values_angles[i][4] /= unique_values_angles[i][5]
@@ -275,22 +250,21 @@ def bonds_calculated_printed(vibrational_scaling_squared, bond_list, bond_length
         bond_length_list = zeros(len(bond_list))
         unique_values_bonds = []    # Used to find average values
 
-        for i in range(len(bond_list)):
-            ab = force_constant_bond(bond_list[i][0] - 1, bond_list[i][1] - 1, eigenvalues, eigenvectors, coords)
-            ba = force_constant_bond(bond_list[i][1] - 1, bond_list[i][0] - 1, eigenvalues, eigenvectors, coords)
+        for i, bond in enumerate(bond_list):
+            ab = force_constant_bond(bond[0] - 1, bond[1] - 1, eigenvalues, eigenvectors, coords)
+            ba = force_constant_bond(bond[1] - 1, bond[0] - 1, eigenvalues, eigenvectors, coords)
 
             # Order of bonds sometimes causes slight differences, find the mean
             k_b[i] = real((ab + ba) / 2)
 
             # Vibrational_scaling takes into account DFT deficities/ anharmonicity
-            k_b[i] = k_b[i] * vibrational_scaling_squared
+            k_b[i] *= vibrational_scaling_squared
 
-            bond_length_list[i] = bond_lengths[bond_list[i][0]-1][bond_list[i][1]-1]
-            bond_file.write(f'{atom_names[bond_list[i][0]-1]}-{atom_names[bond_list[i][1]-1]}  ')
-            bond_file.write(str("%.3f" % k_b[i]) + '   ' + str("%.3f" % bond_length_list[i]) + '   ' +
-                            str(bond_list[i][0]) + '   ' + str(bond_list[i][1]) + '\n')
+            bond_length_list[i] = bond_lengths[bond[0] - 1][bond[1] - 1]
+            bond_file.write(f'{atom_names[bond[0]-1]}-{atom_names[bond[1]-1]}  ')
+            bond_file.write('{:.3f}   {:.3f}   {}   {}\n'.format(k_b[i], bond_length_list[i], str(bond[0]), str(bond[1])))
 
-            unique_values_bonds.append([atom_names[bond_list[i][0]-1], atom_names[bond_list[i][1]-1], k_b[i], bond_length_list[i], 1])
+            unique_values_bonds.append([atom_names[bond[0] - 1], atom_names[bond[1] - 1], k_b[i], bond_length_list[i], 1])
 
     return unique_values_bonds
 
@@ -307,7 +281,7 @@ def coords_from_fchk(fchk_file):
     if os.path.exists(fchk_file):
         fid = open(fchk_file, "r")
     else:
-        print('no .lig.fchk file found!')
+        raise FileNotFoundError('no .lig.fchk file found!')
         
     tline = fid.readline()
 
@@ -324,7 +298,7 @@ def coords_from_fchk(fchk_file):
                 tmp = (tline.strip()).split()
                 numbers.extend(tmp)
                 tline = fid.readline()
-            
+
         # Get coordinates
         if len(tline) > 31 and tline[0:31].strip() == 'Current cartesian coordinates':
             tline = fid.readline()
@@ -339,9 +313,7 @@ def coords_from_fchk(fchk_file):
             while len(tline) < 13 or (tline[0:12].strip() != 'Nuclear charges'):
                 tmp = (tline.strip()).split()
                 npappend(hessian, tmp, 0)
-                tline = fid.readline()
-
-        tline = fid.readline()
+                tline = fid.readline()  # TODO readline() called 9 times?!
 
     fid.close()
 
@@ -357,22 +329,18 @@ def coords_from_fchk(fchk_file):
     xyz = zeros((N, 3))
     n = 0
 
-    names = []
     # TODO this needs to be turned into a element dictionary if we are going to use g09
     fid_csv = open('elementlist.csv', "r")
 
+    # TODO Broken.
     with fid_csv as f:
         lines = fid_csv.read().splitlines()
 
-    element_names = []
-
     # Turn list in a matrix, with elements containing atomic number, symbol and name
-    for x in range(len(lines)):
-        element_names.append(lines[x].split(","))
+    element_names = [x.split(",") for x in lines]
         
     # Gives name for atomic number
-    for x in range(len(numbers)):
-        names.append(element_names[int(numbers[x]) - 1][1]) 
+    names = [element_names[int(x) - 1][1] for x in numbers]
 
     # Print coordinates to new input_coords.xyz file
     for i in range(N):
@@ -393,37 +361,32 @@ def u_pa_from_angles(atom_a, atom_b, atom_c, coords):
     from numpy import linalg, cross
 
     diff_ab = coords[atom_b, :] - coords[atom_a, :]
-    norm_diff_ab = linalg.norm(diff_ab)
-    u_ab = diff_ab / norm_diff_ab
+    u_ab = diff_ab / linalg.norm(diff_ab)
 
     diff_cb = coords[atom_b, :] - coords[atom_c, :]
-    norm_diff_cb = linalg.norm(diff_cb)
-    u_cb = diff_cb / norm_diff_cb
+    u_cb = diff_cb / linalg.norm(diff_cb)
 
     u_n = unit_vector_n(u_cb, u_ab)
 
-    u_pa = cross(u_n,  u_ab)
-    norm_pa = linalg.norm(u_pa)
-    u_pa = u_pa / norm_pa
+    u_pa = cross(u_n,  u_ab) / linalg.norm(cross(u_n,  u_ab))
 
     return u_pa
 
 
 def force_angle_constant(atom_a, atom_b, atom_c, bond_lengths, eigenvalues, eigenvectors, coords, scaling_1, scaling_2):
     """Force Constant-Equation 14 of Seminario calculation paper-gives force
-    constant for angle (in kcal/mol/rad^2) and equilibrium angle in degrees"""
+    constant for angle (in kcal/mol/rad^2) and equilibrium angle in degrees.
+    """
 
     from math import degrees, acos
     from numpy import linalg, cross, dot
     
     # Vectors along bonds calculated
     diff_ab = coords[atom_b, :] - coords[atom_a, :]
-    norm_diff_ab = linalg.norm(diff_ab)
-    u_ab = diff_ab / norm_diff_ab
+    u_ab = diff_ab / linalg.norm(diff_ab)
 
     diff_cb = coords[atom_b, :] - coords[atom_c, :]
-    norm_diff_cb = linalg.norm(diff_cb)
-    u_cb = diff_cb / norm_diff_cb
+    u_cb = diff_cb / linalg.norm(diff_cb)
 
     # Bond lengths and eigenvalues found
     bond_length_ab = bond_lengths[atom_a, atom_b]
@@ -437,23 +400,11 @@ def force_angle_constant(atom_a, atom_b, atom_c, bond_lengths, eigenvalues, eige
     # Normal vector to angle plane found
     u_n = unit_vector_n(u_cb, u_ab)
 
-    u_pa = cross(u_n,  u_ab)
-    norm_u_pa = linalg.norm(u_pa)
-    u_pa = u_pa / norm_u_pa
+    u_pa = cross(u_n, u_ab) / linalg.norm(cross(u_n, u_ab))
+    u_pc = cross(u_cb, u_n) / linalg.norm(cross(u_cb, u_n))
 
-    u_pc = cross(u_cb, u_n)
-    norm_u_pc = linalg.norm(u_pc)
-    u_pc = u_pc / norm_u_pc
-
-    sum_first = 0 
-    sum_second = 0
-
-    # Projections of eigenvalues
-    for i in range(3):
-        eig_ab_i = eigenvectors_ab[:, i]
-        eig_bc_i = eigenvectors_cb[:, i]
-        sum_first += eigenvalues_ab[i] * abs(dot_product(u_pa, eig_ab_i))
-        sum_second += eigenvalues_cb[i] * abs(dot_product(u_pc, eig_bc_i))
+    sum_first = sum(eigenvalues_ab[i] * abs(dot_product(u_pa, eigenvectors_ab[:, i])) for i in range(3))
+    sum_second = sum(eigenvalues_cb[i] * abs(dot_product(u_pc, eigenvectors_cb[:, i])) for i in range(3))
 
     # Scaling due to additional angles - Modified Seminario Part
     sum_first /= scaling_1
@@ -473,10 +424,8 @@ def force_angle_constant(atom_a, atom_b, atom_c, bond_lengths, eigenvalues, eige
 
 
 def dot_product(u_pa, eig_ab):
-    x = 0     
-    for i in range(3):
-        x += u_pa[i] * eig_ab[i].conjugate()
-    return x
+
+    return sum(u_pa[i] * eig_ab[i].conjugate() for i in range(3))
 
 
 def force_constant_bond(atom_a, atom_b, eigenvalues, eigenvectors, coords):
@@ -484,29 +433,16 @@ def force_constant_bond(atom_a, atom_b, eigenvalues, eigenvectors, coords):
 
     from numpy import linalg, dot, array
 
-    # Eigenvalues and eigenvectors calculated
+    # Eigenvalues and vectors calculated
     eigenvalues_ab = eigenvalues[atom_a, atom_b, :]
-    # print(eigenvalues_ab)
-
     eigenvectors_ab = eigenvectors[:, :, atom_a, atom_b]
 
     # Vector along bond
     diff_ab = array(coords[atom_b, :]) - array(coords[atom_a, :])
-    norm_diff_ab = linalg.norm(diff_ab)
 
-    unit_vectors_ab = diff_ab / norm_diff_ab
-    
-    k_ab = 0
+    unit_vectors_ab = diff_ab / linalg.norm(diff_ab)
 
-    # Projections of eigenvalues
-    for i in range(3):
-        dot_prod = abs(dot(unit_vectors_ab, eigenvectors_ab[:, i]))
-        k_ab += (eigenvalues_ab[i] * dot_prod)
-
-    # Convert to OPLS form
-    k_ab *= -0.5
-
-    return k_ab
+    return -0.5 * sum(eigenvalues_ab[i] * abs(dot(unit_vectors_ab, eigenvectors_ab[:, i])) for i in range(3))
 
 
 # TODO Function not called and broken; remove?
@@ -527,7 +463,7 @@ def input_data_processing_g09():
     # with open("Number_to_Atom_type") as f:
     #     OPLS_number_to_name = f.readlines()
     #
-    # OPLS_number_to_name = [x.split() for x in OPLS_number_to_name];
+    # OPLS_number_to_name = [x.split() for x in OPLS_number_to_name]
 
     length_hessian = 3 * N
     hessian = np.zeros((length_hessian, length_hessian))
@@ -546,7 +482,7 @@ def input_data_processing_g09():
     # if zmat exists part here 
     # atom_names = []
     #
-    # for i in range(0,len(names)):
+    # for i in range(len(names)):
     #     atom_names.append(names[i].strip() + str(i + 1))
     #
     # if os.path.exists(inputfilefolder + 'Zmat.z'):
@@ -555,20 +491,19 @@ def input_data_processing_g09():
     #     fid = open(inputfilefolder + 'Zmat.z') #Boss type Zmat
     #
     #     tline = fid.readline()
-    #     tline = fid.readline()
     #
     #     #Find number of dummy atoms
     #     number_dummy = 0
     #     tmp = tline.split()
     #
     #     while tmp[2] == '-1':
-    #         number_dummy = number_dummy + 1
+    #         number_dummy += 1
     #         tline = fid.readline()
     #         tmp = tline.split()
     #
     #     if int(tmp[3]) < 800:
-    #         for i in range(0,N):
-    #             for j in range(0, len(OPLS_number_to_name)):
+    #         for i in range(N):
+    #             for j in range(len(OPLS_number_to_name)):
     #                 if OPLS_number_to_name[j][0] == tmp[3]:
     #                     atom_names.append(OPLS_number_to_name[j][1])
     #
@@ -581,15 +516,14 @@ def input_data_processing_g09():
     #             tmp = tline.split()
     #
     #         tline = fid.readline()
-    #         tline = fid.readline()
     #         tmp = tline.split()
     #
-    #         for i in range(0,N):
+    #         for i in range(N):
     #             atom_names.append(tmp[2])
     #             tline = fid.readline()
     #             tmp = tline.split()
     #
-    #     for i in range(0,N):
+    #     for i in range(N):
     #         if len(atom_names[i]) == 1:
     #             atom_names[i] = atom_names[i] + ' '
             
@@ -650,7 +584,7 @@ def coords_from_fchk(fchk_file):
 
     fid.close()
 
-    list_coords = [float(x)*float(0.529) for x in list_coords]
+    list_coords = [float(x) * float(0.529) for x in list_coords]
 
     # Opens the new xyz file
     file = open('input_coords.xyz', "w+")
@@ -659,22 +593,16 @@ def coords_from_fchk(fchk_file):
     xyz = zeros((N, 3))
     n = 0
 
-    names = []
-
     fid_csv = open('elementlist.csv', "r")
 
     with fid_csv as f:
         lines = fid_csv.read().splitlines()
 
-    element_names = []
-
     # Turn list in a matrix, with elements containing atomic number, symbol and name
-    for x in range(len(lines)):
-        element_names.append(lines[x].split(","))
+    element_names = [x.split(",") for x in lines]
         
     # Gives name for atomic number
-    for x in range(len(numbers)):
-        names.append(element_names[int(numbers[x]) - 1][1]) 
+    names = [element_names[int(x) - 1][1] for x in numbers]
 
     # Print coordinates to new input_coords.xyz file
     for i in range(N):
@@ -715,7 +643,7 @@ def bond_angle_list_gaussian():
         tline = fid.readline()
         # Line starts at point when bond and angle list occurs
         if len(tline) > 80 and '! Name  Definition ' in tline[0:81].strip():
-            tline = fid.readline()
+            tline = fid.readline()  # TODO readline() called 3 times?
             # Stops when all bond and angles recorded
             while (tmp[0] == 'R') or (tmp[0] == 'A'):
                 line = tline.split()
@@ -738,7 +666,7 @@ def bond_angle_list_gaussian():
                     x = [(int(i)) for i in x]
                     angle_list.append(x)
 
-                tline = fid.readline()
+                tline = fid.readline()  # TODO 4 times?!
 
             # Leave loop
             tline = -1
@@ -748,47 +676,32 @@ def bond_angle_list_gaussian():
 
 def sb_file_new_parameters(inputfilefolder, filename):
     """Takes new angle and bond terms and puts them into a .sb file with name
-    filename_seminario.sb"""
+    filename_seminario.sb
+    """
 
-    fid_angles = open(f'{inputfilefolder}Average_Modified_Seminario_Angles', 'r')
-    fid_bonds = open(f'{inputfilefolder}Average_Modified_Seminario_Bonds', 'r')
+    with open(f'{inputfilefolder}Average_Modified_Seminario_Angles', 'r') as angle_file, \
+            open(f'{inputfilefolder}Average_Modified_Seminario_Bonds', 'r') as bond_file:
 
-    angles = [] 
-    bonds = []
+        bonds = [line.strip().split('  ') for line in bond_file]
+        angles = [line.strip().split('  ') for line in angle_file]
 
-    bond_lines = fid_bonds.readline()
-
-    while bond_lines:
-        bonds.append(bond_lines.strip().split('  '))
-        bond_lines = fid_bonds.readline()
-
-    angle_lines = fid_angles.readline()
-
-    while angle_lines:
-        angles.append(angle_lines.strip().split('  '))
-        angle_lines = fid_angles.readline()
-
-    # Opens Files
     # Script produces this file
-    fidout = open(f'{inputfilefolder}{filename}_Seminario.sb', 'wt')
-    fidout.write('*****                         Bond Stretching and Angle Bending Parameters - July 17*****\n')
+    with open(f'{inputfilefolder}{filename}_Seminario.sb', 'wt') as fidout:
 
-    # Prints out bonds at top of file
-    for i in range(len(bonds)):
-        fidout.write(f'{bonds[i][0]} {bonds[i][1]}      {bonds[i][2]}        Modified Seminario Method AEAA \n')
+        fidout.write('*****                         Bond Stretching and Angle Bending Parameters - July 17*****\n')
 
-    fidout.write('\n********                        line above must be blank\n')
+        # Prints out bonds at top of file
+        for bond in bonds:
+            fidout.write(f'{bond[0]} {bond[1]}      {bond[2]}        Modified Seminario Method AEAA \n')
 
-    # Prints out angles in middle of file
-    for i in range(len(angles)):
-        if len(angles[i]) == 8:
-            fidout.write(f'{angles[i][0]}    {angles[i][1]}       {angles[i][2]}    Modified Seminario Method AEAA \n\n\n')
-        else:
-            fidout.write(f'{angles[i][0]}     {angles[i][1]}       {angles[i][2]}        Modified Seminario Method AEAA \n\n\n')
+        fidout.write('\n********                        line above must be blank\n')
 
-    fidout.close()
-    fid_angles.close()
-    fid_bonds.close()
+        # Prints out angles in middle of file
+        for angle in angles:
+            if len(angle) == 8:
+                fidout.write(f'{angle[0]}    {angle[1]}       {angle[2]}    Modified Seminario Method AEAA \n\n\n')
+            else:
+                fidout.write(f'{angle[0]}     {angle[1]}       {angle[2]}        Modified Seminario Method AEAA \n\n\n')
 
 
 def unit_vector_n(u_bc, u_ab):
@@ -796,8 +709,6 @@ def unit_vector_n(u_bc, u_ab):
 
     from numpy import cross, linalg
 
-    cross_product = cross(u_bc, u_ab)
-    norm_u_n = linalg.norm(cross_product)
-    u_n = cross_product / norm_u_n
+    cross_prod = cross(u_bc, u_ab)
 
-    return u_n
+    return cross_prod / linalg.norm(cross_prod)

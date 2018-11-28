@@ -54,8 +54,6 @@ from sys import argv as cmdline
 from os import mkdir, chdir
 from subprocess import call as sub_call
 
-# TODO Add defaults list and commands to start of log file.
-
 
 class Main:
     """Interprets commands from the terminal.
@@ -192,7 +190,7 @@ class Main:
 
         # Create log file.
         # This is formatted as 'QUBEKit_log_molecule name_yy_mm_dd_log_string'.
-        with open(f'QUBEKit_log_{self.file[-4]}_{date}_{self.defaults_dict["run number"]}', 'w+') as log_file:
+        with open(f'QUBEKit_log_{self.file[:-4]}_{date}_{self.defaults_dict["run number"]}', 'w+') as log_file:
             log_file.write(f'Beginning log file: {datetime.now()}\n\n')
 
             log_file.write(f'The commands given were: {self.commands}\n\n')
@@ -225,6 +223,7 @@ class Main:
             # Initialise for PSI4
             QMEngine = PSI4(mol, self.defaults_dict)
         else:
+            # QMEngine = OTHER
             raise Exception('No other bonds engine currently implemented.')
 
         if self.defaults_dict['geometric']:
@@ -260,7 +259,7 @@ class Main:
 
         # Calculate Lennard-Jones parameters
         LJ = LennardJones(mol, self.defaults_dict['ddec version'])
-        LJ.amend_sig_eps()
+        mol = LJ.amend_sig_eps()
 
         # Perform torsion scan
         Scan = TorsionScan(mol, QMEngine, 'OpenMM')

@@ -53,9 +53,10 @@ class Ligand:
 
     def read_pdb(self, QM=False, MM=False):
         """Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
-        Then read through the connection tags and build connectivity network only works if connections present in PDB file.
+        Then reads through the connection tags and builds a connectivity network (only works if connections present in PDB file).
         Bonds are easily found through the edges of the network.
-        Can also generate a simple plot of the network."""
+        Can also generate a simple plot of the network.
+        """
 
         from re import sub
         from networkx import Graph, draw
@@ -108,7 +109,8 @@ class Ligand:
 
     def find_angles(self):
         """Take the topology graph network and return a list of all angle combinations.
-        Checked against OPLS-AA on molecules containing 10-63 angles."""
+        Checked against OPLS-AA on molecules containing 10-63 angles.
+        """
 
         from networkx import neighbors
 
@@ -167,7 +169,8 @@ class Ligand:
 
     def find_rotatable_dihedrals(self):
         """Take the topology graph network and dihedrals dictionary and for each dihedral in there work out if the torsion is
-        rotatable. Returns a list of dihedral dictionary keys representing the rotatable dihedrals."""
+        rotatable. Returns a list of dihedral dictionary keys representing the rotatable dihedrals.
+        """
 
         from networkx import has_path
 
@@ -319,7 +322,7 @@ class Ligand:
         HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
         PeriodicTorsionForce = ET.SubElement(root, "PeriodicTorsionForce")
-        NonbondedForce = ET.SubElement(root, "NonbondedForce", attrib={'coulomb14scale':"0.5", 'lj14scale':"0.5"})
+        NonbondedForce = ET.SubElement(root, "NonbondedForce", attrib={'coulomb14scale': "0.5", 'lj14scale': "0.5"})
 
         # Add the AtomTypes
         for i in range(len(self.AtomTypes)):
@@ -339,7 +342,8 @@ class Ligand:
         for key in self.HarmonicAngleForce.keys():
             ET.SubElement(HarmonicAngleForce, "Angle",
                           attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
-                                  'class3': self.AtomTypes[key[2]][2], 'angle': self.HarmonicAngleForce[key][0], 'k': self.HarmonicAngleForce[key][1]})
+                                  'class3': self.AtomTypes[key[2]][2], 'angle': self.HarmonicAngleForce[key][0],
+                                  'k': self.HarmonicAngleForce[key][1]})
 
         # add the torsion terms
         for key in self.PeriodicTorsionForce.keys():
@@ -347,8 +351,8 @@ class Ligand:
                           attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
                                   'class3': self.AtomTypes[key[2]][2], 'class4': self.AtomTypes[key[3]][2],
                                   'k1': self.PeriodicTorsionForce[key][0][1], 'k2': self.PeriodicTorsionForce[key][1][1],
-                                  'k3': self.PeriodicTorsionForce[key][2][1], 'k4': self.PeriodicTorsionForce[key][3][1], 'periodicity1': '1',
-                                  'periodicity2': '2', 'periodicity3': '3', 'periodicity4': '4',
+                                  'k3': self.PeriodicTorsionForce[key][2][1], 'k4': self.PeriodicTorsionForce[key][3][1],
+                                  'periodicity1': '1', 'periodicity2': '2', 'periodicity3': '3', 'periodicity4': '4',
                                   'phase1': self.PeriodicTorsionForce[key][0][2], 'phase2': self.PeriodicTorsionForce[key][1][2],
                                   'phase3': self.PeriodicTorsionForce[key][2][2], 'phase4': self.PeriodicTorsionForce[key][3][2]})
 
@@ -382,5 +386,6 @@ class Ligand:
 
     def read_xyz(self, QM=False, MM=True):
         """Read a general xyz file format and return the structure array.
-        QM and MM decide where it will be stored in the molecule."""
+        QM and MM decide where it will be stored in the molecule.
+        """
         pass
