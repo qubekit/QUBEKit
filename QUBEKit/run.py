@@ -210,8 +210,8 @@ class Main:
 
         # Having been provided a smiles string or pdb, perform a preliminary optimisation.
 
-        # Optimise the molecule from the pdb using rdkit.
-        mol.filename = smiles.smiles_mm_optimise(mol.filename)
+        # Optimise the molecule from the pdb.
+        mol.filename, mol.descriptors = smiles.smiles_mm_optimise(mol.filename)
 
         # Initialise the molecule's pdb with its optimised form.
         mol.read_pdb(MM=True)

@@ -2,10 +2,11 @@
 
 from QUBEKit.engines import PSI4, Gaussian
 from QUBEKit.ligand import Ligand
-from QUBEKit.parametrisation import OpenFF, XML
+from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
+from QUBEKit.smiles import smiles_mm_optimise
 
 from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
-from QUBEKit.dihedrals import Torsion_scan
+from QUBEKit.dihedrals import TorsionScan
 
 
 # def gather_charges():
@@ -162,33 +163,45 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
         # print('comparing modes to g09')
         # mode_check(g09_B3LYP_modes, mol)
 
-mol = Ligand('3HA.pdb')
-print(mol)
-
-OpenFF(mol)
-
-print('writing parameters')
-mol.write_parameters()
+# mol = Ligand('3HA.pdb')
+# print(mol)
+#
+# OpenFF(mol)
+#
+# print('writing parameters')
+# mol.write_parameters()
 
 # now test that the new xml file can be used in a calculation
-from simtk.openmm.app import *
-from simtk.openmm import *
-from simtk.unit import *
+# from simtk.openmm.app import *
+# from simtk.openmm import *
+# from simtk.unit import *
+#
+#
+# print('run the molecule')
+#
+# pdb = PDBFile('3HA.pdb')
+# modeller = Modeller(pdb.topology, pdb.positions)
+# forcefield = ForceField('3HA.xml')
+# system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff,  constraints=None)
+# integrator = LangevinIntegrator(
+#         300*kelvin, 5 / picosecond,  0.0005 * picoseconds)
+# simulation = Simulation(modeller.topology, system, integrator)
+# simulation.context.setPositions(modeller.positions)
+# #simulation = Minimize(simulation,100)
+# #simulation.reporters.append(app.PDBReporter('gas_output.pdb', 1000))
+# #simulation.reporters.append(app.StateDataReporter('gas.txt', 1000, step=True, temperature=True, potentialEnergy=True, density=True,totalSteps=10000, totalEnergy=True))
+# #simulation.step(6000000)
+# state = simulation.context.getState(getEnergy=True)
+# print(state.getPotentialEnergy())
+
+print('Loading Molecule')
+mol = Ligand('UNK.pdb')
+print('Optimizing molecule using rdkit MMFF')
+mol.filename, mol.descriptors = smiles_mm_optimise(mol.filename)
+print('Parameterise molecule using Antechamber')
+AnteChamber(mol)
+print('Writing new XML file')
+mol.write_parameters()
+print('Done!')
 
 
-print('run the molecule')
-
-pdb = PDBFile('3HA.pdb')
-modeller = Modeller(pdb.topology, pdb.positions)
-forcefield = ForceField('3HA.xml')
-system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff,  constraints=None)
-integrator = LangevinIntegrator(
-        300*kelvin, 5 / picosecond,  0.0005 * picoseconds)
-simulation = Simulation(modeller.topology, system, integrator)
-simulation.context.setPositions(modeller.positions)
-#simulation = Minimize(simulation,100)
-#simulation.reporters.append(app.PDBReporter('gas_output.pdb', 1000))
-#simulation.reporters.append(app.StateDataReporter('gas.txt', 1000, step=True, temperature=True, potentialEnergy=True, density=True,totalSteps=10000, totalEnergy=True))
-#simulation.step(6000000)
-state = simulation.context.getState(getEnergy=True)
-print(state.getPotentialEnergy())
