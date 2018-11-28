@@ -274,6 +274,7 @@ class PSI4(Engines):
                                                                            float(molecule[i][3])))
 
             file.write("units angstrom\n no_reorient\n}}\nset basis {}\n".format(self.qm['basis']))
+
             if threads:
                 file.write('set_num_threads({})'.format(self.qm['threads']))
             file.write("\n\ngradient('{}')\n".format(self.qm['theory']))
@@ -320,7 +321,7 @@ class Chargemol(Engines):
         # sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
         # sub_call('mv Dt.cube total_density.cube', shell=True)
 
-        sub_call(f'{self.paths["chargemol"]} /chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
+        sub_call(f'{self.paths["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
                  shell=True)
 
     def extract_charges(self):
@@ -336,7 +337,7 @@ class Gaussian(Engines):
 
         super().__init__(molecule, config_dict)
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False):
+    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, solvent=False):
 
         if QM:
             molecule = self.engine_mol.QMoptimized
@@ -359,6 +360,9 @@ class Gaussian(Engines):
 
             if hessian:
                 commands += 'freq '
+
+            if solvent:
+                commands += 'SCRF=(Solvent=Ethanol)'
 
             commands += f'\n\n{self.engine_mol.name}\n\n'
             commands += f'{self.charge} {self.multiplicity}\n'

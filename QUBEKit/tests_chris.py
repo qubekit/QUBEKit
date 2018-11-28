@@ -81,23 +81,23 @@ from subprocess import call as sub_call
 #     ax.yaxis.grid(which="both", linewidth=0.7)
 #
 #     plt.show()
-
-
-defaults_dict = {'charge': 0, 'multiplicity': 1,
-                 'bonds engine': 'psi4', 'charges engine': 'chargemol',
-                 'ddec version': 6, 'geometric': True, 'solvent': None,
-                 'run number': '999', 'config': 'default_config'}
-
-
-file = 'methanol.pdb'
-mol = Ligand(file)
-
-LennyJ = LJ(mol, 6)
-
-print(LennyJ.extract_params())
-
-print(LennyJ.append_ais_bis())
-
-print(LennyJ.polar_hydrogens())
-
-print(LennyJ.amend_sig_eps())
+#
+#
+# defaults_dict = {'charge': 0, 'multiplicity': 1,
+#                  'bonds engine': 'psi4', 'charges engine': 'chargemol',
+#                  'ddec version': 6, 'geometric': True, 'solvent': None,
+#                  'run number': '999', 'config': 'default_config'}
+#
+#
+# file = 'methanol.pdb'
+# mol = Ligand(file)
+#
+# LennyJ = LJ(mol, 6)
+#
+# print(LennyJ.extract_params())
+#
+# print(LennyJ.append_ais_bis())
+#
+# print(LennyJ.polar_hydrogens())
+#
+# print(LennyJ.amend_sig_eps())
