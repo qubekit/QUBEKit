@@ -20,7 +20,8 @@ class TorsionScan:
     def find_scan_order(self):
         """Function takes the molecule and displays the rotatable central bonds,
         the user then enters the number of the torsions to be scanned in the order to be scanned.
-        The molecule can also be supplied with a scan order already."""
+        The molecule can also be supplied with a scan order already.
+        """
 
         if self.scan_mol.scan_order:
             return self.scan_mol
@@ -55,8 +56,7 @@ class TorsionScan:
             return self.scan_mol
 
     def scan_input(self, scan):
-        """Function takes the rotatable dihedrals requested and
-        writes a scan input file for crank."""
+        """Function takes the rotatable dihedrals requested and writes a scan input file for crank."""
 
         with open('dihedrals.txt', 'w+') as out:
 
@@ -68,17 +68,17 @@ class TorsionScan:
             self.QMengine.generate_input(optimize=True, threads=True)
 
         else:
-            self.QMengine.geo_gradiant(run=False, threads=True)
+            self.QMengine.geo_gradient(run=False, threads=True)
 
     def torsion_cmd(self):
         """Function generates a command string to run torsiondrive based on the input commands."""
 
         # add the first basic command elements
-        self.cmd += 'torsiondrive-launch {}.psi4in dihedrals.txt '.format(self.scan_mol.name)
+        self.cmd += f'torsiondrive-launch {self.scan_mol.name}.psi4in dihedrals.txt '
         if self.grid_space:
-            self.cmd += '-g {} '.format(self.grid_space)
+            self.cmd += f'-g {self.grid_space} '
         if self.QMengine:
-            self.cmd += '-e {}'.format(self.QMengine.__class__.__name__.lower())
+            self.cmd += f'-e {self.QMengine.__class__.__name__.lower()} '
         if self.native_opt:
             self.cmd += '--native_opt '
         if self.verbose:
@@ -88,7 +88,8 @@ class TorsionScan:
 
     def get_energy(self, scan):
         """Function will extract an array of energies from the scan results
-        and store it back into the molecule in a dictionary using the scan order as keys."""
+        and store it back into the molecule in a dictionary using the scan order as keys.
+        """
 
         with open('scan.xyz', 'r') as scan_file:
             scan_energy = []
@@ -108,10 +109,10 @@ class TorsionScan:
 
         for scan in self.scan_mol.scan_order:
             try:
-                mkdir('SCAN_{}'.format(scan))
+                mkdir(f'SCAN_{scan}')
             except:
                 raise Exception(f'Cannot create SCAN_{scan} dir.')
-            chdir('SCAN_{}'.format(scan))
+            chdir(f'SCAN_{scan}')
             # now make the scan input files
             self.scan_input(scan)
             sub_call(self.cmd, shell=True)

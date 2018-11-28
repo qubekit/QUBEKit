@@ -5,6 +5,10 @@
 # TODO Check if Hydrogens are polar.
 
 
+from QUBEKit.decorators import for_all_methods, timer_logger
+
+
+@for_all_methods(timer_logger)
 class LennardJones:
 
     def __init__(self, molecule, ddec_version=6):
@@ -12,6 +16,11 @@ class LennardJones:
         # Ligand class object
         self.molecule = molecule
         self.ddec_version = ddec_version
+        # This is the DDEC molecule data in the format:
+        # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', vol]
+        self.ddec_data = self.extract_params()
+        self.ddec_ai_bi = self.append_ais_bis()
+        self.ddec_polars = self.polar_hydrogens()
 
     def extract_params(self):
         """Extract the useful information from the DDEC xyz files.
@@ -37,7 +46,7 @@ class LennardJones:
         else:
             raise ValueError('Invalid or unsupported DDEC version.')
 
-        molecule_data = []
+        self.ddec_data = []
 
         with open(net_charge_file_name, 'r+') as charge_file:
 
@@ -64,7 +73,7 @@ class LennardJones:
                         atom_data.insert(0, atom_string_list[1])
                         atom_data.insert(0, int(atom_string_list[0]))
 
-                        molecule_data.append(atom_data)
+                        self.ddec_data.append(atom_data)
                     break
 
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
@@ -73,41 +82,31 @@ class LennardJones:
 
             lines = vol_file.readlines()
 
-            vols = []
+            vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
 
-            for line in lines[2:atom_total + 2]:
-
-                vol = float(line.split()[-1])
-                vols.append(vol)
-
-            for count, atom in enumerate(molecule_data):
+            for count, atom in enumerate(self.ddec_data):
                 atom.append(vols[count])
 
             # Ensure total charge is near to integer value:
             total_charge = 0
-            for atom in molecule_data:
+            for atom in self.ddec_data:
                 total_charge += atom[5]
 
             # If not 0 < total_charge << 1: you've a problem.
-            if round(total_charge) - total_charge > 0.00001:
+            if abs(round(total_charge) - total_charge) > 0.00001:
                 raise ValueError('Total charge is not close enough to integer value.')
 
-        return molecule_data
+        return self.ddec_data
 
-    def calc_ai_bi(self):
-        """Use the atom in molecule parameters from lj_extract_params to calculate the coefficients
-        of the Lennard Jones Potential.
-        Exact calculations are described in full and truncated form in the comments of the function.
+    def append_ais_bis(self):
+        """Use the atom in molecule parameters from extract_params to calculate the coefficients
+        of the Lennard-Jones Potential.
         """
 
-        # Calculate sigma and epsilon according to paper calcs
+        # Calculate a_i and b_i according to paper calcs
         # Calculations from paper have been combined and simplified for faster computation.
 
-        mol = self.extract_params()
-
         # 'elem' : [vfree, bfree, rfree]
-
-        # TODO Test values need to be removed or changed later (Zn, Au)
         elem_dict = {
             'H': [7.6, 6.5, 1.64],
             'C': [34.4, 46.6, 2.08],
@@ -117,17 +116,11 @@ class LennardJones:
             'S': [75.2, 134.0, 2.00],
             'Cl': [65.1, 94.6, 1.88],
             'Br': [95.7, 162.0, 1.96],
-            'Zn': [1, 1, 1],
-            'Au': [1, 1, 1]
+            'Au': [1, 1, 1],
+            'Zn': [1, 1, 1]
         }
 
-        # Conversion from Ha.Bohr ** 6 to kcal / (mol * Ang ** 6):
-        kcal_ang = 13.7792544
-
-        bis = []
-        ais = []
-
-        for atom in mol:
+        for count, atom in enumerate(self.ddec_data):
 
             # r_aim = rfree * ((vol / vfree) ** (1 / 3))
             r_aim = elem_dict[f'{atom[1]}'][2] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** (1 / 3))
@@ -136,14 +129,12 @@ class LennardJones:
             b_i = elem_dict[f'{atom[1]}'][1] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** 2)
 
             a_i = 32 * b_i * (r_aim ** 6)
+            self.ddec_data[count] += [r_aim, b_i, a_i]
 
-            bis.append(b_i)
-            ais.append(a_i)
-
-        return bis, ais
+        return self.ddec_data
 
     def polar_hydrogens(self):
-        """Identifies the polar Hydrogens and changes the sigma, epsilon values accordingly."""
+        """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly."""
 
         # Create dictionary which stores the atom number and its type:
         # atoms = {1: 'C', 2: 'C', 3: 'H', 4: 'H', ...}
@@ -168,27 +159,70 @@ class LennardJones:
                 if 'H' in pair[0]:
                     polars.append(pair)
 
-        bis, ais = self.calc_ai_bi()
+        print('Polar pairs identified:', polars)
 
         for pair in polars:
-            if 'H' in pair[0]:
-                # pair[0] is the first atom of the tuple with its topology position e.g. '6H'
-                # pair[0][0] - 1 is the index of the atom e.g. 5
-                bis[int(pair[0][0]) - 1] = 0
-                ais[int(pair[0][0]) - 1] = 0
-            if 'H' in pair[1]:
-                bis[int(pair[1][0]) - 1] = 0
-                ais[int(pair[1][0]) - 1] = 0
+            if 'H' in pair[0] or 'H' in pair[1]:
+                if 'H' in pair[0]:
+                    polar_h_pos = int(pair[0][0]) - 1
+                    polar_son_pos = int(pair[1][0]) - 1
+                else:
+                    polar_h_pos = int(pair[1][0]) - 1
+                    polar_son_pos = int(pair[0][0]) - 1
+                # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
+                self.ddec_ai_bi[polar_son_pos][-2] = ((self.ddec_ai_bi[polar_son_pos][-2]) ** 0.5 + (self.ddec_ai_bi[polar_h_pos][-2]) ** 0.5) ** 2
+                self.ddec_ai_bi[polar_h_pos][-2] = 0
 
-        # Redistribute sigma/epsilon values to the polar neighbour
-        # eq 10 in paper.
-        # set the sigma/epsilon values to 0 for the found polar hydrogens
+                # Reset the a_i for the two polar atoms using the new b_i values.
+                self.ddec_ai_bi[polar_son_pos][-1] = 32 * self.ddec_ai_bi[polar_son_pos][-2] * (self.ddec_ai_bi[polar_son_pos][-3] ** 6)
+                self.ddec_ai_bi[polar_h_pos][-1] = 0
 
-        return bis, ais
+        return self.ddec_ai_bi
 
     def symmetry(self):
+        """Symmetrises the sigma and epsilon terms.
+        This means setting the sigma and epsilon values to be equal if the atom types are the same.
+        """
+
+        # Symmetrisation may be carried out in different ways.
+
+        # 1. Work backwards
+        # Perform a charges calculation for each atom.
+        # If the charge on a set of atoms is largely consistent then set their terms to be equal to their average.
+        # Use these values to then calculate the L-J terms which are now symmetrised.
+
+        # 2. Use the molecular structure
+        # Examine the topology of the molecule and find similar atoms.
+        # Look at the nearest neighbour atoms, as well as the nearest neighbours of the nearest neighbours.
+        # This should be enough to symmetrise the atoms in MOST cases.
+        # It is not sufficient to simply look at the nearest neighbours and no further.
+        # This leads to "over-symmetrisation" where different atom types are labelled as the same.
+
         pass
 
-    def amend_ai_bi(self):
+    def amend_sig_eps(self):
+        """Adds the sigma, epsilon terms to the ligand class object as a dictionary.
+        The class object (NonbondedForce) is stored as an empty dictionary until this method is called.
+        # TODO Add the sigma/epsilon terms after symmetry fixes.
+        """
 
-        self.molecule.NonbondedForce = {self.molecule.molecule[atom][0]: self.calc_ai_bi()[atom] for atom in range(len(self.molecule.molecule))}
+        # Creates Nonbondedforce dict:
+        # Format: {0: [sigma, epsilon], 1: [sigma, epsilon], ... }
+        # This follows the usual ordering of the atoms which is consistent throughout QUBEKit.
+
+        new_NonbondedForce = {}
+        # Conversion from Ha.Bohr ** 6 to kcal / (mol * Ang ** 6):
+        kcal_ang = 13.7792544
+
+        for atom in range(len(self.molecule.molecule)):
+            if self.ddec_polars[atom][-1] == 0:
+                sigma, epsilon = 0, 0
+            else:
+                sigma = (self.ddec_polars[atom][-1] / self.ddec_polars[atom][-2]) ** (1 / 6)
+                epsilon = (self.ddec_polars[atom][-2] ** 2) / (4 * self.ddec_polars[atom][-1])
+
+            new_NonbondedForce.update({atom: [self.ddec_polars[atom][5], sigma, epsilon]})
+
+        self.molecule.NonbondedForce = new_NonbondedForce
+
+        return self.molecule

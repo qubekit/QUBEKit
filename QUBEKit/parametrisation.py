@@ -3,13 +3,16 @@
 # maybe Gromacs as well
 
 
+from QUBEKit.decorators import for_all_methods, timer_logger
+
+
 class Parametrisation:
     """Class of functions which perform the initial parametrisation for the molecule.
     The Parameters will be stored into the molecule as dictionaries as this is easy to manipulate and convert
     to a parameter tree.
 
     Note all parameters gathered here are indexed from 0,
-    where as the ligand object index starts from 1 for all networkx related properties such as bonds!
+    whereas the ligand object index starts from 1 for all networkx related properties such as bonds!
 
 
     Parameters
@@ -18,8 +21,8 @@ class Parametrisation:
 
     input_file : an OpenMM style xml file associated with the molecule object
 
-    fftype : the FF type the molecule will be parameterised with only needed in the case of gaff or gaff2 else will be
-    assigned based on class used.
+    fftype : the FF type the molecule will be parametrised with
+             only needed in the case of gaff or gaff2 else will be assigned based on class used.
 
     Returns
     -------
@@ -33,7 +36,7 @@ class Parametrisation:
 
     PeriodicTorsionForce : dictionary of periodicity, barrier and phase stored under the torsion tuple.
 
-    NonbondedForce : dictionary of  charge, sigma and epsilon stored under the orginal atom ordering.
+    NonbondedForce : dictionary of charge, sigma and epsilon stored under the original atom ordering.
     """
 
     def __init__(self, molecule, input_file=None, fftype=None):
@@ -103,6 +106,7 @@ class Parametrisation:
             self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
 
 
+@for_all_methods(timer_logger)
 class XML(Parametrisation):
     """Read in the parameters for a molecule from an XML file and store them into the molecule."""
 
@@ -132,6 +136,7 @@ class XML(Parametrisation):
             with open('serilized.xml', 'w+') as out:
                 out.write(xml)
 
+
         else:
             raise FileExistsError('No .xml type file found did you supply one?')
 
@@ -144,6 +149,7 @@ class XML(Parametrisation):
         self.gather_parameters()
 
 
+@for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
     """Use AnteChamber to parametrise the Ligand first using gaff  or gaff2
     then build and export the xml tree object."""
@@ -250,6 +256,7 @@ class AnteChamber(Parametrisation):
         self.inpcrd = self.molecule.name+'.inpcrd'
 
 
+@for_all_methods(timer_logger)
 class OpenFF(Parametrisation):
     """This class uses the openFF in openeye to parametrise the molecule using frost.
     A serialized XML is then stored in the parameter dictionaries."""
@@ -258,9 +265,10 @@ class OpenFF(Parametrisation):
 
         super().__init__(molecule, input_file, fftype)
         self.parameterise()
+
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
 
-    def parameterise(self):
+    def parametrise(self):
         """This is the master function of the class
         1 parametrise the molecule with frost and serialize the system into an xml
         2 parse the object and construct the parameter dictionaries
@@ -302,7 +310,7 @@ class OpenFF(Parametrisation):
         with open('serilized.xml', 'w+') as out:
             out.write(xml)
 
-
+@for_all_methods(timer_logger)
 class BOSS(Parametrisation):
     """This class uses the BOSS software to parameterise a molecule using the CM1A/OPLS FF.
     The parameters are then stored in the parameter dictionaries."""
@@ -335,3 +343,4 @@ class BOSS(Parametrisation):
         """This method parses the BOSS out file and collects the parameters ready to pass them
         to build tree."""
         pass
+
