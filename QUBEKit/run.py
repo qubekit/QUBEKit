@@ -43,7 +43,8 @@ where '#' is any number or string you like.
 """
 
 
-from QUBEKit import smiles, modseminario
+from QUBEKit import smiles
+from QUBEKit.modseminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
@@ -246,7 +247,8 @@ class Main:
         mol = QMEngine.hessian()
 
         # Modified Seminario for bonds and angles
-        modseminario.modified_seminario_method(QMEngine.qm['vib_scaling'], mol)
+        ModSem = ModSeminario(mol, self.defaults_dict)
+        ModSem.modified_seminario_method()
         mol = QMEngine.all_modes()
 
         # Prepare for density calc
