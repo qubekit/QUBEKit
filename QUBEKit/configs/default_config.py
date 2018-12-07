@@ -4,7 +4,7 @@
 # QuBeKit config file allows users to reset the global variables
 
 
-qm = {'theory': 'B3LYP', 'basis': '6-311++G(d,p)', 'vib_scaling': 0.957, 'threads': 6, 'memory': 2, 'convergence': 'GAU_TIGHT', 'iterations': 100}
+qm = {'theory': 'B3LYP', 'basis': '6-311++G(d,p)', 'vib scaling': 0.957, 'threads': 6, 'memory': 2, 'convergence': 'GAU_TIGHT', 'iterations': 100}
 
 # qm configs:
 

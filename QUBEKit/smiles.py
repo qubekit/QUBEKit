@@ -3,6 +3,7 @@
 
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import MolFromPDBFile, Descriptors
+from rdkit.Chem.Descriptors import *
 from rdkit.Chem.rdForceFieldHelpers import MMFFGetMoleculeForceField, MMFFGetMoleculeProperties, MMFFOptimizeMolecule
 from rdkit.Chem.AllChem import EmbedMolecule
 
@@ -32,6 +33,7 @@ def smiles_to_pdb(smiles_string):
 def smiles_mm_optimise(pdb_file):
     """Perform rough preliminary optimisation to speed up later optimisations
     and extract some extra infomation about the molecule."""
+
     mol = MolFromPDBFile(pdb_file, removeHs=False)
     EmbedMolecule(mol)
     # use rdkit Descriptors to extract properties and store in Descriptors dictionary
@@ -45,4 +47,5 @@ def smiles_mm_optimise(pdb_file):
     # ff = MMFFGetMoleculeForceField(mol, mol_properties)
     MMFFOptimizeMolecule(mol)
     Chem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
+
     return f'{pdb_file[:-4]}_rdkit_optimised.pdb', descriptors

@@ -214,11 +214,11 @@ class ModSeminario:
             central_atoms_angles.append([])
             for count, angle in enumerate(angle_list):
                 if coord == angle[1] - 1:
-                    # For angle abc, atoms a, c are written to array
+                    # For angle ABC, atoms A C are written to array
                     ac_array = [angle[0] - 1, angle[2] - 1, count]
                     central_atoms_angles[coord].append(ac_array)
 
-                    # For angle abc, atoms c a are written to array
+                    # For angle ABC, atoms C A are written to array
                     ca_array = [angle[2] - 1, angle[0] - 1, count]
                     central_atoms_angles[coord].append(ca_array)
 
@@ -226,19 +226,20 @@ class ModSeminario:
         for coord in range(len(coords)):
             central_atoms_angles[coord] = sorted(central_atoms_angles[coord], key=itemgetter(0))
 
-        # Find normals u_pa for each angle
+        # Find normals u_PA for each angle
         unit_pa_all_angles = []
 
         for i in range(len(central_atoms_angles)):
             unit_pa_all_angles.append([])
             for j in range(len(central_atoms_angles[i])):
                 # For the angle at central_atoms_angles[i][j,:] the corresponding
-                # u_pa value is found for the plane abc and bond ab, where abc
+                # u_PA value is found for the plane ABC and bond AB, where ABC
                 # corresponds to the order of the arguments
                 # This is why the reverse order was also added
                 unit_pa_all_angles[i].append(ModSemMaths.u_pa_from_angles(central_atoms_angles[i][j][0], i, central_atoms_angles[i][j][1], coords))
 
         # Finds the contributing factors from the other angle terms
+        # scaling_factor_all_angles = cell(max(max(angle_list))) This will contain scaling factor and angle list position
         scaling_factor_all_angles = []
 
         for i in range(len(central_atoms_angles)):
@@ -281,8 +282,10 @@ class ModSeminario:
         # Used to find average values
         unique_values_angles = []
 
+        # Open output file angle parameters are written to
         with open('Modified_Seminario_Angle.txt', 'w') as angle_file:
 
+        # Finds the angle force constants with the scaling factors included for each angle
             for i, angle in enumerate(angle_list):
                 # Ensures that there is no difference when the ordering is changed
                 [ab_k_theta, ab_theta_0] = ModSemMaths.force_angle_constant(angle[0] - 1, angle[1] - 1, angle[2] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1])
@@ -293,7 +296,10 @@ class ModSeminario:
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity
                 k_theta[i] *= (self.qm['vib scaling'] ** 2)
 
+
+
                 angle_file.write(f'{i}  {self.atom_names[angle[0] - 1]}-{self.atom_names[angle[1] - 1]}-{self.atom_names[angle[2] - 1]}  ')
+
                 angle_file.write('{:.3f}   {:.3f}   {}   {}   {}\n'.format(k_theta[i], theta_0[i], angle[0], angle[1], angle[2]))
 
                 unique_values_angles.append([self.atom_names[angle[0] - 1], self.atom_names[angle[1] - 1], self.atom_names[angle[2] - 1], k_theta[i], theta_0[i], 1])
@@ -303,8 +309,8 @@ class ModSeminario:
     def bonds_calculated_printed(self, bond_list, bond_lengths, eigenvalues, eigenvectors, coords):
         """Uses the Seminario method to find the bond parameters and print them to file"""
 
+        # Open output file bond parameters are written to
         with open('Modified_Seminario_Bonds.txt', 'w+') as bond_file:
-
             k_b = zeros(len(bond_list))
             bond_length_list = zeros(len(bond_list))
             unique_values_bonds = []  # Used to find average values
@@ -323,7 +329,8 @@ class ModSeminario:
                 bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')
                 bond_file.write('{:.3f}   {:.3f}   {}   {}\n'.format(k_b[i], bond_length_list[i], bond[0], bond[1]))
 
-                unique_values_bonds.append([self.atom_names[bond[0] - 1], self.atom_names[bond[1] - 1], k_b[i], bond_length_list[i], 1])
+                unique_values_bonds.append(
+                    [self.atom_names[bond[0] - 1], self.atom_names[bond[1] - 1], k_b[i], bond_length_list[i], 1])
 
         return unique_values_bonds
 
@@ -342,7 +349,7 @@ def average_values_across_classes(unique_values_bonds, unique_values_angles):
                 unique_values_bonds[i][3] += unique_values_bonds[j][3]
                 unique_values_bonds[i][4] += 1
                 ignore_rows_bonds.append(j)
-
+    
     # Average Bonds Printed
     with open('Average_Modified_Seminario_Bonds.txt', 'w+') as bond_file:
 
