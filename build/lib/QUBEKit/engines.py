@@ -15,17 +15,13 @@ class Engines:
     """
 
     def __init__(self, molecule, config_dict):
-        # Obtains the molecule name and a list of elements in the molecule with their respective coordinates.
-        # self.molecule_name, self.molecule = molecule.name, molecule.molecule
+
         self.engine_mol = molecule
+        # TODO implement method for running with default rather than csv
         self.charge = config_dict['charge']
         self.multiplicity = config_dict['multiplicity']
-        self.geometric = config_dict['geometric']
-        self.solvent = config_dict['solvent']
-        self.ddec_version = config_dict['ddec version']
         # Load the configs using the config_file name.
-        confs = config_loader(config_dict['config'])
-        self.qm, self.fitting, self.paths = confs
+        self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -201,7 +197,7 @@ class PSI4(Engines):
                 tasks += "grad, wfn = gradient('{}', return_wfn=True)\ncubeprop(wfn)".format(self.qm['theory'].lower())
 
             # TODO check the input settings and compare with g09
-            if self.solvent:
+            if self.qm['solvent']:
                 print('Setting pcm parameters.')
                 input_file.write('\n\nset pcm true\nset pcm_scf_type total')
                 input_file.write('\n\npcm = {')
@@ -254,7 +250,7 @@ class PSI4(Engines):
                     return self.engine_mol
 
     def geo_gradient(self, QM=False, MM=False, run=True, threads=False):
-        """"Write the psi4 style input file to get the gradient for geometric
+        """Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
         """
 
@@ -297,9 +293,9 @@ class Chargemol(Engines):
     def generate_input(self):
         """Given a DDEC version (from the defaults), this function writes the job file for chargemol."""
 
-        if self.ddec_version != 6 or self.ddec_version != 3:
+        if self.qm['ddec version'] != 6 or self.qm['ddec version'] != 3:
             print('Invalid or unsupported DDEC version given, running with default version 6.')
-            self.ddec_version = 6
+            self.qm['ddec version'] = 6
 
         # Write the charges job file.
         with open('job_control.txt', 'w+') as charge_file:
@@ -311,17 +307,17 @@ class Chargemol(Engines):
             charge_file.write('\n\n<periodicity along A, B and C vectors>\n.false.\n.false.\n.false.')
             charge_file.write('\n</periodicity along A, B and C vectors>')
 
-            charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.paths["chargemol"]}/atomic_densities/')
+            charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.descriptions["chargemol"]}/atomic_densities/')
             charge_file.write('\n</atomic densities directory complete path>')
 
-            charge_file.write(f'\n\n<charge type>\nDDEC{self.ddec_version}\n</charge type>')
+            charge_file.write(f'\n\n<charge type>\nDDEC{self.qm["ddec version"]}\n</charge type>')
 
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
         # sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
         # sub_call('mv Dt.cube total_density.cube', shell=True)
 
-        sub_call(f'{self.paths["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
+        sub_call(f'{self.descriptions["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
                  shell=True)
 
     def extract_charges(self):
@@ -337,7 +333,7 @@ class Gaussian(Engines):
 
         super().__init__(molecule, config_dict)
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, solvent=False):
+    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False):
 
         if QM:
             molecule = self.engine_mol.QMoptimized
@@ -361,7 +357,7 @@ class Gaussian(Engines):
             if hessian:
                 commands += 'freq '
 
-            if solvent:
+            if self.qm['solvent']:
                 commands += 'SCRF=(Solvent=Ethanol)'
 
             commands += f'\n\n{self.engine_mol.name}\n\n'

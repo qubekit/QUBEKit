@@ -1,0 +1,3 @@
+methane C
+ethanol CCO
+benzene c1ccccc1

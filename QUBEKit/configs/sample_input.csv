@@ -1,0 +1,9 @@
+name,charge,multiplicity,config,smile string or file,torsion order
+default,0,1,default_config,,
+methane,0,1,default_config,methane.pdb,
+methanol,0,1,default_config,methanol.pdb,
+ethane,0,1,default_config,ethane.pdb,
+propane,0,1,default_config,propane.pdb,
+benzene,0,1,default_config,benzene.pdb,
+dichlorobenzene,0,1,default_config,dichlorobenzene.pdb,
+dmso,0,1,default_config,dmso.pdb,

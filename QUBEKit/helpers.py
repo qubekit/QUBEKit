@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 
+from csv import DictReader, writer, QUOTE_MINIMAL
+
+
 def pdb_to_coord_list(pdb_file):
     """Opens a pdb file ('methane.pdb' for example) and returns the molecule name, followed by a list of the coords.
     Coords will be of the form: [['C', -1.28, 0.127, -0.003], ['C', 0.029, -0.428, -0.47] ... ]
@@ -33,9 +36,56 @@ def config_loader(config_name='default_config'):
 
     from importlib import import_module
 
-    config = import_module('configs.{}'.format(config_name))
+    config = import_module(f'configs.{config_name}')
 
-    return [config.qm, config.fitting, config.paths]
+    return config.qm, config.fitting, config.descriptions
+
+
+def get_mol_data_from_csv(csv_name='sample_input.csv'):
+    """Scan the csv file to find the row with the desired molecule data.
+    Returns a dictionary of dictionaries in the form:
+    {'methane': {'charge': 0, 'multiplicity': 1, ...}, 'ethane': {'charge': 0 ...}, ...}
+    """
+
+    with open(f'configs/{csv_name}', 'r') as csv_file:
+
+        mol_confs = DictReader(csv_file)
+        rows = []
+
+        for row in mol_confs:
+
+            # Converts to ordinary dict rather than ordered.
+            row = dict(row)
+            row['charge'] = int(row['charge'])
+            row['multiplicity'] = int(row['multiplicity'])
+            # Converts empty string to None (looks a bit weird, I know).
+            row['torsion order'] = row['torsion order'] if row['torsion order'] else None
+            rows.append(row)
+
+        # Creates the nested dictionaries with the names as the keys
+        final = {rows[i]['name']: rows[i] for i in range(len(rows))}
+
+        # Removes the names from the sub-dictionaries.
+        # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...} --> {'methane': {'charge': 0, ...}, ...}
+        for conf in final.keys():
+
+            del final[conf]['name']
+
+        return final
+
+
+def generate_config_csv(csv_name):
+
+    if csv_name[-4:] != '.csv':
+        raise TypeError('Invalid or unspecified file type. File must be .csv')
+
+    with open(f'{csv_name}', 'w') as csv_file:
+
+        filewriter = writer(csv_file, delimiter=',', quotechar='|', quoting=QUOTE_MINIMAL)
+        filewriter.writerow(['name', 'charge', 'multiplicity', 'config', 'smile string or file', 'torsion order'])
+        filewriter.writerow(['default', 0, 1, 'default_config', '', ''])
+
+    print(f'{csv_name} generated.')
 
 
 def get_overage(molecule):

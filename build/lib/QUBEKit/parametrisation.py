@@ -40,6 +40,7 @@ class Parametrisation:
     """
 
     def __init__(self, molecule, input_file=None, fftype=None):
+
         self.molecule = molecule
         self.input = input_file
         self.fftype = fftype
@@ -76,7 +77,7 @@ class Parametrisation:
                 self.molecule.NonbondedForce[i] = [Atom.get('q'), Atom.get('sig'), Atom.get('eps')]
                 i += 1
 
-        #Extract all of the torsion data
+        # Extract all of the torsion data
         phases = ['0', str(pi), '0', str(pi)]
         for Torsion in in_root.iter('Torsion'):
             tor_string_forward = (int(Torsion.get('p1')), int(Torsion.get('p2')), int(Torsion.get(
@@ -136,23 +137,24 @@ class XML(Parametrisation):
             with open('serilized.xml', 'w+') as out:
                 out.write(xml)
 
-
         else:
             raise FileExistsError('No .xml type file found did you supply one?')
 
-    def parameterise(self):
+    def parametrise(self):
         """This is the master function and controls the class.
         1. Serialize the system into a correctly formatted xml file
-        2. gather the parameters and store them in the molecule parameter dictionaries."""
-        self.serialize_system
+        2. gather the parameters and store them in the molecule parameter dictionaries.
+        """
 
+        self.serialize_system
         self.gather_parameters()
 
 
 @for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
     """Use AnteChamber to parametrise the Ligand first using gaff  or gaff2
-    then build and export the xml tree object."""
+    then build and export the xml tree object.
+    """
 
     def __init__(self, molecule, input_file=None, fftype='gaff'):
         super().__init__(molecule, input_file, fftype)
@@ -166,7 +168,8 @@ class AnteChamber(Parametrisation):
         1 parametrise with Antechamber using gaff or gaff2
         2 load molecule into tleap to get the prmtop and inpcrd files used by openMM
         3 serialize the openMM system object
-        4 convert the parameters to a xml tree object and export to the molecule."""
+        4 convert the parameters to a xml tree object and export to the molecule.
+        """
 
         self.antchamber_cmd()
 
@@ -176,6 +179,7 @@ class AnteChamber(Parametrisation):
 
     def serialize_system(self):
         """Serialize the amber style files into an openmm object."""
+
         from simtk.openmm import app
         from simtk import openmm
 
@@ -189,6 +193,7 @@ class AnteChamber(Parametrisation):
 
     def antchamber_cmd(self):
         """Method to run Antechamber, parmchk2 and tleap."""
+
         from tempfile import TemporaryDirectory
         from shutil import copy
         from os import getcwd, chdir, path
@@ -252,8 +257,8 @@ class AnteChamber(Parametrisation):
             chdir(cwd)
 
         # Now give the file names to parametrisation method
-        self.prmtop = self.molecule.name+'.prmtop'
-        self.inpcrd = self.molecule.name+'.inpcrd'
+        self.prmtop = self.molecule.name + '.prmtop'
+        self.inpcrd = self.molecule.name + '.inpcrd'
 
 
 @for_all_methods(timer_logger)
@@ -264,17 +269,18 @@ class OpenFF(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='frost'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
 
+        self.parametrise()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
 
     def parametrise(self):
         """This is the master function of the class
         1 parametrise the molecule with frost and serialize the system into an xml
         2 parse the object and construct the parameter dictionaries
-        3 return the parameters to the molecule."""
-        self.serialize_system()
+        3 return the parameters to the molecule.
+        """
 
+        self.serialize_system()
         self.gather_parameters()
 
     def serialize_system(self):
@@ -314,13 +320,15 @@ class OpenFF(Parametrisation):
 @for_all_methods(timer_logger)
 class BOSS(Parametrisation):
     """This class uses the BOSS software to parameterise a molecule using the CM1A/OPLS FF.
-    The parameters are then stored in the parameter dictionaries."""
+    The parameters are then stored in the parameter dictionaries.
+    """
 
     # TODO make sure order is consistent with PDB.
 
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
+
         self.parameterise()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
 
@@ -328,20 +336,23 @@ class BOSS(Parametrisation):
         """This is the master function of the class
         1 parametrise the molecule with CM1A/OPLS
         2 parse the out file and construct the parameter dictionaries
-        3 return the parameters to the molecule."""
+        3 return the parameters to the molecule.
+        """
 
         self.BOSS_cmd()
-
         self.gather_parameters()
 
     def BOSS_cmd(self):
         """This method is used to call the required BOSS scripts.
-         1 The zmat file with CM1A charges is first generated for the molecule keeping the same pdb order.
-         2 A single point calculation is done."""
+        1 The zmat file with CM1A charges is first generated for the molecule keeping the same pdb order.
+        2 A single point calculation is done.
+        """
+
         pass
 
     def gather_parameters(self):
         """This method parses the BOSS out file and collects the parameters ready to pass them
-        to build tree."""
-        pass
+        to build tree.
+        """
 
+        pass

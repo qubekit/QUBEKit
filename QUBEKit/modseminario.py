@@ -94,8 +94,7 @@ class ModSemMaths:
         return -0.5 * sum(eigenvalues_ab[i] * abs(dot(unit_vectors_ab, eigenvectors_ab[:, i])) for i in range(3))
 
     @staticmethod
-    def force_angle_constant(atom_a, atom_b, atom_c, bond_lengths, eigenvalues, eigenvectors, coords, scaling_1,
-                             scaling_2):
+    def force_angle_constant(atom_a, atom_b, atom_c, bond_lengths, eigenvalues, eigenvectors, coords, scaling_1, scaling_2):
         """Force Constant-Equation 14 of Seminario calculation paper-gives force
         constant for angle (in kcal/mol/rad^2) and equilibrium angle in degrees.
         """
@@ -123,8 +122,7 @@ class ModSemMaths:
         u_pc = cross(u_cb, u_n) / linalg.norm(cross(u_cb, u_n))
 
         sum_first = sum(eigenvalues_ab[i] * abs(ModSemMaths.dot_product(u_pa, eigenvectors_ab[:, i])) for i in range(3))
-        sum_second = sum(
-            eigenvalues_cb[i] * abs(ModSemMaths.dot_product(u_pc, eigenvectors_cb[:, i])) for i in range(3))
+        sum_second = sum(eigenvalues_cb[i] * abs(ModSemMaths.dot_product(u_pc, eigenvectors_cb[:, i])) for i in range(3))
 
         # Scaling due to additional angles - Modified Seminario Part
         sum_first /= scaling_1
@@ -151,8 +149,7 @@ class ModSeminario:
         self.molecule = mol
         self.atom_names = self.molecule.atom_names
         # Load the configs using the config_file name.
-        confs = config_loader(config_dict['config'])
-        self.qm, self.fitting, self.paths = confs
+        self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
 
     def modified_seminario_method(self):
         """Calculate the new bond and angle terms after being passed the symmetric hessian and optimized
@@ -476,12 +473,11 @@ def input_data_processing_g09():
     #
     # OPLS_number_to_name = [x.split() for x in OPLS_number_to_name]
 
-    length_hessian = 3 * N
-    hessian = zeros((length_hessian, length_hessian))
+    hessian = zeros((3 * N, 3 * N))
     m = 0
 
     # Write the hessian in a 2D array format
-    for i in range(length_hessian):
+    for i in range(3 * N):
         for j in range((i + 1)):
             hessian[i][j] = unprocessed_Hessian[m]
             hessian[j][i] = unprocessed_Hessian[m]

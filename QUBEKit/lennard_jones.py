@@ -6,16 +6,17 @@
 
 
 from QUBEKit.decorators import for_all_methods, timer_logger
+from QUBEKit.helpers import config_loader
 
 
 @for_all_methods(timer_logger)
 class LennardJones:
 
-    def __init__(self, molecule, ddec_version=6):
+    def __init__(self, molecule, config_dict):
 
         # Ligand class object
         self.molecule = molecule
-        self.ddec_version = ddec_version
+        self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
         # This is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', vol]
         self.ddec_data = self.extract_params()
@@ -33,14 +34,14 @@ class LennardJones:
         # Extract dipoles
         # Extract volumes (from other file)
 
-        # Ensure total charge ~= net charge
+        # Ensure total charge ~== net charge
 
         # return info for the molecule as a list of lists.
 
-        if self.ddec_version == 6:
+        if self.qm['ddec version'] == 6:
             net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
 
-        elif self.ddec_version == 3:
+        elif self.qm['ddec version'] == 3:
             net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
 
         else:
@@ -107,6 +108,7 @@ class LennardJones:
         # Calculations from paper have been combined and simplified for faster computation.
 
         # 'elem' : [vfree, bfree, rfree]
+        # TODO Remove Au and Zn after testing.
         elem_dict = {
             'H': [7.6, 6.5, 1.64],
             'C': [34.4, 46.6, 2.08],
@@ -159,7 +161,7 @@ class LennardJones:
                 if 'H' in pair[0]:
                     polars.append(pair)
 
-        print('Polar pairs identified:', polars)
+        print('Polar pairs identified: ', polars)
 
         for pair in polars:
             if 'H' in pair[0] or 'H' in pair[1]:

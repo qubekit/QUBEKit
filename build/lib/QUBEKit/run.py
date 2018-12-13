@@ -50,29 +50,28 @@ from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.parametrisation import OpenFF
+from QUBEKit.helpers import config_loader, get_mol_data_from_csv
 
 from sys import argv as cmdline
-from os import mkdir, chdir
+from os import mkdir, chdir, listdir, path
 from subprocess import call as sub_call
 
 
 class Main:
     """Interprets commands from the terminal.
     Stores defaults, returns help or executes relevant functions.
+    Will also create log and working directory if needed.
     """
 
     def __init__(self):
 
-        self.defaults_dict = {
-            'charge': 0, 'multiplicity': 1,
-            'bonds engine': 'psi4', 'charges engine': 'chargemol',
-            'ddec version': 6, 'geometric': True, 'solvent': False,
-            'run number': '999', 'config': 'default_config'
-        }
+        # Configs:
+        self.defaults_dict = get_mol_data_from_csv()['default']
+        self.qm, self.fitting, self.descriptions = config_loader(self.defaults_dict['config'])
 
         self.help_dict = {
-            'bonds': f'Bonds help, default={self.defaults_dict["bonds engine"]}',
-            'charges': f'Charges help, default={self.defaults_dict["charges engine"]}',
+            'bonds': f'Bonds help, default={self.qm["bonds engine"]}',
+            'charges': f'Charges help, default={self.qm["charges engine"]}',
             'dihedrals': 'Dihedrals help, default=???',
             'smiles': 'Enter the smiles code for the molecule.',
             '-c': f'The charge of the molecule, default={self.defaults_dict["charge"]}',
@@ -95,8 +94,6 @@ class Main:
         This method will also interpret any default changes when input correctly (see header docstring for more info).
         """
 
-        import sys
-
         # Parse the terminal inputs
         self.commands = cmdline[1:]
         print('These are the commands you gave:', self.commands)
@@ -108,9 +105,9 @@ class Main:
 
                 if self.commands[count + 1] in self.help_dict:
                     print(self.help_dict[self.commands[count + 1]])
+                    exit()
                 else:
-                    print('Unrecognised help command; the valid help commands are:', self.help_dict.keys())
-                sys.exit()
+                    raise Exception('Unrecognised help command; the valid help commands are:', self.help_dict.keys())
 
             # Change defaults for each analysis.
             if cmd == '-c':
@@ -120,54 +117,104 @@ class Main:
                 self.defaults_dict['multiplicity'] = int(self.commands[count + 1])
 
             if cmd == '-ddec':
-                self.defaults_dict['ddec version'] = int(self.commands[count + 1])
+                self.qm['ddec version'] = int(self.commands[count + 1])
 
             if any(s in cmd for s in ('geo', 'geometric')):
-                self.defaults_dict['geometric'] = False if self.commands[count + 1] == 'false' else True
+                self.qm['geometric'] = False if self.commands[count + 1] == 'false' else True
 
             if cmd == 'psi4':
-                self.defaults_dict['bonds engine'] = 'psi4'
+                self.qm['bonds engine'] = 'psi4'
 
             if cmd == 'g09':
-                self.defaults_dict['bonds engine'] = 'g09'
+                self.qm['bonds engine'] = 'g09'
 
             if any(s in cmd for s in ('cmol', 'chargemol')):
-                self.defaults_dict['charges engine'] = 'chargemol'
+                self.qm['charges engine'] = 'chargemol'
 
             if cmd == 'onetep':
-                self.defaults_dict['charges engine'] = 'onetep'
+                self.qm['charges engine'] = 'onetep'
 
             if cmd == '-log':
-                self.defaults_dict['run number'] = str(self.commands[count + 1])
+                self.descriptions['log'] = str(self.commands[count + 1])
 
             if cmd == '-config':
                 self.defaults_dict['config'] = str(self.commands[count + 1])
 
             if cmd == '-solvent':
-                self.defaults_dict['solvent'] = False if self.commands[count + 1] == 'false' else True
+                self.qm['solvent'] = False if self.commands[count + 1] == 'false' else True
 
         print('These are the current defaults:', self.defaults_dict, '\nPlease note, some values may not be used.')
 
         for count, cmd in enumerate(self.commands):
 
-            # Check if a smiles string is given. If it is, generate the pdb and optimise it.
-            if any(s in cmd for s in ('-sm', '-smiles')):
+            # Controls high throughput.
+            # Basically just runs the same functions but forces certain defaults.
+            # '-bulk pdb' will search for all local pdbs and run analysis for each.
+            # '-bulk smile example.txt' will run analysis for all smile strings in the example.txt file.
+            # Format of example.txt is given in run_smiles.txt sample file.
+            if cmd == '-bulk':
 
-                # Generate pdb from smiles string.
-                self.file = smiles.smiles_to_pdb(self.commands[count + 1])
+                if self.commands[count + 1] == 'smile':
 
-            # If a pdb is given instead, use that.
-            elif 'pdb' in cmd:
+                    smile_file = self.commands[count + 2]
+                    with open(smile_file, 'r') as run_file:
 
-                self.file = cmd
+                        # Run full analysis for each smile string in the .txt file
+                        for line in run_file:
+                            name, smile_string = line.split()
 
-            # If neither a smiles string nor a pdb is given, raise exception.
+                            self.file = smiles.smiles_to_pdb(smile_string, name)
+                            # TODO Check defaults are overridden properly.
+                            # TODO REALLY CHECK.
+                            self.defaults_dict = get_mol_data_from_csv()[name]
+                            self.create_log()
+                            self.execute()
+                            # For some bizarre (and infuriating) reason, sub_call('cd ../', shell=True) doesn't work
+                            chdir('../../QUBEKit')
+                        exit()
+
+                elif self.commands[count + 1] == 'pdb':
+
+                    # Find all pdb files in current directory.
+                    files = [f for f in listdir('.') if path.isfile(f)]
+                    pdbs = [file for file in files if file.endswith('.pdb')]
+
+                    # Run full analysis for each pdb provided
+                    for pdb in pdbs:
+                        self.file = pdb
+                        # TODO Again, check defaults are overridden properly.
+                        self.defaults_dict = get_mol_data_from_csv()[pdb[:-4]]
+                        self.create_log()
+                        self.execute()
+                        chdir('../../QUBEKit')
+                    exit()
+
+                elif not self.commands[count + 1]:
+
+                    raise Exception('Please specify the proper bulk command: smile or pdb.')
+
+                else:
+                    raise Exception('Bulk commands only supported for pdb files or a file of smiles strings.')
+
             else:
-                raise Exception('''Missing valid file type or smiles command.
-                    Please use zmat or pdb files and be sure to give the extension when typing the file name into the terminal.
-                    Alternatively, use the smiles command to generate a molecule.''')
+                # Check if a smiles string is given. If it is, generate the pdb and optimise it.
+                if any(s in cmd for s in ('-sm', '-smiles')):
 
-            return self.file, self.commands
+                    # Generate pdb from smiles string.
+                    self.file = smiles.smiles_to_pdb(self.commands[count + 1])
+                    return self.file, self.commands
+
+                # If a pdb is given instead, use that.
+                elif 'pdb' in cmd:
+
+                    self.file = cmd
+                    return self.file, self.commands
+
+                # If neither a smiles string nor a pdb is given, raise exception.
+                else:
+                    raise Exception('''Missing valid file type or smiles command.
+                        Please use zmat or pdb files and be sure to give the extension when typing the file name into the terminal.
+                        Alternatively, use the smiles command to generate a molecule.''')
 
     def create_log(self):
         """Creates the working directory for the job as well as the log file.
@@ -181,7 +228,7 @@ class Main:
 
         # Define name of working directory.
         # This is formatted as 'QUBEKit_molecule name_yy_mm_dd_log_string'.
-        log_string = f'QUBEKit_{self.file[:-4]}_{date}_{self.defaults_dict["run number"]}'
+        log_string = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
         mkdir(log_string)
 
         # Copy active pdb into new directory.
@@ -191,15 +238,26 @@ class Main:
 
         # Create log file.
         # This is formatted as 'QUBEKit_log_molecule name_yy_mm_dd_log_string'.
-        with open(f'QUBEKit_log_{self.file[:-4]}_{date}_{self.defaults_dict["run number"]}', 'w+') as log_file:
+        with open(f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}', 'w+') as log_file:
             log_file.write(f'Beginning log file: {datetime.now()}\n\n')
 
             log_file.write(f'The commands given were: {self.commands}\n\n')
 
             log_file.write('The defaults used are:\n')
-            for key, var in self.defaults_dict.items():
-                log_file.write(f'{key}: {var}\n')
-            log_file.write('\n\n\n')
+
+            # Writes the config dictionaries to the log file.
+            dicts_to_print = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
+            for dic in dicts_to_print:
+                for key, var in dic.items():
+                    log_file.write(f'{key}: {var}\n')
+                log_file.write('\n')
+
+            log_file.write('\n')
+
+        print(f'If QUBEKit ever breaks or you would just like to view timings and other info, check the log file: \n'
+              f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}')
+
+        return
 
     def execute(self):
         """Calls all the relevant classes and methods for the full QM calculation in the correct order.
@@ -220,55 +278,56 @@ class Main:
         # Parametrise with openFF
         OpenFF(mol)
 
-        if self.defaults_dict['bonds engine'] == 'psi4':
+        if self.qm['bonds engine'] == 'psi4':
             # Initialise for PSI4
-            QMEngine = PSI4(mol, self.defaults_dict)
+            qm_engine = PSI4(mol, self.defaults_dict)
         else:
-            # QMEngine = OTHER
+            # qm_engine = OTHER
+            # TODO Add one
             raise Exception('No other bonds engine currently implemented.')
 
-        if self.defaults_dict['geometric']:
+        if self.qm['geometric']:
 
             # Calc geometric-related gradient and geometry
-            QMEngine.geo_gradient(MM=True)
+            qm_engine.geo_gradient(MM=True)
             mol.read_xyz_geo()
 
         else:
-            QMEngine.generate_input(MM=True, optimize=True)
-            QMEngine.optimised_structure()
+            qm_engine.generate_input(MM=True, optimize=True)
+            qm_engine.optimised_structure()
 
         # Write input file for PSI4
-        QMEngine.generate_input(QM=True, hessian=True)
+        qm_engine.generate_input(QM=True, hessian=True)
 
         # Calc bond lengths from molecule topology
         mol.get_bond_lengths(QM=True)
 
         # Extract Hessian
-        mol = QMEngine.hessian()
+        mol = qm_engine.hessian()
 
         # Modified Seminario for bonds and angles
-        ModSem = ModSeminario(mol, self.defaults_dict)
-        ModSem.modified_seminario_method()
-        mol = QMEngine.all_modes()
+        mod_sem = ModSeminario(mol, self.defaults_dict)
+        mod_sem.modified_seminario_method()
+        mol = qm_engine.all_modes()
 
-        # Prepare for density calc
-        G09 = Gaussian(mol, self.defaults_dict)
-        G09.generate_input(QM=True, density=True)
-
-        # Perform DDEC calc
-        CMol = Chargemol(mol, self.defaults_dict)
-        CMol.generate_input()
-
-        # Calculate Lennard-Jones parameters
-        LJ = LennardJones(mol, self.defaults_dict['ddec version'])
-        mol = LJ.amend_sig_eps()
-
-        # Perform torsion scan
-        Scan = TorsionScan(mol, QMEngine, 'OpenMM')
-        sub_call(f'{Scan.cmd}', shell=True)
-        Scan.start_scan()
-
-        print(mol)
+        # # Prepare for density calc
+        # g09 = Gaussian(mol, self.defaults_dict)
+        # g09.generate_input(QM=True, density=True)
+        #
+        # # Perform DDEC calc
+        # c_mol = Chargemol(mol, self.defaults_dict)
+        # c_mol.generate_input()
+        #
+        # # Calculate Lennard-Jones parameters
+        # lj = LennardJones(mol, self.defaults_dict)
+        # mol = lj.amend_sig_eps()
+        #
+        # # Perform torsion scan
+        # scan = TorsionScan(mol, qm_engine, 'OpenMM')
+        # sub_call(f'{scan.cmd}', shell=True)
+        # scan.start_scan()
+        #
+        # print(mol)
 
         return
 
