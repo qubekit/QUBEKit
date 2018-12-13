@@ -5,6 +5,8 @@ from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.lennard_jones import LennardJones as LJ
 from QUBEKit.modseminario import ModSeminario
+from QUBEKit import smiles, decorators
+from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv
 
 import os
 from subprocess import call as sub_call
@@ -82,57 +84,50 @@ from subprocess import call as sub_call
 #
 #     plt.show()
 #
-#
-defaults_dict = {'charge': 0, 'multiplicity': 1,
-                 'bonds engine': 'psi4', 'charges engine': 'chargemol',
-                 'ddec version': 6, 'geometric': True, 'solvent': None,
-                 'run number': '999', 'config': 'default_config'}
 
 file = 'methanol.pdb'
 mol = Ligand(file)
-#
-# LennyJ = LJ(mol, 6)
-#
-# print(LennyJ.extract_params())
-#
-# print(LennyJ.append_ais_bis())
-#
-# print(LennyJ.polar_hydrogens())
-#
-# print(LennyJ.amend_sig_eps())
-#
-# a = mol.topology.edges
-#
-# print(a)
-# print(list(a))
-# print([a])
-#
-# size_mol = 12
-# coords = [1, 2, 3, 4, 5, 6]
-# hessian = []
-# bond_lengths = []
-# from numpy import array, empty, linalg
-#
-# eigenvectors = empty((3, 3, size_mol, size_mol), dtype=complex)
-# eigenvalues = empty((size_mol, size_mol, 3), dtype=complex)
-#
-# for i in range(size_mol):
-#     for j in range(size_mol):
-#
-#         diff_i_j = array(coords[i, :]) - array(coords[j, :])
-#         bond_lengths[i][j] = linalg.norm(diff_i_j)
-#
-#         partial_hessian = hessian[(i * 3):((i + 1) * 3), (j * 3):((j + 1) * 3)]
-#         [a, b] = linalg.eig(partial_hessian)
-#         eigenvalues[i, j, :] = a
-#         eigenvectors[:, :, i, j] = b
-#
-# coords = []
-# for atom in molecule.QMoptimized:
-#     for j in range(3):
-#         coords.append(atom[j + 1])
-#
-# coords = [atom[j + 1] for atom in molecule.QMoptimized for j in range(3)]
 
-ModSeminario(mol, defaults_dict)
-print(mol.hessian)
+#
+# @decorators.timer_func
+# def while_test(iters):
+#     i = 0
+#     n = []
+#     while i < iters:
+#         j = 0
+#         while j < iters:
+#             k = 0
+#             while k < iters:
+#                 n.append(i * j * k)
+#                 k += 1
+#             j += 1
+#         i += 1
+#     return n
+#
+#
+# @decorators.timer_func
+# def range_test(iters):
+#     n = []
+#     for i in range(iters):
+#         for j in range(iters):
+#             for k in range(iters):
+#                 n.append(i * j * k)
+#     return n
+#
+#
+# @decorators.timer_func
+# def generator_test(iters):
+#     return [i * j * k for i in range(iters) for j in range(iters) for k in range(iters)]
+#
+#
+# def main_test(iters):
+#     while_test(iters)
+#     range_test(iters)
+#     generator_test(iters)
+#
+#
+# if __name__ == '__main__':
+#
+#     main_test(10)
+
+generate_config_csv('test.csv')

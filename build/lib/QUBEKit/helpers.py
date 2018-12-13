@@ -33,9 +33,44 @@ def config_loader(config_name='default_config'):
 
     from importlib import import_module
 
-    config = import_module('configs.{}'.format(config_name))
+    config = import_module(f'configs.{config_name}')
 
-    return [config.qm, config.fitting, config.paths]
+    return config.qm, config.fitting, config.descriptions
+
+
+def get_mol_data_from_csv(csv_name='sample_input.csv'):
+    """Scan the csv file to find the row with the desired molecule data.
+    Returns a dictionary of dictionaries in the form:
+    {'methane': {'charge': 0, 'multiplicity': 1, ...}, 'ethane': {'charge': 0 ...}, ...}
+    """
+
+    from csv import DictReader
+
+    with open(f'configs/{csv_name}', 'r') as csv_file:
+
+        mol_confs = DictReader(csv_file)
+        rows = []
+
+        for row in mol_confs:
+
+            # Converts to ordinary dict rather than ordered.
+            row = dict(row)
+            row['charge'] = int(row['charge'])
+            row['multiplicity'] = int(row['multiplicity'])
+            # Converts empty string to None (looks a bit weird, I know).
+            row['torsion order'] = row['torsion order'] if row['torsion order'] else None
+            rows.append(row)
+
+        # Creates the nested dictionaries with the names as the keys
+        final = {rows[i]['name']: rows[i] for i in range(len(rows))}
+
+        # Removes the names from the sub-dictionaries.
+        # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...} --> {'methane': {'charge': 0, ...}, ...}
+        for conf in final.keys():
+
+            del final[conf]['name']
+
+        return final
 
 
 def get_overage(molecule):
