@@ -7,12 +7,11 @@ from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
-from QUBEKit.parametrisation import OpenFF
+from QUBEKit.parametrisation import OpenFF, AnteChamber
 from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv
 
 from sys import argv as cmdline
-from os import mkdir, chdir, listdir, path
-from subprocess import call as sub_call
+from os import mkdir, chdir, listdir, path, rename
 
 
 class Main:
@@ -38,7 +37,8 @@ class Main:
         Recursively perform bulk analysis for smiles or pdbs.
         """
 
-        # Parse the terminal inputs
+        # Check for config changes or csv generation first.
+        # Multiple configs can be changed at once
         self.commands = cmdline[1:]
         print('These are the commands you gave:', self.commands)
 
@@ -46,7 +46,10 @@ class Main:
 
             # Change defaults for each analysis.
             if cmd == '-csv':
-                generate_config_csv(self.commands[count + 1])
+                csv_name = self.commands[count + 1]
+                generate_config_csv(csv_name)
+                # Move file to config folder.
+                rename(csv_name, f'configs/{csv_name}')
                 exit()
 
             if cmd == '-c':
@@ -82,43 +85,49 @@ class Main:
             if cmd == '-solvent':
                 self.qm['solvent'] = False if self.commands[count + 1] == 'false' else True
 
+            if cmd == '-param':
+                self.fitting['parameter engine'] = str(self.commands[count + 1])
+
         print('These are the current defaults:', self.defaults_dict, '\nPlease note, some values may not be used.')
 
+        # Then check what kind of analysis is being done.
         for count, cmd in enumerate(self.commands):
 
             # Controls high throughput.
             # Basically just runs the same functions but forces certain defaults.
-            # '-bulk pdb' will search for all local pdbs and run analysis for each.
-            # '-bulk smile example.txt' will run analysis for all smile strings in the example.txt file.
-            # Format of example.txt is given in run_smiles.txt sample file.
+            # '-bulk pdb example.csv' searches for local pdbs, runs analysis for each, defaults are from the csv file.
+            # '-bulk smile example.csv' will run analysis for all smile strings in the example.csv file.
             if cmd == '-bulk':
 
                 csv_file = self.commands[count + 2]
 
                 if self.commands[count + 1] == 'smile':
 
-                    with open(csv_file, 'r') as run_file:
+                    smile_data = get_mol_data_from_csv(csv_file)
 
-                        # Run full analysis for each smile string in the .txt file
-                        for line in run_file:
-                            name, smile_string = line.split()
+                    # Run full analysis for each smile string in the .csv file
+                    names = list(smile_data.keys())[1:]
+                    for name in names:
 
-                            self.file = smiles.smiles_to_pdb(smile_string, name)
-                            self.defaults_dict = get_mol_data_from_csv(csv_file)[name]
-                            self.create_log()
-                            self.execute()
-                            # For some bizarre (and infuriating) reason, sub_call('cd ../', shell=True) doesn't work
-                            chdir('../../QUBEKit')
-                        exit()
+                        smile_string = smile_data[name]['smile string']
+                        print(f'Currently analysing: {name}')
+                        self.file = smiles.smiles_to_pdb(smile_string, name)
+                        self.defaults_dict = get_mol_data_from_csv(csv_file)[name]
+                        self.create_log()
+                        self.execute()
+                        # For some bizarre (and infuriating) reason, sub_call('cd ../', shell=True) doesn't work
+                        chdir('../../QUBEKit')
+                    exit()
 
                 elif self.commands[count + 1] == 'pdb':
 
                     # Find all pdb files in current directory.
-                    files = [f for f in listdir('.') if path.isfile(f)]
+                    files = [file for file in listdir('.') if path.isfile(file)]
                     pdbs = [file for file in files if file.endswith('.pdb')]
 
-                    # Run full analysis for each pdb provided
+                    # Run full analysis for each pdb provided. Pdb names are used as the keys for the csv reader.
                     for pdb in pdbs:
+                        print(f'Currently analysing: {pdb[:-4]}')
                         self.file = pdb
                         self.defaults_dict = get_mol_data_from_csv(csv_file)[pdb[:-4]]
                         self.create_log()
@@ -127,7 +136,7 @@ class Main:
                     exit()
 
                 else:
-                    raise Exception('Bulk commands only supported for pdb files or a file of smiles strings.'
+                    raise Exception('Bulk commands only supported for pdb files or csv file containing smiles strings. '
                                     'Please specify the type of bulk analysis you are doing, '
                                     'and include the name of the csv file defaults are extracted from.')
 
@@ -167,7 +176,7 @@ class Main:
         mkdir(log_string)
 
         # Copy active pdb into new directory.
-        sub_call(f'cp {self.file} {str(log_string)}/{self.file}', shell=True)
+        rename(self.file, f'{log_string}/{self.file}')
         # Move into new working directory.
         chdir(log_string)
 
@@ -189,7 +198,7 @@ class Main:
             log_file.write('\n')
 
         print(f'If QUBEKit ever breaks or you would just like to view timings and other info, check the log file: \n'
-              f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
+              f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}\n'
               'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
 
         return
@@ -210,12 +219,24 @@ class Main:
         # Initialise the molecule's pdb with its optimised form.
         mol.read_pdb(MM=True)
 
-        # Parametrise with openFF
-        OpenFF(mol)
+        # Parametrisation options:
+        if self.fitting['parameter engine'] == 'openff':
+            OpenFF(mol)
+
+        elif self.fitting['parameter engine'] == 'antechamber':
+            AnteChamber(mol)
+
+        # TODO Add others
+        elif self.fitting['parameter engine'] == '':
+            pass
+
+        else:
+            raise Exception('Invalid parametrisation engine, please select from openff, antechamber or XXXXXXX')
 
         if self.qm['bonds engine'] == 'psi4':
             # Initialise for PSI4
             qm_engine = PSI4(mol, self.defaults_dict)
+
         else:
             # qm_engine = OTHER
             # TODO Add one

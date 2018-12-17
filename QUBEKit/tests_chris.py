@@ -88,46 +88,6 @@ from subprocess import call as sub_call
 file = 'methanol.pdb'
 mol = Ligand(file)
 
-#
-# @decorators.timer_func
-# def while_test(iters):
-#     i = 0
-#     n = []
-#     while i < iters:
-#         j = 0
-#         while j < iters:
-#             k = 0
-#             while k < iters:
-#                 n.append(i * j * k)
-#                 k += 1
-#             j += 1
-#         i += 1
-#     return n
-#
-#
-# @decorators.timer_func
-# def range_test(iters):
-#     n = []
-#     for i in range(iters):
-#         for j in range(iters):
-#             for k in range(iters):
-#                 n.append(i * j * k)
-#     return n
-#
-#
-# @decorators.timer_func
-# def generator_test(iters):
-#     return [i * j * k for i in range(iters) for j in range(iters) for k in range(iters)]
-#
-#
-# def main_test(iters):
-#     while_test(iters)
-#     range_test(iters)
-#     generator_test(iters)
-#
-#
-# if __name__ == '__main__':
-#
-#     main_test(10)
+test_dict = {'a': {'1': 1, '2': 2}, 'b': {'one': 'o', 'two': 't'}}
 
-generate_config_csv('test.csv')
+print(list(test_dict.keys()))

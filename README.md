@@ -18,20 +18,26 @@ To install, it is recommended to clone the QUBEKit folder into a home directory 
 After relaunching the terminal you should now be able to use QUBEKit.
 
 ### Requirements
+
 * [Anaconda3](https://www.anaconda.com/download/)
 * [Gaussian09](http://gaussian.com/)
+
 ### Other Python modules used
 
 Many packages come installed with the above requirements, however there are some which require further installation. All packages must be installed through conda and use conda as their path.
 (Standard library packages such as collections are not listed.)
+
 * psi4
 * rdkit
 * numpy
 
 ### In Development
 
-QUBEKit should currently be considered a work in progress. While it is stable we are constantly working to improve the code and increase the amount of compatible software. A user tutorial can be found on our Github [wiki](https://github.com/cole-group/QuBeKit/wiki) page. 
-
+QUBEKit should currently be considered a work in progress.
+While it is stable we are constantly working to improve the code and increase the amount of compatible software. 
+Please also be aware that some bugs may not be our fault!
+We use lots of software written by many different people;
+if reporting a bug please make sure it is a bug with QUBEKit and not with a dependency.   
 
 # Help
 
@@ -119,7 +125,33 @@ You may change defaults inside the terminal when running bulk analyses, and thes
 However, the config files themselves will not be overwritten.
 It is therefore recommended to manually edit the config files rather than doing, for example:
 
-python run.py -bulk pdb example.csv -log run42
+    python run.py -bulk pdb example.csv -log run42 -ddec 3 -solvent true
+    
+Be aware that the names of the pdb files are used as keys to find the configs.
+So, each pdb being analysed should have a corresponding row in the csv file with the correct name.
+
+For example (csv row order does not matter, and you do not need to include smiles strings when a pdb is provided):
+
+    PATH/files/:
+        benzene.pdb
+        ethane.pdb
+        methane.pdb
+
+    config.csv:
+    name,charge,multiplicity,config,smile string,torsion order
+    default,0,1,default_config,,
+    methane,0,1,default_config,C,
+    benzene,0,1,default_config,,
+    ethane,0,1,default_config,,
+
+If you would like to generate a blank csv config file, simply run the command:
+
+    python run.py -csv example.csv
+    
+where example.csv is the name of the config file you want to create.
+This will automatically generate the file with the appropriate columns and a row with defaults inside.
+The csv config file will be put into the configs folder.
+When writing to the csv file, append rows after the defaults row rather than overwriting it.
 
 ### Notes on Commands
 
