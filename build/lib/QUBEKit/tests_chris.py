@@ -6,7 +6,7 @@ from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.lennard_jones import LennardJones as LJ
 from QUBEKit.modseminario import ModSeminario
 from QUBEKit import smiles, decorators
-from QUBEKit.helpers import get_mol_data_from_csv
+from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv
 
 import os
 from subprocess import call as sub_call
@@ -85,11 +85,6 @@ from subprocess import call as sub_call
 #     plt.show()
 #
 
-defaults_dict = {'charge': 0, 'multiplicity': 1,
-                 'bonds engine': 'psi4', 'charges engine': 'chargemol',
-                 'ddec version': 6, 'geometric': True, 'solvent': None,
-                 'run number': '999', 'config': 'default_config'}
-
 file = 'methanol.pdb'
 mol = Ligand(file)
 
@@ -135,6 +130,6 @@ mol = Ligand(file)
 #
 #     main_test(10)
 
-print(get_mol_data_from_csv())
+test_dict = {'a': {'1': 1, '2': 2}, 'b': {'one': 'o', 'two': 't'}}
 
-print(get_mol_data_from_csv()[mol.name]['charge'])
+print(list(test_dict.keys()))

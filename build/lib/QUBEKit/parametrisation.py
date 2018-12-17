@@ -225,8 +225,8 @@ class AnteChamber(Parametrisation):
             if not path.exists('out.frcmod'):
                 raise FileNotFoundError('out.frcmod not found parmchk2 failed!')
             # Now get the files back from the temp folder and close
-            copy('out.mol2' , mol2)
-            copy('out.frcmod' , frcmod_file)
+            copy('out.mol2', mol2)
+            copy('out.frcmod', frcmod_file)
             copy('Antechamber.log', ant_log)
 
         # Now we need to run tleap to get the prmtop and inpcrd files
@@ -236,7 +236,7 @@ class AnteChamber(Parametrisation):
             copy(frcmod_file, 'in.frcmod')
             copy(ant_log, 'Antechamber.log')
             # make tleap command file
-            with open('tleap_commands','w+') as tleap:
+            with open('tleap_commands', 'w+') as tleap:
                 tleap.write("""source oldff/leaprc.ff99SB
                                source leaprc.gaff
                                LIG = loadmol2 in.mol2
