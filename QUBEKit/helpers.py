@@ -162,3 +162,26 @@ def set_dict_val(file_name, search_term):
             if search_term in line:
                 return 1
     return 0
+
+
+def unpickle(pickle_jar):
+    """Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of liagnds
+    indexed by their progress."""
+
+    from pickle import load
+
+    mol_states = {}
+    mols = []
+    # unpickle the pickle jar
+    # try to load a pickle file make sure to get all objects
+    with open(pickle_jar, 'rb') as jar:
+        while True:
+            try:
+                mols.append(load(jar))
+            except:
+                break
+    # for each object in the jar put them into a dictionary indexed by there state
+    for mol in mols:
+        mol_states[mol.state] = mol
+
+    return mol_states

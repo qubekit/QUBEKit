@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
 from subprocess import call as sub_call
+from QUBEKit.ligand import Ligand
 
 
 class TorsionScan:
-
-    def __init__(self, molecule, QMengine, MMengine, native_opt=False, verbose=False):
+    """This class will take a QUBEKit molecule object and perform a torsiondrive QM (and MM if Trure) energy scan
+    for each selected dihedral."""
+    def __init__(self, molecule, QMengine, MMengine='openmm', MM_scan=True, native_opt=False, verbose=False):
         self.QMengine = QMengine
         self.MMengine = MMengine
+        self.MM_scan = MM_scan
         self.constraints = None
         self.grid_space = QMengine.fitting['increment']
         self.native_opt = native_opt
@@ -43,7 +46,7 @@ class TorsionScan:
             print('Torsion number   Central-Bond   Representative Dihedral')
             for i, bond in enumerate(rotatable):
                 print('  {}                    {}-{}             {}-{}-{}-{}'.format(i+1, bond[0], bond[1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][0]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][1]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][2]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][3]-1]))
-            scans = list(input('>'))  # Enter as a space seperated list
+            scans = list(input('>'))  # Enter as a space separated list
             scans[:] = [scan for scan in scans if scan != ' ']  # remove all spaces from the scan list
             print(scans)
 
@@ -55,16 +58,15 @@ class TorsionScan:
 
             return self.scan_mol
 
-    def scan_input(self, scan):
-        """Function takes the rotatable dihedrals requested and writes a scan input file for crank."""
+    def QM_scan_input(self, scan):
+        """Function takes the rotatable dihedrals requested and writes a scan input file for torsiondrive."""
 
         with open('dihedrals.txt', 'w+') as out:
 
             out.write('# dihedral definition by atom indices starting from 0\n# i     j     k     l\n')
             out.write('  {}     {}     {}     {}\n'.format(self.scan_mol.dihedrals[scan][0][0], self.scan_mol.dihedrals[scan][0][1], self.scan_mol.dihedrals[scan][0][2], self.scan_mol.dihedrals[scan][0][3]))
-
+        # TODO need to add PSI4 redundant mode selector
         if self.native_opt:
-            # TODO should also set up the number of threads to use in torsion drive!
             self.QMengine.generate_input(optimize=True, threads=True)
 
         else:
@@ -74,7 +76,7 @@ class TorsionScan:
         """Function generates a command string to run torsiondrive based on the input commands."""
 
         # add the first basic command elements
-        self.cmd += f'torsiondrive-launch {self.scan_mol.name}.psi4in dihedrals.txt '
+        self.cmd += f'torsiondrive-launch {self.scan_mol.name}.{self.QMengine.__class__.__name__.lower()}in dihedrals.txt '
         if self.grid_space:
             self.cmd += f'-g {self.grid_space} '
         if self.QMengine:
@@ -83,7 +85,6 @@ class TorsionScan:
             self.cmd += '--native_opt '
         if self.verbose:
             self.cmd += '-v '
-        print(self.cmd)
         return self.cmd
 
     def get_energy(self, scan):
@@ -97,7 +98,7 @@ class TorsionScan:
                 if 'Energy ' in line:
                     scan_energy.append(float(line.split()[3]))
 
-            self.scan_mol.scan_energy[scan] = scan_energy
+            self.scan_mol.QM_scan_energy[scan] = scan_energy
 
             return self.scan_mol
 
@@ -114,6 +115,17 @@ class TorsionScan:
                 raise Exception(f'Cannot create SCAN_{scan} dir.')
             chdir(f'SCAN_{scan}')
             # now make the scan input files
-            self.scan_input(scan)
+            self.QM_scan_input(scan)
             sub_call(self.cmd, shell=True)
             self.get_energy(scan)
+
+
+class TorsionOptimizer:
+    """Torsion optimizer class used to optimize dihedral parameters with a range of methods"""
+    # TODO add objective function
+    # TODO collect the dihedral angles
+    # TODO write torsion energy contribution function
+    # TODO add method selction, do wide scan then clean up energy surface
+    # TODO plot the final energies
+    def __init__(self):
+        pass
