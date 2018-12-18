@@ -103,7 +103,7 @@ Before running a bulk analysis, fill in each column for each molecule.
 
 If running a bulk analysis with smiles strings, use the command:
 
-    python run.py -bulk smile example.csv
+    python run.py -bulk smiles example.csv
     
 where example.csv is the csv file containing all the information described above.
 
@@ -138,7 +138,7 @@ For example (csv row order does not matter, and you do not need to include smile
         methane.pdb
 
     config.csv:
-    name,charge,multiplicity,config,smile string,torsion order
+    name,charge,multiplicity,config,smiles string,torsion order
     default,0,1,default_config,,
     methane,0,1,default_config,C,
     benzene,0,1,default_config,,

@@ -139,7 +139,8 @@ class Ligand:
 
     def find_dihedrals(self):
         """Take the topology graph network and again return a dictionary of all possible dihedral combinations stored under
-        the central bond keys which describe the angle."""
+        the central bond keys which describe the angle.
+        """
 
         from networkx import neighbors
 
@@ -259,7 +260,8 @@ class Ligand:
 
     def get_angle_values(self, QM=False, MM=False):
         """For the given molecule and list of angle terms measure the angle values
-        return a dictionary of angles and values."""
+        return a dictionary of angles and values.
+        """
 
         from numpy import array, linalg, dot, arccos, degrees
 

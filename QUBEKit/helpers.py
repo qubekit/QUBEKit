@@ -3,6 +3,9 @@
 
 from csv import DictReader, writer, QUOTE_MINIMAL
 from QUBEKit.decorators import timer_logger
+from pandas import read_csv
+from os import walk
+from collections import OrderedDict
 
 
 def pdb_to_coord_list(pdb_file):
@@ -59,9 +62,10 @@ def get_mol_data_from_csv(csv_name='sample_input.csv'):
 
             # Converts to ordinary dict rather than ordered.
             row = dict(row)
-            row['charge'] = int(row['charge'])
-            row['multiplicity'] = int(row['multiplicity'])
+            row['charge'] = int(float(row['charge']))
+            row['multiplicity'] = int(float(row['multiplicity']))
             # Converts empty string to None (looks a bit weird, I know) otherwise leaves it alone.
+            row['smiles string'] = row['smiles string'] if row['smiles string'] else None
             row['torsion order'] = row['torsion order'] if row['torsion order'] else None
             rows.append(row)
 
@@ -79,18 +83,36 @@ def get_mol_data_from_csv(csv_name='sample_input.csv'):
 
 
 def generate_config_csv(csv_name):
+    """Generates a csv with name "csv_name" with minimal information inside.
+    Contains only headers and a row of defaults.
+    """
 
     if csv_name[-4:] != '.csv':
         raise TypeError('Invalid or unspecified file type. File must be .csv')
 
-    with open(f'{csv_name}', 'w') as csv_file:
+    with open(csv_name, 'w') as csv_file:
 
         file_writer = writer(csv_file, delimiter=',', quotechar='|', quoting=QUOTE_MINIMAL)
-        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smile string', 'torsion order'])
+        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles string', 'torsion order'])
         file_writer.writerow(['default', 0, 1, 'default_config', '', ''])
 
     print(f'{csv_name} generated.')
     return
+
+
+# def update_csv_status(csv_name, row, status):
+#
+#     df = read_csv(csv_name)
+#     df.at[row, 'status'] = status
+#     df.to_csv(csv_name, index=False)
+#     return
+
+
+def append_to_log(log_file, message):
+    """Appends a message to the log file in a specific format."""
+
+    with open(log_file, 'a+') as file:
+        file.write(f'~~~~~~~~{message.upper()}~~~~~~~~\n\n-------------------------------------------------------\n\n')
 
 
 def get_overage(molecule):
@@ -98,3 +120,45 @@ def get_overage(molecule):
 
     overage_dict = {'methane': 12.0, 'ethane': 16.0, 'acetone': 20.0, 'benzene': 24.0, 'methanol': 17.0}
     return overage_dict[molecule]
+
+
+def pretty_progress():
+
+    # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
+    log_files = []
+    for root, dirs, files in walk('.', topdown=True):
+        if 'QUBEKit' in root and '.tmp' not in root:
+            log_files.append(f'{root}/QUBEKit_log_{root[10:]}')
+
+    print(log_files)
+
+    # Open all log files sequentially
+    info = OrderedDict()
+    for file in log_files:
+        name = file.split('_')[1]
+        print(name)
+
+        # Create ordered dictionary based on the log file info
+        info[name] = OrderedDict()
+
+        # Set the values of the ordered dicts based on the info in the log files.
+        # Tildes (~) are used as markers for useful information.
+        info[name]['parametrised'] = set_dict_val(file, '~PARAMETRISED')
+        info[name]['optimised'] = set_dict_val(file, '~OPTIMISED')
+        info[name]['mod sem'] = set_dict_val(file, '~MODIFIED')
+
+    print(info)
+
+    # Search the log files for tildes.
+    # Each tilde will correspond to a dictionary key.
+    # Fill in the values based on progress; green: done, orange: in progress, red: after orange. Blue: not called at all
+    return
+
+
+def set_dict_val(file_name, search_term):
+
+    with open(file_name, 'r+') as file:
+        for line in file:
+            if search_term in line:
+                return 1
+    return 0
