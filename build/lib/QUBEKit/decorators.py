@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 """Various useful decorators."""
 
+from time import time
+from functools import wraps
+from datetime import datetime
+from os import listdir, path
+import logging
+
 
 def timer_func(orig_func):
     """Prints the runtime of a function when applied as a decorator (@timer_func)."""
-
-    from time import time
-    from functools import wraps
 
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
@@ -26,15 +29,10 @@ def timer_logger(orig_func):
     Outputs the start time, runtime, and function name and docstring.
     Run number can be changed with -log command."""
 
-    from time import time
-    from datetime import datetime
-    from functools import wraps
-    from os import listdir, path
-
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
 
-        start_time = datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
+        start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         t1 = time()
 
         result = orig_func(*args, **kwargs)
@@ -72,3 +70,43 @@ def for_all_methods(decorator):
                 setattr(cls, attr, decorator(getattr(cls, attr)))
         return cls
     return decorate
+
+
+def exception_logger():
+    """Creates logging object to be returned."""
+
+    logger = logging.getLogger('Exception Logger')
+    logger.setLevel(logging.INFO)
+
+    # Find the log file and set it to be handled.
+    files = [file for file in listdir('.') if path.isfile(file)]
+    log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+    file_handler = logging.FileHandler(log_file)
+
+    # Format the log message
+    fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    formatter = logging.Formatter(fmt)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+def exception_logger_decorator(func):
+    """Decorator which logs exceptions to QUBEKit_log file if one occurs."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        logger = exception_logger()
+
+        try:
+            return func(*args, **kwargs)
+
+        except:
+            logger.exception(f'An exception occurred with: {func.__qualname__}')
+
+            # Re-raises the exception
+            raise
+
+    return wrapper

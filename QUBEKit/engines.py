@@ -175,7 +175,7 @@ class PSI4(Engines):
 
             if optimize:
                 print('Writing Psi4 optimization input')
-                setters += ' ng_convergence {}\n GEOM_MAXITER {}\n'.format(self.qm['convergence'], self.qm['iterations'])
+                setters += ' g_convergence {}\n GEOM_MAXITER {}\n'.format(self.qm['convergence'], self.qm['iterations'])
                 tasks += "\noptimize('{}')".format(self.qm['theory'].lower())
 
             if hessian:

@@ -45,6 +45,9 @@ class Parametrisation:
         self.input = input_file
         self.fftype = fftype
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
+
     def gather_parameters(self):
         """This method parses the serialized xml file and collects the parameters ready to pass them
         to build tree."""
@@ -158,12 +161,12 @@ class AnteChamber(Parametrisation):
 
     def __init__(self, molecule, input_file=None, fftype='gaff'):
         super().__init__(molecule, input_file, fftype)
-        self.parameterise()
+        self.parametrise()
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
 
-    def parameterise(self):
+    def parametrise(self):
         """This is the master function of the class
         1 parametrise with Antechamber using gaff or gaff2
         2 load molecule into tleap to get the prmtop and inpcrd files used by openMM
@@ -171,7 +174,7 @@ class AnteChamber(Parametrisation):
         4 convert the parameters to a xml tree object and export to the molecule.
         """
 
-        self.antchamber_cmd()
+        self.antechamber_cmd()
 
         self.serialize_system()
 
@@ -191,7 +194,7 @@ class AnteChamber(Parametrisation):
         with open('serilized.xml', 'w+') as out:
             out.write(xml)
 
-    def antchamber_cmd(self):
+    def antechamber_cmd(self):
         """Method to run Antechamber, parmchk2 and tleap."""
 
         from tempfile import TemporaryDirectory

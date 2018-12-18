@@ -6,7 +6,7 @@ from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.lennard_jones import LennardJones as LJ
 from QUBEKit.modseminario import ModSeminario
 from QUBEKit import smiles, decorators
-from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv
+from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress
 
 import os
 from subprocess import call as sub_call
@@ -88,6 +88,4 @@ from subprocess import call as sub_call
 file = 'methanol.pdb'
 mol = Ligand(file)
 
-test_dict = {'a': {'1': 1, '2': 2}, 'b': {'one': 'o', 'two': 't'}}
-
-print(list(test_dict.keys()))
+pretty_progress()

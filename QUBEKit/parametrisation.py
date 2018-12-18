@@ -45,6 +45,9 @@ class Parametrisation:
         self.input = input_file
         self.fftype = fftype
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
+
     def gather_parameters(self):
         """This method parses the serialized xml file and collects the parameters ready to pass them
         to build tree."""
@@ -174,7 +177,7 @@ class AnteChamber(Parametrisation):
         4 convert the parameters to a xml tree object and export to the molecule.
         """
 
-        self.antchamber_cmd()
+        self.antechamber_cmd()
 
         self.serialize_system()
 
@@ -193,7 +196,7 @@ class AnteChamber(Parametrisation):
         with open('serilized.xml', 'w+') as out:
             out.write(xml)
 
-    def antchamber_cmd(self):
+    def antechamber_cmd(self):
         """Method to run Antechamber, parmchk2 and tleap."""
 
         from tempfile import TemporaryDirectory

@@ -8,10 +8,12 @@ from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.parametrisation import OpenFF, AnteChamber
-from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv
+from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv, append_to_log
+from QUBEKit.decorators import exception_logger_decorator
 
 from sys import argv as cmdline
-from os import mkdir, chdir, listdir, path, rename
+from os import mkdir, chdir, listdir, path, popen, rename
+from subprocess import call as sub_call
 
 
 class Main:
@@ -29,11 +31,16 @@ class Main:
         self.file, self.commands = self.parse_commands()
         self.create_log()
         self.execute()
+        self.log_file = None
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def parse_commands(self):
         """Parses commands from the terminal.
         Will either just return the commands to be used by execute();
         Update the configs with the commands given;
+        Generate a .csv with the headers and defaults for bulk analysis;
         Recursively perform bulk analysis for smiles or pdbs.
         """
 
@@ -61,19 +68,19 @@ class Main:
             if cmd == '-ddec':
                 self.qm['ddec version'] = int(self.commands[count + 1])
 
-            if any(s in cmd for s in ('geo', 'geometric')):
+            if any(s in cmd for s in ('-geo', '-geometric')):
                 self.qm['geometric'] = False if self.commands[count + 1] == 'false' else True
 
-            if cmd == 'psi4':
+            if cmd == '-psi4':
                 self.qm['bonds engine'] = 'psi4'
 
-            if cmd == 'g09':
+            if cmd == '-g09':
                 self.qm['bonds engine'] = 'g09'
 
-            if any(s in cmd for s in ('cmol', 'chargemol')):
+            if any(s in cmd for s in ('-cmol', '-chargemol')):
                 self.qm['charges engine'] = 'chargemol'
 
-            if cmd == 'onetep':
+            if cmd == '-onetep':
                 self.qm['charges engine'] = 'onetep'
 
             if cmd == '-log':
@@ -96,20 +103,20 @@ class Main:
             # Controls high throughput.
             # Basically just runs the same functions but forces certain defaults.
             # '-bulk pdb example.csv' searches for local pdbs, runs analysis for each, defaults are from the csv file.
-            # '-bulk smile example.csv' will run analysis for all smile strings in the example.csv file.
+            # '-bulk smiles example.csv' will run analysis for all smile strings in the example.csv file.
             if cmd == '-bulk':
 
                 csv_file = self.commands[count + 2]
 
-                if self.commands[count + 1] == 'smile':
+                if self.commands[count + 1] == 'smiles':
 
                     smile_data = get_mol_data_from_csv(csv_file)
 
-                    # Run full analysis for each smile string in the .csv file
+                    # Run full analysis for each smiles string in the .csv file
                     names = list(smile_data.keys())[1:]
                     for name in names:
 
-                        smile_string = smile_data[name]['smile string']
+                        smile_string = smile_data[name]['smiles string']
                         print(f'Currently analysing: {name}')
                         self.file = smiles.smiles_to_pdb(smile_string, name)
                         self.defaults_dict = get_mol_data_from_csv(csv_file)[name]
@@ -146,6 +153,7 @@ class Main:
 
                     # Generate pdb from smiles string.
                     self.file = smiles.smiles_to_pdb(self.commands[count + 1])
+                    self.defaults_dict['smiles string'] = self.commands[count + 1]
                     return self.file, self.commands
 
                 # If a pdb is given instead, use that.
@@ -153,6 +161,11 @@ class Main:
 
                     self.file = cmd
                     return self.file, self.commands
+
+                elif '-pickle' in cmd:
+                    pickle_point = self.commands[count + 1]
+                    # Do stuff
+                    pass
 
                 # If neither a smiles string nor a pdb is given, raise exception.
                 else:
@@ -176,16 +189,20 @@ class Main:
         mkdir(log_string)
 
         # Copy active pdb into new directory.
-        rename(self.file, f'{log_string}/{self.file}')
+        popen(f'cp {self.file} {log_string}/{self.file}')
         # Move into new working directory.
         chdir(log_string)
 
         # Create log file.
         # This is formatted as 'QUBEKit_log_molecule name_yy_mm_dd_log_string'.
-        with open(f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}', 'w+') as log_file:
+
+        self.log_file = f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
+
+        with open(self.log_file, 'w+') as log_file:
 
             log_file.write(f'Beginning log file: {datetime.now()}\n\n')
             log_file.write(f'The commands given were: {self.commands}\n\n')
+            log_file.write(f'Analysing: {self.file[:-4]}\n\n')
             log_file.write('The defaults used are:\n')
 
             # Writes the config dictionaries to the log file.
@@ -203,6 +220,7 @@ class Main:
 
         return
 
+    @exception_logger_decorator
     def execute(self):
         """Calls all the relevant classes and methods for the full QM calculation in the correct order.
         # TODO Add proper entry and exit points to allow more customised analysis.
@@ -233,6 +251,8 @@ class Main:
         else:
             raise Exception('Invalid parametrisation engine, please select from openff, antechamber or XXXXXXX')
 
+        append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter engine"]}')
+
         if self.qm['bonds engine'] == 'psi4':
             # Initialise for PSI4
             qm_engine = PSI4(mol, self.defaults_dict)
@@ -241,6 +261,8 @@ class Main:
             # qm_engine = OTHER
             # TODO Add one
             raise Exception('No other bonds engine currently implemented.')
+
+        # Pickle
 
         if self.qm['geometric']:
 
@@ -251,6 +273,9 @@ class Main:
         else:
             qm_engine.generate_input(MM=True, optimize=True)
             qm_engine.optimised_structure()
+
+        # Pickle
+        append_to_log(self.log_file, f'Optimised structure obtained{" with geometric" if self.qm["geometric"] else ""}')
 
         # Write input file for PSI4
         qm_engine.generate_input(QM=True, hessian=True)
@@ -267,24 +292,38 @@ class Main:
         mod_sem.modified_seminario_method()
         mol = qm_engine.all_modes()
 
-        # # Prepare for density calc
-        # g09 = Gaussian(mol, self.defaults_dict)
-        # g09.generate_input(QM=True, density=True)
-        #
-        # # Perform DDEC calc
-        # c_mol = Chargemol(mol, self.defaults_dict)
-        # c_mol.generate_input()
-        #
-        # # Calculate Lennard-Jones parameters
-        # lj = LennardJones(mol, self.defaults_dict)
-        # mol = lj.amend_sig_eps()
-        #
-        # # Perform torsion scan
-        # scan = TorsionScan(mol, qm_engine, 'OpenMM')
-        # sub_call(f'{scan.cmd}', shell=True)
-        # scan.start_scan()
-        #
-        # print(mol)
+        # Pickle
+        append_to_log(self.log_file, 'Modified Seminario method complete')
+
+        # Prepare for density calc
+        g09 = Gaussian(mol, self.defaults_dict)
+        g09.generate_input(QM=True, density=True)
+
+        # Pickle
+        append_to_log(self.log_file, 'Gaussian finished.')
+
+        # Perform DDEC calc
+        c_mol = Chargemol(mol, self.defaults_dict)
+        c_mol.generate_input()
+
+        # Pickle
+        append_to_log(self.log_file, f'Chargemol analysis with DDEC{self.qm["ddec version"]} complete')
+
+        # Calculate Lennard-Jones parameters
+        lj = LennardJones(mol, self.defaults_dict)
+        mol = lj.amend_sig_eps()
+
+        # Pickle
+        append_to_log(self.log_file, 'Lennard-Jones parameters obtained')
+
+        # Perform torsion scan
+        scan = TorsionScan(mol, qm_engine, 'OpenMM')
+        sub_call(f'{scan.cmd}', shell=True)
+        scan.start_scan()
+
+        append_to_log(self.log_file, 'Torsion scans complete')
+
+        print(mol)
 
         return
 
