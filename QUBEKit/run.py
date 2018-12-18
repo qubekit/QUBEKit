@@ -262,8 +262,7 @@ class Main:
         mol = LJ.amend_sig_eps()
 
         # Perform torsion scan
-        Scan = TorsionScan(mol, QMEngine, 'OpenMM')
-        sub_call(f'{Scan.cmd}', shell=True)
+        Scan = TorsionScan(mol, QMEngine)
         Scan.start_scan()
 
         print(mol)

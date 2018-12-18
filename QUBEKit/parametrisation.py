@@ -76,7 +76,7 @@ class Parametrisation:
                 self.molecule.NonbondedForce[i] = [Atom.get('q'), Atom.get('sig'), Atom.get('eps')]
                 i += 1
 
-        #Extract all of the torsion data
+        # Extract all of the torsion data
         phases = ['0', str(pi), '0', str(pi)]
         for Torsion in in_root.iter('Torsion'):
             tor_string_forward = (int(Torsion.get('p1')), int(Torsion.get('p2')), int(Torsion.get(
@@ -113,38 +113,39 @@ class XML(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parameterise()
+        self.parametrise()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
 
     def serialize_system(self):
         """Serialize the input XML system using openmm."""
+
+        from simtk.openmm import app
+        from simtk import openmm
+
+        pdb = app.PDBFile(self.molecule.filename)
+        modeller = app.Modeller(pdb.topology, pdb.positions)
+
         if self.input:
-            from simtk.openmm import app
-            from simtk import openmm
-            from simtk import unit
+            forcefield = app.ForceField(self.input)
 
-            pdb = app.PDBFile(self.molecule.filename)
-
-            modeller = app.Modeller(pdb.topology, pdb.positions)
-            if not self.input:
-                forcefield = app.ForceField(self.input)
-
-            system = forcefield.createSystem(
-                modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
-
-            xml = openmm.XmlSerializer.serializeSystem(system)
-            with open('serilized.xml', 'w+') as out:
-                out.write(xml)
-
+        elif not self.input:
+            forcefield = app.ForceField(self.molecule.name + '.xml')
 
         else:
             raise FileExistsError('No .xml type file found did you supply one?')
 
-    def parameterise(self):
+        system = forcefield.createSystem(
+            modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+
+        xml = openmm.XmlSerializer.serializeSystem(system)
+        with open('serilized.xml', 'w+') as out:
+            out.write(xml)
+
+    def parametrise(self):
         """This is the master function and controls the class.
         1. Serialize the system into a correctly formatted xml file
         2. gather the parameters and store them in the molecule parameter dictionaries."""
-        self.serialize_system
+        self.serialize_system()
 
         self.gather_parameters()
 
@@ -156,12 +157,12 @@ class AnteChamber(Parametrisation):
 
     def __init__(self, molecule, input_file=None, fftype='gaff'):
         super().__init__(molecule, input_file, fftype)
-        self.parameterise()
+        self.parametrise()
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
 
-    def parameterise(self):
+    def parametrise(self):
         """This is the master function of the class
         1 parametrise with Antechamber using gaff or gaff2
         2 load molecule into tleap to get the prmtop and inpcrd files used by openMM
@@ -180,7 +181,6 @@ class AnteChamber(Parametrisation):
         from simtk import openmm
 
         prmtop = app.AmberPrmtopFile(self.prmtop)
-        inpcrd = app.AmberInpcrdFile(self.inpcrd)
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
 
         xml = openmm.XmlSerializer.serializeSystem(system)
@@ -231,7 +231,7 @@ class AnteChamber(Parametrisation):
             copy(frcmod_file, 'in.frcmod')
             copy(ant_log, 'Antechamber.log')
             # make tleap command file
-            with open('tleap_commands','w+') as tleap:
+            with open('tleap_commands', 'w+') as tleap:
                 tleap.write("""source oldff/leaprc.ff99SB
                                source leaprc.gaff
                                LIG = loadmol2 in.mol2
@@ -264,7 +264,7 @@ class OpenFF(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='frost'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parameterise()
+        self.parametrise()
 
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
 
@@ -320,10 +320,10 @@ class BOSS(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parameterise()
+        self.parametrise()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
 
-    def parameterise(self):
+    def parametrise(self):
         """This is the master function of the class
         1 parametrise the molecule with CM1A/OPLS
         2 parse the out file and construct the parameter dictionaries
