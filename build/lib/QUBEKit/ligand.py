@@ -26,10 +26,8 @@ class Ligand:
         self.atom_names = None
         self.polar = None
         self.xml_tree = None
-        self.state = None
-        self.QM_scan_energy = {}
-        self.MM_scan_energy = {}
         self.descriptors = {}
+        self.scan_energy = {}
         self.AtomTypes = {}
         self.Residues = {}
         self.HarmonicBondForce = {}
@@ -141,8 +139,7 @@ class Ligand:
 
     def find_dihedrals(self):
         """Take the topology graph network and again return a dictionary of all possible dihedral combinations stored under
-        the central bond keys which describe the angle.
-        """
+        the central bond keys which describe the angle."""
 
         from networkx import neighbors
 
@@ -262,8 +259,7 @@ class Ligand:
 
     def get_angle_values(self, QM=False, MM=False):
         """For the given molecule and list of angle terms measure the angle values
-        return a dictionary of angles and values.
-        """
+        return a dictionary of angles and values."""
 
         from numpy import array, linalg, dot, arccos, degrees
 
@@ -290,39 +286,9 @@ class Ligand:
 
         return self.angle_values
 
-    def write_pdb(self, QM=False, MM=False, name=None):
-        """Take the current molecule and topology and write a pdb file for the molecule,
-        only for small molecules not standard residues no size limit."""
-
-        from datetime import datetime
-        from networkx import neighbors
-
-        if name:
-            out = open(f'{name}.pdb', 'w+')
-        else:
-            out = open(f'{self.name}.pdb', 'w+')
-        if MM:
-            molecule = self.MMoptimized
-        elif QM:
-            molecule = self.QMoptimized
-        else:
-            molecule = self.molecule
-
-        # Write out the atomic xyz coordinates
-        out.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
-        out.write(f'COMPND    {self.name:<20}\n')
-        for i, atom in enumerate(molecule):
-            out.write(f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
-
-        # Now add the connection terms
-        for node in self.topology.nodes:
-            bonded = sorted(list(neighbors(self.topology, node)))
-            if len(bonded) > 2:
-                out.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
-
-        # now end the pdb file
-        out.write('END\n')
-        out.close()
+    def write_pdb(self, QM=False, MM=False):
+        """Take the current molecule and topology and write a pdb file for the molecule."""
+        pass
 
     def write_parameters(self):
         """Take the molecules parameter set and write an xml file for the molecule."""
@@ -424,41 +390,3 @@ class Ligand:
         QM and MM decide where it will be stored in the molecule.
         """
         pass
-
-    def pickle(self, state=None):
-        """Function will pickle the ligand object in its current sate to the pickle file,
-        if other objects are already exist then the latest object is put to the top."""
-
-        from pickle import dump, load
-
-        mols = []
-        # First check if the pickle file exists
-        try:
-            # try to load a hidden pickle file make sure to get all objects
-            with open(f'.{self.name}_states', 'rb') as pickle_jar:
-                while True:
-                    try:
-                        mols.append(load(pickle_jar))
-                    except:
-                        break
-        except:
-            mols = None
-
-
-        # now we can save the items first assign the location
-        self.state = state
-        # open the pickle jar which will always be the ligand objects name
-        pickle_jar = open(f'.{self.name}_states', 'wb')
-        # put the latest lignad object at the top of the jar
-        dump(self, pickle_jar)
-        # if there were other molecules in the jar push them to the bottom
-        if mols:
-            for mol in mols:
-                dump(mol, pickle_jar)
-        pickle_jar.close()
-
-
-
-
-
-

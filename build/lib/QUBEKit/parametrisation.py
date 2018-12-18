@@ -114,42 +114,39 @@ class XML(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
+        self.parameterise()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
 
     def serialize_system(self):
         """Serialize the input XML system using openmm."""
-
-        from simtk.openmm import app
-        from simtk import openmm
-
-        pdb = app.PDBFile(self.molecule.filename)
-        modeller = app.Modeller(pdb.topology, pdb.positions)
-
         if self.input:
-            forcefield = app.ForceField(self.input)
+            from simtk.openmm import app
+            from simtk import openmm
+            from simtk import unit
 
-        elif not self.input:
-            forcefield = app.ForceField(self.molecule.name + '.xml')
+            pdb = app.PDBFile(self.molecule.filename)
+
+            modeller = app.Modeller(pdb.topology, pdb.positions)
+            if not self.input:
+                forcefield = app.ForceField(self.input)
+
+            system = forcefield.createSystem(
+                modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+
+            xml = openmm.XmlSerializer.serializeSystem(system)
+            with open('serilized.xml', 'w+') as out:
+                out.write(xml)
 
         else:
             raise FileExistsError('No .xml type file found did you supply one?')
-
-        system = forcefield.createSystem(
-            modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
-
-        xml = openmm.XmlSerializer.serializeSystem(system)
-        with open('serilized.xml', 'w+') as out:
-            out.write(xml)
-
 
     def parametrise(self):
         """This is the master function and controls the class.
         1. Serialize the system into a correctly formatted xml file
         2. gather the parameters and store them in the molecule parameter dictionaries.
         """
+
         self.serialize_system
-        
         self.gather_parameters()
 
 
@@ -161,12 +158,12 @@ class AnteChamber(Parametrisation):
 
     def __init__(self, molecule, input_file=None, fftype='gaff'):
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
+        self.parameterise()
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
 
-    def parametrise(self):
+    def parameterise(self):
         """This is the master function of the class
         1 parametrise with Antechamber using gaff or gaff2
         2 load molecule into tleap to get the prmtop and inpcrd files used by openMM
@@ -187,6 +184,7 @@ class AnteChamber(Parametrisation):
         from simtk import openmm
 
         prmtop = app.AmberPrmtopFile(self.prmtop)
+        inpcrd = app.AmberInpcrdFile(self.inpcrd)
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
 
         xml = openmm.XmlSerializer.serializeSystem(system)
@@ -271,8 +269,8 @@ class OpenFF(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='frost'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
 
+        self.parametrise()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
 
     def parametrise(self):
@@ -330,8 +328,8 @@ class BOSS(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
 
+        self.parameterise()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
 
     def parametrise(self):

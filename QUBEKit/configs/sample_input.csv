@@ -1,0 +1,4 @@
+name,charge,multiplicity,config,smile string,torsion order
+default,0,1,default_config,,
+methane,0,1,default_config,C,
+ethane,0,1,default_config,CC,

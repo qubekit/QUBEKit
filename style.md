@@ -101,12 +101,16 @@ Developers are strongly encouraged to use the "DRY" principle when coding.
 
 Object naming examples:
     
-    # Modules
+    # Modules and files
     module.py
+    other_module.py
+    some_file.csv
     import module
+    from module import SomeClass, some_function
 
     # Classes
     class ClassName(arg_1):
+    class OtherClass:
     
     # Functions
     def function_name(arg_1, arg_2=0):
@@ -140,12 +144,12 @@ Avoid using short, ambiguous variable names. This is occasionally acceptable (du
 
     # Bad
     atoms = [...]
-    for i in range(len(atoms)):
+    for i in atoms:
         print(i)
     
     # Good
     atoms = [...]
-    for atom in range(len(atoms)):
+    for atom in atoms:
         print(atom)
     
     # OK
@@ -170,18 +174,25 @@ A context manager will do this for you, eliminating excess messy code, and reduc
 
     # Bad
     file = open('example_file_name.dat', 'r')
-    data = file.read()
+    for line in file:
+        ...
     file.close()
     
     # Good
     with open('example_file_name.dat', 'r') as file:
-        data = file.read()
+        for line in file:
+            ...
 
 In general, list comprehensions are preferred over the map, filter and reduce functions.
 It should be obvious what a piece of code is doing, the above functions can be obfuscatory.
 Of course, if the reverse is true, it is fine to use them.
 
-In the same vein, lambda functions and ternary operators should be used sparingly.
+Don't cram too much into one generator expression. sacrificing a little speed is well worth removing confusing code.
+
+    # Bad
+    nums = [i * j * k for i in range(5) for j in range(5) for k in range(5) if i * j * k % 2 == 0 and i * j < 12]
+
+In the same vein, lambda functions and ternary operators should be used sparingly for readability.
 
 Avoid bare exceptions.
 Be explicit about what exception you're expecting and the error that should be raised as a result.
@@ -235,6 +246,7 @@ For example:
     subprocess.call('geometric-optimize --psi4 {}.psi4in --nt {}'.format(molecule_name, qm['threads']), shell=True, stdout=log)
 
 Splitting this line would add confusion as to which arguments are parsed where and how the string formatting is carried out.
+This is also relevant when dealing with highly nested sections of code. We have no hard limit on line length.
 
 All strings should be written with single quotes. When both are used, double quotes should be inside the single quotes:
 

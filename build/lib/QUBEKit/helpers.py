@@ -47,30 +47,29 @@ def config_loader(config_name='default_config'):
 def get_mol_data_from_csv(csv_name='sample_input.csv'):
     """Scan the csv file to find the row with the desired molecule data.
     Returns a dictionary of dictionaries in the form:
-    {'methane': {'charge': 0, 'multiplicity': 1, ...}, 'ethane': {'charge': 0, ...}, ...}
+    {'methane': {'charge': 0, 'multiplicity': 1, ...}, 'ethane': {'charge': 0 ...}, ...}
     """
 
     with open(f'configs/{csv_name}', 'r') as csv_file:
 
         mol_confs = DictReader(csv_file)
-
         rows = []
+
         for row in mol_confs:
 
             # Converts to ordinary dict rather than ordered.
             row = dict(row)
             row['charge'] = int(row['charge'])
             row['multiplicity'] = int(row['multiplicity'])
-            # Converts empty string to None (looks a bit weird, I know) otherwise leaves it alone.
+            # Converts empty string to None (looks a bit weird, I know).
             row['torsion order'] = row['torsion order'] if row['torsion order'] else None
             rows.append(row)
 
         # Creates the nested dictionaries with the names as the keys
         final = {rows[i]['name']: rows[i] for i in range(len(rows))}
 
-        # Removes the names from the sub-dictionaries:
-        # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
-        # ---> {'methane': {'charge': 0, ...}, ...}
+        # Removes the names from the sub-dictionaries.
+        # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...} --> {'methane': {'charge': 0, ...}, ...}
         for conf in final.keys():
 
             del final[conf]['name']
@@ -85,9 +84,9 @@ def generate_config_csv(csv_name):
 
     with open(f'{csv_name}', 'w') as csv_file:
 
-        file_writer = writer(csv_file, delimiter=',', quotechar='|', quoting=QUOTE_MINIMAL)
-        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smile string', 'torsion order'])
-        file_writer.writerow(['default', 0, 1, 'default_config', '', ''])
+        filewriter = writer(csv_file, delimiter=',', quotechar='|', quoting=QUOTE_MINIMAL)
+        filewriter.writerow(['name', 'charge', 'multiplicity', 'config', 'smile string', 'torsion order'])
+        filewriter.writerow(['default', 0, 1, 'default_config', '', ''])
 
     print(f'{csv_name} generated.')
     return
@@ -98,28 +97,3 @@ def get_overage(molecule):
 
     overage_dict = {'methane': 12.0, 'ethane': 16.0, 'acetone': 20.0, 'benzene': 24.0, 'methanol': 17.0}
     return overage_dict[molecule]
-
-
-def unpickle(pickle_jar):
-    """Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of liagnds
-    indexed by their progress."""
-
-    from pickle import load
-
-    mol_states = {}
-    mols = []
-    # unpickle the pickle jar
-    # try to load a pickle file make sure to get all objects
-    with open(pickle_jar, 'rb') as jar:
-        while True:
-            try:
-                mols.append(load(jar))
-            except:
-                break
-    # for each object in the jar put them into a dictionary indexed by there state
-    for mol in mols:
-        mol_states[mol.state] = mol
-
-    return mol_states
-
-
