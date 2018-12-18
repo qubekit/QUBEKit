@@ -98,3 +98,28 @@ def get_overage(molecule):
 
     overage_dict = {'methane': 12.0, 'ethane': 16.0, 'acetone': 20.0, 'benzene': 24.0, 'methanol': 17.0}
     return overage_dict[molecule]
+
+
+def unpickle(pickle_jar):
+    """Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of liagnds
+    indexed by their progress."""
+
+    from pickle import load
+
+    mol_states = {}
+    mols = []
+    # unpickle the pickle jar
+    # try to load a pickle file make sure to get all objects
+    with open(pickle_jar, 'rb') as jar:
+        while True:
+            try:
+                mols.append(load(jar))
+            except:
+                break
+    # for each object in the jar put them into a dictionary indexed by there state
+    for mol in mols:
+        mol_states[mol.state] = mol
+
+    return mol_states
+
+

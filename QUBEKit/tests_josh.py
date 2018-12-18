@@ -3,7 +3,8 @@
 from QUBEKit.engines import PSI4, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
-from QUBEKit.smiles import smiles_mm_optimise
+from QUBEKit.smiles import smiles_mm_optimise, smiles_to_pdb
+import pickle
 
 from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
 from QUBEKit.dihedrals import TorsionScan
@@ -193,15 +194,34 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
 # #simulation.step(6000000)
 # state = simulation.context.getState(getEnergy=True)
 # print(state.getPotentialEnergy())
-
+#
 print('Loading Molecule')
-mol = Ligand('UNK.pdb')
-print('Optimizing molecule using rdkit MMFF')
-mol.filename, mol.descriptors = smiles_mm_optimise(mol.filename)
-print('Parameterise molecule using Antechamber')
-AnteChamber(mol)
-print('Writing new XML file')
-mol.write_parameters()
-print('Done!')
+ethane = Ligand('ethane.pdb')
+ethane.pickle(state='bonds')
+print('pickled bonds')
+ethane.pickle(state='charges')
+print('pickled charges')
+ethane.pickle(state='torsions')
+print('pickled torsions')
+
+from helpers import unpickle
+
+states = unpickle('.ethane_states')
+if 'charges' in states.keys():
+    mol = states['charges']
+    print(mol)
+
+
+
+# print('Optimizing molecule using rdkit MMFF')
+# mol.filename, mol.descriptors = smiles_mm_optimise(mol.filename)
+# print('Parameterise molecule using Antechamber')
+# OpenFF(mol)
+# print('Making QM engine')
+# QMengine = PSI4(mol, defaults_dict)
+# print('Gather QM scan info with Torsionscanner object')
+# scanner = TorsionScan(mol, QMengine)
+# scanner.get_energy((1,2))
+# print(mol)
 
 

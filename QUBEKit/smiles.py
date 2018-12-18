@@ -43,6 +43,8 @@ def smiles_mm_optimise(pdb_file):
     # mol_properties = MMFFGetMoleculeProperties(mol)
     # ff = MMFFGetMoleculeForceField(mol, mol_properties)
     MMFFOptimizeMolecule(mol)
+
     AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
 
     return f'{pdb_file[:-4]}_rdkit_optimised.pdb', descriptors
+

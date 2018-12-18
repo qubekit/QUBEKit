@@ -262,6 +262,7 @@ class Main:
         mol = qm_engine.hessian()
 
         # Modified Seminario for bonds and angles
+
         mod_sem = ModSeminario(mol, self.defaults_dict)
         mod_sem.modified_seminario_method()
         mol = qm_engine.all_modes()
