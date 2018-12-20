@@ -3,7 +3,6 @@
 
 from csv import DictReader, writer, QUOTE_MINIMAL
 from QUBEKit.decorators import timer_logger
-from pandas import read_csv
 from os import walk
 from collections import OrderedDict
 
@@ -100,14 +99,6 @@ def generate_config_csv(csv_name):
     return
 
 
-# def update_csv_status(csv_name, row, status):
-#
-#     df = read_csv(csv_name)
-#     df.at[row, 'status'] = status
-#     df.to_csv(csv_name, index=False)
-#     return
-
-
 def append_to_log(log_file, message):
     """Appends a message to the log file in a specific format."""
 
@@ -130,13 +121,10 @@ def pretty_progress():
         if 'QUBEKit' in root and '.tmp' not in root:
             log_files.append(f'{root}/QUBEKit_log_{root[10:]}')
 
-    print(log_files)
-
     # Open all log files sequentially
     info = OrderedDict()
     for file in log_files:
         name = file.split('_')[1]
-        print(name)
 
         # Create ordered dictionary based on the log file info
         info[name] = OrderedDict()
@@ -146,12 +134,31 @@ def pretty_progress():
         info[name]['parametrised'] = set_dict_val(file, '~PARAMETRISED')
         info[name]['optimised'] = set_dict_val(file, '~OPTIMISED')
         info[name]['mod sem'] = set_dict_val(file, '~MODIFIED')
+        info[name]['gaussian'] = set_dict_val(file, '~GAUSSIAN')
+        info[name]['chargemol'] = set_dict_val(file, '~CHARGEMOL')
+        info[name]['lennard'] = set_dict_val(file, '~LENNARD')
+        info[name]['torsions'] = set_dict_val(file, '~TORSION')
 
-    print(info)
+    header_string = '{:15} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12}'
+    print(header_string.format('Name', 'Parametrised', 'Optimised', 'Mod-Sem', 'Gaussian', 'Chargemol', 'L-J', 'Torsions'))
+    # Outer dict contains the names of the molecules.
+    for key_a, var_a in info.items():
+        print('{:15}'.format(key_a[:13]), end=' ')
+        # Inner dict contains the individual molecules' data.
+        for key_b, var_b in info[key_a].items():
+            if info[key_a][key_b] == 1:
+                # Uses exit codes to set terminal font colours.
+                # \033[ is the exit code; 1;32 are the style (bold) and colour (green); m reenters the code block.
+                # The second exit code resets the style back to default.
+                print('\033[1;32m{:>12d}\033[0;0m'.format(info[key_a][key_b]), end=' ')
+            else:
+                print('\033[1;31m{:>12d}\033[0;0m'.format(info[key_a][key_b]), end=' ')
+        # TODO Print tick mark after final column (use unicode characters)
+        # TODO Change red to error, orange to not done yet
+        # Print statements end with \n by default so adding a space adds a newline. Weird.
+        # Could also replace with print('\n', end=' ') which may be clearer ... ?
+        print('')
 
-    # Search the log files for tildes.
-    # Each tilde will correspond to a dictionary key.
-    # Fill in the values based on progress; green: done, orange: in progress, red: after orange. Blue: not called at all
     return
 
 
@@ -162,3 +169,26 @@ def set_dict_val(file_name, search_term):
             if search_term in line:
                 return 1
     return 0
+
+
+def unpickle(pickle_jar):
+    """Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of liagnds
+    indexed by their progress."""
+
+    from pickle import load
+
+    mol_states = {}
+    mols = []
+    # unpickle the pickle jar
+    # try to load a pickle file make sure to get all objects
+    with open(pickle_jar, 'rb') as jar:
+        while True:
+            try:
+                mols.append(load(jar))
+            except:
+                break
+    # for each object in the jar put them into a dictionary indexed by there state
+    for mol in mols:
+        mol_states[mol.state] = mol
+
+    return mol_states

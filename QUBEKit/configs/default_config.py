@@ -5,9 +5,9 @@
 
 
 qm = {
-    'theory': 'B3LYP',              # Theory to use in freq and dihedral scans recommended wB97XD or B3LYP, for example
+    'theory': 'PBEPBE',             # Theory to use in freq and dihedral scans recommended wB97XD or B3LYP, for example
     'basis': '6-311++G(d,p)',       # Basis set
-    'vib scaling': 0.957,           # Associated scaling to the theory
+    'vib scaling': 0.991,           # Associated scaling to the theory
     'threads': 6,                   # Number of processors used in g09; affects the bonds and dihedral scans
     'memory': 2,                    # Amount of memory (in GB); specified in the g09 scripts
     'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using psi4 and geometric so far
@@ -16,8 +16,7 @@ qm = {
     'charges engine': 'chargemol',  # Engine used for charges calculations
     'ddec version': 6,              # DDEC version used by chargemol, 6 recommended but 3 is also available
     'geometric': True,              # Use geometric for optimised structure (if False, will just use psi4)
-    'solvent': False,               # Use a solvent in the psi4 input
-
+    'solvent': True,                # Use a solvent in the psi4/gaussian09 input
 }
 
 fitting = {
@@ -34,5 +33,5 @@ fitting = {
 
 descriptions = {
     'chargemol': '/home/b8009890/Programs/chargemol_09_26_2017',    # Location of the chargemol program directory
-    'log': 999,                     # Default string for the working directories and logs
+    'log': '999',                   # Default string for the working directories and logs
 }

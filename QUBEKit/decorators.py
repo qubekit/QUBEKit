@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-"""Various useful decorators."""
+
 
 from time import time
 from functools import wraps
 from datetime import datetime
 from os import listdir, path
-import logging
+from logging import getLogger, Formatter, FileHandler, INFO
 
 
 def timer_func(orig_func):
@@ -26,8 +26,9 @@ def timer_func(orig_func):
 
 def timer_logger(orig_func):
     """Logs the runtime of a function in a dated and numbered file.
-    Outputs the start time, runtime, and function name and docstring.
-    Run number can be changed with -log command."""
+    Outputs the start time, runtime, function/method qualname and docstring.
+    Run number can be changed with -log command.
+    """
 
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
@@ -58,8 +59,9 @@ def timer_logger(orig_func):
 
 
 def for_all_methods(decorator):
-    """Applies decorator to all methods of a class (includes sub-classes and init; it is literally all callables).
-    This class decorator is applied using '@for_all_methods(timer_func)' for example."""
+    """Applies a decorator to all methods of a class (includes sub-classes and init; it is literally all callables).
+    This class decorator is applied using '@for_all_methods(timer_func)' for example.
+    """
 
     def decorate(cls):
         # Examine all class attributes.
@@ -73,19 +75,21 @@ def for_all_methods(decorator):
 
 
 def exception_logger():
-    """Creates logging object to be returned."""
+    """Creates logging object to be returned. Contains proper formatting and locations for logging exceptions.
+    This isn't a decorator itself but is only used by exception_logger_decorator so it makes sense for it to be here.
+    """
 
-    logger = logging.getLogger('Exception Logger')
-    logger.setLevel(logging.INFO)
+    logger = getLogger('Exception Logger')
+    logger.setLevel(INFO)
 
     # Find the log file and set it to be handled.
     files = [file for file in listdir('.') if path.isfile(file)]
     log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
-    file_handler = logging.FileHandler(log_file)
+    file_handler = FileHandler(log_file)
 
     # Format the log message
     fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    formatter = logging.Formatter(fmt)
+    formatter = Formatter(fmt)
     file_handler.setFormatter(formatter)
 
     logger.addHandler(file_handler)
@@ -94,17 +98,22 @@ def exception_logger():
 
 
 def exception_logger_decorator(func):
-    """Decorator which logs exceptions to QUBEKit_log file if one occurs."""
+    """Decorator which logs exceptions to QUBEKit_log file if one occurs.
+    Do not apply this decorator to a function / method unless a log file has been produced.
+    """
 
     @wraps(func)
     def wrapper(*args, **kwargs):
         logger = exception_logger()
 
+        # Run as normal
         try:
             return func(*args, **kwargs)
 
+        # Any exception that occurs is logged
         except:
             logger.exception(f'An exception occurred with: {func.__qualname__}')
+            print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
             # Re-raises the exception
             raise

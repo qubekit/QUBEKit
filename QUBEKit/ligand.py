@@ -44,11 +44,11 @@ class Ligand:
         self.get_bond_lengths()
         self.get_angle_values()
 
-    element_dict = {'H': 1.008000,  # Group 1
-                    'C': 12.011000,  # Group 4
-                    'N': 14.007000, 'P': 30.973762,  # Group 5
-                    'O': 15.999000, 'S': 32.060000,  # Group 6
-                    'F': 18.998403, 'Cl': 35.450000, 'Br': 79.904000, 'I': 126.904470  # Group 7
+    element_dict = {'H': 1.008000,      # Group 1
+                    'C': 12.011000,     # Group 4
+                    'N': 14.007000, 'P': 30.973762,     # Group 5
+                    'O': 15.999000, 'S': 32.060000,     # Group 6
+                    'F': 18.998403, 'Cl': 35.450000, 'Br': 79.904000, 'I': 126.904470       # Group 7
                     }
 
     def __repr__(self):
@@ -172,7 +172,7 @@ class Ligand:
         return self.dihedrals
 
     def find_rotatable_dihedrals(self):
-        """Take the topology graph network and dihedrals dictionary and for each dihedral in there work out if the torsion is
+        """For each dihedral in the topology graph network and dihedrals dictionary, work out if the torsion is
         rotatable. Returns a list of dihedral dictionary keys representing the rotatable dihedrals.
         """
 
@@ -194,8 +194,8 @@ class Ligand:
         return self.rotatable
 
     def get_dihedral_values(self, QM=False, MM=False):
-        """Taking the molecules xyz coordinates and dihedrals dictionary the function returns a dictionary of dihedral
-        angle keys and values. There is also the option to supply just the keys of the dihedrals you want to calculate.
+        """Taking the molecules' xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
+        angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
 
         from numpy import array, linalg, dot, degrees, cross, arctan2
@@ -261,8 +261,8 @@ class Ligand:
         return self.bond_lengths
 
     def get_angle_values(self, QM=False, MM=False):
-        """For the given molecule and list of angle terms measure the angle values
-        return a dictionary of angles and values.
+        """For the given molecule and list of angle terms measure the angle values,
+        then return a dictionary of angles and values.
         """
 
         from numpy import array, linalg, dot, arccos, degrees
@@ -291,8 +291,9 @@ class Ligand:
         return self.angle_values
 
     def write_pdb(self, QM=False, MM=False, name=None):
-        """Take the current molecule and topology and write a pdb file for the molecule,
-        only for small molecules not standard residues no size limit."""
+        """Take the current molecule and topology and write a pdb file for the molecule.
+        Only for small molecules, not standard residues. No size limit.
+        """
 
         from datetime import datetime
         from networkx import neighbors
@@ -325,7 +326,7 @@ class Ligand:
         out.close()
 
     def write_parameters(self):
-        """Take the molecules parameter set and write an xml file for the molecule."""
+        """Take the molecule's parameter set and write an xml file for the molecule."""
 
         # first build the xml tree
         self.build_tree()
@@ -345,7 +346,7 @@ class Ligand:
         print('XML made!')
 
     def build_tree(self):
-        """This method seperates the parameters and builds an xml tree ready for writing out."""
+        """Separates the parameters and builds an xml tree ready to be used."""
 
         import xml.etree.ElementTree as ET
 
@@ -394,7 +395,8 @@ class Ligand:
         # add the non-bonded parameters
         for key in self.NonbondedForce.keys():
             ET.SubElement(NonbondedForce, "Atom",
-                          attrib={'type': self.AtomTypes[key][1], 'charge': self.NonbondedForce[key][0], 'sigma': self.NonbondedForce[key][1], 'epsilon': self.NonbondedForce[key][2]})
+                          attrib={'type': self.AtomTypes[key][1], 'charge': self.NonbondedForce[key][0],
+                                  'sigma': self.NonbondedForce[key][1], 'epsilon': self.NonbondedForce[key][2]})
 
         # Store the tree back into the molecule
         tree = ET.ElementTree(root)
@@ -410,12 +412,13 @@ class Ligand:
         with open('opt.xyz', 'r') as opt:
             lines = opt.readlines()
             for line in lines:
+                line = line.split()
                 if 'Iteration' in line:
-                    print(f'Optimisation converged at iteration {int(line.split()[1])} with final energy {float(line.split()[3])}')
+                    print(f'Optimisation converged at iteration {int(line[1])} with final energy {float(line[3])}')
                     write = True
 
                 elif write:
-                    opt_molecule.append([line.split()[0], float(line.split()[1]), float(line.split()[2]), float(line.split()[3])])
+                    opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
         self.QMoptimized = opt_molecule
         return self
 
@@ -423,18 +426,21 @@ class Ligand:
         """Read a general xyz file format and return the structure array.
         QM and MM decide where it will be stored in the molecule.
         """
+
         pass
 
     def pickle(self, state=None):
-        """Function will pickle the ligand object in its current sate to the pickle file,
-        if other objects are already exist then the latest object is put to the top."""
+        """Pickles the ligand object in its current sate to the (hidden) pickle file.
+        If other pickle objects already exist for the particular ligand object:
+        the latest object is put to the top.
+        """
 
         from pickle import dump, load
 
         mols = []
         # First check if the pickle file exists
         try:
-            # try to load a hidden pickle file make sure to get all objects
+            # Try to load a hidden pickle file; make sure to get all objects
             with open(f'.{self.name}_states', 'rb') as pickle_jar:
                 while True:
                     try:
@@ -444,21 +450,14 @@ class Ligand:
         except:
             mols = None
 
-
-        # now we can save the items first assign the location
+        # Now we can save the items first assign the location
         self.state = state
-        # open the pickle jar which will always be the ligand objects name
+        # Open the pickle jar which will always be the ligand objects name
         pickle_jar = open(f'.{self.name}_states', 'wb')
-        # put the latest lignad object at the top of the jar
+        # Put the latest ligand object at the top of the jar
         dump(self, pickle_jar)
-        # if there were other molecules in the jar push them to the bottom
+        # If there were other molecules in the jar push them to the bottom
         if mols:
             for mol in mols:
                 dump(mol, pickle_jar)
         pickle_jar.close()
-
-
-
-
-
-

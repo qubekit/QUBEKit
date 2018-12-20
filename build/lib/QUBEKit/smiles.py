@@ -7,7 +7,7 @@ from rdkit.Chem.rdForceFieldHelpers import MMFFGetMoleculeForceField, MMFFGetMol
 
 def smiles_to_pdb(smiles_string, name=None):
     """Converts smiles strings to pdb and mol files"""
-    # Originally written by: venkatakrishnan, edited and extended by: Chris Ringrose
+    # Originally written by: venkatakrishnan, rewritten and extended by: Chris Ringrose
 
     if 'H' in str(smiles_string):
         raise Exception('Smiles string contains hydrogen atoms; try again.')
@@ -43,6 +43,8 @@ def smiles_mm_optimise(pdb_file):
     # mol_properties = MMFFGetMoleculeProperties(mol)
     # ff = MMFFGetMoleculeForceField(mol, mol_properties)
     MMFFOptimizeMolecule(mol)
+
     AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
 
     return f'{pdb_file[:-4]}_rdkit_optimised.pdb', descriptors
+

@@ -213,17 +213,17 @@ class LennardJones:
         # This follows the usual ordering of the atoms which is consistent throughout QUBEKit.
 
         new_NonbondedForce = {}
-        # Conversion from Ha.Bohr ** 6 to kcal / (mol * Ang ** 6):
-        kcal_ang = 13.7792544
+        conversion = 5.765240041
 
         for atom in range(len(self.molecule.molecule)):
             if self.ddec_polars[atom][-1] == 0:
                 sigma, epsilon = 0, 0
             else:
-                sigma = (self.ddec_polars[atom][-1] / self.ddec_polars[atom][-2]) ** (1 / 6)
-                epsilon = (self.ddec_polars[atom][-2] ** 2) / (4 * self.ddec_polars[atom][-1])
+                # 0.1 converts angstrom to nm
+                sigma = 0.1 * ((self.ddec_polars[atom][-1] / self.ddec_polars[atom][-2]) ** (1 / 6))
+                epsilon = conversion * ((self.ddec_polars[atom][-2] ** 2) / (4 * self.ddec_polars[atom][-1]))
 
-            new_NonbondedForce.update({atom: [self.ddec_polars[atom][5], sigma, epsilon]})
+            new_NonbondedForce.update({atom: [str(self.ddec_polars[atom][5]), str(sigma), str(epsilon)]})
 
         self.molecule.NonbondedForce = new_NonbondedForce
 

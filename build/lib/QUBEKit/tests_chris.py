@@ -84,8 +84,19 @@ from subprocess import call as sub_call
 #
 #     plt.show()
 #
+#
+# file = 'methanol.pdb'
+# mol = Ligand(file)
+#
+# pretty_progress()
 
-file = 'methanol.pdb'
-mol = Ligand(file)
+# print('{:15} {:15} {:15}'.format('Name', 'Parametrised', 'Optimised'))
+# print('{:15} {:15}'.format('Chris', '1'))
+# print('{:15} {:15}'.format('Christopher', '1'))
+# print("\033[1;32;40 m Bright Green  \n")
+# print("\x1b[1;31;40m {:>13d}{:>13d}".format(1, 2))
+# print('\033[1;33mHello \033[0;0mworld')
 
-pretty_progress()
+
+a = {'PBE': 'PBEPBE'}
+b = 'PBE'

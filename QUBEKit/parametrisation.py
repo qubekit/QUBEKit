@@ -60,7 +60,7 @@ class Parametrisation:
             self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i), str(self.molecule.molecule[i][0]) + str(800 + i)]
 
         # Now parse the xml file for the rest of the data
-        inputXML_file = 'serilized.xml'
+        inputXML_file = 'serialized.xml'
         inXML = ET.parse(inputXML_file)
         in_root = inXML.getroot()
 
@@ -142,16 +142,15 @@ class XML(Parametrisation):
             modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
         xml = openmm.XmlSerializer.serializeSystem(system)
-        with open('serilized.xml', 'w+') as out:
+        with open('serialized.xml', 'w+') as out:
             out.write(xml)
-
 
     def parametrise(self):
         """This is the master function and controls the class.
         1. Serialize the system into a correctly formatted xml file
         2. gather the parameters and store them in the molecule parameter dictionaries.
         """
-        self.serialize_system
+        self.serialize_system()
         
         self.gather_parameters()
 
@@ -193,7 +192,7 @@ class AnteChamber(Parametrisation):
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
 
         xml = openmm.XmlSerializer.serializeSystem(system)
-        with open('serilized.xml', 'w+') as out:
+        with open('serialized.xml', 'w+') as out:
             out.write(xml)
 
     def antechamber_cmd(self):
@@ -318,7 +317,7 @@ class OpenFF(Parametrisation):
 
         # Serialize the OpenMM system into the xml file
         xml = openmm.XmlSerializer.serializeSystem(system)
-        with open('serilized.xml', 'w+') as out:
+        with open('serialized.xml', 'w+') as out:
             out.write(xml)
 
 

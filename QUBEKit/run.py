@@ -8,18 +8,19 @@ from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.parametrisation import OpenFF, AnteChamber
-from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv, append_to_log
+from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress
 from QUBEKit.decorators import exception_logger_decorator
 
 from sys import argv as cmdline
-from os import mkdir, chdir, listdir, path, popen, rename
-from subprocess import call as sub_call
+from os import mkdir, chdir, path, rename
+from shutil import copy
 
 
 class Main:
     """Interprets commands from the terminal.
     Stores defaults or executes relevant functions.
     Will also create log and working directory where needed.
+    See README.md for detailed discussion of QUBEKit commands.
     """
 
     def __init__(self):
@@ -33,6 +34,9 @@ class Main:
         self.execute()
         self.log_file = None
 
+    start_up_string = (f'If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n'
+                       'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
+
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
@@ -41,13 +45,15 @@ class Main:
         Will either just return the commands to be used by execute();
         Update the configs with the commands given;
         Generate a .csv with the headers and defaults for bulk analysis;
-        Recursively perform bulk analysis for smiles or pdbs.
+        Recursively perform bulk analysis for smiles or pdbs;
+        Perform a single analysis using a pdb or smiles string;
+        Scan all log files and print matrix showing their progress (-progress command).
         """
 
         # Check for config changes or csv generation first.
         # Multiple configs can be changed at once
         self.commands = cmdline[1:]
-        print('These are the commands you gave:', self.commands)
+        print('\nThese are the commands you gave:', self.commands)
 
         for count, cmd in enumerate(self.commands):
 
@@ -95,6 +101,10 @@ class Main:
             if cmd == '-param':
                 self.fitting['parameter engine'] = str(self.commands[count + 1])
 
+            if cmd == '-progress':
+                pretty_progress()
+                exit()
+
         print('These are the current defaults:', self.defaults_dict, '\nPlease note, some values may not be used.')
 
         # Then check what kind of analysis is being done.
@@ -107,39 +117,29 @@ class Main:
             if cmd == '-bulk':
 
                 csv_file = self.commands[count + 2]
+                print(self.start_up_string)
 
-                if self.commands[count + 1] == 'smiles':
+                if self.commands[count + 1] == 'smiles' or self.commands[count + 1] == 'pdb':
 
-                    smile_data = get_mol_data_from_csv(csv_file)
+                    bulk_data = get_mol_data_from_csv(csv_file)
 
-                    # Run full analysis for each smiles string in the .csv file
-                    names = list(smile_data.keys())[1:]
+                    # Run full analysis for each smiles string or pdb in the .csv file
+                    names = list(bulk_data.keys())[1:]
                     for name in names:
 
-                        smile_string = smile_data[name]['smiles string']
                         print(f'Currently analysing: {name}')
-                        self.file = smiles.smiles_to_pdb(smile_string, name)
+                        if self.commands[count + 1] == 'smiles':
+                            smile_string = bulk_data[name]['smiles string']
+                            self.file = smiles.smiles_to_pdb(smile_string, name)
+                        elif self.commands[count + 1] == 'pdb':
+                            self.file = name + '.pdb'
+                        else:
+                            raise Exception('The -bulk command is for smiles strings or pdb files only. The commands are: smiles, pdb')
                         self.defaults_dict = get_mol_data_from_csv(csv_file)[name]
                         self.create_log()
                         self.execute()
-                        # For some bizarre (and infuriating) reason, sub_call('cd ../', shell=True) doesn't work
                         chdir('../../QUBEKit')
-                    exit()
-
-                elif self.commands[count + 1] == 'pdb':
-
-                    # Find all pdb files in current directory.
-                    files = [file for file in listdir('.') if path.isfile(file)]
-                    pdbs = [file for file in files if file.endswith('.pdb')]
-
-                    # Run full analysis for each pdb provided. Pdb names are used as the keys for the csv reader.
-                    for pdb in pdbs:
-                        print(f'Currently analysing: {pdb[:-4]}')
-                        self.file = pdb
-                        self.defaults_dict = get_mol_data_from_csv(csv_file)[pdb[:-4]]
-                        self.create_log()
-                        self.execute()
-                        chdir('../../QUBEKit')
+                    print('Finished bulk run. Use the command -progress to view which stages are complete.')
                     exit()
 
                 else:
@@ -154,24 +154,27 @@ class Main:
                     # Generate pdb from smiles string.
                     self.file = smiles.smiles_to_pdb(self.commands[count + 1])
                     self.defaults_dict['smiles string'] = self.commands[count + 1]
+                    print(self.start_up_string)
                     return self.file, self.commands
 
                 # If a pdb is given instead, use that.
                 elif 'pdb' in cmd:
 
                     self.file = cmd
+                    print(self.start_up_string)
                     return self.file, self.commands
 
                 elif '-pickle' in cmd:
                     pickle_point = self.commands[count + 1]
-                    # Do stuff
+                    # TODO Do stuff
                     pass
 
                 # If neither a smiles string nor a pdb is given, raise exception.
                 else:
-                    raise Exception('''Missing valid file type or smiles command.
-                        Please use pdb files and be sure to give the extension when typing the file name into the terminal.
-                        Alternatively, use the smiles command (-sm) to generate a molecule.''')
+                    raise Exception('Missing valid file type or smiles command. '
+                                    'Please use pdb files and be sure to give the extension when typing the file name'
+                                    ' into the terminal. '
+                                    'Alternatively, use the smiles command (-sm) to generate a molecule.')
 
     def create_log(self):
         """Creates the working directory for the job as well as the log file.
@@ -184,17 +187,18 @@ class Main:
         date = datetime.now().strftime('%Y_%m_%d')
 
         # Define name of working directory.
-        # This is formatted as 'QUBEKit_molecule name_yy_mm_dd_log_string'.
+        # This is formatted as 'QUBEKit_molecule name_yyyy_mm_dd_log_string'.
         log_string = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
         mkdir(log_string)
 
         # Copy active pdb into new directory.
-        popen(f'cp {self.file} {log_string}/{self.file}')
+        abspath = path.abspath(self.file)
+        copy(abspath, f'{log_string}/{self.file}')
         # Move into new working directory.
         chdir(log_string)
 
-        # Create log file.
-        # This is formatted as 'QUBEKit_log_molecule name_yy_mm_dd_log_string'.
+        # Create log file in working directory.
+        # This is formatted as 'QUBEKit_log_molecule name_yyyy_mm_dd_log_string'.
 
         self.log_file = f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
 
@@ -213,10 +217,6 @@ class Main:
                 log_file.write('\n')
 
             log_file.write('\n')
-
-        print(f'If QUBEKit ever breaks or you would just like to view timings and other info, check the log file: \n'
-              f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}\n'
-              'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
 
         return
 
@@ -252,6 +252,7 @@ class Main:
             raise Exception('Invalid parametrisation engine, please select from openff, antechamber or XXXXXXX')
 
         append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter engine"]}')
+        mol.pickle(state='parametrised')
 
         if self.qm['bonds engine'] == 'psi4':
             # Initialise for PSI4
@@ -261,8 +262,6 @@ class Main:
             # qm_engine = OTHER
             # TODO Add one
             raise Exception('No other bonds engine currently implemented.')
-
-        # Pickle
 
         if self.qm['geometric']:
 
@@ -275,7 +274,8 @@ class Main:
             qm_engine.optimised_structure()
 
         # Pickle
-        append_to_log(self.log_file, f'Optimised structure obtained{" with geometric" if self.qm["geometric"] else ""}')
+        append_to_log(self.log_file, f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
+        mol.pickle(state='optimised')
 
         # Write input file for PSI4
         qm_engine.generate_input(QM=True, hessian=True)
@@ -294,13 +294,15 @@ class Main:
 
         # Pickle
         append_to_log(self.log_file, 'Modified Seminario method complete')
+        mol.pickle(state='mod-sem')
 
         # Prepare for density calc
         g09 = Gaussian(mol, self.defaults_dict)
-        g09.generate_input(QM=True, density=True)
+        g09.generate_input(QM=True, density=True, solvent=self.qm['solvent'])
 
         # Pickle
-        append_to_log(self.log_file, 'Gaussian finished.')
+        append_to_log(self.log_file, 'Gaussian analysis complete')
+        mol.pickle(state='gaussian')
 
         # Perform DDEC calc
         c_mol = Chargemol(mol, self.defaults_dict)
@@ -308,21 +310,27 @@ class Main:
 
         # Pickle
         append_to_log(self.log_file, f'Chargemol analysis with DDEC{self.qm["ddec version"]} complete')
+        mol.pickle(state='chargemol')
 
         # Calculate Lennard-Jones parameters
         lj = LennardJones(mol, self.defaults_dict)
         mol = lj.amend_sig_eps()
 
         # Pickle
-        append_to_log(self.log_file, 'Lennard-Jones parameters obtained')
+        append_to_log(self.log_file, 'Lennard-Jones parameters calculated')
+        mol.pickle(state='l-j')
 
-        # Perform torsion scan
-        scan = TorsionScan(mol, qm_engine, 'OpenMM')
-        sub_call(f'{scan.cmd}', shell=True)
-        scan.start_scan()
+        # # Perform torsion scan
+        # scan = TorsionScan(mol, qm_engine, 'OpenMM')
+        # sub_call(f'{scan.cmd}', shell=True)
+        # scan.start_scan()
 
         append_to_log(self.log_file, 'Torsion scans complete')
+        mol.pickle(state='torsions')
 
+        mol.write_parameters()
+
+        # TODO Generate file (with a helper function) which nicely formats all the ligand object data.
         print(mol)
 
         return

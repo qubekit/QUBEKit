@@ -278,12 +278,12 @@ class ModSeminario:
         # Used to find average values
         unique_values_angles = []
 
-        with open('Modified_Seminario_Angle.txt', 'w') as angle_file:
+        with open('Modified_Seminario_Angle.txt', 'w+') as angle_file:
 
             for i, angle in enumerate(angle_list):
                 # Ensures that there is no difference when the ordering is changed
-                [ab_k_theta, ab_theta_0] = ModSemMaths.force_angle_constant(angle[0] - 1, angle[1] - 1, angle[2] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1])
-                [ba_k_theta, ba_theta_0] = ModSemMaths.force_angle_constant(angle[2] - 1, angle[1] - 1, angle[0] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][1], scaling_factors_angles_list[i][0])
+                ab_k_theta, ab_theta_0 = ModSemMaths.force_angle_constant(angle[0] - 1, angle[1] - 1, angle[2] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1])
+                ba_k_theta, ba_theta_0 = ModSemMaths.force_angle_constant(angle[2] - 1, angle[1] - 1, angle[0] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][1], scaling_factors_angles_list[i][0])
                 k_theta[i] = (ab_k_theta + ba_k_theta) / 2
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
@@ -299,6 +299,8 @@ class ModSeminario:
 
     def bonds_calculated_printed(self, bond_list, bond_lengths, eigenvalues, eigenvectors, coords):
         """Uses the Seminario method to find the bond parameters and print them to file"""
+
+        conversion = 418.4
 
         with open('Modified_Seminario_Bonds.txt', 'w+') as bond_file:
 
@@ -319,6 +321,9 @@ class ModSeminario:
                 bond_length_list[i] = bond_lengths[bond[0] - 1][bond[1] - 1]
                 bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')
                 bond_file.write('{:.3f}   {:.3f}   {}   {}\n'.format(k_b[i], bond_length_list[i], bond[0], bond[1]))
+
+                # Add ModSem values to ligand object.
+                self.molecule.HarmonicBondForce[(bond[0] - 1, bond[1] - 1)] = [str(bond_length_list[i] / 10), str(conversion * k_b[i])]
 
                 unique_values_bonds.append([self.atom_names[bond[0] - 1], self.atom_names[bond[1] - 1], k_b[i], bond_length_list[i], 1])
 

@@ -6,7 +6,8 @@ from rdkit.Chem.rdForceFieldHelpers import MMFFGetMoleculeForceField, MMFFGetMol
 
 
 def smiles_to_pdb(smiles_string, name=None):
-    """Converts smiles strings to pdb and mol files"""
+    """Converts smiles strings to pdb and mol files."""
+    # TODO Do we really want to generate the mol files too?
     # Originally written by: venkatakrishnan, rewritten and extended by: Chris Ringrose
 
     if 'H' in str(smiles_string):
@@ -30,7 +31,8 @@ def smiles_to_pdb(smiles_string, name=None):
 
 def smiles_mm_optimise(pdb_file):
     """Perform rough preliminary optimisation to speed up later optimisations
-    and extract some extra infomation about the molecule."""
+    and extract some extra infomation about the molecule.
+    """
 
     mol = MolFromPDBFile(pdb_file, removeHs=False)
     AllChem.EmbedMolecule(mol)
