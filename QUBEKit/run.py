@@ -7,7 +7,7 @@ from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
-from QUBEKit.parametrisation import OpenFF, AnteChamber
+from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
 from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress
 from QUBEKit.decorators import exception_logger_decorator
 
@@ -77,11 +77,8 @@ class Main:
             if any(s in cmd for s in ('-geo', '-geometric')):
                 self.qm['geometric'] = False if self.commands[count + 1] == 'false' else True
 
-            if cmd == '-psi4':
-                self.qm['bonds engine'] = 'psi4'
-
-            if cmd == '-g09':
-                self.qm['bonds engine'] = 'g09'
+            if cmd == '-bonds':
+                self.qm['bonds engine'] = str(self.commands[count + 1])
 
             if any(s in cmd for s in ('-cmol', '-chargemol')):
                 self.qm['charges engine'] = 'chargemol'
@@ -223,7 +220,7 @@ class Main:
     @exception_logger_decorator
     def execute(self):
         """Calls all the relevant classes and methods for the full QM calculation in the correct order.
-        # TODO Add proper entry and exit points to allow more customised analysis.
+        # TODO Add proper entry and exit points with pickle to allow more customised analysis.
         """
 
         # Initialise file with pdb params from smiles string input or pdb input.
@@ -238,30 +235,15 @@ class Main:
         mol.read_pdb(MM=True)
 
         # Parametrisation options:
-        if self.fitting['parameter engine'] == 'openff':
-            OpenFF(mol)
-
-        elif self.fitting['parameter engine'] == 'antechamber':
-            AnteChamber(mol)
-
-        # TODO Add others
-        elif self.fitting['parameter engine'] == '':
-            pass
-
-        else:
-            raise Exception('Invalid parametrisation engine, please select from openff, antechamber or XXXXXXX')
+        param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
+        param_dict[self.fitting['parameter engine']](mol)
 
         append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter engine"]}')
         mol.pickle(state='parametrised')
 
-        if self.qm['bonds engine'] == 'psi4':
-            # Initialise for PSI4
-            qm_engine = PSI4(mol, self.defaults_dict)
-
-        else:
-            # qm_engine = OTHER
-            # TODO Add one
-            raise Exception('No other bonds engine currently implemented.')
+        # Bonds engine options
+        engine_dict = {'g09': Gaussian, 'psi4': PSI4}
+        qm_engine = engine_dict[self.qm['bonds engine']](mol, self.defaults_dict)
 
         if self.qm['geometric']:
 
@@ -287,7 +269,6 @@ class Main:
         mol = qm_engine.hessian()
 
         # Modified Seminario for bonds and angles
-
         mod_sem = ModSeminario(mol, self.defaults_dict)
         mod_sem.modified_seminario_method()
         mol = qm_engine.all_modes()
@@ -320,7 +301,7 @@ class Main:
         append_to_log(self.log_file, 'Lennard-Jones parameters calculated')
         mol.pickle(state='l-j')
 
-        # # Perform torsion scan
+        # Perform torsion scan
         # scan = TorsionScan(mol, qm_engine, 'OpenMM')
         # sub_call(f'{scan.cmd}', shell=True)
         # scan.start_scan()

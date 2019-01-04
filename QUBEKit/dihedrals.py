@@ -5,8 +5,10 @@ from QUBEKit.ligand import Ligand
 
 
 class TorsionScan:
-    """This class will take a QUBEKit molecule object and perform a torsiondrive QM (and MM if Trure) energy scan
-    for each selected dihedral."""
+    """This class will take a QUBEKit molecule object and perform a torsiondrive QM (and MM if True) energy scan
+    for each selected dihedral.
+    """
+
     def __init__(self, molecule, QMengine, MMengine='openmm', MM_scan=True, native_opt=False, verbose=False):
         self.QMengine = QMengine
         self.MMengine = MMengine
@@ -125,7 +127,7 @@ class TorsionOptimizer:
     # TODO add objective function
     # TODO collect the dihedral angles
     # TODO write torsion energy contribution function
-    # TODO add method selction, do wide scan then clean up energy surface
+    # TODO add method selection, do wide scan then clean up energy surface
     # TODO plot the final energies
     def __init__(self):
         pass

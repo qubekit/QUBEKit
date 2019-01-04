@@ -430,7 +430,7 @@ class Ligand:
         pass
 
     def pickle(self, state=None):
-        """Pickles the ligand object in its current sate to the (hidden) pickle file.
+        """Pickles the ligand object in its current state to the (hidden) pickle file.
         If other pickle objects already exist for the particular ligand object:
         the latest object is put to the top.
         """

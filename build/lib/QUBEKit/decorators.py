@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Various useful decorators."""
+
 
 from time import time
 from functools import wraps
@@ -98,7 +98,9 @@ def exception_logger():
 
 
 def exception_logger_decorator(func):
-    """Decorator which logs exceptions to QUBEKit_log file if one occurs."""
+    """Decorator which logs exceptions to QUBEKit_log file if one occurs.
+    Do not apply this decorator to a function / method unless a log file has been produced.
+    """
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -112,6 +114,8 @@ def exception_logger_decorator(func):
         except:
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
+
+            # TODO Print the ligand class objects to the log file as well. Before or after the exception statement?
 
             # Re-raises the exception
             raise

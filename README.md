@@ -45,7 +45,7 @@ Below is general help for most of the commands available in QUBEKit.
 
 ## QUBEKit Commands: Running Jobs
 
-Given a list of commands, such as: "bonds", "-h", "psi4" some are taken as single word commands.
+Given a list of commands, such as: "-bonds", "-h", "psi4" some are taken as single word commands.
 Others however, such as changing defaults: ("-c", "0") ("-m", "1") etc are taken as tuple commands.
 All tuple commands are preceded by a "-", while single word commands are not.
 (An error is raised for hanging commands e.g. "-c", "1" or "-h".)
@@ -65,13 +65,9 @@ Note, ordering does not matter as long as tuples commands are together.
     python run.py molecule.pdb charges -c 1
     python run.py -c 1 molecule.pdb charges
 
-Running a bonds analysis (default) with a non-default engine (g09):
+Running a bonds analysis with a non-default engine (g09):
 
-    python run.py molecule.pdb g09
-
-More explicitly:
-    
-    python run.py molecule.pdb bonds g09
+    python run.py molecule.pdb -bonds g09
 
 The program will tell the user which defaults are being used, and which commands were given.
 Errors will be raised for any invalid commands and the program will not run.
@@ -157,9 +153,9 @@ When writing to the csv file, append rows after the defaults row rather than ove
 
 You cannot run multiple kinds of analysis at once. For example:
 
-    python run.py -bulk pdb example.csv methane.pdb bonds
+    python run.py -bulk pdb example.csv methane.pdb -bonds g09
     
 is not a valid command. These should be performed separately:
 
     python run.py -bulk pdb example.csv
-    python run.py methane.pdb bonds
+    python run.py methane.pdb -bonds g09

@@ -7,7 +7,7 @@ from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
-from QUBEKit.parametrisation import OpenFF, AnteChamber
+from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
 from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress
 from QUBEKit.decorators import exception_logger_decorator
 
@@ -20,6 +20,7 @@ class Main:
     """Interprets commands from the terminal.
     Stores defaults or executes relevant functions.
     Will also create log and working directory where needed.
+    See README.md for detailed discussion of QUBEKit commands.
     """
 
     def __init__(self):
@@ -44,7 +45,9 @@ class Main:
         Will either just return the commands to be used by execute();
         Update the configs with the commands given;
         Generate a .csv with the headers and defaults for bulk analysis;
-        Recursively perform bulk analysis for smiles or pdbs.
+        Recursively perform bulk analysis for smiles or pdbs;
+        Perform a single analysis using a pdb or smiles string;
+        Scan all log files and print matrix showing their progress (-progress command).
         """
 
         # Check for config changes or csv generation first.
@@ -74,11 +77,8 @@ class Main:
             if any(s in cmd for s in ('-geo', '-geometric')):
                 self.qm['geometric'] = False if self.commands[count + 1] == 'false' else True
 
-            if cmd == '-psi4':
-                self.qm['bonds engine'] = 'psi4'
-
-            if cmd == '-g09':
-                self.qm['bonds engine'] = 'g09'
+            if cmd == '-bonds':
+                self.qm['bonds engine'] = str(self.commands[count + 1])
 
             if any(s in cmd for s in ('-cmol', '-chargemol')):
                 self.qm['charges engine'] = 'chargemol'
@@ -168,9 +168,9 @@ class Main:
 
                 # If neither a smiles string nor a pdb is given, raise exception.
                 else:
-                    raise Exception('Missing valid file type or smiles command.\n'
+                    raise Exception('Missing valid file type or smiles command. '
                                     'Please use pdb files and be sure to give the extension when typing the file name'
-                                    ' into the terminal.\n'
+                                    ' into the terminal. '
                                     'Alternatively, use the smiles command (-sm) to generate a molecule.')
 
     def create_log(self):
@@ -194,7 +194,7 @@ class Main:
         # Move into new working directory.
         chdir(log_string)
 
-        # Create log file.
+        # Create log file in working directory.
         # This is formatted as 'QUBEKit_log_molecule name_yyyy_mm_dd_log_string'.
 
         self.log_file = f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
@@ -220,7 +220,7 @@ class Main:
     @exception_logger_decorator
     def execute(self):
         """Calls all the relevant classes and methods for the full QM calculation in the correct order.
-        # TODO Add proper entry and exit points to allow more customised analysis.
+        # TODO Add proper entry and exit points with pickle to allow more customised analysis.
         """
 
         # Initialise file with pdb params from smiles string input or pdb input.
@@ -235,30 +235,15 @@ class Main:
         mol.read_pdb(MM=True)
 
         # Parametrisation options:
-        if self.fitting['parameter engine'] == 'openff':
-            OpenFF(mol)
-
-        elif self.fitting['parameter engine'] == 'antechamber':
-            AnteChamber(mol)
-
-        # TODO Add others
-        elif self.fitting['parameter engine'] == '':
-            pass
-
-        else:
-            raise Exception('Invalid parametrisation engine, please select from openff, antechamber or XXXXXXX')
+        param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
+        param_dict[self.fitting['parameter engine']](mol)
 
         append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter engine"]}')
         mol.pickle(state='parametrised')
 
-        if self.qm['bonds engine'] == 'psi4':
-            # Initialise for PSI4
-            qm_engine = PSI4(mol, self.defaults_dict)
-
-        else:
-            # qm_engine = OTHER
-            # TODO Add one
-            raise Exception('No other bonds engine currently implemented.')
+        # Bonds engine options
+        engine_dict = {'g09': Gaussian, 'psi4': PSI4}
+        qm_engine = engine_dict[self.qm['bonds engine']](mol, self.defaults_dict)
 
         if self.qm['geometric']:
 
@@ -284,7 +269,6 @@ class Main:
         mol = qm_engine.hessian()
 
         # Modified Seminario for bonds and angles
-
         mod_sem = ModSeminario(mol, self.defaults_dict)
         mod_sem.modified_seminario_method()
         mol = qm_engine.all_modes()
@@ -295,10 +279,7 @@ class Main:
 
         # Prepare for density calc
         g09 = Gaussian(mol, self.defaults_dict)
-        if self.qm['solvent']:
-            g09.generate_input(QM=True, density=True, solvent=True)
-        else:
-            g09.generate_input(QM=True, density=True)
+        g09.generate_input(QM=True, density=True, solvent=self.qm['solvent'])
 
         # Pickle
         append_to_log(self.log_file, 'Gaussian analysis complete')
@@ -320,7 +301,7 @@ class Main:
         append_to_log(self.log_file, 'Lennard-Jones parameters calculated')
         mol.pickle(state='l-j')
 
-        # # Perform torsion scan
+        # Perform torsion scan
         # scan = TorsionScan(mol, qm_engine, 'OpenMM')
         # sub_call(f'{scan.cmd}', shell=True)
         # scan.start_scan()
@@ -330,6 +311,7 @@ class Main:
 
         mol.write_parameters()
 
+        # TODO Generate file (with a helper function) which nicely formats all the ligand object data.
         print(mol)
 
         return

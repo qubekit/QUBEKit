@@ -50,7 +50,8 @@ class Parametrisation:
 
     def gather_parameters(self):
         """This method parses the serialized xml file and collects the parameters ready to pass them
-        to build tree."""
+        to build tree.
+        """
 
         import xml.etree.ElementTree as ET
         from math import pi
@@ -60,7 +61,7 @@ class Parametrisation:
             self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i), str(self.molecule.molecule[i][0]) + str(800 + i)]
 
         # Now parse the xml file for the rest of the data
-        inputXML_file = 'serilized.xml'
+        inputXML_file = 'serialized.xml'
         inXML = ET.parse(inputXML_file)
         in_root = inXML.getroot()
 
@@ -117,45 +118,47 @@ class XML(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parameterise()
+        self.parametrise()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
 
     def serialize_system(self):
         """Serialize the input XML system using openmm."""
+
+        from simtk.openmm import app
+        from simtk import openmm
+
+        pdb = app.PDBFile(self.molecule.filename)
+        modeller = app.Modeller(pdb.topology, pdb.positions)
+
         if self.input:
-            from simtk.openmm import app
-            from simtk import openmm
-            from simtk import unit
+            forcefield = app.ForceField(self.input)
 
-            pdb = app.PDBFile(self.molecule.filename)
-
-            modeller = app.Modeller(pdb.topology, pdb.positions)
-            if not self.input:
-                forcefield = app.ForceField(self.input)
-
-            system = forcefield.createSystem(
-                modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
-
-            xml = openmm.XmlSerializer.serializeSystem(system)
-            with open('serilized.xml', 'w+') as out:
-                out.write(xml)
+        elif not self.input:
+            forcefield = app.ForceField(self.molecule.name + '.xml')
 
         else:
             raise FileExistsError('No .xml type file found did you supply one?')
+
+        system = forcefield.createSystem(
+            modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+
+        xml = openmm.XmlSerializer.serializeSystem(system)
+        with open('serialized.xml', 'w+') as out:
+            out.write(xml)
 
     def parametrise(self):
         """This is the master function and controls the class.
         1. Serialize the system into a correctly formatted xml file
         2. gather the parameters and store them in the molecule parameter dictionaries.
         """
-
-        self.serialize_system
+        self.serialize_system()
+        
         self.gather_parameters()
 
 
 @for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
-    """Use AnteChamber to parametrise the Ligand first using gaff  or gaff2
+    """Use AnteChamber to parametrise the Ligand first using gaff or gaff2
     then build and export the xml tree object.
     """
 
@@ -181,17 +184,16 @@ class AnteChamber(Parametrisation):
         self.gather_parameters()
 
     def serialize_system(self):
-        """Serialize the amber style files into an openmm object."""
+        """Serialise the amber style files into an openmm object."""
 
         from simtk.openmm import app
         from simtk import openmm
 
         prmtop = app.AmberPrmtopFile(self.prmtop)
-        inpcrd = app.AmberInpcrdFile(self.inpcrd)
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
 
         xml = openmm.XmlSerializer.serializeSystem(system)
-        with open('serilized.xml', 'w+') as out:
+        with open('serialized.xml', 'w+') as out:
             out.write(xml)
 
     def antechamber_cmd(self):
@@ -267,13 +269,14 @@ class AnteChamber(Parametrisation):
 @for_all_methods(timer_logger)
 class OpenFF(Parametrisation):
     """This class uses the openFF in openeye to parametrise the molecule using frost.
-    A serialized XML is then stored in the parameter dictionaries."""
+    A serialized XML is then stored in the parameter dictionaries.
+    """
 
     def __init__(self, molecule, input_file=None, fftype='frost'):
 
         super().__init__(molecule, input_file, fftype)
-
         self.parametrise()
+
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
 
     def parametrise(self):
@@ -316,7 +319,7 @@ class OpenFF(Parametrisation):
 
         # Serialize the OpenMM system into the xml file
         xml = openmm.XmlSerializer.serializeSystem(system)
-        with open('serilized.xml', 'w+') as out:
+        with open('serialized.xml', 'w+') as out:
             out.write(xml)
 
 
@@ -331,8 +334,8 @@ class BOSS(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
+        self.parametrise()
 
-        self.parameterise()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
 
     def parametrise(self):

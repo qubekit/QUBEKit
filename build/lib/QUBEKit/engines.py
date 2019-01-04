@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 
-from QUBEKit.helpers import config_loader, get_overage
+from QUBEKit.helpers import config_loader, get_overage, check_symmetry
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import call as sub_call
+from numpy import array, zeros
 
 
 class Engines:
@@ -16,10 +17,9 @@ class Engines:
     def __init__(self, molecule, config_dict):
 
         self.engine_mol = molecule
-        # TODO implement method for running with default rather than csv
         self.charge = config_dict['charge']
         self.multiplicity = config_dict['multiplicity']
-        # Load the configs using the config_file name.
+        # Load the configs using the config_file name from the csv.
         self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
 
     def __repr__(self):
@@ -43,12 +43,10 @@ class PSI4(Engines):
 
     def hessian(self):
         """Parses the Hessian from the B3LYP_output.dat file (from psi4) into a numpy array.
-        molecule is a numpy array of size N x N
+        Molecule is a numpy array of size N x N.
         """
 
-        from numpy import array
-
-        hess_size = len(self.engine_mol.molecule) * 3
+        hess_size = 3 * len(self.engine_mol.molecule)
 
         # B3LYP_output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
@@ -59,21 +57,21 @@ class PSI4(Engines):
 
                 if '## Hessian' in line:
                     # Set the start of the hessian to the row of the first value.
-                    start_of_hess = count + 5
+                    hess_start = count + 5
 
                     # Check if the hessian continues over onto more lines (i.e. if hess_size is not divisible by 5)
                     extra = 0 if hess_size % 5 == 0 else 1
 
-                    # length_of_hess: #of cols * length of each col
-                    #                +#of cols - 1 * #blank lines per row of hess_vals
-                    #                +#blank lines per row of hess_vals if the hess_size continues over onto more lines.
-                    length_of_hess = (hess_size // 5) * hess_size + (hess_size // 5 - 1) * 3 + extra * (3 + hess_size)
+                    # hess_length: # of cols * length of each col
+                    #            + # of cols - 1 * #blank lines per row of hess_vals
+                    #            + # blank lines per row of hess_vals if the hess_size continues over onto more lines.
+                    hess_length = (hess_size // 5) * hess_size + (hess_size // 5 - 1) * 3 + extra * (3 + hess_size)
 
-                    end_of_hess = start_of_hess + length_of_hess
+                    hess_end = hess_start + hess_length
 
                     hess_vals = []
 
-                    for file_line in lines[start_of_hess:end_of_hess]:
+                    for file_line in lines[hess_start:hess_end]:
                         # Compile lists of the 5 Hessian floats for each row.
                         # Number of floats in last row may be less than 5.
                         # Only the actual floats are added, not the separating numbers.
@@ -93,16 +91,10 @@ class PSI4(Engines):
 
                         reshaped.append(new_row)
 
+                    check_symmetry(reshaped)
+
                     # Units conversion.
                     hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
-
-                    # Check matrix is symmetric to within some error.
-                    error = 0.00001
-
-                    for i in range(len(hess_matrix)):
-                        for j in range(len(hess_matrix)):
-                            if abs(hess_matrix[i, j] - hess_matrix[j, i]) > error:
-                                raise Exception('Hessian is not symmetric.')
 
                     print(f'Extracted Hessian for {self.engine_mol.name} from psi4 output')
                     self.engine_mol.hessian = hess_matrix
@@ -110,8 +102,7 @@ class PSI4(Engines):
                     return self.engine_mol
 
     def optimised_structure(self):
-        """Parses the final optimised structure from the B3LYP_output.dat file (from psi4) to a numpy array.
-        """
+        """Parses the final optimised structure from the B3LYP_output.dat file (from psi4) to a numpy array."""
 
         # Run through the file and find all lines containing '==> Geometry', add these lines to a list.
         # Reverse the list
@@ -132,7 +123,7 @@ class PSI4(Engines):
             # Set the start as the last instance of '==> Geometry'.
             start_of_vals = geo_pos_list[-1] + 9
 
-            f_opt_struct = []
+            opt_struct = []
 
             for row in range(len(self.engine_mol.molecule)):
 
@@ -141,10 +132,10 @@ class PSI4(Engines):
                 for indx in range(1, 4):
                     struct_row.append(float(lines[start_of_vals + row].split()[indx]))
 
-                f_opt_struct.append(struct_row)
+                opt_struct.append(struct_row)
 
         print(f'Extracted optimised structure for {self.engine_mol.name} from psi4 output')
-        self.engine_mol.QMoptimized = f_opt_struct
+        self.engine_mol.QMoptimized = opt_struct
 
         return self.engine_mol
 
@@ -190,7 +181,7 @@ class PSI4(Engines):
             if density:
                 print('Writing psi4 density calculation input')
                 setters += " cubeprop_tasks ['density']\n"
-                # TODO Handle overage correctly (should be dependent on the size of the molecule)
+                # TODO Handle overage correctly (should be dependent on the size of the molecule).
                 # See helpers.get_overage for info.
 
                 # print('Calculating overage for psi4 and chargemol.')
@@ -199,7 +190,7 @@ class PSI4(Engines):
                 setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
                 tasks += "grad, wfn = gradient('{}', return_wfn=True)\ncubeprop(wfn)".format(self.qm['theory'].lower())
 
-            # TODO check the input settings and compare with g09
+            # TODO If overage cannot be made to work, delete and just use Gaussian.
             # if self.qm['solvent']:
             #     print('Setting pcm parameters.')
             #     setters += ' pcm true\n pcm_scf_type total\n'
@@ -221,8 +212,6 @@ class PSI4(Engines):
 
     def all_modes(self):
         """Extract all modes from the psi4 output file."""
-
-        from numpy import array
 
         # Find "post-proj  all modes"
         # Jump to first value, ignoring text.
@@ -345,9 +334,7 @@ class Gaussian(Engines):
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
     def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, solvent=False):
-        """Generates the relevant job files for Gaussian, then executes this job file.
-        Solvents require running Gaussian twice, hence the check and solvent arguments.
-        """
+        """Generates the relevant job file for Gaussian, then executes this job file."""
 
         if QM:
             molecule = self.engine_mol.QMoptimized
@@ -362,6 +349,8 @@ class Gaussian(Engines):
 
             commands = f'# {self.qm["theory"]}/{self.qm["basis"]} SCF=XQC '
 
+            # Adds the commands in groups. They MUST be in the right order because Gaussian.
+
             if optimize:
                 commands += 'opt '
 
@@ -374,22 +363,104 @@ class Gaussian(Engines):
             if density:
                 commands += 'density=current OUTPUT=WFX '
 
-            commands += f'\n\n{self.engine_mol.name}\n\n'
-            commands += f'{self.charge} {self.multiplicity}\n'
+            commands += f'\n\n{self.engine_mol.name}\n\n{self.charge} {self.multiplicity}\n'
 
             input_file.write(commands)
 
+            # Add the atomic coordinates
             for atom in molecule:
                 input_file.write('{} {: .3f} {: .3f} {: .3f}\n'.format(atom[0], float(atom[1]), float(atom[2]), float(atom[3])))
 
             if solvent:
+                # Adds the epsilon and cavity params
                 input_file.write('\n4.0 0.0004')
 
             if density:
+                # Specify the creation of the wavefunction file
                 input_file.write(f'\n{self.engine_mol.name}.wfx')
 
+            # Blank lines because Gaussian.
             input_file.write('\n\n')
 
-        # Run the Gaussian job. Ensures both logs are kept if doing solvent calculation.
         print('Running Gaussian09 analysis')
         sub_call(f'g09 < gj_{self.engine_mol.name} > gj_{self.engine_mol.name}.log', shell=True)
+
+    def optimised_structure(self):
+        """Extract the optimised structure from the Gaussian log file."""
+
+        with open(f'gj_{self.engine_mol.name}.log', 'r') as log_file:
+
+            lines = log_file.readlines()
+
+            opt_coords_pos = []
+            for count, line in enumerate(lines):
+                if 'Input orientation' in line:
+                    opt_coords_pos.append(count + 5)
+            start_pos = opt_coords_pos[-1]
+
+            num_atoms = len(self.engine_mol.molecule)
+
+            opt_struct = []
+
+            for line in lines[start_pos: start_pos + num_atoms]:
+                for atom_index in range(num_atoms):
+                    # Takes atom name from molecule object and appends the *unpacked coordinates from the log file.
+                    opt_struct.append([self.engine_mol.molecule[atom_index][0], *line.split()[-3:]])
+
+        print(f'Extracted optimised structure for {self.engine_mol.name} from Gaussian log file.')
+        return array(opt_struct)
+
+    def hessian(self):
+        """Extract the Hessian matrix from the Gaussian fchk file."""
+
+        with open('lig.fchk', 'r') as fchk:
+
+            lines = fchk.readlines()
+            hessian_list = []
+
+            for count, line in enumerate(lines):
+                if line.startswith('Cartesian Force Constants'):
+                    start_pos = count + 1
+                if line.startswith('Dipole Moment'):
+                    end_pos = count
+
+            for line in lines[start_pos: end_pos]:
+                # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
+                hessian_list.extend([float(num) * 0.529 for num in line.strip('\n').split()])
+
+        hess_size = 3 * len(self.engine_mol.molecule)
+
+        hessian = zeros((hess_size, hess_size))
+
+        # Rewrite Hessian to full, symmetric 3N * 3N matrix rather than list with just the non-repeated values.
+        m = 0
+        for i in range(hess_size):
+            for j in range(i + 1):
+                hessian[i][j] = hessian_list[m]
+                hessian[j][i] = hessian_list[m]
+                m += 1
+
+        check_symmetry(hessian)
+
+        print(f'Extracted Hessian matrix for {self.engine_mol.name} from Gaussian fchk file.')
+        return hessian
+
+    def all_modes(self):
+        """Extract the frequencies from the Gaussian log file."""
+
+        with open(f'gj_{self.engine_mol.name}.log', 'r') as log_file:
+
+            lines = log_file.readlines()
+            freqs = []
+
+            # Stores indices of rows which will be used
+            freq_positions = []
+            for count, line in enumerate(lines):
+                if line.startswith(' Frequencies'):
+                    freq_positions.append(count)
+
+            for pos in freq_positions:
+                freqs.extend(float(num) for num in lines[pos].split()[2:])
+
+        print(f'Extracted frequencies for {self.engine_mol.name} from Gaussian log file.')
+        return array(freqs)
