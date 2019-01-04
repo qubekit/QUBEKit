@@ -151,7 +151,7 @@ def pretty_print(mol, to_file=False):
     #               * On completion
     # Print to terminal: * On call
 
-    
+
 
     pass
 
