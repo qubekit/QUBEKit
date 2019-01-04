@@ -115,6 +115,8 @@ def exception_logger_decorator(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
+            # TODO Print the ligand class objects to the log file as well. Before or after the exception statement?
+
             # Re-raises the exception
             raise
 

@@ -26,12 +26,13 @@ def smiles_to_pdb(smiles_string, name=None):
     print(AllChem.MolToMolBlock(mH), file=open(f'{name}.mol', 'w+'))
     AllChem.MolToPDBFile(mH, f'{name}.pdb')
     print(f'Smiles string {smiles_string} converted to PDB and mol files.')
+
     return f'{name}.pdb'
 
 
 def smiles_mm_optimise(pdb_file):
     """Perform rough preliminary optimisation to speed up later optimisations
-    and extract some extra infomation about the molecule.
+    and extract some extra information about the molecule.
     """
 
     mol = MolFromPDBFile(pdb_file, removeHs=False)

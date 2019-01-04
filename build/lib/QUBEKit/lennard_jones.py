@@ -2,11 +2,10 @@
 
 
 # TODO Symmetry checks.
-# TODO Check if Hydrogens are polar.
 
 
 from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.helpers import config_loader
+from QUBEKit.helpers import config_loader, check_net_charge
 
 
 @for_all_methods(timer_logger)
@@ -77,6 +76,9 @@ class LennardJones:
                         self.ddec_data.append(atom_data)
                     break
 
+        charges = [atom[5] for atom in self.ddec_data]
+        check_net_charge(charges)
+
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
 
         with open(r_cubed_file_name, 'r+') as vol_file:
@@ -87,15 +89,6 @@ class LennardJones:
 
             for count, atom in enumerate(self.ddec_data):
                 atom.append(vols[count])
-
-            # Ensure total charge is near to integer value:
-            total_charge = 0
-            for atom in self.ddec_data:
-                total_charge += atom[5]
-
-            # If not 0 < total_charge << 1: you've a problem.
-            if abs(round(total_charge) - total_charge) > 0.00001:
-                raise ValueError('Total charge is not close enough to integer value.')
 
         return self.ddec_data
 
@@ -221,7 +214,7 @@ class LennardJones:
             else:
                 # 0.1 converts angstrom to nm
                 sigma = 0.1 * ((self.ddec_polars[atom][-1] / self.ddec_polars[atom][-2]) ** (1 / 6))
-                epsilon = conversion * ((self.ddec_polars[atom][-2] ** 2) / (4 * self.ddec_polars[atom][-1]))
+                epsilon = 10 * conversion * ((self.ddec_polars[atom][-2] ** 2) / (4 * self.ddec_polars[atom][-1]))
 
             new_NonbondedForce.update({atom: [str(self.ddec_polars[atom][5]), str(sigma), str(epsilon)]})
 

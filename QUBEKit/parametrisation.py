@@ -50,7 +50,8 @@ class Parametrisation:
 
     def gather_parameters(self):
         """This method parses the serialized xml file and collects the parameters ready to pass them
-        to build tree."""
+        to build tree.
+        """
 
         import xml.etree.ElementTree as ET
         from math import pi
@@ -157,7 +158,7 @@ class XML(Parametrisation):
 
 @for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
-    """Use AnteChamber to parametrise the Ligand first using gaff  or gaff2
+    """Use AnteChamber to parametrise the Ligand first using gaff or gaff2
     then build and export the xml tree object.
     """
 
@@ -183,7 +184,7 @@ class AnteChamber(Parametrisation):
         self.gather_parameters()
 
     def serialize_system(self):
-        """Serialize the amber style files into an openmm object."""
+        """Serialise the amber style files into an openmm object."""
 
         from simtk.openmm import app
         from simtk import openmm
@@ -268,7 +269,8 @@ class AnteChamber(Parametrisation):
 @for_all_methods(timer_logger)
 class OpenFF(Parametrisation):
     """This class uses the openFF in openeye to parametrise the molecule using frost.
-    A serialized XML is then stored in the parameter dictionaries."""
+    A serialized XML is then stored in the parameter dictionaries.
+    """
 
     def __init__(self, molecule, input_file=None, fftype='frost'):
 

@@ -5,61 +5,39 @@ Modified by Joshua T. Horton and rewritten by Chris Ringrose, Newcastle Universi
 Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 """
 
-# TODO Josh finish getting the Seminario method to work from any qm engine hessian should be in np.array format
-
-# Bugs
-# TODO Fix repeated definitions (remove unused).
-
-# Speed
-# TODO Use context managers. (almost DONE, waiting on function fix.)
-# TODO Convert while loops to for x in range().
+# TODO Convert 'while x:' loops to 'for x in range():' or 'for x in y:'.
 #      (Each loop using while is 10 ops, only 3 using range, therefore ~3.3x faster. Also much more readable.)
 # TODO Convert for item in range(len(items): to for item in items (where possible)
-#      This also goes for read files, e.g. for line in file: rather than lines = file.readlines()
-#                                                                        for line in lines:
-#      There are currently 27 instances of readline(); there should be 0.
-# TODO Pretty sure we can remove imports of os.path and itemgetter with simpler workarounds.
 
 # Maintainability / Readability
-# TODO Remove unused variables and functions. (almost DONE, waiting on function fix.)
+# TODO Move hanging functions. (Almost DONE, average_values_across_classes requires rewrite.)
 # TODO Appropriately name variables (not just i, j, k etc).
-# TODO Class structure.
-#      Class with (mostly) static methods for dot product etc and class for main mod seminario work.
-# TODO Fix formatting. (MOSTLY DONE)
 # TODO Improve data structures. Dicts/sets/tuples over lists etc.
 # TODO Change from list appending to generator expressions. (SOMEWHAT DONE)
-# TODO Structure for searching files should be (for example):
-
-# for line in file:
-#     if line.startswith('Atomic numbers'):
-#         >>>
-#     if line.startswith('Current cartesian coordinates'):
-#         >>>
-#
-# This will check all lines quickly and cleanly.
 
 
 from QUBEKit.helpers import config_loader
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from numpy import cross, linalg, empty, zeros, array, reshape, dot, real
-from numpy import append as npappend
 from math import degrees, acos
-from os.path import exists, isfile
 
 
 class ModSemMaths:
-    """Class largely will consist of static methods for various mathematical functions."""
+    """Static methods for various mathematical functions relevant to the modified Seminario method."""
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
 
     @staticmethod
     def unit_vector_n(u_bc, u_ab):
-        """Calculates unit normal vector which is perpendicular to plane ABC."""
+        """Calculates unit normal vector which is perpendicular to plane abc."""
 
         return cross(u_bc, u_ab) / linalg.norm(cross(u_bc, u_ab))
 
     @staticmethod
     def u_pa_from_angles(atom_a, atom_b, atom_c, coords):
-        """This gives the vector in the plane A, B, C and perpendicular to A to B."""
+        """This gives the vector in the plane a, b, c and perpendicular to a to b."""
 
         diff_ab = coords[atom_b, :] - coords[atom_a, :]
         u_ab = diff_ab / linalg.norm(diff_ab)
@@ -95,8 +73,8 @@ class ModSemMaths:
 
     @staticmethod
     def force_angle_constant(atom_a, atom_b, atom_c, bond_lengths, eigenvalues, eigenvectors, coords, scaling_1, scaling_2):
-        """Force Constant-Equation 14 of Seminario calculation paper-gives force
-        constant for angle (in kcal/mol/rad^2) and equilibrium angle in degrees.
+        """Force Constant - Equation 14 of Seminario paper - gives force constant for angle
+        (in kcal/mol/rad^2) and equilibrium angle (in degrees).
         """
 
         # Vectors along bonds calculated
@@ -151,9 +129,13 @@ class ModSeminario:
         # Load the configs using the config_file name.
         self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
+
     def modified_seminario_method(self):
-        """Calculate the new bond and angle terms after being passed the symmetric hessian and optimized
-         molecule may also need the a parameter file."""
+        """Calculate the new bond and angle terms after being passed the symmetric Hessian and optimised
+        molecule coordinates.
+        """
 
         # Take required parameters from the molecule object; always use QMoptimized structure
         hessian = self.molecule.hessian
@@ -186,6 +168,7 @@ class ModSeminario:
         self.bonds_calculated_printed(bond_list, bond_lengths, eigenvalues, eigenvectors, coords)
         self.angles_calculated_printed(angle_list, bond_lengths, eigenvalues, eigenvectors, coords)
 
+        # TODO Move/remove.
         # The final section finds the average bond and angle terms for each
         # bond/angle class if the .z exists to supply angle/bond classes and then
         # writes the new terms to a .sb file
@@ -194,7 +177,7 @@ class ModSeminario:
         #     sb_file_new_parameters(outputfilefolder, 'Python_Modified_Scaled')
 
     def angles_calculated_printed(self, angle_list, bond_lengths, eigenvalues, eigenvectors, coords):
-        """Uses the modified Seminario method to find the angle parameters and prints them to file"""
+        """Uses the modified Seminario method to find the angle parameters and prints them to file."""
 
         from operator import itemgetter
 
@@ -229,10 +212,8 @@ class ModSeminario:
         for i in range(len(central_atoms_angles)):
             unit_pa_all_angles.append([])
             for j in range(len(central_atoms_angles[i])):
-                # For the angle at central_atoms_angles[i][j,:] the corresponding
-                # u_pa value is found for the plane abc and bond ab, where abc
-                # corresponds to the order of the arguments
-                # This is why the reverse order was also added
+                # For the angle at central_atoms_angles[i][j,:] the u_pa value is found for plane abc and bond ab,
+                # where abc corresponds to the order of the arguments. This is why the reverse order was also added.
                 unit_pa_all_angles[i].append(ModSemMaths.u_pa_from_angles(central_atoms_angles[i][j][0], i, central_atoms_angles[i][j][1], coords))
 
         # Finds the contributing factors from the other angle terms
@@ -248,10 +229,9 @@ class ModSeminario:
                 # Position in angle list
                 scaling_factor_all_angles[i][j][1] = central_atoms_angles[i][j][2]
 
-                # Goes through the list of angles with the same central atom
-                # And computes the term need for the modified Seminario method
+                # Goes through the list of angles with the same central atom, then computes the term needed for modSem.
 
-                # Forwards directions, finds the same bonds with the central atom i
+                # Forwards direction, finds the same bonds with the central atom i
                 while ((j + n) < len(central_atoms_angles[i])) and central_atoms_angles[i][j][0] == central_atoms_angles[i][j + n][0]:
                     additional_contributions += (abs(dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j + n][:]))) ** 2
                     n += 1
@@ -281,13 +261,13 @@ class ModSeminario:
         with open('Modified_Seminario_Angle.txt', 'w+') as angle_file:
 
             for i, angle in enumerate(angle_list):
-                # Ensures that there is no difference when the ordering is changed
+                # Ensures that there is no difference when the ordering is changed.
                 ab_k_theta, ab_theta_0 = ModSemMaths.force_angle_constant(angle[0] - 1, angle[1] - 1, angle[2] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1])
                 ba_k_theta, ba_theta_0 = ModSemMaths.force_angle_constant(angle[2] - 1, angle[1] - 1, angle[0] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][1], scaling_factors_angles_list[i][0])
                 k_theta[i] = (ab_k_theta + ba_k_theta) / 2
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
-                # Vib_scaling takes into account DFT deficiencies / anharmonicity
+                # Vib_scaling takes into account DFT deficiencies / anharmonicity.
                 k_theta[i] *= (self.qm['vib scaling'] ** 2)
 
                 angle_file.write(f'{i}  {self.atom_names[angle[0] - 1]}-{self.atom_names[angle[1] - 1]}-{self.atom_names[angle[2] - 1]}  ')
@@ -298,7 +278,7 @@ class ModSeminario:
         return unique_values_angles
 
     def bonds_calculated_printed(self, bond_list, bond_lengths, eigenvalues, eigenvectors, coords):
-        """Uses the Seminario method to find the bond parameters and print them to file"""
+        """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
         conversion = 418.4
 
@@ -306,16 +286,18 @@ class ModSeminario:
 
             k_b = zeros(len(bond_list))
             bond_length_list = zeros(len(bond_list))
-            unique_values_bonds = []  # Used to find average values
+
+            # Used to find average values
+            unique_values_bonds = []
 
             for i, bond in enumerate(bond_list):
                 ab = ModSemMaths.force_constant_bond(bond[0] - 1, bond[1] - 1, eigenvalues, eigenvectors, coords)
                 ba = ModSemMaths.force_constant_bond(bond[1] - 1, bond[0] - 1, eigenvalues, eigenvectors, coords)
 
-                # Order of bonds sometimes causes slight differences, find the mean
+                # Order of bonds sometimes causes slight differences; find the mean.
                 k_b[i] = real((ab + ba) / 2)
 
-                # Vib_scaling takes into account DFT deficiencies/ anharmonicity
+                # Vib_scaling takes into account DFT deficiencies/ anharmonicity.
                 k_b[i] *= (self.qm['vib scaling'] ** 2)
 
                 bond_length_list[i] = bond_lengths[bond[0] - 1][bond[1] - 1]
@@ -330,6 +312,7 @@ class ModSeminario:
         return unique_values_bonds
 
 
+# TODO This whole function should be scrapped and rewritten.
 def average_values_across_classes(unique_values_bonds, unique_values_angles):
     """Finds the average bond and angle term for each class."""
 
@@ -378,321 +361,20 @@ def average_values_across_classes(unique_values_bonds, unique_values_angles):
                 angle_file.write('{}-{}-{}  {:.2f}  {:.3f}\n'.format(unique_values_angles[i][0], unique_values_angles[i][1], unique_values_angles[i][2], unique_values_angles[i][3], unique_values_angles[i][4]))
 
 
-# TODO Broken (and the function that calls it is broken too).
-def coords_from_fchk(fchk_file):
-    """Function extracts xyz file from the .fchk output file from Gaussian.
-    This provides the coordinates of the molecules."""
-
-    if exists(fchk_file):
-        fid = open(fchk_file, "r")
-    else:
-        raise FileNotFoundError('no .lig.fchk file found!')
-        
-    tline = fid.readline()
-
-    numbers = []  # Atomic numbers for use in xyz file
-    list_coords = []  # List of xyz coordinates
-    hessian = []
-
-    # Get atomic number and coordinates from fchk
-
-    while tline:
-        # Atomic Numbers found
-        if len(tline) > 16 and (tline[0:15].strip() == 'Atomic numbers'):
-            tline = fid.readline()
-            while len(tline) < 17 or (tline[0:16].strip() != 'Nuclear charges'):
-                tmp = (tline.strip()).split()
-                numbers.extend(tmp)
-                tline = fid.readline()
-
-        # Get coordinates
-        if len(tline) > 31 and tline[0:31].strip() == 'Current cartesian coordinates':
-            tline = fid.readline()
-            while len(tline) < 15 or (tline[0:14].strip() != 'Force Field' and tline[0:17].strip() != 'Int Atom Types'and tline[0:13].strip() != 'Atom Types'):
-                tmp = (tline.strip()).split()
-                list_coords.extend(tmp)
-                tline = fid.readline()
-
-        # Gets Hessian
-        if len(tline) > 25 and (tline[0:24].strip() == 'Cartesian Force Constants'):
-            tline = fid.readline()
-            while len(tline) < 13 or (tline[0:12].strip() != 'Nuclear charges'):
-                tmp = (tline.strip()).split()
-                npappend(hessian, tmp, 0)
-                tline = fid.readline()  # TODO readline() called 7 times?!
-
-    fid.close()
-
-    list_coords = [float(x) * float(0.529) for x in list_coords]
-
-    # Number of atoms
-    N = len(list_coords) // 3
-
-    # Opens the new xyz file
-    file = open('input_coords.xyz', "w+")
-    file.write(f'{N}\n\n')
-
-    xyz = zeros((N, 3))
-    n = 0
-
-    # TODO this needs to be turned into a element dictionary if we are going to use g09
-    fid_csv = open('elementlist.csv', "r")
-
-    # TODO Broken.
-    with fid_csv as f:
-        lines = fid_csv.read().splitlines()
-
-    # Turn list in a matrix, with elements containing atomic number, symbol and name
-    element_names = [x.split(",") for x in lines]
-        
-    # Gives name for atomic number
-    names = [element_names[int(x) - 1][1] for x in numbers]
-
-    # Print coordinates to new input_coords.xyz file
-    for i in range(N):
-        for j in range(3):
-            xyz[i][j] = list_coords[n]
-            n += 1
-
-        file.write(f'{names[i]}{round(xyz[i][0], 3)} {round(xyz[i][1], 3)} {round(xyz[i][2], 3)}\n')
-    file.close()
-
-    # TODO Bug returns the wrong n/N ? n is currently not used.
-    return N
-
-
-# TODO Function not called and broken; remove?
-def input_data_processing_g09():
-    """Extracts input coords and hessian from .fchk file;
-    bond and angle lists from .log file; and atom names (if a z-matrix is supplied).
-    """
-
-    # Gets Hessian in unprocessed form and writes .xyz file too
-    [unprocessed_Hessian, N, names, coords] = coords_from_fchk('lig.fchk')
-
-    # Gets bond and angle lists
-    # [bond_list, angle_list] = bond_angle_list_gaussian()
-    #
-    # with open("Number_to_Atom_type.txt") as f:
-    #     OPLS_number_to_name = f.readlines()
-    #
-    # OPLS_number_to_name = [x.split() for x in OPLS_number_to_name]
-
-    hessian = zeros((3 * N, 3 * N))
-    m = 0
-
-    # Write the hessian in a 2D array format
-    for i in range(3 * N):
-        for j in range((i + 1)):
-            hessian[i][j] = unprocessed_Hessian[m]
-            hessian[j][i] = unprocessed_Hessian[m]
-            m += 1
-
-    # Change from Hartree/bohr to kcal/mol /ang
-    # 2242.378318 = 627.509391 / (0.529 ** 2)
-    hessian *= 2242.378318
-
-    # if zmat exists part here 
-    # atom_names = []
-    #
-    # for i in range(len(names)):
-    #     atom_names.append(names[i].strip() + str(i + 1))
-    #
-    # if exists(f'{inputfilefolder}Zmat.z'):
-    #     atom_names = []
-    #
-    #     fid = open(f'{inputfilefolder}Zmat.z') #Boss type Zmat
-    #
-    #     tline = fid.readline()
-    #
-    #     #Find number of dummy atoms
-    #     number_dummy = 0
-    #     tmp = tline.split()
-    #
-    #     while tmp[2] == '-1':
-    #         number_dummy += 1
-    #         tline = fid.readline()
-    #         tmp = tline.split()
-    #
-    #     if int(tmp[3]) < 800:
-    #         for i in range(N):
-    #             for j in range(len(OPLS_number_to_name)):
-    #                 if OPLS_number_to_name[j][0] == tmp[3]:
-    #                     atom_names.append(OPLS_number_to_name[j][1])
-    #
-    #             tline = fid.readline()
-    #             tmp = tline.split()
-    #     else:
-    #         #For CM1A format
-    #         while len(tmp) < 2 or tmp[1] != 'Non-Bonded':
-    #             tline = fid.readline()
-    #             tmp = tline.split()
-    #
-    #         tline = fid.readline()
-    #         tmp = tline.split()
-    #
-    #         for i in range(N):
-    #             atom_names.append(tmp[2])
-    #             tline = fid.readline()
-    #             tmp = tline.split()
-    #
-    #     for i in range(N):
-    #         if len(atom_names[i]) == 1:
-    #             atom_names[i] += ' '
-            
-    # return(bond_list, angle_list, coords, N, hessian, atom_names)
-    return hessian
-
-
-# TODO Repeated function definition; remove?
-def coords_from_fchk(fchk_file):
-    """Extracts xyz file from the Guassian .fchk output file; this provides the coordinates of the molecules"""
-
-    if exists(fchk_file):
-        fid = open(fchk_file, "r")
-    else:
-        fid_log = open('MSM_log', "a")
-        fid_log.write('ERROR = No .fchk file found.')
-        fid_log.close()
-        return 0, 0
-        
-    tline = fid.readline()
-
-    numbers = []    # Atomic numbers for use in xyz file
-    list_coords = []    # List of xyz coordinates
-    hessian = []
-
-    # Get atomic number and coordinates from fchk
-    while tline:
-        # Atomic Numbers found
-        if len(tline) > 16 and (tline[0:15].strip() == 'Atomic numbers'):
-            tline = fid.readline()
-            while len(tline) < 17 or (tline[0:16].strip() != 'Nuclear charges'):
-                tmp = (tline.strip()).split()
-                numbers.extend(tmp)
-                tline = fid.readline()
-            
-        # Get coordinates
-        if len(tline) > 31 and tline[0:31].strip() == 'Current cartesian coordinates':
-            tline = fid.readline()
-            while len(tline) < 15 or (tline[0:14].strip() != 'Force Field' and tline[0:17].strip() != 'Int Atom Types'and tline[0:13].strip() != 'Atom Types'):
-                tmp = (tline.strip()).split()
-                list_coords.extend(tmp)
-                tline = fid.readline()
-            N = len(list_coords) // 3    # Number of atoms
-
-        # Gets Hessian
-        if len(tline) > 25 and (tline[0:26].strip() == 'Cartesian Force Constants'):
-            tline = fid.readline()
-            
-            while len(tline) < 13 or (tline[0:14].strip() != 'Dipole Moment'):
-                tmp = (tline.strip()).split()
-                hessian.extend(tmp)
-                tline = fid.readline()
-
-        tline = fid.readline()
-
-    fid.close()
-
-    list_coords = [float(x) * float(0.529) for x in list_coords]
-
-    # Opens the new xyz file
-    file = open('input_coords.xyz', "w+")
-    file.write(f'{N}\n\n')
-
-    xyz = zeros((N, 3))
-    n = 0
-
-    fid_csv = open('elementlist.csv', "r")
-
-    with fid_csv as f:
-        lines = fid_csv.read().splitlines()
-
-    # Turn list in a matrix, with elements containing atomic number, symbol and name
-    element_names = [x.split(",") for x in lines]
-        
-    # Gives name for atomic number
-    names = [element_names[int(x) - 1][1] for x in numbers]
-
-    # Print coordinates to new input_coords.xyz file
-    for i in range(N):
-        for j in range(3):
-            xyz[i][j] = list_coords[n]
-            n += 1
-        file.write(f'{names[i]}{round(xyz[i][0], 3)} {round(xyz[i][1], 3)} {round(xyz[i][2], 3)}\n')
-
-    file.close()
-    # TODO variable n not used; remove?
-    return hessian, N, names, xyz
-
-
-def bond_angle_list_gaussian():
-    """Extracts a list of bond and angles from the Gaussian .log file"""
-
-    fname = 'zmat.log'
-
-    if isfile(fname):
-        fid = open(fname, "r")
-    elif isfile('/lig.log'):
-        fid = open('/lig.log', "r")
-    else:
-        fid_log = open('MSM_log', "a")
-        fid_log.write('ERROR - No .log file found. \n')
-        return
-
-    tline = fid.readline()
-    bond_list = []
-    angle_list = []
-
-    tmp = 'R'   # States if bond or angle
-
-    # Finds the bond and angles from the .log file
-    while tline:
-        tline = fid.readline()
-        # Line starts at point when bond and angle list occurs
-        if len(tline) > 80 and '! Name  Definition ' in tline[0:81].strip():
-            tline = fid.readline()  # TODO readline() called 3 times?
-            # Stops when all bond and angles recorded
-            while (tmp[0] == 'R') or (tmp[0] == 'A'):
-                line = tline.split()
-                tmp = line[1]
-                
-                # Bond or angles listed as string
-                list_terms = line[2][2:-1]
-
-                # Bond List
-                if tmp[0] == 'R':
-                    x = list_terms.split(',')
-                    x = [(int(i)) for i in x]
-                    bond_list.append(x)
-
-                # Angle List
-                if tmp[0] == 'A':
-                    x = list_terms.split(',')
-                    x = [(int(i)) for i in x]
-                    angle_list.append(x)
-
-                tline = fid.readline()  # TODO 4 times?!
-
-            # Leave loop
-            tline = -1
-
-    return bond_list, angle_list
-
-
+# TODO Move to different file (probably ligand file).
 def sb_file_new_parameters(inputfilefolder, filename):
-    """Takes new angle and bond terms and puts them into a .sb file with name: filename_seminario.sb
-    """
+    """Takes new angle and bond terms and puts them into an sb file with name: filename_seminario.sb"""
 
     with open(f'{inputfilefolder}Average_Modified_Seminario_Angles.txt', 'r') as angle_file, \
             open(f'{inputfilefolder}Average_Modified_Seminario_Bonds.txt', 'r') as bond_file:
 
-        bonds = [line.strip().split('  ') for line in bond_file]
         angles = [line.strip().split('  ') for line in angle_file]
+        bonds = [line.strip().split('  ') for line in bond_file]
 
     # Script produces this file
     with open(f'{inputfilefolder}{filename}_Seminario.sb', 'wt') as fidout:
 
+        # TODO Use properly formatted spacing / padding; add headers for each column.
         fidout.write('*****                         Bond Stretching and Angle Bending Parameters - July 17*****\n')
 
         # Prints out bonds at top of file
@@ -703,7 +385,4 @@ def sb_file_new_parameters(inputfilefolder, filename):
 
         # Prints out angles in middle of file
         for angle in angles:
-            if len(angle) == 8:
-                fidout.write(f'{angle[0]}    {angle[1]}       {angle[2]}    Modified Seminario Method AEAA \n\n\n')
-            else:
-                fidout.write(f'{angle[0]}     {angle[1]}       {angle[2]}        Modified Seminario Method AEAA \n\n\n')
+            fidout.write(f'{angle[0]}    {angle[1]}       {angle[2]}    Modified Seminario Method AEAA \n\n\n')

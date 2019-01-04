@@ -5,7 +5,7 @@
 
 
 from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.helpers import config_loader
+from QUBEKit.helpers import config_loader, check_net_charge
 
 
 @for_all_methods(timer_logger)
@@ -76,6 +76,9 @@ class LennardJones:
                         self.ddec_data.append(atom_data)
                     break
 
+        charges = [atom[5] for atom in self.ddec_data]
+        check_net_charge(charges)
+
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
 
         with open(r_cubed_file_name, 'r+') as vol_file:
@@ -86,15 +89,6 @@ class LennardJones:
 
             for count, atom in enumerate(self.ddec_data):
                 atom.append(vols[count])
-
-            # Ensure total charge is near to integer value:
-            total_charge = 0
-            for atom in self.ddec_data:
-                total_charge += atom[5]
-
-            # If not 0 < total_charge << 1: you've a problem.
-            if abs(round(total_charge) - total_charge) > 0.00001:
-                raise ValueError('Total charge is not close enough to integer value.')
 
         return self.ddec_data
 
@@ -160,23 +154,24 @@ class LennardJones:
                 if 'H' in pair[0]:
                     polars.append(pair)
 
-        print('Polar pairs identified: ', polars)
+        if polars:
+            print('Polar pairs identified: ', polars)
 
-        for pair in polars:
-            if 'H' in pair[0] or 'H' in pair[1]:
-                if 'H' in pair[0]:
-                    polar_h_pos = int(pair[0][0]) - 1
-                    polar_son_pos = int(pair[1][0]) - 1
-                else:
-                    polar_h_pos = int(pair[1][0]) - 1
-                    polar_son_pos = int(pair[0][0]) - 1
-                # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                self.ddec_ai_bi[polar_son_pos][-2] = ((self.ddec_ai_bi[polar_son_pos][-2]) ** 0.5 + (self.ddec_ai_bi[polar_h_pos][-2]) ** 0.5) ** 2
-                self.ddec_ai_bi[polar_h_pos][-2] = 0
+            for pair in polars:
+                if 'H' in pair[0] or 'H' in pair[1]:
+                    if 'H' in pair[0]:
+                        polar_h_pos = int(pair[0][0]) - 1
+                        polar_son_pos = int(pair[1][0]) - 1
+                    else:
+                        polar_h_pos = int(pair[1][0]) - 1
+                        polar_son_pos = int(pair[0][0]) - 1
+                    # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
+                    self.ddec_ai_bi[polar_son_pos][-2] = ((self.ddec_ai_bi[polar_son_pos][-2]) ** 0.5 + (self.ddec_ai_bi[polar_h_pos][-2]) ** 0.5) ** 2
+                    self.ddec_ai_bi[polar_h_pos][-2] = 0
 
-                # Reset the a_i for the two polar atoms using the new b_i values.
-                self.ddec_ai_bi[polar_son_pos][-1] = 32 * self.ddec_ai_bi[polar_son_pos][-2] * (self.ddec_ai_bi[polar_son_pos][-3] ** 6)
-                self.ddec_ai_bi[polar_h_pos][-1] = 0
+                    # Reset the a_i for the two polar atoms using the new b_i values.
+                    self.ddec_ai_bi[polar_son_pos][-1] = 32 * self.ddec_ai_bi[polar_son_pos][-2] * (self.ddec_ai_bi[polar_son_pos][-3] ** 6)
+                    self.ddec_ai_bi[polar_h_pos][-1] = 0
 
         return self.ddec_ai_bi
 

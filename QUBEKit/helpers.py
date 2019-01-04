@@ -7,36 +7,11 @@ from os import walk
 from collections import OrderedDict
 
 
-def pdb_to_coord_list(pdb_file):
-    """Opens a pdb file ('methane.pdb' for example) and returns the molecule name, followed by a list of the coords.
-    Coords will be of the form: [['C', -1.28, 0.127, -0.003], ['C', 0.029, -0.428, -0.47] ... ]
-    """
-
-    # TODO Ensure this works with different pdb styles.
-
-    molecule = []
-
-    with open(pdb_file, 'r') as file:
-        lines = file.readlines()
-        # First line contains the molecule name as the last entry.
-        molecule_name = lines[0].split()[1]
-
-        for line in lines:
-            if 'ATOM' in line or 'HETATM' in line:
-                # Create a list containing the element's name and coords, e.g. ['C', -1.28, 0.127, -0.003]
-                element_name = [line.split()[-1]]
-                coords = line.split()[-6:-3]
-
-                atom = element_name + coords
-                molecule.append(atom)
-        print('Read and transcribed pdb for {}'.format(molecule_name))
-        return molecule_name, molecule
-
-
 @timer_logger
 def config_loader(config_name='default_config'):
     """Sets up the desired global parameters from the config_file input.
-    Allows different config settings for different projects, simply change the input config_name."""
+    Allows different config settings for different projects, simply change the input config_name.
+    """
 
     from importlib import import_module
 
@@ -100,7 +75,9 @@ def generate_config_csv(csv_name):
 
 
 def append_to_log(log_file, message):
-    """Appends a message to the log file in a specific format."""
+    """Appends a message to the log file in a specific format.
+    Used for significant stages in the program such as when G09 has finished.
+    """
 
     with open(log_file, 'a+') as file:
         file.write(f'~~~~~~~~{message.upper()}~~~~~~~~\n\n-------------------------------------------------------\n\n')
@@ -114,6 +91,9 @@ def get_overage(molecule):
 
 
 def pretty_progress():
+    """Neatly displays the state of all QUBEKit running directories in the terminal.
+    Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
+    """
 
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
@@ -124,7 +104,8 @@ def pretty_progress():
     # Open all log files sequentially
     info = OrderedDict()
     for file in log_files:
-        name = file.split('_')[1]
+        # Name is in the format 'moleculename_logname'
+        name = file.split('_')[1] + '_' + file.split('_')[-1]
 
         # Create ordered dictionary based on the log file info
         info[name] = OrderedDict()
@@ -141,6 +122,7 @@ def pretty_progress():
 
     header_string = '{:15} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12}'
     print(header_string.format('Name', 'Parametrised', 'Optimised', 'Mod-Sem', 'Gaussian', 'Chargemol', 'L-J', 'Torsions'))
+
     # Outer dict contains the names of the molecules.
     for key_a, var_a in info.items():
         print('{:15}'.format(key_a[:13]), end=' ')
@@ -148,21 +130,34 @@ def pretty_progress():
         for key_b, var_b in info[key_a].items():
             if info[key_a][key_b] == 1:
                 # Uses exit codes to set terminal font colours.
-                # \033[ is the exit code; 1;32 are the style (bold) and colour (green); m reenters the code block.
+                # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
                 # The second exit code resets the style back to default.
                 print('\033[1;32m{:>12d}\033[0;0m'.format(info[key_a][key_b]), end=' ')
             else:
                 print('\033[1;31m{:>12d}\033[0;0m'.format(info[key_a][key_b]), end=' ')
-        # TODO Print tick mark after final column (use unicode characters)
-        # TODO Change red to error, orange to not done yet
-        # Print statements end with \n by default so adding a space adds a newline. Weird.
-        # Could also replace with print('\n', end=' ') which may be clearer ... ?
+        # TODO Print tick mark after final column (use unicode characters).
+        # TODO Change red to error, orange to not done yet.
+        # TODO May need to improve formatting for longer molecule names.
+        # Add blank line.
         print('')
 
     return
 
 
+def pretty_print(mol, to_file=False):
+    """Takes a ligand molecule class object and displays all the class variables in a clean, readable format."""
+
+    # Print to log: * On exception
+    #               * On completion
+    # Print to terminal: * On call
+
+
+
+    pass
+
+
 def set_dict_val(file_name, search_term):
+    """With a file open, search for a keyword; if it's anywhere in the file, return 1, else return 0."""
 
     with open(file_name, 'r+') as file:
         for line in file:
@@ -172,8 +167,9 @@ def set_dict_val(file_name, search_term):
 
 
 def unpickle(pickle_jar):
-    """Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of liagnds
-    indexed by their progress."""
+    """Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of ligands
+    indexed by their progress.
+    """
 
     from pickle import load
 
@@ -192,3 +188,28 @@ def unpickle(pickle_jar):
         mol_states[mol.state] = mol
 
     return mol_states
+
+
+def check_symmetry(matrix, error=0.00001):
+    """Check matrix is symmetric to within some error."""
+
+    for i in range(len(matrix)):
+        for j in range(len(matrix)):
+            if abs(matrix[i][j] - matrix[j][i]) > error:
+                raise ValueError('Hessian is not symmetric.')
+
+    print(f'Symmetry check successful. The matrix is symmetric within an error of {error}.')
+    return True
+
+
+def check_net_charge(charges, ideal_net=0, error=0.00001):
+    """Given a list of charges, check if the calculated net charge is within error of the desired net charge."""
+
+    # Ensure total charge is near to integer value:
+    total_charge = sum(atom for atom in charges)
+
+    if abs(total_charge - ideal_net) > error:
+        raise ValueError('Total charge is not close enough to integer value.')
+
+    print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
+    return True
