@@ -5,7 +5,7 @@
 
 
 from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.helpers import config_loader, check_net_charge
+from QUBEKit.helpers import check_net_charge
 
 
 @for_all_methods(timer_logger)
@@ -15,7 +15,7 @@ class LennardJones:
 
         # Ligand class object
         self.molecule = molecule
-        self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
+        self.qm, self.fitting, self.descriptions = config_dict[1], config_dict[2], config_dict[3]
         # This is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', vol]
         self.ddec_data = self.extract_params()
@@ -37,10 +37,10 @@ class LennardJones:
 
         # return info for the molecule as a list of lists.
 
-        if self.qm['ddec version'] == 6:
+        if self.qm['ddec_version'] == 6:
             net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
 
-        elif self.qm['ddec version'] == 3:
+        elif self.qm['ddec_version'] == 3:
             net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
 
         else:

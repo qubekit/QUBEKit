@@ -9,13 +9,13 @@ Users who have used QUBEKit to derive any new force field parameters should cite
 * [Biomolecular Force Field Parameterization via Atoms-in-Molecule Electron Density Partitioning](https://pubs.acs.org/doi/abs/10.1021/acs.jctc.6b00027)
 * [Harmonic Force Constants for Molecular Mechanics Force Fields via Hessian Matrix Projection](https://pubs.acs.org/doi/10.1021/acs.jctc.7b00785)
 
-To install, it is recommended to clone the QUBEKit folder into a home directory and run the install script. This will append the script to the search path:
+To install, it is recommended to clone the QUBEKit folder into a home directory and run the setup.py script: 
 
     git clone git@github.com:cole-group/QuBeKit.git
     cd QUBEKit
-    ./QUBE_install.sh
+    python setup.py install
     
-After relaunching the terminal you should now be able to use QUBEKit.
+You should now be able to use QUBEKit straightaway from the command line or as an import.
 
 ### Requirements
 
@@ -43,6 +43,23 @@ if reporting a bug please make sure it is a bug with QUBEKit and not with a depe
 
 Below is general help for most of the commands available in QUBEKit. 
 
+## Before you start: Config files
+
+QUBEKit has a lot of settings which are used in production and changing these can result in very different force filed parameters.
+The settings are controlled using ini style config files which are easy to edit. After installation you will notice a ```QUBEKit_configs``` 
+folder in your main home directory. Now you need to create a master template to do this use```QUBEKit -setup```
+you will then be presented with some options chose 2:
+
+```
+You can now edit config files using QUBEKit, chose an option to continue:
+1)Edit a config file
+2)Create a new master template
+3)Make a normal config file
+```
+
+This will set up a new template that will be used every time you run QUBEKit unless you supply the name of another ini file in the configs folder. The only parameter that must
+be changed in order to run QUBEKit is the chargemol path in the descriptions section.
+
 ## QUBEKit Commands: Running Jobs
 
 Given a list of commands, such as: "-bonds", "-h", "psi4" some are taken as single word commands.
@@ -62,12 +79,12 @@ All commands should be given in lower case
 Running a charges analysis with a non-default charge of 1 and the default charge engine (chargemol):
 Note, ordering does not matter as long as tuples commands are together.
     
-    python run.py molecule.pdb charges -c 1
-    python run.py -c 1 molecule.pdb charges
+    QUBEKit molecule.pdb charges -c 1
+    QUBEKit -c 1 molecule.pdb charges
 
 Running a bonds analysis with a non-default engine (g09):
 
-    python run.py molecule.pdb -bonds g09
+    QUBEKit molecule.pdb -bonds g09
 
 The program will tell the user which defaults are being used, and which commands were given.
 Errors will be raised for any invalid commands and the program will not run.
@@ -94,18 +111,22 @@ where '#' is any number or string you like (no spaces).
 ### High Throughput
 
 Bulk commands are for high throughput analysis; they are invoked with the -bulk keyword.
-A csv must be used when running a bulk analysis. This csv contains the defaults for each molecule being analysed.
-Before running a bulk analysis, fill in each column for each molecule.
+A csv must be used when running a bulk analysis. A csv template can be generated using the command:
+
+ ```QUBEKit -csv file_name.csv```
+ 
+This csv contains the defaults for each molecule being analysed.
+Before running a bulk analysis, fill in each column for each molecule, note that different config files can be supplied for each molecule.
 
 If running a bulk analysis with smiles strings, use the command:
 
-    python run.py -bulk smiles example.csv
+    QUBEKit -bulk smiles example.csv
     
 where example.csv is the csv file containing all the information described above.
 
 If running a bulk analysis with pdb files, use the command:
 
-    python run.py -bulk pdb example.csv
+    QUBKit -bulk pdb example.csv
 
 again, example.csv is the csv containing the necessary defaults for each molecule.
 The pdb files should all be in the same place: where you're running QUBEKit from.
@@ -121,7 +142,7 @@ You may change defaults inside the terminal when running bulk analyses, and thes
 However, the config files themselves will not be overwritten.
 It is therefore recommended to manually edit the config files rather than doing, for example:
 
-    python run.py -bulk pdb example.csv -log run42 -ddec 3 -solvent true
+    QUBEKit -bulk pdb example.csv -log run42 -ddec 3 -solvent true
     
 Be aware that the names of the pdb files are used as keys to find the configs.
 So, each pdb being analysed should have a corresponding row in the csv file with the correct name.
@@ -135,14 +156,13 @@ For example (csv row order does not matter, and you do not need to include smile
 
     config.csv:
     name,charge,multiplicity,config,smiles string,torsion order
-    default,0,1,default_config,,
     methane,0,1,default_config,C,
     benzene,0,1,default_config,,
     ethane,0,1,default_config,,
 
 If you would like to generate a blank csv config file, simply run the command:
 
-    python run.py -csv example.csv
+    QUBEKit -csv example.csv
     
 where example.csv is the name of the config file you want to create.
 This will automatically generate the file with the appropriate columns and a row with defaults inside.
@@ -153,9 +173,9 @@ When writing to the csv file, append rows after the defaults row rather than ove
 
 You cannot run multiple kinds of analysis at once. For example:
 
-    python run.py -bulk pdb example.csv methane.pdb -bonds g09
+    QUBEKit -bulk pdb example.csv methane.pdb -bonds g09
     
 is not a valid command. These should be performed separately:
 
-    python run.py -bulk pdb example.csv
-    python run.py methane.pdb -bonds g09
+    QUBEKit -bulk pdb example.csv
+    QUBEKit methane.pdb -bonds g09
