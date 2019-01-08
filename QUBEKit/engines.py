@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-from QUBEKit.helpers import config_loader, get_overage, check_symmetry
+from QUBEKit.helpers import get_overage, check_symmetry
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import call as sub_call
@@ -17,10 +17,10 @@ class Engines:
     def __init__(self, molecule, config_dict):
 
         self.engine_mol = molecule
-        self.charge = config_dict['charge']
-        self.multiplicity = config_dict['multiplicity']
+        self.charge = config_dict[0]['charge']
+        self.multiplicity = config_dict[0]['multiplicity']
         # Load the configs using the config_file name from the csv.
-        self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
+        self.qm, self.fitting, self.descriptions = config_dict[1], config_dict[2], config_dict[3]
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -207,7 +207,7 @@ class PSI4(Engines):
             input_file.write(setters)
             input_file.write(tasks)
 
-        print('Optimising molecule with psi4')
+        print('Runing quantum calculation using Psi4')
         sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     def all_modes(self):
@@ -266,6 +266,7 @@ class PSI4(Engines):
             file.write("\n\ngradient('{}')\n".format(self.qm['theory']))
 
         if run:
+            print('Optimizing molecule using Psi4 and geometric')
             with open('log.txt', 'w+') as log:
                 sub_call(f'geometric-optimize --psi4 {self.engine_mol.name}.psi4in --nt {self.qm["threads"]}',
                          shell=True, stdout=log)
@@ -285,9 +286,9 @@ class Chargemol(Engines):
         executes it.
         """
 
-        if (self.qm['ddec version'] != 6) and (self.qm['ddec version'] != 3):
+        if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
             print('Invalid or unsupported DDEC version given, running with default version 6.')
-            self.qm['ddec version'] = 6
+            self.qm['ddec_version'] = 6
 
         # Write the charges job file.
         with open('job_control.txt', 'w+') as charge_file:
@@ -303,14 +304,14 @@ class Chargemol(Engines):
             charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.descriptions["chargemol"]}/atomic_densities/')
             charge_file.write('\n</atomic densities directory complete path>')
 
-            charge_file.write(f'\n\n<charge type>\nDDEC{self.qm["ddec version"]}\n</charge type>')
+            charge_file.write(f'\n\n<charge type>\nDDEC{self.qm["ddec_version"]}\n</charge type>')
 
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
         # sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
         # sub_call('mv Dt.cube total_density.cube', shell=True)
 
-        print(f'Partitioning charges with DDEC{self.qm["ddec version"]}')
+        print(f'Partitioning charges with DDEC{self.qm["ddec_version"]}')
         sub_call(f'{self.descriptions["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
                  shell=True)
 
