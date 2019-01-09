@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 
-from csv import DictReader, writer, QUOTE_MINIMAL
 from QUBEKit.decorators import timer_logger, timer_func, for_all_methods
-from os import walk
+
+from csv import DictReader, writer, QUOTE_MINIMAL
+from os import walk, listdir, path
 from collections import OrderedDict
+from numpy import allclose
 from pathlib import Path
-from os import path, system
 from configparser import ConfigParser
 
 
@@ -209,7 +210,7 @@ class Configure:
 
         return
 
-
+      
 #TODO remove?
 @timer_logger
 def config_loader(config_name='default_config'):
@@ -279,6 +280,28 @@ def generate_config_csv(csv_name):
 
     print(f'{csv_name} generated.')
     return
+
+
+def extract_from_file_to_log(log_file, extract_from):
+    """Opens extract_from and finds useful information which is then printed to the log file.
+    For example, will open energy.txt and append that information to the log file.
+    """
+
+    with open(log_file, 'a+') as log:
+
+        # Add hashes to make info more easily noticeable.
+        log_file.write(f'\n\n{"#" * 30}\n\n')
+
+        if extract_from == 'energy.txt':
+            with open(extract_from, 'r') as energy_file:
+                energy = float(energy_file.readline())
+                log.write(f'Final energy converged to {energy}')
+
+        # TODO Add more
+        if extract_from == '':
+            pass
+
+        log_file.write(f'\n\n{"#" * 30}\n\n')
 
 
 def append_to_log(log_file, message):
@@ -351,16 +374,33 @@ def pretty_progress():
     return
 
 
-def pretty_print(mol, to_file=False):
+def pretty_print(mol, to_file=False, finished=True):
     """Takes a ligand molecule class object and displays all the class variables in a clean, readable format."""
 
     # Print to log: * On exception
     #               * On completion
     # Print to terminal: * On call
+    #                    * On completion
 
+    pre_string = f'\nOn {"completion" if finished else "exception"}, the ligand objects are:\n'
 
+    # Print to log file
+    if to_file:
 
-    pass
+        # Find log file name
+        files = [file for file in listdir('.') if path.isfile(file)]
+        qube_log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+
+        with open(qube_log_file, 'a+') as log_file:
+
+            log_file.write(pre_string)
+            log_file.write(f'{mol.__str__()}')
+
+    # Print to terminal
+    else:
+
+        print(pre_string)
+        print(mol.__str__(trunc=True))
 
 
 def set_dict_val(file_name, search_term):
@@ -400,10 +440,9 @@ def unpickle(pickle_jar):
 def check_symmetry(matrix, error=0.00001):
     """Check matrix is symmetric to within some error."""
 
-    for i in range(len(matrix)):
-        for j in range(len(matrix)):
-            if abs(matrix[i][j] - matrix[j][i]) > error:
-                raise ValueError('Hessian is not symmetric.')
+    # Check the matrix transpose is equal to the matrix within error.
+    if not allclose(matrix, matrix.T, atol=error):
+        raise ValueError('Hessian is not symmetric.')
 
     print(f'Symmetry check successful. The matrix is symmetric within an error of {error}.')
     return True

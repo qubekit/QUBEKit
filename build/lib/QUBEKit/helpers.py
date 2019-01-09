@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 
-from csv import DictReader, writer, QUOTE_MINIMAL
 from QUBEKit.decorators import timer_logger
-from os import walk
+
+from csv import DictReader, writer, QUOTE_MINIMAL
+from os import walk, listdir, path
 from collections import OrderedDict
+from numpy import allclose
 
 
 @timer_logger
@@ -144,14 +146,33 @@ def pretty_progress():
     return
 
 
-def pretty_print(mol):
+def pretty_print(mol, to_file=False, finished=True):
     """Takes a ligand molecule class object and displays all the class variables in a clean, readable format."""
 
     # Print to log: * On exception
     #               * On completion
     # Print to terminal: * On call
+    #                    * On completion
 
-    pass
+    pre_string = f'\nOn {"completion" if finished else "exception"}, the ligand objects are:\n'
+
+    # Print to log file
+    if to_file:
+
+        # Find log file name
+        files = [file for file in listdir('.') if path.isfile(file)]
+        qube_log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+
+        with open(qube_log_file, 'a+') as log_file:
+
+            log_file.write(pre_string)
+            log_file.write(f'{mol.__str__()}')
+
+    # Print to terminal
+    else:
+
+        print(pre_string)
+        print(mol.__str__(trunc=True))
 
 
 def set_dict_val(file_name, search_term):
@@ -191,10 +212,9 @@ def unpickle(pickle_jar):
 def check_symmetry(matrix, error=0.00001):
     """Check matrix is symmetric to within some error."""
 
-    for i in range(len(matrix)):
-        for j in range(len(matrix)):
-            if abs(matrix[i][j] - matrix[j][i]) > error:
-                raise ValueError('Hessian is not symmetric.')
+    # Check the matrix transpose is equal to the matrix within error.
+    if not allclose(matrix, matrix.T, atol=error):
+        raise ValueError('Hessian is not symmetric.')
 
     print(f'Symmetry check successful. The matrix is symmetric within an error of {error}.')
     return True

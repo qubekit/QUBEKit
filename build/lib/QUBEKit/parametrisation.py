@@ -1,9 +1,21 @@
 # TODO write the parametrisation classes for each method antechamber input xml, openFF, etc
 # all must return the same dic object that can be stored in the molecule and writen to xml format
 # maybe Gromacs as well
-
-
 from QUBEKit.decorators import for_all_methods, timer_logger
+
+from xml.etree.ElementTree import parse
+from math import pi
+from simtk.openmm import app
+from simtk import openmm
+from tempfile import TemporaryDirectory
+from shutil import copy
+from os import getcwd, chdir, path
+from subprocess import call
+from openeye import oechem
+
+# Import the SMIRNOFF forcefield engine and some useful tools
+from openforcefield.typing.engines.smirnoff import ForceField
+from openforcefield.utils import get_data_filename, generateTopologyFromOEMol
 
 
 class Parametrisation:
@@ -53,16 +65,13 @@ class Parametrisation:
         to build tree.
         """
 
-        import xml.etree.ElementTree as ET
-        from math import pi
-
         # Try to gather the AtomTypes first
         for i, atom in enumerate(self.molecule.atom_names):
             self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i), str(self.molecule.molecule[i][0]) + str(800 + i)]
 
         # Now parse the xml file for the rest of the data
         inputXML_file = 'serialized.xml'
-        inXML = ET.parse(inputXML_file)
+        inXML = parse(inputXML_file)
         in_root = inXML.getroot()
 
         # Extract all bond data
@@ -124,9 +133,6 @@ class XML(Parametrisation):
     def serialize_system(self):
         """Serialize the input XML system using openmm."""
 
-        from simtk.openmm import app
-        from simtk import openmm
-
         pdb = app.PDBFile(self.molecule.filename)
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
@@ -186,9 +192,6 @@ class AnteChamber(Parametrisation):
     def serialize_system(self):
         """Serialise the amber style files into an openmm object."""
 
-        from simtk.openmm import app
-        from simtk import openmm
-
         prmtop = app.AmberPrmtopFile(self.prmtop)
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
 
@@ -198,11 +201,6 @@ class AnteChamber(Parametrisation):
 
     def antechamber_cmd(self):
         """Method to run Antechamber, parmchk2 and tleap."""
-
-        from tempfile import TemporaryDirectory
-        from shutil import copy
-        from os import getcwd, chdir, path
-        from subprocess import call
 
         # file paths when moving in and out of temp locations
         cwd = getcwd()
@@ -291,16 +289,6 @@ class OpenFF(Parametrisation):
 
     def serialize_system(self):
         """Create the OpenMM system parametrise using frost and serialize the system."""
-
-        # Import OpenMM tools
-        from simtk import openmm
-
-        # Import the SMIRNOFF forcefield engine and some useful tools
-        from openforcefield.typing.engines.smirnoff import ForceField
-        from openforcefield.utils import get_data_filename, generateTopologyFromOEMol
-
-        # Import the OpenEye toolkit
-        from openeye import oechem
 
         # Load molecule using OpenEye tools
         mol = oechem.OEGraphMol()

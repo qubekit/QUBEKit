@@ -9,7 +9,7 @@ qm = {
     'basis': '6-311++G(d,p)',       # Basis set
     'vib_scaling': 0.991,           # Associated scaling to the theory
     'threads': 6,                   # Number of processors used in g09; affects the bonds and dihedral scans
-    'memory': 2,                    # Amount of memory (in GB); specified in the g09 scripts
+    'memory': 4,                    # Amount of memory (in GB); specified in the g09 scripts
     'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using psi4 and geometric so far
     'iterations': 100,              # Max number of optimisation iterations
     'bonds_engine': 'psi4',         # Engine used for bonds calculations
