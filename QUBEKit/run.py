@@ -8,7 +8,7 @@ from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
-from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress, pretty_print
+from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress, pretty_print, Configure
 from QUBEKit.decorators import exception_logger_decorator
 
 from sys import argv as cmdline
@@ -26,19 +26,46 @@ class Main:
     def __init__(self):
 
         # Configs:
-        self.defaults_dict = get_mol_data_from_csv()['default']
-        self.qm, self.fitting, self.descriptions = config_loader(self.defaults_dict['config'])
+        self.defaults_dict = {'charge': 0,
+                              'multiplicity': 1,
+                              'config': 'default_config'}
+        self.configs = {'qm': {},
+                        'fitting': {},
+                        'descriptions': {}}
 
+        # Parse the input commands to find the config file, and save changes to configs
         self.file, self.commands = self.parse_commands()
+        if self.defaults_dict['config'] == 'default_config':
+            if not Configure.check_master():
+                enter = input('You must set up a master config to use QUBEKit and change the chargemol path: press enter to edit master config')
+                Configure.ini_writer('master_config.ini')
+                Configure.ini_edit('master_config.ini')
+        self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
+        # get the master configs and now assign the changes
+        self.config_update()
+        self.log_file = None
         self.create_log()
         self.execute()
         self.log_file = None
+        self.dicts_to_print
 
     start_up_msg = (f'If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n'
                     'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
+
+    def config_update(self):
+        """Update the config settings with the command line ones."""
+
+        for key in self.configs.keys():
+            for sub in self.configs[key].keys():
+                if sub in self.qm.keys():
+                    self.qm[sub] = self.configs[key][sub]
+                elif sub in self.fitting.keys():
+                    self.fitting[sub] = self.configs[key][sub]
+                elif self.descriptions.keys():
+                    self.descriptions[sub] = self.configs[key][sub]
 
     def parse_commands(self):
         """Parses commands from the terminal.
@@ -54,15 +81,12 @@ class Main:
         # Multiple configs can be changed at once
         self.commands = cmdline[1:]
         print('\nThese are the commands you gave:', self.commands)
-
         for count, cmd in enumerate(self.commands):
 
             # Change defaults for each analysis.
             if cmd == '-csv':
                 csv_name = self.commands[count + 1]
                 generate_config_csv(csv_name)
-                # Move file to config folder.
-                rename(csv_name, f'configs/{csv_name}')
                 exit()
 
             if cmd == '-c':
@@ -72,31 +96,31 @@ class Main:
                 self.defaults_dict['multiplicity'] = int(self.commands[count + 1])
 
             if cmd == '-ddec':
-                self.qm['ddec version'] = int(self.commands[count + 1])
+                self.configs['qm']['ddec_version'] = int(self.commands[count + 1])
 
             if any(s in cmd for s in ('-geo', '-geometric')):
-                self.qm['geometric'] = False if self.commands[count + 1] == 'false' else True
+                self.configs['qm']['geometric'] = False if self.commands[count + 1] == 'false' else True
 
             if cmd == '-bonds':
-                self.qm['bonds engine'] = str(self.commands[count + 1])
+                self.configs['qm']['bonds_engine'] = str(self.commands[count + 1])
 
             if any(s in cmd for s in ('-cmol', '-chargemol')):
-                self.qm['charges engine'] = 'chargemol'
+                self.configs['qm']['charges_engine'] = 'chargemol'
 
             if cmd == '-onetep':
-                self.qm['charges engine'] = 'onetep'
+                self.configs['qm']['charges_engine'] = 'onetep'
 
             if cmd == '-log':
-                self.descriptions['log'] = str(self.commands[count + 1])
+                self.configs['descriptions']['log'] = str(self.commands[count + 1])
+
+            if cmd == '-solvent':
+                self.configs['qm']['solvent'] = False if self.commands[count + 1] == 'false' else True
+
+            if cmd == '-param':
+                self.configs['fitting']['parameter_engine'] = str(self.commands[count + 1])
 
             if cmd == '-config':
                 self.defaults_dict['config'] = str(self.commands[count + 1])
-
-            if cmd == '-solvent':
-                self.qm['solvent'] = False if self.commands[count + 1] == 'false' else True
-
-            if cmd == '-param':
-                self.fitting['parameter engine'] = str(self.commands[count + 1])
 
             if cmd == '-progress':
                 pretty_progress()
@@ -121,7 +145,7 @@ class Main:
                     bulk_data = get_mol_data_from_csv(csv_file)
 
                     # Run full analysis for each smiles string or pdb in the .csv file
-                    names = list(bulk_data.keys())[1:]
+                    names = list(bulk_data.keys())
                     for name in names:
 
                         print(f'Currently analysing: {name}')
@@ -131,11 +155,13 @@ class Main:
                         elif self.commands[count + 1] == 'pdb':
                             self.file = name + '.pdb'
                         else:
-                            raise Exception('The -bulk command is for smiles strings or pdb files only. The commands are: smiles, pdb')
+                            raise Exception(
+                                'The -bulk command is for smiles strings or pdb files only. The commands are: smiles, pdb')
                         self.defaults_dict = get_mol_data_from_csv(csv_file)[name]
+                        self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
                         self.create_log()
                         self.execute()
-                        chdir('../../QUBEKit')
+                        chdir('../')
                     print('Finished bulk run. Use the command -progress to view which stages are complete.')
                     exit()
 
@@ -143,6 +169,24 @@ class Main:
                     raise Exception('Bulk commands only supported for pdb files or csv file containing smiles strings. '
                                     'Please specify the type of bulk analysis you are doing, '
                                     'and include the name of the csv file defaults are to be extracted from.')
+
+            elif cmd == '-setup':
+
+                choice = input('You can now edit config files using QUBEKit, chose an option to continue:\n'
+                               '1)Edit a config file\n2)Create a new master template\n3)Make a normal config file\n>')
+
+                if int(choice) == 1:
+                    name = Configure.get_name()
+                    Configure.ini_edit(name)
+                elif int(choice) == 2:
+                    Configure.ini_writer('master_config.ini')
+                    Configure.ini_edit('master_config.ini')
+                else:
+                    name = Configure.get_name()
+                    Configure.ini_writer(name)
+                    Configure.ini_edit(name)
+
+                exit()
 
             else:
                 # Check if a smiles string is given. If it is, generate the pdb and optimise it.
@@ -207,8 +251,8 @@ class Main:
             log_file.write('The defaults used are:\n')
 
             # Writes the config dictionaries to the log file.
-            dicts_to_print = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
-            for dic in dicts_to_print:
+            self.dicts_to_print = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
+            for dic in self.dicts_to_print:
                 for key, var in dic.items():
                     log_file.write(f'{key}: {var}\n')
                 log_file.write('\n')
@@ -240,14 +284,14 @@ class Main:
 
         # Parametrisation options:
         param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
-        param_dict[self.fitting['parameter engine']](mol)
+        param_dict[self.fitting['parameter_engine']](mol)
 
-        append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter engine"]}')
+        append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter_engine"]}')
         mol.pickle(state='parametrised')
 
         # Bonds engine options
         engine_dict = {'g09': Gaussian, 'psi4': PSI4}
-        qm_engine = engine_dict[self.qm['bonds engine']](mol, self.defaults_dict)
+        qm_engine = engine_dict[self.qm['bonds_engine']](mol, self.dicts_to_print)
 
         if self.qm['geometric']:
 
@@ -260,7 +304,8 @@ class Main:
             qm_engine.optimised_structure()
 
         # Pickle
-        append_to_log(self.log_file, f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
+        append_to_log(self.log_file,
+                      f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
         mol.pickle(state='optimised')
 
         # Write input file for PSI4
@@ -273,7 +318,7 @@ class Main:
         mol = qm_engine.hessian()
 
         # Modified Seminario for bonds and angles
-        mod_sem = ModSeminario(mol, self.defaults_dict)
+        mod_sem = ModSeminario(mol, self.dicts_to_print)
         mod_sem.modified_seminario_method()
         mol = qm_engine.all_modes()
 
@@ -282,23 +327,23 @@ class Main:
         mol.pickle(state='mod-sem')
 
         # Prepare for density calc
-        g09 = Gaussian(mol, self.defaults_dict)
-        g09.generate_input(QM=True, density=True, solvent=self.qm['solvent'])
+        g09 = Gaussian(mol, self.dicts_to_print)
+        g09.generate_input(QM=True, density=True, solvent=bool(self.qm['solvent']))
 
         # Pickle
         append_to_log(self.log_file, 'Gaussian analysis complete')
         mol.pickle(state='gaussian')
 
         # Perform DDEC calc
-        c_mol = Chargemol(mol, self.defaults_dict)
+        c_mol = Chargemol(mol, self.dicts_to_print)
         c_mol.generate_input()
 
         # Pickle
-        append_to_log(self.log_file, f'Chargemol analysis with DDEC{self.qm["ddec version"]} complete')
+        append_to_log(self.log_file, f'Chargemol analysis with DDEC{self.qm["ddec_version"]} complete')
         mol.pickle(state='chargemol')
 
         # Calculate Lennard-Jones parameters
-        lj = LennardJones(mol, self.defaults_dict)
+        lj = LennardJones(mol, self.dicts_to_print)
         mol = lj.amend_sig_eps()
 
         # Pickle
@@ -323,5 +368,4 @@ class Main:
 
 
 if __name__ == '__main__':
-
     Main()

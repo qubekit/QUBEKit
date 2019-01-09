@@ -16,7 +16,6 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 # TODO Change from list appending to generator expressions. (SOMEWHAT DONE)
 
 
-from QUBEKit.helpers import config_loader
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from numpy import cross, linalg, empty, zeros, array, reshape, dot, real
@@ -127,7 +126,7 @@ class ModSeminario:
         self.molecule = mol
         self.atom_names = self.molecule.atom_names
         # Load the configs using the config_file name.
-        self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
+        self.qm, self.fitting, self.descriptions = config_dict[1], config_dict[2], config_dict[3]
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -267,7 +266,7 @@ class ModSeminario:
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
-                k_theta[i] *= (self.qm['vib scaling'] ** 2)
+                k_theta[i] *= (self.qm['vib_scaling'] ** 2)
 
                 angle_file.write(f'{i}  {self.atom_names[angle[0] - 1]}-{self.atom_names[angle[1] - 1]}-{self.atom_names[angle[2] - 1]}  ')
                 angle_file.write('{:.3f}   {:.3f}   {}   {}   {}\n'.format(k_theta[i], theta_0[i], angle[0], angle[1], angle[2]))
@@ -297,7 +296,7 @@ class ModSeminario:
                 k_b[i] = real((ab + ba) / 2)
 
                 # Vib_scaling takes into account DFT deficiencies/ anharmonicity.
-                k_b[i] *= (self.qm['vib scaling'] ** 2)
+                k_b[i] *= (self.qm['vib_scaling'] ** 2)
 
                 bond_length_list[i] = bond_lengths[bond[0] - 1][bond[1] - 1]
                 bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')
