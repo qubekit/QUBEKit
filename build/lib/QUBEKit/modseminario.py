@@ -6,7 +6,7 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 """
 
 # TODO Convert 'while x:' loops to 'for x in range():' or 'for x in y:'.
-#      (Each loop using while is 10 ops, only 3 using range, therefore ~3.3x faster. Also much more readable.)
+#      (Each loop using while is 10 ops, only 3 using range, also much more readable with less code.)
 # TODO Convert for item in range(len(items): to for item in items (where possible)
 
 # Maintainability / Readability
@@ -154,7 +154,6 @@ class ModSeminario:
 
         for i in range(size_mol):
             for j in range(size_mol):
-
                 diff_i_j = array(coords[i, :]) - array(coords[j, :])
                 bond_lengths[i][j] = linalg.norm(diff_i_j)
 
@@ -361,7 +360,7 @@ def average_values_across_classes(unique_values_bonds, unique_values_angles):
                 angle_file.write('{}-{}-{}  {:.2f}  {:.3f}\n'.format(unique_values_angles[i][0], unique_values_angles[i][1], unique_values_angles[i][2], unique_values_angles[i][3], unique_values_angles[i][4]))
 
 
-# TODO Move to different file (probably ligand file).
+# TODO Move to different file (probably ligand or helpers file).
 def sb_file_new_parameters(inputfilefolder, filename):
     """Takes new angle and bond terms and puts them into an sb file with name: filename_seminario.sb"""
 
@@ -371,18 +370,14 @@ def sb_file_new_parameters(inputfilefolder, filename):
         angles = [line.strip().split('  ') for line in angle_file]
         bonds = [line.strip().split('  ') for line in bond_file]
 
-    # Script produces this file
-    with open(f'{inputfilefolder}{filename}_Seminario.sb', 'wt') as fidout:
+    with open(f'{inputfilefolder}{filename}_Seminario.sb', 'wt') as sb_file:
 
-        # TODO Use properly formatted spacing / padding; add headers for each column.
-        fidout.write('*****                         Bond Stretching and Angle Bending Parameters - July 17*****\n')
+        sb_file.write('Bond Stretching and Angle Bending Parameters\n')
 
-        # Prints out bonds at top of file
         for bond in bonds:
-            fidout.write(f'{bond[0]} {bond[1]}      {bond[2]}        Modified Seminario Method AEAA \n')
+            sb_file.write(f'{bond[0]}, {bond[1]}, {bond[2]}\n')
 
-        fidout.write('\n********                        line above must be blank\n')
+        sb_file.write('\n\n')
 
-        # Prints out angles in middle of file
         for angle in angles:
-            fidout.write(f'{angle[0]}    {angle[1]}       {angle[2]}    Modified Seminario Method AEAA \n\n\n')
+            sb_file.write(f'{angle[0]}-{angle[1]}-{angle[2]}\n')

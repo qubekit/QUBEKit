@@ -6,7 +6,7 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 """
 
 # TODO Convert 'while x:' loops to 'for x in range():' or 'for x in y:'.
-#      (Each loop using while is 10 ops, only 3 using range, therefore ~3.3x faster. Also much more readable.)
+#      (Each loop using while is 10 ops, only 3 using range, also much more readable with less code.)
 # TODO Convert for item in range(len(items): to for item in items (where possible)
 
 # Maintainability / Readability
@@ -154,7 +154,6 @@ class ModSeminario:
 
         for i in range(size_mol):
             for j in range(size_mol):
-
                 diff_i_j = array(coords[i, :]) - array(coords[j, :])
                 bond_lengths[i][j] = linalg.norm(diff_i_j)
 
@@ -312,77 +311,7 @@ class ModSeminario:
         return unique_values_bonds
 
 
-# TODO This whole function should be scrapped and rewritten.
+# TODO Rewrite when we have a good method for symmetrising molecules (see L-J file for details).
 def average_values_across_classes(unique_values_bonds, unique_values_angles):
-    """Finds the average bond and angle term for each class."""
-
-    ignore_rows_bonds = []
-
-    # Find Average Values Bonds
-    for i in range(len(unique_values_bonds)):
-        for j in range(i + 1, len(unique_values_bonds)):
-            # Finds if the bond class has already been encountered
-            if (unique_values_bonds[i][0] == unique_values_bonds[j][0]) and (unique_values_bonds[i][1] == unique_values_bonds[j][1]) or ((unique_values_bonds[i][0] == unique_values_bonds[j][1]) and (unique_values_bonds[i][1] == unique_values_bonds[j][0])):
-                unique_values_bonds[i][2] += unique_values_bonds[j][2]
-                unique_values_bonds[i][3] += unique_values_bonds[j][3]
-                unique_values_bonds[i][4] += 1
-                ignore_rows_bonds.append(j)
-
-    # Average Bonds Printed
-    with open('Average_Modified_Seminario_Bonds.txt', 'w+') as bond_file:
-
-        # Remove bond classes that were already present and find mean value
-        for i in range(len(unique_values_bonds)):
-            if i not in ignore_rows_bonds:
-                unique_values_bonds[i][2] /= unique_values_bonds[i][4]
-                unique_values_bonds[i][3] /= unique_values_bonds[i][4]
-                bond_file.write('{}-{}  {:.2f}  {:.3f}\n'.format(unique_values_bonds[i][0], unique_values_bonds[i][1], unique_values_bonds[i][2], unique_values_bonds[i][3]))
-    # Find average values angles
-    ignore_rows_angles = []
-
-    # Find Average Values Angles
-    for i in range(len(unique_values_angles)):
-        for j in range(i + 1, len(unique_values_angles)):
-            # Finds if the angle class has already been encountered
-            if (unique_values_angles[i][0] == unique_values_angles[j][0] and unique_values_angles[i][1] == unique_values_angles[j][1] and unique_values_angles[i][2] == unique_values_angles[j][2]) or (unique_values_angles[i][0] == unique_values_angles[j][2] and unique_values_angles[i][1] == unique_values_angles[j][1] and unique_values_angles[i][2] == unique_values_angles[j][0]):
-                unique_values_angles[i][3] += unique_values_angles[j][3]
-                unique_values_angles[i][4] += unique_values_angles[j][4]
-                unique_values_angles[i][5] += 1
-                ignore_rows_angles.append(j)
-
-    # Average Angles Printed
-    with open('Average_Modified_Seminario_Angles.txt', 'w+') as angle_file:
-
-        # Remove angles classes that were already present and find mean value
-        for i in range(len(unique_values_angles)):
-            if i not in ignore_rows_angles:
-                unique_values_angles[i][3] /= unique_values_angles[i][5]
-                unique_values_angles[i][4] /= unique_values_angles[i][5]
-                angle_file.write('{}-{}-{}  {:.2f}  {:.3f}\n'.format(unique_values_angles[i][0], unique_values_angles[i][1], unique_values_angles[i][2], unique_values_angles[i][3], unique_values_angles[i][4]))
-
-
-# TODO Move to different file (probably ligand file).
-def sb_file_new_parameters(inputfilefolder, filename):
-    """Takes new angle and bond terms and puts them into an sb file with name: filename_seminario.sb"""
-
-    with open(f'{inputfilefolder}Average_Modified_Seminario_Angles.txt', 'r') as angle_file, \
-            open(f'{inputfilefolder}Average_Modified_Seminario_Bonds.txt', 'r') as bond_file:
-
-        angles = [line.strip().split('  ') for line in angle_file]
-        bonds = [line.strip().split('  ') for line in bond_file]
-
-    # Script produces this file
-    with open(f'{inputfilefolder}{filename}_Seminario.sb', 'wt') as fidout:
-
-        # TODO Use properly formatted spacing / padding; add headers for each column.
-        fidout.write('*****                         Bond Stretching and Angle Bending Parameters - July 17*****\n')
-
-        # Prints out bonds at top of file
-        for bond in bonds:
-            fidout.write(f'{bond[0]} {bond[1]}      {bond[2]}        Modified Seminario Method AEAA \n')
-
-        fidout.write('\n********                        line above must be blank\n')
-
-        # Prints out angles in middle of file
-        for angle in angles:
-            fidout.write(f'{angle[0]}    {angle[1]}       {angle[2]}    Modified Seminario Method AEAA \n\n\n')
+    """Symmetrises bonds and angles across molecule."""
+    pass

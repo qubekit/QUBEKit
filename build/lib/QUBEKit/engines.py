@@ -28,8 +28,7 @@ class Engines:
 
 @for_all_methods(timer_logger)
 class PSI4(Engines):
-    """Psi4 class (child of Engines).
-    Used to extract optimised structures, Hessians, frequencies, etc.
+    """Used to extract optimised structures, Hessians, frequencies, etc.
     Writes and executes input files for psi4.
     """
 
@@ -42,13 +41,13 @@ class PSI4(Engines):
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
     def hessian(self):
-        """Parses the Hessian from the B3LYP_output.dat file (from psi4) into a numpy array.
+        """Parses the Hessian from the output.dat file (from psi4) into a numpy array.
         Molecule is a numpy array of size N x N.
         """
 
         hess_size = 3 * len(self.engine_mol.molecule)
 
-        # B3LYP_output.dat is the psi4 output file.
+        # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
 
             lines = file.readlines()
@@ -91,10 +90,13 @@ class PSI4(Engines):
 
                         reshaped.append(new_row)
 
-                    check_symmetry(reshaped)
+                    hess_matrix = array(reshaped)
 
                     # Units conversion.
-                    hess_matrix = array(reshaped) * 627.509391 / (0.529 ** 2)
+                    conversion = 627.509391 / (0.529 ** 2)
+                    hess_matrix *= conversion
+
+                    check_symmetry(hess_matrix)
 
                     print(f'Extracted Hessian for {self.engine_mol.name} from psi4 output')
                     self.engine_mol.hessian = hess_matrix
@@ -102,7 +104,7 @@ class PSI4(Engines):
                     return self.engine_mol
 
     def optimised_structure(self):
-        """Parses the final optimised structure from the B3LYP_output.dat file (from psi4) to a numpy array."""
+        """Parses the final optimised structure from the output.dat file (from psi4) to a numpy array."""
 
         # Run through the file and find all lines containing '==> Geometry', add these lines to a list.
         # Reverse the list
@@ -111,7 +113,7 @@ class PSI4(Engines):
         # Add each row to a matrix.
         # Return the matrix.
 
-        # B3LYP_output.dat is the psi4 output file.
+        # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
             lines = file.readlines()
             # Will contain index of all the lines containing '==> Geometry'.
@@ -129,8 +131,8 @@ class PSI4(Engines):
 
                 # Append the first 4 columns of each row, converting to float as necessary.
                 struct_row = [lines[start_of_vals + row].split()[0]]
-                for indx in range(1, 4):
-                    struct_row.append(float(lines[start_of_vals + row].split()[indx]))
+                for indx in range(3):
+                    struct_row.append(float(lines[start_of_vals + row].split()[indx + 1]))
 
                 opt_struct.append(struct_row)
 
@@ -181,7 +183,6 @@ class PSI4(Engines):
             if density:
                 print('Writing psi4 density calculation input')
                 setters += " cubeprop_tasks ['density']\n"
-                # TODO Handle overage correctly (should be dependent on the size of the molecule).
                 # See helpers.get_overage for info.
 
                 # print('Calculating overage for psi4 and chargemol.')
@@ -190,7 +191,7 @@ class PSI4(Engines):
                 setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
                 tasks += "grad, wfn = gradient('{}', return_wfn=True)\ncubeprop(wfn)".format(self.qm['theory'].lower())
 
-            # TODO If overage cannot be made to work, delete and just use Gaussian.
+            # TODO If overage cannot be made to work, delete and just use Gaussian. (looking more likely every day.)
             # if self.qm['solvent']:
             #     print('Setting pcm parameters.')
             #     setters += ' pcm true\n pcm_scf_type total\n'
@@ -219,7 +220,7 @@ class PSI4(Engines):
         # continue onto next line.
         # Repeat until the following line is known to be empty.
 
-        # B3LYP_output.dat is the psi4 output file.
+        # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
             lines = file.readlines()
             for count, line in enumerate(lines):
@@ -313,13 +314,6 @@ class Chargemol(Engines):
         print(f'Partitioning charges with DDEC{self.qm["ddec version"]}')
         sub_call(f'{self.descriptions["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
                  shell=True)
-
-    def extract_charges(self):
-        """Extract the charge data from the chargemol execution.
-        Currently this is done by the LennardJones class.
-        """
-
-        pass
 
 
 @for_all_methods(timer_logger)
@@ -436,8 +430,8 @@ class Gaussian(Engines):
         m = 0
         for i in range(hess_size):
             for j in range(i + 1):
-                hessian[i][j] = hessian_list[m]
-                hessian[j][i] = hessian_list[m]
+                hessian[i, j] = hessian_list[m]
+                hessian[j, i] = hessian_list[m]
                 m += 1
 
         check_symmetry(hessian)

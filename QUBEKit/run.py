@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
 
-from QUBEKit import smiles
+from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise
 from QUBEKit.modseminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
-from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress
+from QUBEKit.helpers import config_loader, get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress, pretty_print
 from QUBEKit.decorators import exception_logger_decorator
 
 from sys import argv as cmdline
@@ -34,8 +34,8 @@ class Main:
         self.execute()
         self.log_file = None
 
-    start_up_string = (f'If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n'
-                       'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
+    start_up_msg = (f'If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n'
+                    'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -114,7 +114,7 @@ class Main:
             if cmd == '-bulk':
 
                 csv_file = self.commands[count + 2]
-                print(self.start_up_string)
+                print(self.start_up_msg)
 
                 if self.commands[count + 1] == 'smiles' or self.commands[count + 1] == 'pdb':
 
@@ -127,7 +127,7 @@ class Main:
                         print(f'Currently analysing: {name}')
                         if self.commands[count + 1] == 'smiles':
                             smile_string = bulk_data[name]['smiles string']
-                            self.file = smiles.smiles_to_pdb(smile_string, name)
+                            self.file = smiles_to_pdb(smile_string, name)
                         elif self.commands[count + 1] == 'pdb':
                             self.file = name + '.pdb'
                         else:
@@ -142,23 +142,23 @@ class Main:
                 else:
                     raise Exception('Bulk commands only supported for pdb files or csv file containing smiles strings. '
                                     'Please specify the type of bulk analysis you are doing, '
-                                    'and include the name of the csv file defaults are extracted from.')
+                                    'and include the name of the csv file defaults are to be extracted from.')
 
             else:
                 # Check if a smiles string is given. If it is, generate the pdb and optimise it.
                 if any(s in cmd for s in ('-sm', '-smiles')):
 
                     # Generate pdb from smiles string.
-                    self.file = smiles.smiles_to_pdb(self.commands[count + 1])
+                    self.file = smiles_to_pdb(self.commands[count + 1])
                     self.defaults_dict['smiles string'] = self.commands[count + 1]
-                    print(self.start_up_string)
+                    print(self.start_up_msg)
                     return self.file, self.commands
 
                 # If a pdb is given instead, use that.
                 elif 'pdb' in cmd:
 
                     self.file = cmd
-                    print(self.start_up_string)
+                    print(self.start_up_msg)
                     return self.file, self.commands
 
                 elif '-pickle' in cmd:
@@ -220,8 +220,12 @@ class Main:
     @exception_logger_decorator
     def execute(self):
         """Calls all the relevant classes and methods for the full QM calculation in the correct order.
-        # TODO Add proper entry and exit points with pickle to allow more customised analysis.
+        The log files associated with the particular run are changed via this method too.
+        Exceptions are added to log (if raised) and key successful stages are added in caps.
+        These stages can then be tracked with the -progress command (helpers.pretty_progress() function).
         """
+
+        # TODO Add proper entry and exit points with pickle to allow more customised analysis.
 
         # Initialise file with pdb params from smiles string input or pdb input.
         mol = Ligand(self.file)
@@ -229,7 +233,7 @@ class Main:
         # Having been provided a smiles string or pdb, perform a preliminary optimisation.
 
         # Optimise the molecule from the pdb.
-        mol.filename, mol.descriptors = smiles.smiles_mm_optimise(mol.filename)
+        mol.filename, mol.descriptors = smiles_mm_optimise(mol.filename)
 
         # Initialise the molecule's pdb with its optimised form.
         mol.read_pdb(MM=True)
@@ -311,8 +315,9 @@ class Main:
 
         mol.write_parameters()
 
-        # TODO Generate file (with a helper function) which nicely formats all the ligand object data.
-        print(mol)
+        # Print ligand objects to terminal and log file
+        pretty_print(mol, to_file=True)
+        pretty_print(mol)
 
         return
 
