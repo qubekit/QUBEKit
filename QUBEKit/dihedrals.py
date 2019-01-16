@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from subprocess import call as sub_call
-from QUBEKit.ligand import Ligand
 
 
 class TorsionScan:
@@ -44,10 +43,10 @@ class TorsionScan:
         else:
             # get the rotatable dihedrals from the molecule
             rotatable = list(self.scan_mol.rotatable)
-            print('Please select the central bonds round which you wish to scan in the order to be scaned')
+            print('Please select the central bonds round which you wish to scan')
             print('Torsion number   Central-Bond   Representative Dihedral')
             for i, bond in enumerate(rotatable):
-                print('  {}                    {}-{}             {}-{}-{}-{}'.format(i+1, bond[0], bond[1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][0]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][1]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][2]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][3]-1]))
+                print('  {}                    {}-{}             {}-{}-{}-{}'.format(i + 1, bond[0], bond[1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][0]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][1]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][2]-1], self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][3]-1]))
             scans = list(input('>'))  # Enter as a space separated list
             scans[:] = [scan for scan in scans if scan != ' ']  # remove all spaces from the scan list
             print(scans)

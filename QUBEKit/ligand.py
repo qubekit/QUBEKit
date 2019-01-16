@@ -51,6 +51,7 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
+        self.log_file = None
 
     element_dict = {'H': 1.008000,      # Group 1
                     'C': 12.011000,     # Group 4
@@ -320,7 +321,7 @@ class Ligand:
     def write_parameters(self):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
-        # first build the xml tree
+        # First build the xml tree
         self.build_tree()
 
         tree = self.xml_tree.getroot()
@@ -330,8 +331,6 @@ class Ligand:
 
         with open(f'{self.name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
-
-        print('XML made!')
 
     def build_tree(self):
         """Separates the parameters and builds an xml tree ready to be used."""
@@ -395,8 +394,7 @@ class Ligand:
                                                        'epsilon': self.NonbondedForce[key][2]})
 
         # Store the tree back into the molecule
-        tree = ElementTree(root)
-        self.xml_tree = tree
+        self.xml_tree = ElementTree(root)
 
     def read_xyz_geo(self):
         """Read a geometric opt.xyz file to find the molecule array structure."""
@@ -410,7 +408,7 @@ class Ligand:
             for line in lines:
                 line = line.split()
                 if 'Iteration' in line:
-                    print(f'Optimisation converged at iteration {int(line[1])} with final energy {float(line[3])}')
+                    # print(f'Optimisation converged at iteration {int(line[1])} with final energy {float(line[3])}')
                     write = True
 
                 elif write:

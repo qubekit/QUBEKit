@@ -5,7 +5,7 @@
 
 
 from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.helpers import config_loader, check_net_charge
+from QUBEKit.helpers import check_net_charge
 
 
 @for_all_methods(timer_logger)
@@ -15,7 +15,7 @@ class LennardJones:
 
         # Ligand class object
         self.molecule = molecule
-        self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
+        self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
         # This is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', vol]
         self.ddec_data = self.extract_params()
@@ -37,14 +37,15 @@ class LennardJones:
 
         # return info for the molecule as a list of lists.
 
-        if self.qm['ddec version'] == 6:
+        if self.qm['ddec_version'] == 6:
             net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
 
-        elif self.qm['ddec version'] == 3:
+        elif self.qm['ddec_version'] == 3:
             net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
 
         else:
-            raise ValueError('Invalid or unsupported DDEC version.')
+            print('Invalid or unsupported DDEC version, using default of DDEC6.')
+            net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
 
         self.ddec_data = []
 
@@ -77,7 +78,8 @@ class LennardJones:
                     break
 
         charges = [atom[5] for atom in self.ddec_data]
-        check_net_charge(charges)
+
+        check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
 
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
 
@@ -129,7 +131,9 @@ class LennardJones:
         return self.ddec_data
 
     def polar_hydrogens(self):
-        """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly."""
+        """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly.
+        May be removed / heavily changed if we switch away from atom typing and use SMARTS.
+        """
 
         # Create dictionary which stores the atom number and its type:
         # atoms = {1: 'C', 2: 'C', 3: 'H', 4: 'H', ...}
@@ -154,23 +158,24 @@ class LennardJones:
                 if 'H' in pair[0]:
                     polars.append(pair)
 
-        print('Polar pairs identified: ', polars)
+        if polars:
+            print(f'Polar pairs identified: {polars}')
 
-        for pair in polars:
-            if 'H' in pair[0] or 'H' in pair[1]:
-                if 'H' in pair[0]:
-                    polar_h_pos = int(pair[0][0]) - 1
-                    polar_son_pos = int(pair[1][0]) - 1
-                else:
-                    polar_h_pos = int(pair[1][0]) - 1
-                    polar_son_pos = int(pair[0][0]) - 1
-                # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                self.ddec_ai_bi[polar_son_pos][-2] = ((self.ddec_ai_bi[polar_son_pos][-2]) ** 0.5 + (self.ddec_ai_bi[polar_h_pos][-2]) ** 0.5) ** 2
-                self.ddec_ai_bi[polar_h_pos][-2] = 0
+            for pair in polars:
+                if 'H' in pair[0] or 'H' in pair[1]:
+                    if 'H' in pair[0]:
+                        polar_h_pos = int(pair[0][0]) - 1
+                        polar_son_pos = int(pair[1][0]) - 1
+                    else:
+                        polar_h_pos = int(pair[1][0]) - 1
+                        polar_son_pos = int(pair[0][0]) - 1
+                    # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
+                    self.ddec_ai_bi[polar_son_pos][-2] = ((self.ddec_ai_bi[polar_son_pos][-2]) ** 0.5 + (self.ddec_ai_bi[polar_h_pos][-2]) ** 0.5) ** 2
+                    self.ddec_ai_bi[polar_h_pos][-2] = 0
 
-                # Reset the a_i for the two polar atoms using the new b_i values.
-                self.ddec_ai_bi[polar_son_pos][-1] = 32 * self.ddec_ai_bi[polar_son_pos][-2] * (self.ddec_ai_bi[polar_son_pos][-3] ** 6)
-                self.ddec_ai_bi[polar_h_pos][-1] = 0
+                    # Reset the a_i for the two polar atoms using the new b_i values.
+                    self.ddec_ai_bi[polar_son_pos][-1] = 32 * self.ddec_ai_bi[polar_son_pos][-2] * (self.ddec_ai_bi[polar_son_pos][-3] ** 6)
+                    self.ddec_ai_bi[polar_h_pos][-1] = 0
 
         return self.ddec_ai_bi
 
@@ -218,6 +223,4 @@ class LennardJones:
 
             new_NonbondedForce.update({atom: [str(self.ddec_polars[atom][5]), str(sigma), str(epsilon)]})
 
-        self.molecule.NonbondedForce = new_NonbondedForce
-
-        return self.molecule
+        return new_NonbondedForce

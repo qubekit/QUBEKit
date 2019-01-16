@@ -51,6 +51,7 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
+        self.log_file = None
 
     element_dict = {'H': 1.008000,      # Group 1
                     'C': 12.011000,     # Group 4
@@ -73,13 +74,13 @@ class Ligand:
         This is called with:   Ligand(filename='').__str__(trunc=True)
         """
 
-        # This is the old __str__ definition which is basically a one-line alternative to the else clause below.
+        # This is the old __str__ definition which is basically a one-line alternative to the else case below.
         # return '\n'.join(('{} = {}'.format(item, self.__dict__[item]) for item in self.__dict__))
 
         return_str = ''
         for item in self.__dict__:
             if trunc:
-                # if (None) or (it's smaller than 120 chars): print it as is. otherwise print a truncated version.
+                # if (None) or (it's smaller than 120 chars): print it as is. Otherwise print a truncated version.
                 return_str += f'\n{item} = {self.__dict__[item] if (self.__dict__[item] is None) or (len(str(self.__dict__[item]) + str(item)) < 120) else str(self.__dict__[item])[:121 - len(str(item))] + "..."}'
             else:
                 # Return all objects as {ligand object name} = {ligand object value(s)} without any special formatting.
@@ -89,7 +90,8 @@ class Ligand:
 
     def read_pdb(self, QM=False, MM=False):
         """Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
-        Then reads through the connection tags and builds a connectivity network (only works if connections present in PDB file).
+        Then reads through the connection tags and builds a connectivity network
+        (only works if connections are present in PDB file).
         Bonds are easily found through the edges of the network.
         Can also generate a simple plot of the network.
         """
@@ -319,7 +321,7 @@ class Ligand:
     def write_parameters(self):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
-        # first build the xml tree
+        # First build the xml tree
         self.build_tree()
 
         tree = self.xml_tree.getroot()
@@ -329,8 +331,6 @@ class Ligand:
 
         with open(f'{self.name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
-
-        print('XML made!')
 
     def build_tree(self):
         """Separates the parameters and builds an xml tree ready to be used."""
@@ -347,7 +347,8 @@ class Ligand:
 
         # Add the AtomTypes
         for i in range(len(self.AtomTypes)):
-            SubElement(AtomTypes, "Type", attrib={'name': self.AtomTypes[i][1], 'class': self.AtomTypes[i][2],
+            SubElement(AtomTypes, "Type", attrib={'name': self.AtomTypes[i][1],
+                                                  'class': self.AtomTypes[i][2],
                                                   'element': self.molecule[i][0],
                                                   'mass': str(self.element_dict[self.molecule[i][0]])})
             SubElement(Residue, "Atom", attrib={'name': self.AtomTypes[i][0], 'type': self.AtomTypes[i][1]})
@@ -355,37 +356,45 @@ class Ligand:
         # add the bonds/connections
         for key in self.HarmonicBondForce.keys():
             SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
-            SubElement(HarmonicBondForce, "Bond",
-                       attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
-                               'length': self.HarmonicBondForce[key][0], 'k': self.HarmonicBondForce[key][1]})
+            SubElement(HarmonicBondForce, "Bond", attrib={'class1': self.AtomTypes[key[0]][2],
+                                                          'class2': self.AtomTypes[key[1]][2],
+                                                          'length': self.HarmonicBondForce[key][0],
+                                                          'k': self.HarmonicBondForce[key][1]})
 
         # add the angles
         for key in self.HarmonicAngleForce.keys():
-            SubElement(HarmonicAngleForce, "Angle",
-                       attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
-                               'class3': self.AtomTypes[key[2]][2], 'angle': self.HarmonicAngleForce[key][0],
-                               'k': self.HarmonicAngleForce[key][1]})
+            SubElement(HarmonicAngleForce, "Angle", attrib={'class1': self.AtomTypes[key[0]][2],
+                                                            'class2': self.AtomTypes[key[1]][2],
+                                                            'class3': self.AtomTypes[key[2]][2],
+                                                            'angle': self.HarmonicAngleForce[key][0],
+                                                            'k': self.HarmonicAngleForce[key][1]})
 
         # add the torsion terms
         for key in self.PeriodicTorsionForce.keys():
-            SubElement(PeriodicTorsionForce, "Proper",
-                       attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
-                               'class3': self.AtomTypes[key[2]][2], 'class4': self.AtomTypes[key[3]][2],
-                               'k1': self.PeriodicTorsionForce[key][0][1], 'k2': self.PeriodicTorsionForce[key][1][1],
-                               'k3': self.PeriodicTorsionForce[key][2][1], 'k4': self.PeriodicTorsionForce[key][3][1],
-                               'periodicity1': '1', 'periodicity2': '2', 'periodicity3': '3', 'periodicity4': '4',
-                               'phase1': self.PeriodicTorsionForce[key][0][2], 'phase2': self.PeriodicTorsionForce[key][1][2],
-                               'phase3': self.PeriodicTorsionForce[key][2][2], 'phase4': self.PeriodicTorsionForce[key][3][2]})
+            SubElement(PeriodicTorsionForce, "Proper", attrib={'class1': self.AtomTypes[key[0]][2],
+                                                               'class2': self.AtomTypes[key[1]][2],
+                                                               'class3': self.AtomTypes[key[2]][2],
+                                                               'class4': self.AtomTypes[key[3]][2],
+                                                               'k1': self.PeriodicTorsionForce[key][0][1],
+                                                               'k2': self.PeriodicTorsionForce[key][1][1],
+                                                               'k3': self.PeriodicTorsionForce[key][2][1],
+                                                               'k4': self.PeriodicTorsionForce[key][3][1],
+                                                               'periodicity1': '1', 'periodicity2': '2',
+                                                               'periodicity3': '3', 'periodicity4': '4',
+                                                               'phase1': self.PeriodicTorsionForce[key][0][2],
+                                                               'phase2': self.PeriodicTorsionForce[key][1][2],
+                                                               'phase3': self.PeriodicTorsionForce[key][2][2],
+                                                               'phase4': self.PeriodicTorsionForce[key][3][2]})
 
         # add the non-bonded parameters
         for key in self.NonbondedForce.keys():
-            SubElement(NonbondedForce, "Atom",
-                       attrib={'type': self.AtomTypes[key][1], 'charge': self.NonbondedForce[key][0],
-                               'sigma': self.NonbondedForce[key][1], 'epsilon': self.NonbondedForce[key][2]})
+            SubElement(NonbondedForce, "Atom", attrib={'type': self.AtomTypes[key][1],
+                                                       'charge': self.NonbondedForce[key][0],
+                                                       'sigma': self.NonbondedForce[key][1],
+                                                       'epsilon': self.NonbondedForce[key][2]})
 
         # Store the tree back into the molecule
-        tree = ElementTree(root)
-        self.xml_tree = tree
+        self.xml_tree = ElementTree(root)
 
     def read_xyz_geo(self):
         """Read a geometric opt.xyz file to find the molecule array structure."""
@@ -399,7 +408,7 @@ class Ligand:
             for line in lines:
                 line = line.split()
                 if 'Iteration' in line:
-                    print(f'Optimisation converged at iteration {int(line[1])} with final energy {float(line[3])}')
+                    # print(f'Optimisation converged at iteration {int(line[1])} with final energy {float(line[3])}')
                     write = True
 
                 elif write:
@@ -430,7 +439,7 @@ class Ligand:
                         mols.append(load(pickle_jar))
                     except:
                         break
-        except:
+        except FileNotFoundError:
             mols = None
 
         # Now we can save the items first assign the location

@@ -4,13 +4,12 @@ Originally written by Alice E. A. Allen, TCM, University of Cambridge
 Modified by Joshua T. Horton and rewritten by Chris Ringrose, Newcastle University
 Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 """
-
+# TODO Rewrite symmetrisation method when we have a good way of symmetrising molecules (see L-J file for details).
 # TODO Convert 'while x:' loops to 'for x in range():' or 'for x in y:'.
 #      (Each loop using while is 10 ops, only 3 using range, also much more readable with less code.)
 # TODO Convert for item in range(len(items): to for item in items (where possible)
 
 # Maintainability / Readability
-# TODO Move hanging functions. (Almost DONE, average_values_across_classes requires rewrite.)
 # TODO Appropriately name variables (not just i, j, k etc).
 # TODO Improve data structures. Dicts/sets/tuples over lists etc.
 # TODO Change from list appending to generator expressions. (SOMEWHAT DONE)
@@ -46,9 +45,7 @@ class ModSemMaths:
 
         u_n = ModSemMaths.unit_vector_n(u_cb, u_ab)
 
-        u_pa = cross(u_n, u_ab) / linalg.norm(cross(u_n, u_ab))
-
-        return u_pa
+        return cross(u_n, u_ab) / linalg.norm(cross(u_n, u_ab))
 
     @staticmethod
     def dot_product(u_pa, eig_ab):
@@ -165,14 +162,6 @@ class ModSeminario:
         # The bond and angle values are calculated and written to file.
         self.bonds_calculated_printed(bond_list, bond_lengths, eigenvalues, eigenvectors, coords)
         self.angles_calculated_printed(angle_list, bond_lengths, eigenvalues, eigenvectors, coords)
-
-        # TODO Move/remove.
-        # The final section finds the average bond and angle terms for each
-        # bond/angle class if the .z exists to supply angle/bond classes and then
-        # writes the new terms to a .sb file
-        # if exists(f'{inputfilefolder}Zmat.z'):
-        #     average_values_across_classes(unique_values_bonds, unique_values_angles)
-        #     sb_file_new_parameters(outputfilefolder, 'Python_Modified_Scaled')
 
     def angles_calculated_printed(self, angle_list, bond_lengths, eigenvalues, eigenvectors, coords):
         """Uses the modified Seminario method to find the angle parameters and prints them to file."""
@@ -309,8 +298,3 @@ class ModSeminario:
 
         return unique_values_bonds
 
-
-# TODO Rewrite when we have a good method for symmetrising molecules (see L-J file for details).
-def average_values_across_classes(unique_values_bonds, unique_values_angles):
-    """Symmetrises bonds and angles across molecule."""
-    pass

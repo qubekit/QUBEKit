@@ -13,8 +13,9 @@ setup(
     author=['Joshua Thomas Horton', 'Chris Ringrose'],
     entry_points={'console_scripts': [
         'QUBEKit = QUBEKit.run:Main',
-        'QUBEKit-josh = QUBEKit.tests_josh:main'
-    ],},
+        'QUBEKit-josh = QUBEKit.tests_josh:main',
+        'QUBEKit-chris = QUBEKit.tests_chris:main'
+    ], },
     )
 
 print('Finding home directory to store QUBEKit config files')

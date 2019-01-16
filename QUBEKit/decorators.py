@@ -53,7 +53,7 @@ def timer_logger(orig_func):
         with open(file_name, 'a+') as log_file:
             log_file.write(f'{orig_func.__qualname__} finished in {time_taken} seconds at {end_time}.\n\n')
             # Add some separation space between function / method logs.
-            log_file.write('-------------------------------------------------------\n\n')
+            log_file.write(f'{"-" * 50}\n\n')
 
         return result
     return wrapper
@@ -116,10 +116,21 @@ def exception_logger_decorator(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
+            # MRO PROBLEMS - REQUIRES HEFTY REWORK
+            # files = [file for file in listdir('.') if path.isfile(file)]
+            # pickle_file = [file for file in files if file.endswith('_states')][0]
+            #
+            # mol_states = unpickle(pickle_file)
+            # mol = [v for k, v in reversed(mol_states)][0]
+            # pretty_print(mol, to_file=True, finished=False)
+
             # TODO Print the ligand class objects to the log file as well. Before or after the exception statement?
 
             # Re-raises the exception
             # TODO Do we want the exception to be re-raised? Maybe just continue onto next ligand.
+
+            # TODO Add better exception handling for certain issues. e.g.
+            #       No such file or directory: 'opt.xyz' should probably check that the charge/multiplicity is correct
             raise
 
     return wrapper
