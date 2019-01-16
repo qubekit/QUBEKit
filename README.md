@@ -45,20 +45,24 @@ Below is general help for most of the commands available in QUBEKit.
 
 ## Before you start: Config files
 
-QUBEKit has a lot of settings which are used in production and changing these can result in very different force filed parameters.
-The settings are controlled using ini style config files which are easy to edit. After installation you will notice a ```QUBEKit_configs``` 
-folder in your main home directory. Now you need to create a master template to do this use```QUBEKit -setup```
-you will then be presented with some options chose 2:
+QUBEKit has a lot of settings which are used in production and changing these can result in very different force field parameters.
+The settings are controlled using ini style config files which are easy to edit.
+After installation you should notice a ```QUBEKit_configs``` 
+folder in your main home directory; now you need to create a master template. To do this use the command ```QUBEKit -setup```
+where you will then be presented with some options:
 
-```
-You can now edit config files using QUBEKit, chose an option to continue:
-1)Edit a config file
-2)Create a new master template
-3)Make a normal config file
-```
+    You can now edit config files using QUBEKit, chose an option to continue:
+    1)Edit a config file
+    2)Create a new master template
+    3)Make a normal config file
 
-This will set up a new template that will be used every time you run QUBEKit unless you supply the name of another ini file in the configs folder. The only parameter that must
-be changed in order to run QUBEKit is the chargemol path in the descriptions section.
+Choose option two to set up a new template which will be used every time you run QUBEKit 
+(unless you supply the name of another ini file in the configs folder).
+The only parameter that must be changed for QUBEKit to run is the chargemol path in the descriptions section.
+This option is what controls where the chargemol code is kept on your PC.
+It should be the location of the chargemol home directory, plus the name of the chargemol folder itself:
+
+    '/home/user/Programs/chargemol_09_26_2017'
 
 ## QUBEKit Commands: Running Jobs
 
@@ -111,12 +115,17 @@ where '#' is any number or string you like (no spaces).
 ### High Throughput
 
 Bulk commands are for high throughput analysis; they are invoked with the -bulk keyword.
-A csv must be used when running a bulk analysis. A csv template can be generated using the command:
+A csv must be used when running a bulk analysis.
+If you would like to generate a blank csv config file, simply run the command:
 
- ```QUBEKit -csv file_name.csv```
- 
-This csv contains the defaults for each molecule being analysed.
-Before running a bulk analysis, fill in each column for each molecule, note that different config files can be supplied for each molecule.
+    QUBEKit -csv example.csv
+    
+where example.csv is the name of the config file you want to create.
+This will automatically generate the file with the appropriate columns and a row with defaults inside.
+The csv config file will be put into the configs folder.
+When writing to the csv file, append rows after the defaults row rather than overwriting it.
+
+Before running a bulk analysis, fill in each column for each molecule, importantly, different config files can be supplied for each molecule.
 
 If running a bulk analysis with smiles strings, use the command:
 
@@ -132,11 +141,11 @@ again, example.csv is the csv containing the necessary defaults for each molecul
 The pdb files should all be in the same place: where you're running QUBEKit from.
 
 Please note, there are deliberately two config files.
-The changeable parameters are spread across a .csv and a .py config files.
-The configs in the .py are more likely to be kept constant across a bulk analysis.
+The changeable parameters are spread across a .csv and a .ini config files.
+The configs in the .ini are more likely to be kept constant across a bulk analysis.
 For this reason, the .csv config contains highly specific parameters such as torsions which will change molecule to molecule.
-The .py however contains more typically static parameters such as the basis sets and engines being used (e.g. psi4, chargemol, etc).
-If you would like the .py config to change from molecule to molecule, you may specify that in the .csv config.
+The .ini however contains more typically static parameters such as the basis sets and engines being used (e.g. psi4, chargemol, etc).
+If you would like the .ini config to change from molecule to molecule, you may specify that in the .csv config.
 
 You may change defaults inside the terminal when running bulk analyses, and these changed defaults will be printed to the log file.
 However, the config files themselves will not be overwritten.
@@ -159,15 +168,6 @@ For example (csv row order does not matter, and you do not need to include smile
     methane,0,1,default_config,C,
     benzene,0,1,default_config,,
     ethane,0,1,default_config,,
-
-If you would like to generate a blank csv config file, simply run the command:
-
-    QUBEKit -csv example.csv
-    
-where example.csv is the name of the config file you want to create.
-This will automatically generate the file with the appropriate columns and a row with defaults inside.
-The csv config file will be put into the configs folder.
-When writing to the csv file, append rows after the defaults row rather than overwriting it.
 
 ### Notes on Commands
 

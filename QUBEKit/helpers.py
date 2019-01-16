@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 
-from QUBEKit.decorators import timer_logger, timer_func, for_all_methods
+from QUBEKit.decorators import timer_logger
 
 from csv import DictReader, writer, QUOTE_MINIMAL
-from os import walk, listdir, path
+from os import walk, listdir, path, system
 from collections import OrderedDict
 from numpy import allclose
 from pathlib import Path
@@ -22,35 +22,35 @@ class Configure:
     # QuBeKit config file allows users to reset the global variables
 
     qm = {
-        'theory': 'B3LYP',  # Theory to use in freq and dihedral scans recommended wB97XD or B3LYP, for example
-        'basis': '6-311++G(d,p)',  # Basis set
-        'vib_scaling': '0.991',  # Associated scaling to the theory
-        'threads': '6',  # Number of processors used in g09; affects the bonds and dihedral scans
-        'memory': '2',  # Amount of memory (in GB); specified in the g09 scripts
-        'convergence': 'GAU_TIGHT',  # Criterion used during optimisations; works using psi4 and geometric so far
-        'iterations': '100',  # Max number of optimisation iterations
-        'bonds_engine': 'psi4',  # Engine used for bonds calculations
+        'theory': 'B3LYP',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
+        'basis': '6-311++G(d,p)',       # Basis set
+        'vib_scaling': '0.991',         # Associated scaling to the theory
+        'threads': '6',                 # Number of processors used in g09; affects the bonds and dihedral scans
+        'memory': '2',                  # Amount of memory (in GB); specified in the g09 scripts
+        'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using psi4 and geometric so far
+        'iterations': '100',            # Max number of optimisation iterations
+        'bonds_engine': 'psi4',         # Engine used for bonds calculations
         'charges_engine': 'chargemol',  # Engine used for charges calculations
-        'ddec_version': '6',  # DDEC version used by chargemol, 6 recommended but 3 is also available
-        'geometric': 'True',  # Use geometric for optimised structure (if False, will just use psi4)
-        'solvent': 'True',  # Use a solvent in the psi4/gaussian09 input
+        'ddec_version': '6',            # DDEC version used by chargemol, 6 recommended but 3 is also available
+        'geometric': 'True',            # Use geometric for optimised structure (if False, will just use psi4)
+        'solvent': 'True',              # Use a solvent in the psi4/gaussian09 input
     }
 
     fitting = {
-        'dih_start': '0',  # Starting angle of dihedral scan
-        'increment': '15',  # Angle increase increment
-        'num_scan': '25',  # Number of optimisations around the dihedral angle
-        't_weight': 'infinity',  # Weighting temperature that can be changed to better fit complicated surfaces
-        'new_dih_num': '501',  # Parameter number for the new dihedral to be fit
-        'q_file': 'results.dat',  # If the results are collected with QuBeKit this is always true
-        'tor_limit': '20',  # Torsion Vn limit to speed up fitting
-        'div_index': '0',  # Fitting starting index in the division array
-        'parameter_engine': 'openff',  # Method used for initial parametrisation
+        'dih_start': '0',               # Starting angle of dihedral scan
+        'increment': '15',              # Angle increase increment
+        'num_scan': '25',               # Number of optimisations around the dihedral angle
+        't_weight': 'infinity',         # Weighting temperature that can be changed to better fit complicated surfaces
+        'new_dih_num': '501',           # Parameter number for the new dihedral to be fit
+        'q_file': 'results.dat',        # If the results are collected with QuBeKit this is always true
+        'tor_limit': '20',              # Torsion Vn limit to speed up fitting
+        'div_index': '0',               # Fitting starting index in the division array
+        'parameter_engine': 'openff',   # Method used for initial parametrisation
     }
 
     descriptions = {
         'chargemol': '/home/QUBEKit_user/chargemol_09_26_2017',  # Location of the chargemol program directory
-        'log': '999',  # Default string for the working directories and logs
+        'log': '999',                   # Default string for the working directories and logs
     }
 
     help = {
@@ -83,13 +83,12 @@ class Configure:
     def load_config(config_file='default_config'):
         """This method loads and returns the selected config file."""
 
-        # Check if the default has been given
         if config_file == 'default_config':
 
-            # Now check if the user has made a new master file that we should use
+            # Check if the user has made a new master file to use
             if not Configure.check_master():
 
-                # if there is no master then assign the default config
+                # If there is no master then assign the default config
                 qm, fitting, descriptions = Configure.qm, Configure.fitting, Configure.descriptions
 
             # else load the master file
@@ -105,7 +104,7 @@ class Configure:
 
         # Now cast the numbers
         clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start', 'increment',
-                        'num_scan', 'new_dih_num', 'tor_limit', 'div_index']
+                      'num_scan', 'new_dih_num', 'tor_limit', 'div_index']
 
         for key in clean_ints:
             if key in qm.keys():
@@ -126,7 +125,7 @@ class Configure:
         else:
             qm['solvent'] = False
 
-        # Now handle the wight temp
+        # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
             fitting['t_weight'] = float(fitting['t_weight'])
 
@@ -134,7 +133,7 @@ class Configure:
 
     @staticmethod
     def ini_parser(ini):
-        """parse an ini type config file and return the arguments as dictionaries."""
+        """Parse an ini type config file and return the arguments as dictionaries."""
 
         config = ConfigParser(allow_no_value=True)
         config.read(ini)
@@ -148,22 +147,19 @@ class Configure:
     def check_master():
         """Check if there is a new master ini file in the configs folder."""
 
-        if path.exists(Configure.config_folder+Configure.master_file):
-            return True
-        else:
-            return False
+        return True if path.exists(Configure.config_folder + Configure.master_file) else False
 
     @staticmethod
     def ini_writer(ini):
         """Make a new configuration file in the config folder using the current master as a template."""
 
-        # make sure the ini file has an ini endding
+        # make sure the ini file has an ini ending
         if not ini.endswith('.ini'):
-            ini+='.ini'
+            ini += '.ini'
         # Check the current master template
         if Configure.check_master():
-            # if master then load
-            qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder+Configure.master_file)
+            # If master then load
+            qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder + Configure.master_file)
 
         else:
             # If default is the config file then assign the defaults
@@ -185,45 +181,20 @@ class Configure:
             config.set('DESCRIPTIONS', Configure.help[key])
             config.set('DESCRIPTIONS', key, descriptions[key])
 
-        out = open(f'{Configure.config_folder+ini}', 'w+')
-        config.write(out)
-        out.close()
-
+        with open(f'{Configure.config_folder + ini}', 'w+') as out:
+            config.write(out)
 
     @staticmethod
-    def get_name():
-        """Ask the user for the name of the ini file"""
-
-        name = input('Enter the name of the config file\n>')
-
-        return name
-
-    @staticmethod
-    def ini_edit(ini):
+    def ini_edit(ini_file):
         """Open the ini file for editing in the command line using whatever programme the user wants."""
 
-        # make sure the ini file has an ini endding
-        if not ini.endswith('.ini'):
-            ini += '.ini'
+        # Make sure the ini file has an ini ending
+        if not ini_file.endswith('.ini'):
+            ini_file += '.ini'
 
-        system(f'emacs -nw {Configure.config_folder+ini}')
+        system(f'emacs -nw {Configure.config_folder + ini_file}')
 
         return
-
-      
-#TODO remove?
-@timer_logger
-def config_loader(config_name='default_config'):
-    """Sets up the desired global parameters from the config_file input.
-    Allows different config settings for different projects, simply change the input config_name.
-    """
-
-    # if config not supplied we need to check
-    from importlib import import_module
-
-    config = import_module(f'configs.{config_name}')
-
-    return config.qm, config.fitting, config.descriptions
 
 
 @timer_logger
@@ -252,7 +223,7 @@ def get_mol_data_from_csv(csv_name):
             rows.append(row)
 
         # Creates the nested dictionaries with the names as the keys
-        final = {rows[i]['name']: rows[i] for i in range(len(rows))}
+        final = {row['name']: row for row in rows}
 
         # Removes the names from the sub-dictionaries:
         # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
@@ -282,35 +253,43 @@ def generate_config_csv(csv_name):
     return
 
 
-def extract_from_file_to_log(log_file, extract_from):
-    """Opens extract_from and finds useful information which is then printed to the log file.
-    For example, will open energy.txt and append that information to the log file.
-    """
+# def extract_from_file_to_log(log_file, extract_from, extract_what):
+#     """Opens extract_from and finds useful information which is then printed to the log file.
+#     For example, will open energy.txt and append that information to the log file.
+#     """
+#
+#     with open(log_file, 'a+') as log:
+#
+#         # Add hashes to make info more easily noticeable.
+#         log_file.write(f'\n\n{"#" * 50}\n\n')
+#
+#         if extract_from == 'energy.txt':
+#             with open(extract_from, 'r') as energy_file:
+#                 energy = float(energy_file.readline())
+#                 log.write(f'Final energy converged to {energy}')
+#
+#         # TODO Add more
+#         if extract_from == 'output.dat':
+#             pass
+#
+#         log_file.write(f'\n\n{"#" * 50}\n\n')
 
-    with open(log_file, 'a+') as log:
 
-        # Add hashes to make info more easily noticeable.
-        log_file.write(f'\n\n{"#" * 30}\n\n')
-
-        if extract_from == 'energy.txt':
-            with open(extract_from, 'r') as energy_file:
-                energy = float(energy_file.readline())
-                log.write(f'Final energy converged to {energy}')
-
-        # TODO Add more
-        if extract_from == '':
-            pass
-
-        log_file.write(f'\n\n{"#" * 30}\n\n')
-
-
-def append_to_log(log_file, message):
+def append_to_log(log_file, message, msg_type='major'):
     """Appends a message to the log file in a specific format.
     Used for significant stages in the program such as when G09 has finished.
     """
 
-    with open(log_file, 'a+') as file:
-        file.write(f'~~~~~~~~{message.upper()}~~~~~~~~\n\n-------------------------------------------------------\n\n')
+    if message:
+        with open(str(log_file), 'a+') as file:
+            if msg_type == 'major':
+                file.write(f'~~~~~~~~{message.upper()}~~~~~~~~')
+            elif msg_type == 'warning':
+                file.write(f'########{message.upper()}########')
+            elif msg_type == 'minor':
+                file.write(f'~~~~~~~~{message}~~~~~~~~')
+
+            file.write(f'\n\n{"-" * 50}\n\n')
 
 
 def get_overage(molecule):
@@ -382,7 +361,7 @@ def pretty_print(mol, to_file=False, finished=True):
     # Print to terminal: * On call
     #                    * On completion
 
-    pre_string = f'\nOn {"completion" if finished else "exception"}, the ligand objects are:\n'
+    pre_string = f'\nOn {"completion" if finished else "exception"}, the ligand objects are:'
 
     # Print to log file
     if to_file:
@@ -393,8 +372,7 @@ def pretty_print(mol, to_file=False, finished=True):
 
         with open(qube_log_file, 'a+') as log_file:
 
-            log_file.write(pre_string)
-            log_file.write(f'{mol.__str__()}')
+            log_file.write(f'{pre_string.upper()}\n\n{mol.__str__()}')
 
     # Print to terminal
     else:
@@ -420,7 +398,7 @@ def unpickle(pickle_jar):
 
     from pickle import load
 
-    mol_states = {}
+    mol_states = OrderedDict()
     mols = []
     # unpickle the pickle jar
     # try to load a pickle file make sure to get all objects

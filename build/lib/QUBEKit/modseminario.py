@@ -4,19 +4,17 @@ Originally written by Alice E. A. Allen, TCM, University of Cambridge
 Modified by Joshua T. Horton and rewritten by Chris Ringrose, Newcastle University
 Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 """
-
+# TODO Rewrite symmetrisation method when we have a good way of symmetrising molecules (see L-J file for details).
 # TODO Convert 'while x:' loops to 'for x in range():' or 'for x in y:'.
 #      (Each loop using while is 10 ops, only 3 using range, also much more readable with less code.)
 # TODO Convert for item in range(len(items): to for item in items (where possible)
 
 # Maintainability / Readability
-# TODO Move hanging functions. (Almost DONE, average_values_across_classes requires rewrite.)
 # TODO Appropriately name variables (not just i, j, k etc).
 # TODO Improve data structures. Dicts/sets/tuples over lists etc.
 # TODO Change from list appending to generator expressions. (SOMEWHAT DONE)
 
 
-from QUBEKit.helpers import config_loader
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from numpy import cross, linalg, empty, zeros, array, reshape, dot, real
@@ -47,9 +45,7 @@ class ModSemMaths:
 
         u_n = ModSemMaths.unit_vector_n(u_cb, u_ab)
 
-        u_pa = cross(u_n, u_ab) / linalg.norm(cross(u_n, u_ab))
-
-        return u_pa
+        return cross(u_n, u_ab) / linalg.norm(cross(u_n, u_ab))
 
     @staticmethod
     def dot_product(u_pa, eig_ab):
@@ -127,7 +123,7 @@ class ModSeminario:
         self.molecule = mol
         self.atom_names = self.molecule.atom_names
         # Load the configs using the config_file name.
-        self.qm, self.fitting, self.descriptions = config_loader(config_dict['config'])
+        self.qm, self.fitting, self.descriptions = config_dict[1], config_dict[2], config_dict[3]
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -166,14 +162,6 @@ class ModSeminario:
         # The bond and angle values are calculated and written to file.
         self.bonds_calculated_printed(bond_list, bond_lengths, eigenvalues, eigenvectors, coords)
         self.angles_calculated_printed(angle_list, bond_lengths, eigenvalues, eigenvectors, coords)
-
-        # TODO Move/remove.
-        # The final section finds the average bond and angle terms for each
-        # bond/angle class if the .z exists to supply angle/bond classes and then
-        # writes the new terms to a .sb file
-        # if exists(f'{inputfilefolder}Zmat.z'):
-        #     average_values_across_classes(unique_values_bonds, unique_values_angles)
-        #     sb_file_new_parameters(outputfilefolder, 'Python_Modified_Scaled')
 
     def angles_calculated_printed(self, angle_list, bond_lengths, eigenvalues, eigenvectors, coords):
         """Uses the modified Seminario method to find the angle parameters and prints them to file."""
@@ -267,7 +255,7 @@ class ModSeminario:
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
-                k_theta[i] *= (self.qm['vib scaling'] ** 2)
+                k_theta[i] *= (self.qm['vib_scaling'] ** 2)
 
                 angle_file.write(f'{i}  {self.atom_names[angle[0] - 1]}-{self.atom_names[angle[1] - 1]}-{self.atom_names[angle[2] - 1]}  ')
                 angle_file.write('{:.3f}   {:.3f}   {}   {}   {}\n'.format(k_theta[i], theta_0[i], angle[0], angle[1], angle[2]))
@@ -297,7 +285,7 @@ class ModSeminario:
                 k_b[i] = real((ab + ba) / 2)
 
                 # Vib_scaling takes into account DFT deficiencies/ anharmonicity.
-                k_b[i] *= (self.qm['vib scaling'] ** 2)
+                k_b[i] *= (self.qm['vib_scaling'] ** 2)
 
                 bond_length_list[i] = bond_lengths[bond[0] - 1][bond[1] - 1]
                 bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')
@@ -310,74 +298,3 @@ class ModSeminario:
 
         return unique_values_bonds
 
-
-# TODO This whole function should be scrapped and rewritten.
-def average_values_across_classes(unique_values_bonds, unique_values_angles):
-    """Finds the average bond and angle term for each class."""
-
-    ignore_rows_bonds = []
-
-    # Find Average Values Bonds
-    for i in range(len(unique_values_bonds)):
-        for j in range(i + 1, len(unique_values_bonds)):
-            # Finds if the bond class has already been encountered
-            if (unique_values_bonds[i][0] == unique_values_bonds[j][0]) and (unique_values_bonds[i][1] == unique_values_bonds[j][1]) or ((unique_values_bonds[i][0] == unique_values_bonds[j][1]) and (unique_values_bonds[i][1] == unique_values_bonds[j][0])):
-                unique_values_bonds[i][2] += unique_values_bonds[j][2]
-                unique_values_bonds[i][3] += unique_values_bonds[j][3]
-                unique_values_bonds[i][4] += 1
-                ignore_rows_bonds.append(j)
-
-    # Average Bonds Printed
-    with open('Average_Modified_Seminario_Bonds.txt', 'w+') as bond_file:
-
-        # Remove bond classes that were already present and find mean value
-        for i in range(len(unique_values_bonds)):
-            if i not in ignore_rows_bonds:
-                unique_values_bonds[i][2] /= unique_values_bonds[i][4]
-                unique_values_bonds[i][3] /= unique_values_bonds[i][4]
-                bond_file.write('{}-{}  {:.2f}  {:.3f}\n'.format(unique_values_bonds[i][0], unique_values_bonds[i][1], unique_values_bonds[i][2], unique_values_bonds[i][3]))
-    # Find average values angles
-    ignore_rows_angles = []
-
-    # Find Average Values Angles
-    for i in range(len(unique_values_angles)):
-        for j in range(i + 1, len(unique_values_angles)):
-            # Finds if the angle class has already been encountered
-            if (unique_values_angles[i][0] == unique_values_angles[j][0] and unique_values_angles[i][1] == unique_values_angles[j][1] and unique_values_angles[i][2] == unique_values_angles[j][2]) or (unique_values_angles[i][0] == unique_values_angles[j][2] and unique_values_angles[i][1] == unique_values_angles[j][1] and unique_values_angles[i][2] == unique_values_angles[j][0]):
-                unique_values_angles[i][3] += unique_values_angles[j][3]
-                unique_values_angles[i][4] += unique_values_angles[j][4]
-                unique_values_angles[i][5] += 1
-                ignore_rows_angles.append(j)
-
-    # Average Angles Printed
-    with open('Average_Modified_Seminario_Angles.txt', 'w+') as angle_file:
-
-        # Remove angles classes that were already present and find mean value
-        for i in range(len(unique_values_angles)):
-            if i not in ignore_rows_angles:
-                unique_values_angles[i][3] /= unique_values_angles[i][5]
-                unique_values_angles[i][4] /= unique_values_angles[i][5]
-                angle_file.write('{}-{}-{}  {:.2f}  {:.3f}\n'.format(unique_values_angles[i][0], unique_values_angles[i][1], unique_values_angles[i][2], unique_values_angles[i][3], unique_values_angles[i][4]))
-
-
-# TODO Move to different file (probably ligand or helpers file).
-def sb_file_new_parameters(inputfilefolder, filename):
-    """Takes new angle and bond terms and puts them into an sb file with name: filename_seminario.sb"""
-
-    with open(f'{inputfilefolder}Average_Modified_Seminario_Angles.txt', 'r') as angle_file, \
-            open(f'{inputfilefolder}Average_Modified_Seminario_Bonds.txt', 'r') as bond_file:
-
-        angles = [line.strip().split('  ') for line in angle_file]
-        bonds = [line.strip().split('  ') for line in bond_file]
-
-    with open(f'{inputfilefolder}{filename}_Seminario.sb', 'wt') as sb_file:
-
-        sb_file.write('Bond Stretching and Angle Bending Parameters\n')
-
-        for bond in bonds:
-            sb_file.write(f'{bond[0]}, {bond[1]}, {bond[2]}\n')
-
-        sb_file.write('\n\n')
-
-        for angle in angles:
-            sb_file.write(f'{angle[0]}-{angle[1]}-{angle[2]}\n')

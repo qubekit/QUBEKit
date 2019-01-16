@@ -6,7 +6,7 @@
 #       Maybe add path checking for chargemol?
 
 
-from QUBEKit.helpers import get_overage, check_symmetry
+from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import call as sub_call
@@ -69,12 +69,12 @@ class PSI4(Engines):
             input_file.write(' units angstrom\n no_reorient\n}}\n\nset {{\n basis {}\n'.format(self.qm['basis']))
 
             if optimize:
-                print('Writing psi4 optimisation input')
+                append_to_log(self.engine_mol.log_file, 'Writing PSI4 optimisation input', 'minor')
                 setters += ' g_convergence {}\n GEOM_MAXITER {}\n'.format(self.qm['convergence'], self.qm['iterations'])
                 tasks += "\noptimize('{}')".format(self.qm['theory'].lower())
 
             if hessian:
-                print('Writing psi4 hessian calculation input')
+                append_to_log(self.engine_mol.log_file, 'Writing PSI4 Hessian matrix calculation input', 'minor')
                 setters += ' hessian_write on\n'
 
                 tasks += "\nenergy, wfn = frequency('{}', return_wfn=True)".format(self.qm['theory'].lower())
@@ -82,11 +82,10 @@ class PSI4(Engines):
                 tasks += '\nwfn.hessian().print_out()\n\n'
 
             if density:
-                print('Writing psi4 density calculation input')
+                append_to_log(self.engine_mol.log_file, 'Writing PSI4 density calculation input', 'minor')
                 setters += " cubeprop_tasks ['density']\n"
                 # See helpers.get_overage for info.
 
-                # print('Calculating overage for psi4 and chargemol.')
                 overage = get_overage(self.engine_mol.name)
                 setters += " CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage)
                 setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
@@ -94,7 +93,6 @@ class PSI4(Engines):
 
             # TODO If overage cannot be made to work, delete and just use Gaussian. (looking more likely every day.)
             # if self.qm['solvent']:
-            #     print('Setting pcm parameters.')
             #     setters += ' pcm true\n pcm_scf_type total\n'
             #     tasks += '\n\npcm = {'
             #     tasks += '\n units = Angstrom\n Medium {\n  SolverType = IEFPCM\n  Solvent = Chloroform\n }'
@@ -103,13 +101,13 @@ class PSI4(Engines):
 
             setters += '}\n'
 
+            # TODO Always use threads? sub_call below currently ignores True/False argument input anyway.
             if threads:
                 setters += f'set_num_threads({self.qm["threads"]})\n'
 
             input_file.write(setters)
             input_file.write(tasks)
 
-        print('Runing quantum calculation using Psi4')
         sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     def hessian(self):
@@ -173,10 +171,7 @@ class PSI4(Engines):
 
             check_symmetry(hess_matrix)
 
-            print(f'Extracted Hessian for {self.engine_mol.name} from psi4 output')
-            self.engine_mol.hessian = hess_matrix
-
-            return self.engine_mol
+            return hess_matrix
 
     def optimised_structure(self):
         """Parses the final optimised structure from the output.dat file (from psi4) to a numpy array."""
@@ -214,10 +209,7 @@ class PSI4(Engines):
 
                 opt_struct.append(struct_row)
 
-        print(f'Extracted optimised structure for {self.engine_mol.name} from psi4 output')
-        self.engine_mol.QMoptimized = opt_struct
-
-        return self.engine_mol
+        return array(opt_struct)
 
     def all_modes(self):
         """Extract all modes from the psi4 output file."""
@@ -249,9 +241,8 @@ class PSI4(Engines):
                 structures += lines[start_of_vals + row].replace("'", "").replace("]", "").split()
 
             all_modes = [float(val) for val in structures]
-            self.engine_mol.modes = array(all_modes)
 
-            return self.engine_mol
+            return array(all_modes)
 
     def geo_gradient(self, QM=False, MM=False, run=True, threads=False):
         """Write the psi4 style input file to get the gradient for geometric
@@ -278,12 +269,9 @@ class PSI4(Engines):
             file.write("\n\ngradient('{}')\n".format(self.qm['theory']))
 
         if run:
-            print('Optimizing molecule using Psi4 and geometric')
             with open('log.txt', 'w+') as log:
                 sub_call(f'geometric-optimize --psi4 {self.engine_mol.name}.psi4in --nt {self.qm["threads"]}',
                          shell=True, stdout=log)
-        else:
-            print('Geometric psi4 optimise file written')
 
 
 @for_all_methods(timer_logger)
@@ -299,7 +287,9 @@ class Chargemol(Engines):
         """
 
         if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
-            print('Invalid or unsupported DDEC version given, running with default version 6.')
+            append_to_log(log_file=self.engine_mol.log_file,
+                          message='Invalid or unsupported DDEC version given, running with default version 6.',
+                          msg_type='warning')
             self.qm['ddec_version'] = 6
 
         # Write the charges job file.
@@ -323,7 +313,6 @@ class Chargemol(Engines):
         # sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
         # sub_call('mv Dt.cube total_density.cube', shell=True)
 
-        print(f'Partitioning charges with DDEC{self.qm["ddec_version"]}')
         sub_call(f'{self.descriptions["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
                  shell=True)
 
@@ -391,7 +380,6 @@ class Gaussian(Engines):
             # Blank lines because Gaussian.
             input_file.write('\n\n')
 
-        print('Running Gaussian09 analysis')
         sub_call(f'g09 < gj_{self.engine_mol.name} > gj_{self.engine_mol.name}.log', shell=True)
 
     def hessian(self):
@@ -429,7 +417,6 @@ class Gaussian(Engines):
 
         check_symmetry(hessian)
 
-        print(f'Extracted Hessian matrix for {self.engine_mol.name} from Gaussian fchk file.')
         return hessian
 
     def optimised_structure(self):
@@ -458,7 +445,6 @@ class Gaussian(Engines):
                     # Takes atom name from molecule object and appends the *unpacked coordinates from the log file.
                     opt_struct.append([self.engine_mol.molecule[atom_index][0], *line.split()[-3:]])
 
-        print(f'Extracted optimised structure for {self.engine_mol.name} from Gaussian log file.')
         return array(opt_struct)
 
     def all_modes(self):
@@ -481,5 +467,4 @@ class Gaussian(Engines):
             for pos in freq_positions:
                 freqs.extend(float(num) for num in lines[pos].split()[2:])
 
-        print(f'Extracted frequencies for {self.engine_mol.name} from Gaussian log file.')
         return array(freqs)
