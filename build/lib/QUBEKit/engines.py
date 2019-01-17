@@ -209,7 +209,7 @@ class PSI4(Engines):
 
                 opt_struct.append(struct_row)
 
-        return array(opt_struct)
+        return opt_struct
 
     def all_modes(self):
         """Extract all modes from the psi4 output file."""
@@ -440,12 +440,13 @@ class Gaussian(Engines):
 
             opt_struct = []
 
-            for line in lines[start_pos: start_pos + num_atoms]:
-                for atom_index in range(num_atoms):
-                    # Takes atom name from molecule object and appends the *unpacked coordinates from the log file.
-                    opt_struct.append([self.engine_mol.molecule[atom_index][0], *line.split()[-3:]])
+            for count, line in enumerate(lines[start_pos: start_pos + num_atoms]):
 
-        return array(opt_struct)
+                vals = line.split()[-3:]
+                vals = [self.engine_mol.molecule[count][0]] + [float(i) for i in vals]
+                opt_struct.append(vals)
+
+        return opt_struct
 
     def all_modes(self):
         """Extract the frequencies from the Gaussian log file."""

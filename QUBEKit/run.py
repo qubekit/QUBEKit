@@ -17,7 +17,8 @@ from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, append_t
 from QUBEKit.decorators import exception_logger_decorator
 
 from sys import argv as cmdline
-from os import mkdir, chdir, path, listdir
+from sys import exit as sys_exit
+from os import mkdir, chdir, path, listdir, walk
 from shutil import copy
 from collections import OrderedDict
 from functools import partial
@@ -57,9 +58,9 @@ class Main:
                                   ('finalise', self.finalise)])
 
         # Parse the input commands to find the config file, and save changes to configs
-        self.file, self.commands = self.parse_commands()
         self.log_file = None
         self.qm_engine = None
+        self.file, self.commands = self.parse_commands()
 
         # Find which config is being used and store arguments accordingly
         if self.defaults_dict['config'] == 'default_config':
@@ -158,7 +159,7 @@ class Main:
             if cmd == '-csv':
                 csv_name = self.commands[count + 1]
                 generate_config_csv(csv_name)
-                exit()
+                sys_exit()
 
             if cmd == '-setup':
 
@@ -179,11 +180,11 @@ class Main:
                     Configure.ini_edit(name)
                 else:
                     raise KeyError('Invalid selection; please choose from 1, 2 or 3.')
-                exit()
+                sys_exit()
 
             if cmd == '-progress':
                 pretty_progress()
-                exit()
+                sys_exit()
 
             if cmd == '-c':
                 self.defaults_dict['charge'] = int(self.commands[count + 1])
@@ -236,27 +237,63 @@ class Main:
 
                     bulk_data = get_mol_data_from_csv(csv_file)
 
-                    # Run full analysis for each smiles string or pdb in the .csv file
+                    # Run full analysis for each smiles string or pdb in the .csv file.
                     names = list(bulk_data.keys())
+                    # Store a copy of self.order which will not be mutated.
+                    # This allows self.order to be built up after each run.
+                    temp = self.order
 
                     for name in names:
+
                         print(f'Currently analysing: {name}')
 
-                        if self.commands[count + 1] == 'smiles':
-                            smile_string = bulk_data[name]['smiles string']
-                            self.file = smiles_to_pdb(smile_string, name)
+                        # Set the start + end points to what is given in the csv. See the -restart / -end section below
+                        # for further details and better documentation.
+                        start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'rdkit_optimise'
+                        end_point = bulk_data[name]['end']
+                        stages = [key for key in temp.keys()]
+                        extra = 1 if end_point != 'finalise' else 0
+                        stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
+                        self.order = OrderedDict(pair for pair in temp.items() if pair[0] in set(stages))
 
-                        elif self.commands[count + 1] == 'pdb':
-                            self.file = name + '.pdb'
-
-                        self.defaults_dict = get_mol_data_from_csv(csv_file)[name]
+                        # Configs
+                        self.defaults_dict = bulk_data[name]
                         self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
-                        self.create_log()
-                        self.execute()
-                        chdir('../')
+                        self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
+
+                        # If starting from the beginning, create log and execute as normal for each run
+                        if start_point == 'rdkit_optimise':
+
+                            if self.commands[count + 1] == 'smiles':
+                                smile_string = bulk_data[name]['smiles string']
+                                self.file = smiles_to_pdb(smile_string, name)
+
+                            elif self.commands[count + 1] == 'pdb':
+                                self.file = name + '.pdb'
+
+                            self.create_log()
+                            self.execute()
+                            chdir('../')
+
+                        # If starting from the middle somewhere, FIND (not create) the folder and log file then execute
+                        else:
+                            for root, dirs, files in walk('.', topdown=True):
+                                for dir_name in dirs:
+                                    if dir_name.startswith(f'QUBEKit_{name}'):
+                                        chdir(dir_name)
+
+                                        # These are the files in the active directory, search for the pdb and log file.
+                                        files = [file for file in listdir('.') if path.isfile(file)]
+                                        self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('sed.pdb')][0]
+                                        self.log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+
+                                        self.execute()
+                                        chdir('../')
+                                        # Break out of the loop to prevent over-searching
+                                        break
 
                     print('Finished bulk run. Use the command -progress to view which stages have completed.')
-                    exit()
+                    sys_exit()
 
                 else:
                     raise Exception('Bulk commands only supported for pdb files or csv file containing smiles strings. '
@@ -284,7 +321,7 @@ class Main:
                 # Add finalise back in if it's removed (finalise should always be called).
                 stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
 
-                # reset self.order to only contain the key, val pairs from stages
+                # Redefine self.order to only contain the key, val pairs from stages
                 self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
 
                 if '-restart' in cmd:
@@ -319,10 +356,10 @@ class Main:
     def create_log(self):
         """Creates the working directory for the job as well as the log file.
         This log file is then extended when:
-                    decorators.timer_logger wraps a called method;
-                    helpers.append_to_log() is called;
-                    helpers.pretty_print() is called with to_file set to True;
-                    decorators.exception_logger_decorator() wraps a function which throws an exception.
+            decorators.timer_logger wraps a called method;
+            helpers.append_to_log() is called;
+            helpers.pretty_print() is called with to_file set to True;
+            decorators.exception_logger_decorator() wraps a function which throws an exception.
         """
 
         date = datetime.now().strftime('%Y_%m_%d')
@@ -427,7 +464,7 @@ class Main:
 
         else:
             self.qm_engine.generate_input(MM=True, optimize=True)
-            self.qm_engine.optimised_structure()
+            mol.QMoptimized = self.qm_engine.optimised_structure()
 
         append_to_log(self.log_file,
                       f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
@@ -546,6 +583,5 @@ class Main:
         return
 
 
-if __name__ == '__main__':
-
+def main():
     Main()

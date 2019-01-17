@@ -197,7 +197,6 @@ class Configure:
         return
 
 
-@timer_logger
 def get_mol_data_from_csv(csv_name):
     """Scan the csv file to find the row with the desired molecule data.
     Returns a dictionary of dictionaries in the form:
@@ -220,6 +219,7 @@ def get_mol_data_from_csv(csv_name):
             # Converts empty string to None (looks a bit weird, I know) otherwise leaves it alone.
             row['smiles string'] = row['smiles string'] if row['smiles string'] else None
             row['torsion order'] = row['torsion order'] if row['torsion order'] else None
+            row['end'] = row['end'] if row['end'] else 'finalise'
             rows.append(row)
 
         # Creates the nested dictionaries with the names as the keys
@@ -246,8 +246,7 @@ def generate_config_csv(csv_name):
     with open(csv_name, 'w') as csv_file:
 
         file_writer = writer(csv_file, delimiter=',', quotechar='|', quoting=QUOTE_MINIMAL)
-        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles string', 'torsion order'])
-        # file_writer.writerow(['default', 0, 1, 'default_config', '', ''])
+        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles string', 'torsion order', 'start', 'end'])
 
     print(f'{csv_name} generated.')
     return
