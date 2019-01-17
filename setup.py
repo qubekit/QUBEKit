@@ -12,7 +12,7 @@ setup(
     packages=find_packages(),
     author=['Joshua Thomas Horton', 'Chris Ringrose'],
     entry_points={'console_scripts': [
-        'QUBEKit = QUBEKit.run:Main',
+        'QUBEKit = QUBEKit.run:main',
         'QUBEKit-josh = QUBEKit.tests_josh:main',
         'QUBEKit-chris = QUBEKit.tests_chris:main'
     ], },
