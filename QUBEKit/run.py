@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# TODO Add bulk analysis when pickling
-# TODO Reprint commands and defaults to log if using -restart command
 # TODO If any defaults are changed when rerunning via -restart, print the defaults again and
 #       add an * next to the changed values.
 
@@ -201,11 +199,8 @@ class Main:
             if cmd == '-bonds':
                 self.configs['qm']['bonds_engine'] = str(self.commands[count + 1])
 
-            if any(s in cmd for s in ('-cmol', '-chargemol')):
-                self.configs['qm']['charges_engine'] = 'chargemol'
-
-            if cmd == '-onetep':
-                self.configs['qm']['charges_engine'] = 'onetep'
+            if cmd == '-charges':
+                self.configs['qm']['charges_engine'] = str(self.commands[count + 1])
 
             if cmd == '-log':
                 self.configs['descriptions']['log'] = str(self.commands[count + 1])
@@ -286,6 +281,8 @@ class Main:
                                         files = [file for file in listdir('.') if path.isfile(file)]
                                         self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('sed.pdb')][0]
                                         self.log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+
+                                        # TODO Print any changed defaults to the log file.
 
                                         self.execute()
                                         chdir('../')
@@ -460,7 +457,7 @@ class Main:
 
             # Calc geometric-related gradient and geometry
             self.qm_engine.geo_gradient(MM=True)
-            mol.read_xyz_geo()
+            mol.read_xyz()
 
         else:
             self.qm_engine.generate_input(MM=True, optimize=True)
@@ -498,8 +495,6 @@ class Main:
 
     def density(self, mol):
         """Perform density calculation with the qm engine."""
-
-        # TODO Change execution method to be similar to bonds method whereby any engine can be implemented more easily.
 
         g09 = Gaussian(mol, self.all_configs)
         g09.generate_input(QM=True, density=True, solvent=self.qm['solvent'])
@@ -545,7 +540,7 @@ class Main:
 
         mol.write_parameters()
 
-        # Print ligand objects to terminal and log file
+        # Print ligand objects to log file and terminal
         pretty_print(mol, to_file=True)
         pretty_print(mol)
 

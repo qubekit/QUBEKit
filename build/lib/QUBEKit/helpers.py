@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 
-from QUBEKit.decorators import timer_logger
-
 from csv import DictReader, writer, QUOTE_MINIMAL
 from os import walk, listdir, path, system
 from collections import OrderedDict
@@ -252,33 +250,12 @@ def generate_config_csv(csv_name):
     return
 
 
-# def extract_from_file_to_log(log_file, extract_from, extract_what):
-#     """Opens extract_from and finds useful information which is then printed to the log file.
-#     For example, will open energy.txt and append that information to the log file.
-#     """
-#
-#     with open(log_file, 'a+') as log:
-#
-#         # Add hashes to make info more easily noticeable.
-#         log_file.write(f'\n\n{"#" * 50}\n\n')
-#
-#         if extract_from == 'energy.txt':
-#             with open(extract_from, 'r') as energy_file:
-#                 energy = float(energy_file.readline())
-#                 log.write(f'Final energy converged to {energy}')
-#
-#         # TODO Add more
-#         if extract_from == 'output.dat':
-#             pass
-#
-#         log_file.write(f'\n\n{"#" * 50}\n\n')
-
-
 def append_to_log(log_file, message, msg_type='major'):
     """Appends a message to the log file in a specific format.
     Used for significant stages in the program such as when G09 has finished.
     """
 
+    # Check if the message is a blank string to avoid adding blank lines and separators
     if message:
         with open(str(log_file), 'a+') as file:
             if msg_type == 'major':
@@ -362,7 +339,7 @@ def pretty_print(mol, to_file=False, finished=True):
 
     pre_string = f'\nOn {"completion" if finished else "exception"}, the ligand objects are:'
 
-    # Print to log file
+    # Print to log file rather than to terminal
     if to_file:
 
         # Find log file name
@@ -370,13 +347,12 @@ def pretty_print(mol, to_file=False, finished=True):
         qube_log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
 
         with open(qube_log_file, 'a+') as log_file:
-
             log_file.write(f'{pre_string.upper()}\n\n{mol.__str__()}')
 
     # Print to terminal
     else:
-
         print(pre_string)
+        # Custom __str__ method; see its documentation for details.
         print(mol.__str__(trunc=True))
 
 

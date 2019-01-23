@@ -114,6 +114,53 @@ class Parametrisation:
         for key in self.molecule.PeriodicTorsionForce.keys():
             self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
 
+    def symmetrise(self):
+        """Search the xml and generate a dictionary based on the calculated Lennard-Jones parameters.
+        Each Lennard-Jones parameter value will be assigned as a dictionary key.
+        The values are then whichever atoms have that Lennard-Jones parameter.
+        For example, for methane:
+            self.molecule.symmetry_types = {0.4577296: [0], 0.0656887: [1, 2, 3, 4]}
+        Here there is one Carbon atom with a particular L-J parameter: 0.4577296.
+        This Carbon atom is the zeroth atom in the list; the list being self.molecule.molecule.
+        Then there are four Hydrogen atoms, each with the same L-J parameter: 0.0656887;
+        their positions in self.molecule.molecule are 1, 2, 3, 4.
+        """
+
+        with open('serialized.xml', 'r') as xml_file:
+
+            lines = xml_file.readlines()
+
+            # Find where the sigma values are kept
+            for count, line in enumerate(lines):
+                if 'sig=' in line:
+                    start_pos = count
+                    break
+            else:
+                raise EOFError('Cannot find epsilon values in xml file.')
+
+            # Identify the range of the lines to be read based on the number of atoms in the molecule
+            end_pos = start_pos + len(self.molecule.molecule)
+
+            # Extract the sigma values which will be used as keys
+            eps_list = [float(lines[i].split('"')[1]) for i in range(start_pos, end_pos)]
+
+        eps_dict = {}
+
+        for a_type in range(len(eps_list)):
+
+            # If a sigma value exists as a key, extend that key's list with the atom's index
+            if eps_list[a_type] in eps_dict.keys():
+                eps_dict[eps_list[a_type]] += [a_type]
+            # Otherwise, create a new key with the [atom index] as the value
+            else:
+                eps_dict[eps_list[a_type]] = [a_type]
+
+        # Convert dictionary to list of lists where each inner list is the values from the eps_dict
+        groups = [val for key, val in eps_dict.items()]
+
+        # Set the variable in the ligand class object
+        self.molecule.symmetry_types = groups
+
 
 @for_all_methods(timer_logger)
 class XML(Parametrisation):
@@ -124,6 +171,7 @@ class XML(Parametrisation):
         super().__init__(molecule, input_file, fftype)
         self.parametrise()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
+        self.symmetrise()
 
     def serialize_system(self):
         """Serialize the input XML system using openmm."""
@@ -167,6 +215,7 @@ class AnteChamber(Parametrisation):
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
+        self.symmetrise()
 
     def parametrise(self):
         """This is the master function of the class
@@ -266,6 +315,7 @@ class OpenFF(Parametrisation):
         super().__init__(molecule, input_file, fftype)
         self.parametrise()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
+        self.symmetrise()
 
     def parametrise(self):
         """This is the master function of the class
@@ -313,6 +363,7 @@ class BOSS(Parametrisation):
         super().__init__(molecule, input_file, fftype)
         self.parametrise()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
+        self.symmetrise()
 
     def parametrise(self):
         """This is the master function of the class

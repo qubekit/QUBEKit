@@ -15,10 +15,10 @@ class Ligand:
 
         self.filename = filename
         self.name = filename[:-4]
-        self.molecule = None
+        self.molecule = None                # List of lists where the inner list is the atom type followed by its coords
         self.topology = None
         self.smiles = smilesstring
-        self.angles = None
+        self.angles = None                  # Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
         self.dihedrals = None
         self.rotatable = None
         self.scan_order = None
@@ -38,12 +38,13 @@ class Ligand:
         self.QM_scan_energy = {}
         self.MM_scan_energy = {}
         self.descriptors = {}
-        self.AtomTypes = {}
+        self.AtomTypes = {}                 # Basic non-symmetrised atoms types
+        self.symmetry_types = []            # Symmetrised atom types
         self.Residues = {}
         self.HarmonicBondForce = {}
         self.HarmonicAngleForce = {}
         self.PeriodicTorsionForce = {}
-        self.NonbondedForce = {}
+        self.NonbondedForce = {}            # Key = atom name: val = charges and L-J parameters
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -51,7 +52,7 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
-        self.log_file = None
+        self.log_file = None                # Full log file name used by the run file in special run cases
 
     element_dict = {'H': 1.008000,      # Group 1
                     'C': 12.011000,     # Group 4
@@ -295,10 +296,10 @@ class Ligand:
         Only for small molecules, not standard residues. No size limit.
         """
 
-        if MM:
-            molecule = self.MMoptimized
-        elif QM:
+        if QM:
             molecule = self.QMoptimized
+        elif MM:
+            molecule = self.MMoptimized
         else:
             molecule = self.molecule
 
@@ -396,32 +397,40 @@ class Ligand:
         # Store the tree back into the molecule
         self.xml_tree = ElementTree(root)
 
-    def read_xyz_geo(self):
-        """Read a geometric opt.xyz file to find the molecule array structure."""
+    def read_xyz(self, name=None):
+        """Read an xyz file to store the molecule structure."""
 
         opt_molecule = []
-        write = False
 
         # opt.xyz is the geometric optimised structure file.
-        with open('opt.xyz', 'r') as opt:
-            lines = opt.readlines()
+        with open(f'{name if name else "opt"}.xyz', 'r') as xyz_file:
+            lines = xyz_file.readlines()[2:]
             for line in lines:
                 line = line.split()
-                if 'Iteration' in line:
-                    # print(f'Optimisation converged at iteration {int(line[1])} with final energy {float(line[3])}')
-                    write = True
+                opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
 
-                elif write:
-                    opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
         self.QMoptimized = opt_molecule
+
         return self
 
-    def read_xyz(self, QM=False, MM=True):
-        """Read a general xyz file format and return the structure array.
-        QM and MM decide where it will be stored in the molecule.
-        """
+    def write_xyz(self, QM=False, MM=False, name=None):
+        """Write a general xyz file. QM and MM decide where it will be written from in the ligand class."""
 
-        pass
+        if QM:
+            molecule = self.QMoptimized
+        elif MM:
+            molecule = self.MMoptimized
+        else:
+            molecule = self.molecule
+
+        with open(f'{name if name else self.name}.xyz', 'w+') as xyz_file:
+
+            xyz_file.write(f'{len(molecule)}\n')
+            xyz_file.write('xyz file generated with QUBEKit\n')
+
+            for atom in molecule:
+                # Format with spacing
+                xyz_file.write('{}       {: .10f}   {: .10f}   {: .10f} \n'.format(atom[0], atom[1], atom[2], atom[3]))
 
     def pickle(self, state=None):
         """Pickles the ligand object in its current state to the (hidden) pickle file.
