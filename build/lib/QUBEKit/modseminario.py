@@ -8,8 +8,6 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 # TODO Convert 'while x:' loops to 'for x in range():' or 'for x in y:'.
 #      (Each loop using while is 10 ops, only 3 using range, also much more readable with less code.)
 # TODO Convert for item in range(len(items): to for item in items (where possible)
-
-# Maintainability / Readability
 # TODO Appropriately name variables (not just i, j, k etc).
 # TODO Improve data structures. Dicts/sets/tuples over lists etc.
 # TODO Change from list appending to generator expressions. (SOMEWHAT DONE)
@@ -298,3 +296,9 @@ class ModSeminario:
 
         return unique_values_bonds
 
+    def apply_symmetry(self):
+
+        for group, vals in self.molecule.symmetry_types.item():
+
+
+            pass

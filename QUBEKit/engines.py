@@ -31,7 +31,7 @@ class Engines:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
 
-@for_all_methods(timer_logger)
+# @for_all_methods(timer_logger)
 class PSI4(Engines):
     """Writes and executes input files for psi4.
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
@@ -45,7 +45,8 @@ class PSI4(Engines):
         if self.qm['theory'] in list(self.functional_dict.keys()):
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, threads=False):
+    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, threads=False,
+                       fchk=False, run=True):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
 
         if QM:
@@ -84,14 +85,19 @@ class PSI4(Engines):
             if density:
                 append_to_log(self.engine_mol.log_file, 'Writing PSI4 density calculation input', 'minor')
                 setters += " cubeprop_tasks ['density']\n"
-                # See helpers.get_overage for info.
 
                 overage = get_overage(self.engine_mol.name)
                 setters += " CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage)
                 setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
                 tasks += "grad, wfn = gradient('{}', return_wfn=True)\ncubeprop(wfn)".format(self.qm['theory'].lower())
 
-            # TODO If overage cannot be made to work, delete and just use Gaussian. (looking more likely every day.)
+            if fchk:
+                append_to_log(self.engine_mol.log_file, 'Writing PSI4 input file to generate fchk file')
+                tasks += '\ngrad, wfn = gradient("{}", return_wfn=True)'.format(self.qm['theory'].lower())
+                tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
+                tasks += '\nfchk_writer.write("{}_psi4.fchk")\n'.format(self.engine_mol.name)
+
+            # TODO If overage cannot be made to work, delete and just use Gaussian.
             # if self.qm['solvent']:
             #     setters += ' pcm true\n pcm_scf_type total\n'
             #     tasks += '\n\npcm = {'
@@ -108,7 +114,8 @@ class PSI4(Engines):
             input_file.write(setters)
             input_file.write(tasks)
 
-        sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
+        if run:
+            sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     def hessian(self):
         """Parses the Hessian from the output.dat file (from psi4) into a numpy array.
@@ -244,7 +251,7 @@ class PSI4(Engines):
 
             return array(all_modes)
 
-    def geo_gradient(self, QM=False, MM=False, run=True, threads=False):
+    def geo_gradient(self, QM=False, MM=False, threads=False, run=True):
         """Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
         """
@@ -281,7 +288,7 @@ class Chargemol(Engines):
 
         super().__init__(molecule, config_file)
 
-    def generate_input(self):
+    def generate_input(self, run=True):
         """Given a DDEC version (from the defaults), this function writes the job file for chargemol and
         executes it.
         """
@@ -295,7 +302,6 @@ class Chargemol(Engines):
         # Write the charges job file.
         with open('job_control.txt', 'w+') as charge_file:
 
-            # charge_file.write(f'<input filename>\n{self.engine_mol.name}.wfx\n</input filename>')
             charge_file.write(f'<input filename>\n{self.engine_mol.name}.wfx\n</input filename>')
 
             charge_file.write('\n\n<net charge>\n0.0\n</net charge>')
@@ -313,8 +319,9 @@ class Chargemol(Engines):
         # sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
         # sub_call('mv Dt.cube total_density.cube', shell=True)
 
-        sub_call(f'{self.descriptions["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
-                 shell=True)
+        if run:
+            sub_call(f'{self.descriptions["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
+                     shell=True)
 
 
 @for_all_methods(timer_logger)
@@ -331,7 +338,7 @@ class Gaussian(Engines):
         if self.qm['theory'] in list(self.functional_dict.keys()):
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, solvent=False):
+    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, solvent=False, run=True):
         """Generates the relevant job file for Gaussian, then executes this job file."""
 
         if QM:
@@ -348,7 +355,6 @@ class Gaussian(Engines):
             commands = f'# {self.qm["theory"]}/{self.qm["basis"]} SCF=XQC '
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
-
             if optimize:
                 commands += 'opt '
 
@@ -380,7 +386,8 @@ class Gaussian(Engines):
             # Blank lines because Gaussian.
             input_file.write('\n\n')
 
-        sub_call(f'g09 < gj_{self.engine_mol.name} > gj_{self.engine_mol.name}.log', shell=True)
+        if run:
+            sub_call(f'g09 < gj_{self.engine_mol.name} > gj_{self.engine_mol.name}.log', shell=True)
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""

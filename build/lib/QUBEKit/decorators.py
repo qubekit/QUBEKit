@@ -116,14 +116,6 @@ def exception_logger_decorator(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
-            # MRO PROBLEMS - REQUIRES HEFTY REWORK
-            # files = [file for file in listdir('.') if path.isfile(file)]
-            # pickle_file = [file for file in files if file.endswith('_states')][0]
-            #
-            # mol_states = unpickle(pickle_file)
-            # mol = [v for k, v in reversed(mol_states)][0]
-            # pretty_print(mol, to_file=True, finished=False)
-
             # TODO Print the ligand class objects to the log file as well. Before or after the exception statement?
 
             # Re-raises the exception

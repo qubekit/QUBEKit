@@ -8,8 +8,6 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 # TODO Convert 'while x:' loops to 'for x in range():' or 'for x in y:'.
 #      (Each loop using while is 10 ops, only 3 using range, also much more readable with less code.)
 # TODO Convert for item in range(len(items): to for item in items (where possible)
-
-# Maintainability / Readability
 # TODO Appropriately name variables (not just i, j, k etc).
 # TODO Improve data structures. Dicts/sets/tuples over lists etc.
 # TODO Change from list appending to generator expressions. (SOMEWHAT DONE)
@@ -160,10 +158,10 @@ class ModSeminario:
                 eigenvectors[:, :, i, j] = b
 
         # The bond and angle values are calculated and written to file.
-        self.bonds_calculated_printed(bond_list, bond_lengths, eigenvalues, eigenvectors, coords)
-        self.angles_calculated_printed(angle_list, bond_lengths, eigenvalues, eigenvectors, coords)
+        self.calculate_bonds(bond_list, bond_lengths, eigenvalues, eigenvectors, coords)
+        self.calculate_angles(angle_list, bond_lengths, eigenvalues, eigenvectors, coords)
 
-    def angles_calculated_printed(self, angle_list, bond_lengths, eigenvalues, eigenvectors, coords):
+    def calculate_angles(self, angle_list, bond_lengths, eigenvalues, eigenvectors, coords):
         """Uses the modified Seminario method to find the angle parameters and prints them to file."""
 
         from operator import itemgetter
@@ -264,7 +262,7 @@ class ModSeminario:
 
         return unique_values_angles
 
-    def bonds_calculated_printed(self, bond_list, bond_lengths, eigenvalues, eigenvectors, coords):
+    def calculate_bonds(self, bond_list, bond_lengths, eigenvalues, eigenvectors, coords):
         """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
         conversion = 418.4
@@ -298,3 +296,6 @@ class ModSeminario:
 
         return unique_values_bonds
 
+    def apply_symmetry(self):
+
+        pass

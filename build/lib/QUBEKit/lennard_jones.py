@@ -159,8 +159,6 @@ class LennardJones:
                     polars.append(pair)
 
         if polars:
-            print(f'Polar pairs identified: {polars}')
-
             for pair in polars:
                 if 'H' in pair[0] or 'H' in pair[1]:
                     if 'H' in pair[0]:
@@ -203,8 +201,9 @@ class LennardJones:
     def amend_sig_eps(self):
         """Adds the sigma, epsilon terms to the ligand class object as a dictionary.
         The class object (NonbondedForce) is stored as an empty dictionary until this method is called.
-        # TODO Add the sigma/epsilon terms after symmetry fixes.
         """
+
+        # TODO Add the sigma/epsilon terms after symmetry fixes.
 
         # Creates Nonbondedforce dict:
         # Format: {0: [sigma, epsilon], 1: [sigma, epsilon], ... }
