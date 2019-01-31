@@ -7,6 +7,7 @@ from datetime import datetime
 from xml.etree.ElementTree import tostring, Element, SubElement, ElementTree
 from xml.dom.minidom import parseString
 from pickle import dump, load
+from collections import OrderedDict
 
 
 class Ligand:
@@ -430,7 +431,7 @@ class Ligand:
 
             for atom in molecule:
                 # Format with spacing
-                xyz_file.write('{}       {: .10f}   {: .10f}   {: .10f} \n'.format(atom[0], atom[1], atom[2], atom[3]))
+                xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
 
     def pickle(self, state=None):
         """Pickles the ligand object in its current state to the (hidden) pickle file.
@@ -438,27 +439,26 @@ class Ligand:
         the latest object is put to the top.
         """
 
-        mols = []
+        mols = OrderedDict()
         # First check if the pickle file exists
         try:
             # Try to load a hidden pickle file; make sure to get all objects
             with open(f'.{self.name}_states', 'rb') as pickle_jar:
                 while True:
                     try:
-                        mols.append(load(pickle_jar))
+                        mol = load(pickle_jar)
+                        mols[mol.state] = mol
                     except:
                         break
         except FileNotFoundError:
-            mols = None
+            pass
 
-        # Now we can save the items first assign the location
+        # Now we can save the items; first assign the location
         self.state = state
-        # Open the pickle jar which will always be the ligand objects name
-        pickle_jar = open(f'.{self.name}_states', 'wb')
-        # Put the latest ligand object at the top of the jar
-        dump(self, pickle_jar)
-        # If there were other molecules in the jar push them to the bottom
-        if mols:
-            for mol in mols:
-                dump(mol, pickle_jar)
-        pickle_jar.close()
+        mols[self.state] = self
+
+        # Open the pickle jar which will always be the ligand object's name
+        with open(f'.{self.name}_states', 'wb') as pickle_jar:
+            # If there were other molecules of the same state in the jar: overwrite them
+            for key in mols.keys():
+                dump(mols[key], pickle_jar)

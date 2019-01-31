@@ -115,7 +115,7 @@ class Main:
                     self.qm[sub] = self.configs[key][sub]
                 elif sub in self.fitting.keys():
                     self.fitting[sub] = self.configs[key][sub]
-                elif self.descriptions.keys():
+                elif sub in self.descriptions.keys():
                     self.descriptions[sub] = self.configs[key][sub]
 
     def parse_commands(self):
@@ -141,7 +141,7 @@ class Main:
 
         After all commands have been parsed and appropriately used, either:
             commands are returned, along with the relevant file name
-            the program exit
+            the program exits
             return None (implicitly)
 
         """
@@ -279,7 +279,7 @@ class Main:
 
                                         # These are the files in the active directory, search for the pdb and log file.
                                         files = [file for file in listdir('.') if path.isfile(file)]
-                                        self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('sed.pdb')][0]
+                                        self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
                                         self.log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
 
                                         # TODO Print any changed defaults to the log file.
@@ -324,7 +324,8 @@ class Main:
                 if '-restart' in cmd:
                     # Set the file name based on the directory:
                     files = [file for file in listdir('.') if path.isfile(file)]
-                    self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('sed.pdb')][0]
+                    self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
+
                     return self.file, self.commands
 
         for count, cmd in enumerate(self.commands):
@@ -359,18 +360,21 @@ class Main:
             decorators.exception_logger_decorator() wraps a function which throws an exception.
         """
 
+        # TODO create_log() should become create_or_find_log(), allowing it to be called by bulk runs.
+        #   Mostly this would be to remove repeated code.
+
         date = datetime.now().strftime('%Y_%m_%d')
 
         # Define name of working directory.
         # This is formatted as 'QUBEKit_molecule name_yyyy_mm_dd_log_string'.
-        log_string = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
-        mkdir(log_string)
+        dir_string = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
+        mkdir(dir_string)
 
         # Copy active pdb into new directory.
         abspath = path.abspath(self.file)
-        copy(abspath, f'{log_string}/{self.file}')
+        copy(abspath, f'{dir_string}/{self.file}')
         # Move into new working directory.
-        chdir(log_string)
+        chdir(dir_string)
 
         # Create log file in working directory.
         # This is formatted as 'QUBEKit_log_molecule name_yyyy_mm_dd_log_string'.
@@ -518,7 +522,6 @@ class Main:
 
         lj = LennardJones(mol, self.all_configs)
         mol.NonbondedForce = lj.amend_sig_eps()
-
         append_to_log(self.log_file, 'Lennard-Jones parameters calculated')
 
         return mol

@@ -30,6 +30,8 @@ def timer_logger(orig_func):
     Then outputs the runtime and time when function / method finishes.
     """
 
+    # TODO Make it so that this doesn't crash if a log file doesn't exist; useful for using QUBEKit as a module
+
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
 

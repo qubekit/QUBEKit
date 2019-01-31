@@ -31,7 +31,7 @@ class Engines:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
 
-# @for_all_methods(timer_logger)
+@for_all_methods(timer_logger)
 class PSI4(Engines):
     """Writes and executes input files for psi4.
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
@@ -130,12 +130,11 @@ class PSI4(Engines):
             lines = file.readlines()
 
             for count, line in enumerate(lines):
-
                 if '## Hessian' in line:
                     # Set the start of the hessian to the row of the first value.
                     hess_start = count + 5
-
-            if not hess_start:
+                    break
+            else:
                 raise EOFError('Cannot locate Hessian matrix in output.dat file.')
 
             # Check if the hessian continues over onto more lines (i.e. if hess_size is not divisible by 5)
@@ -198,8 +197,8 @@ class PSI4(Engines):
             for count, line in enumerate(lines):
                 if "==> Geometry" in line:
                     geo_pos_list.append(count)
-
-            if not geo_pos_list:
+                    break
+            else:
                 raise EOFError('Cannot locate optimised structure in output.dat file.')
 
             # Set the start as the last instance of '==> Geometry'.
@@ -233,8 +232,8 @@ class PSI4(Engines):
             for count, line in enumerate(lines):
                 if "post-proj  all modes" in line:
                     start_of_vals = count
-
-            if not start_of_vals:
+                    break
+            else:
                 raise EOFError('Cannot locate modes in output.dat file.')
 
             # Barring the first (and sometimes last) line, dat file has 6 values per row.
@@ -437,8 +436,8 @@ class Gaussian(Engines):
             for count, line in enumerate(lines):
                 if 'Input orientation' in line:
                     opt_coords_pos.append(count + 5)
-
-            if not opt_coords_pos:
+                    break
+            else:
                 raise EOFError(f'Cannot locate optimised structures in gj_{self.engine_mol.name}.log file.')
 
             start_pos = opt_coords_pos[-1]
@@ -468,8 +467,8 @@ class Gaussian(Engines):
             for count, line in enumerate(lines):
                 if line.startswith(' Frequencies'):
                     freq_positions.append(count)
-
-            if not freq_positions:
+                    break
+            else:
                 raise EOFError(f'Cannot locate modes in gj_{self.engine_mol.name}.log file.')
 
             for pos in freq_positions:

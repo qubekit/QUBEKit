@@ -44,8 +44,7 @@ class LennardJones:
             net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
 
         else:
-            print('Invalid or unsupported DDEC version, using default of DDEC6.')
-            net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
+            raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
 
         self.ddec_data = []
 
@@ -76,6 +75,8 @@ class LennardJones:
 
                         self.ddec_data.append(atom_data)
                     break
+            else:
+                raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
 
         charges = [atom[5] for atom in self.ddec_data]
 
@@ -206,20 +207,22 @@ class LennardJones:
         # TODO Add the sigma/epsilon terms after symmetry fixes.
 
         # Creates Nonbondedforce dict:
-        # Format: {0: [sigma, epsilon], 1: [sigma, epsilon], ... }
+        # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
         # This follows the usual ordering of the atoms which is consistent throughout QUBEKit.
 
         new_NonbondedForce = {}
-        conversion = 5.765240041
 
-        for atom in range(len(self.molecule.molecule)):
-            if self.ddec_polars[atom][-1] == 0:
+        # Sigma: angstrom to nm (* 0.1)
+        # Epsilon: qm to kcal/mol to kJ/mol (* conversion)
+        conversion = 10 * 4.184
+
+        for atom_index in range(len(self.molecule.molecule)):
+            if self.ddec_polars[atom_index][-1] == 0:
                 sigma, epsilon = 0, 0
             else:
-                # 0.1 converts angstrom to nm
-                sigma = 0.1 * ((self.ddec_polars[atom][-1] / self.ddec_polars[atom][-2]) ** (1 / 6))
-                epsilon = 10 * conversion * ((self.ddec_polars[atom][-2] ** 2) / (4 * self.ddec_polars[atom][-1]))
+                sigma = 0.1 * ((self.ddec_polars[atom_index][-1] / self.ddec_polars[atom_index][-2]) ** (1 / 6))
+                epsilon = conversion * ((self.ddec_polars[atom_index][-2] ** 2) / (4 * self.ddec_polars[atom_index][-1]))
 
-            new_NonbondedForce.update({atom: [str(self.ddec_polars[atom][5]), str(sigma), str(epsilon)]})
+            new_NonbondedForce[atom_index] = [str(self.ddec_polars[atom_index][5]), str(sigma), str(epsilon)]
 
         return new_NonbondedForce
