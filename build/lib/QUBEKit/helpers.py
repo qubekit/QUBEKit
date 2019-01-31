@@ -7,6 +7,7 @@ from collections import OrderedDict
 from numpy import allclose
 from pathlib import Path
 from configparser import ConfigParser
+from pickle import load
 
 
 class Configure:
@@ -371,21 +372,17 @@ def unpickle(pickle_jar):
     indexed by their progress.
     """
 
-    from pickle import load
-
     mol_states = OrderedDict()
-    mols = []
+
     # unpickle the pickle jar
     # try to load a pickle file make sure to get all objects
     with open(pickle_jar, 'rb') as jar:
         while True:
             try:
-                mols.append(load(jar))
-            except:
+                mol = load(jar)
+                mol_states[mol.state] = mol
+            except EOFError:
                 break
-    # for each object in the jar put them into a dictionary indexed by there state
-    for mol in mols:
-        mol_states[mol.state] = mol
 
     return mol_states
 

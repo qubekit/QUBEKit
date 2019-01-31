@@ -57,7 +57,7 @@ class Parametrisation:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def gather_parameters(self):
-        """This method parses the serialized xml file and collects the parameters ready to pass them
+        """This method parses the serialised xml file and collects the parameters ready to pass them
         to build tree.
         """
 
@@ -66,7 +66,7 @@ class Parametrisation:
             self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i), str(self.molecule.molecule[i][0]) + str(800 + i)]
 
         # Now parse the xml file for the rest of the data
-        input_xml_file = 'serialized.xml'
+        input_xml_file = 'serialised.xml'
         in_root = parse(input_xml_file).getroot()
 
         # Extract all bond data
@@ -77,7 +77,7 @@ class Parametrisation:
         for Angle in in_root.iter('Angle'):
             self.molecule.HarmonicAngleForce[int(Angle.get('p1')), int(Angle.get('p2')), int(Angle.get('p3'))] = [Angle.get('a'), Angle.get('k')]
 
-        # Extract all nonbonded data
+        # Extract all non-bonded data
         i = 0
         for Atom in in_root.iter('Particle'):
             if "eps" in Atom.attrib:
@@ -126,7 +126,7 @@ class Parametrisation:
         their positions in self.molecule.molecule are 1, 2, 3, 4.
         """
 
-        with open('serialized.xml', 'r') as xml_file:
+        with open('serialised.xml', 'r') as xml_file:
 
             lines = xml_file.readlines()
 
@@ -169,12 +169,14 @@ class XML(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
+
+        self.serialise_system()
+        self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
         self.symmetrise()
 
-    def serialize_system(self):
-        """Serialize the input XML system using openmm."""
+    def serialise_system(self):
+        """Serialise the input XML system using openmm."""
 
         pdb = app.PDBFile(self.molecule.filename)
         modeller = app.Modeller(pdb.topology, pdb.positions)
@@ -183,24 +185,15 @@ class XML(Parametrisation):
             forcefield = app.ForceField(self.input)
         elif not self.input:
             forcefield = app.ForceField(self.molecule.name + '.xml')
+        # TODO Is this ever being called?
         else:
-            raise FileNotFoundError('No .xml type file found did you supply one?')
+            raise FileNotFoundError('No .xml type file found.')
 
         system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
         xml = XmlSerializer.serializeSystem(system)
-        with open('serialized.xml', 'w+') as out:
+        with open('serialised.xml', 'w+') as out:
             out.write(xml)
-
-    # TODO Remove parametrise methods and place contents into inits?
-    def parametrise(self):
-        """This is the master function and controls the class.
-        1. Serialise the system into a correctly formatted xml file
-        2. gather the parameters and store them in the molecule parameter dictionaries.
-        """
-
-        self.serialize_system()
-        self.gather_parameters()
 
 
 @for_all_methods(timer_logger)
@@ -210,32 +203,24 @@ class AnteChamber(Parametrisation):
     """
 
     def __init__(self, molecule, input_file=None, fftype='gaff'):
+
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
+
+        self.antechamber_cmd()
+        self.serialise_system()
+        self.gather_parameters()
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
         self.symmetrise()
 
-    def parametrise(self):
-        """This is the master function of the class
-        1 parametrise with Antechamber using gaff or gaff2
-        2 load molecule into tleap to get the prmtop and inpcrd files used by openMM
-        3 serialize the openMM system object
-        4 convert the parameters to a xml tree object and export to the molecule.
-        """
-
-        self.antechamber_cmd()
-        self.serialize_system()
-        self.gather_parameters()
-
-    def serialize_system(self):
+    def serialise_system(self):
         """Serialise the amber style files into an openmm object."""
 
         prmtop = app.AmberPrmtopFile(self.prmtop)
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
 
-        with open('serialized.xml', 'w+') as out:
+        with open('serialised.xml', 'w+') as out:
             out.write(XmlSerializer.serializeSystem(system))
 
     def antechamber_cmd(self):
@@ -290,7 +275,7 @@ class AnteChamber(Parametrisation):
             # Now run tleap
             with open('Antechamber.log', 'a') as log:
                 sub_call('tleap -f tleap_commands', shell=True, stdout=log)
-            # check results present
+            # Check results present
             if not path.exists('out.prmtop') or not path.exists('out.inpcrd'):
                 raise FileNotFoundError('Neither out.prmtop nor out.inpcrd found; tleap failed!')
 
@@ -313,21 +298,13 @@ class OpenFF(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='frost'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
+
+        self.serialise_system()
+        self.gather_parameters()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
         self.symmetrise()
 
-    def parametrise(self):
-        """This is the master function of the class
-        1 parametrise the molecule with frost and serialize the system into an xml
-        2 parse the object and construct the parameter dictionaries
-        3 return the parameters to the molecule.
-        """
-
-        self.serialize_system()
-        self.gather_parameters()
-
-    def serialize_system(self):
+    def serialise_system(self):
         """Create the OpenMM system parametrise using frost and serialise the system."""
 
         # Load molecule using OpenEye tools
@@ -346,9 +323,8 @@ class OpenFF(Parametrisation):
         system = forcefield.createSystem(topology, [mol])
 
         # Serialise the OpenMM system into the xml file
-        xml = XmlSerializer.serializeSystem(system)
-        with open('serialized.xml', 'w+') as out:
-            out.write(xml)
+        with open('serialised.xml', 'w+') as out:
+            out.write(XmlSerializer.serializeSystem(system))
 
 
 @for_all_methods(timer_logger)
@@ -361,19 +337,11 @@ class BOSS(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
-        self.parametrise()
-        self.molecule.parameter_engine = 'BOSS ' + self.fftype
-        self.symmetrise()
-
-    def parametrise(self):
-        """This is the master function of the class
-        1 parametrise the molecule with CM1A/OPLS
-        2 parse the out file and construct the parameter dictionaries
-        3 return the parameters to the molecule.
-        """
 
         self.BOSS_cmd()
         self.gather_parameters()
+        self.molecule.parameter_engine = 'BOSS ' + self.fftype
+        self.symmetrise()
 
     def BOSS_cmd(self):
         """This method is used to call the required BOSS scripts.
