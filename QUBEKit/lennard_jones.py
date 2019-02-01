@@ -15,7 +15,7 @@ class LennardJones:
 
         # Ligand class object
         self.molecule = molecule
-        self.qm, self.fitting, self.descriptions = config_dict[1], config_dict[2], config_dict[3]
+        self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
         # This is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', vol]
         self.ddec_data = self.extract_params()
@@ -44,7 +44,7 @@ class LennardJones:
             net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
 
         else:
-            raise ValueError('Invalid or unsupported DDEC version.')
+            raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
 
         self.ddec_data = []
 
@@ -75,9 +75,12 @@ class LennardJones:
 
                         self.ddec_data.append(atom_data)
                     break
+            else:
+                raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
 
         charges = [atom[5] for atom in self.ddec_data]
-        check_net_charge(charges)
+
+        check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
 
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
 
@@ -129,7 +132,9 @@ class LennardJones:
         return self.ddec_data
 
     def polar_hydrogens(self):
-        """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly."""
+        """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly.
+        May be removed / heavily changed if we switch away from atom typing and use SMARTS.
+        """
 
         # Create dictionary which stores the atom number and its type:
         # atoms = {1: 'C', 2: 'C', 3: 'H', 4: 'H', ...}
@@ -155,8 +160,6 @@ class LennardJones:
                     polars.append(pair)
 
         if polars:
-            print('Polar pairs identified: ', polars)
-
             for pair in polars:
                 if 'H' in pair[0] or 'H' in pair[1]:
                     if 'H' in pair[0]:
@@ -199,26 +202,27 @@ class LennardJones:
     def amend_sig_eps(self):
         """Adds the sigma, epsilon terms to the ligand class object as a dictionary.
         The class object (NonbondedForce) is stored as an empty dictionary until this method is called.
-        # TODO Add the sigma/epsilon terms after symmetry fixes.
         """
 
+        # TODO Add the sigma/epsilon terms after symmetry fixes.
+
         # Creates Nonbondedforce dict:
-        # Format: {0: [sigma, epsilon], 1: [sigma, epsilon], ... }
+        # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
         # This follows the usual ordering of the atoms which is consistent throughout QUBEKit.
 
         new_NonbondedForce = {}
-        conversion = 5.765240041
 
-        for atom in range(len(self.molecule.molecule)):
-            if self.ddec_polars[atom][-1] == 0:
+        # Sigma: angstrom to nm (* 0.1)
+        # Epsilon: qm to kcal/mol to kJ/mol (* conversion)
+        conversion = 10 * 4.184
+
+        for atom_index in range(len(self.molecule.molecule)):
+            if self.ddec_polars[atom_index][-1] == 0:
                 sigma, epsilon = 0, 0
             else:
-                # 0.1 converts angstrom to nm
-                sigma = 0.1 * ((self.ddec_polars[atom][-1] / self.ddec_polars[atom][-2]) ** (1 / 6))
-                epsilon = 10 * conversion * ((self.ddec_polars[atom][-2] ** 2) / (4 * self.ddec_polars[atom][-1]))
+                sigma = 0.1 * ((self.ddec_polars[atom_index][-1] / self.ddec_polars[atom_index][-2]) ** (1 / 6))
+                epsilon = conversion * ((self.ddec_polars[atom_index][-2] ** 2) / (4 * self.ddec_polars[atom_index][-1]))
 
-            new_NonbondedForce.update({atom: [str(self.ddec_polars[atom][5]), str(sigma), str(epsilon)]})
+            new_NonbondedForce[atom_index] = [str(self.ddec_polars[atom_index][5]), str(sigma), str(epsilon)]
 
-        self.molecule.NonbondedForce = new_NonbondedForce
-
-        return self.molecule
+        return new_NonbondedForce

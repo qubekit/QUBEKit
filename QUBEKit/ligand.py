@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 
+from networkx import neighbors, Graph, has_path
+from re import sub
+from numpy import array, linalg, dot, degrees, cross, arctan2, arccos
+from datetime import datetime
+from xml.etree.ElementTree import tostring, Element, SubElement, ElementTree
+from xml.dom.minidom import parseString
+from pickle import dump, load
 from collections import OrderedDict
+
 
 class Ligand:
 
@@ -8,10 +16,10 @@ class Ligand:
 
         self.filename = filename
         self.name = filename[:-4]
-        self.molecule = None
+        self.molecule = None                # List of lists where the inner list is the atom type followed by its coords
         self.topology = None
         self.smiles = smilesstring
-        self.angles = None
+        self.angles = None                  # Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
         self.dihedrals = None
         self.rotatable = None
         self.scan_order = None
@@ -31,7 +39,8 @@ class Ligand:
         self.QM_scan_energy = {}
         self.MM_scan_energy = {}
         self.descriptors = {}
-        self.AtomTypes = {}
+        self.AtomTypes = {}                 # Basic non-symmetrised atoms types
+        self.symmetry_types = []            # Symmetrised atom types
         self.Residues = {}
         self.HarmonicBondForce = {}
         self.HarmonicAngleForce = {}
@@ -44,6 +53,7 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
+        self.log_file = None                # Full log file name used by the run file in special run cases
 
     element_dict = {'H': 1.008000,      # Group 1
                     'C': 12.011000,     # Group 4
@@ -55,16 +65,38 @@ class Ligand:
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
+    def __str__(self, trunc=False):
+        """Prints the ligand class objects' names and values one after another with new lines between each.
+        Mostly just used for logging and displaying the results at the end of a run.
+        If trunc is set to True:
+            Check the items being printed:
+                If None -> print them as normal
+                If they're short (<120 chars) -> print them as normal
+                Otherwise -> print a truncated version of them.
+        This is called with:   Ligand(filename='').__str__(trunc=True)
+        """
+
+        # This is the old __str__ definition which is basically a one-line alternative to the else case below.
+        # return '\n'.join(('{} = {}'.format(item, self.__dict__[item]) for item in self.__dict__))
+
+        return_str = ''
+        for item in self.__dict__:
+            if trunc:
+                # if (None) or (it's smaller than 120 chars): print it as is. Otherwise print a truncated version.
+                return_str += f'\n{item} = {self.__dict__[item] if (self.__dict__[item] is None) or (len(str(self.__dict__[item]) + str(item)) < 120) else str(self.__dict__[item])[:121 - len(str(item))] + "..."}'
+            else:
+                # Return all objects as {ligand object name} = {ligand object value(s)} without any special formatting.
+                return_str += f'\n{item} = {self.__dict__[item]}'
+
+        return return_str
+
     def read_pdb(self, QM=False, MM=False):
         """Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
-        Then reads through the connection tags and builds a connectivity network (only works if connections present in PDB file).
+        Then reads through the connection tags and builds a connectivity network
+        (only works if connections are present in PDB file).
         Bonds are easily found through the edges of the network.
         Can also generate a simple plot of the network.
         """
-
-        from re import sub
-        from networkx import Graph, draw
-        # import matplotlib.pyplot as plt
 
         with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
@@ -116,8 +148,6 @@ class Ligand:
         Checked against OPLS-AA on molecules containing 10-63 angles.
         """
 
-        from networkx import neighbors
-
         self.angles = []
 
         for node in self.topology.nodes:
@@ -144,8 +174,6 @@ class Ligand:
         """Take the topology graph network and again return a dictionary of all possible dihedral combinations stored under
         the central bond keys which describe the angle.
         """
-
-        from networkx import neighbors
 
         self.dihedrals = {}
 
@@ -177,8 +205,6 @@ class Ligand:
         rotatable. Returns a list of dihedral dictionary keys representing the rotatable dihedrals.
         """
 
-        from networkx import has_path
-
         self.rotatable = []
 
         # For each dihedral key remove the edge from the network
@@ -199,57 +225,38 @@ class Ligand:
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
 
-        from numpy import array, linalg, dot, degrees, cross, arctan2
-
         self.dih_phis = {}
         # Check if a rotatable tuple list is supplied, else calculate the angles for all dihedrals in the molecule.
-        if self.rotatable:
-            keys = self.rotatable
 
-        else:
-            keys = list(self.dihedrals.keys())
+        keys = self.rotatable if self.rotatable else list(self.dihedrals.keys())
 
         if QM:
             molecule = self.QMoptimized
-
         elif MM:
             molecule = self.MMoptimized
-
         else:
             molecule = self.molecule
 
         for key in keys:
-            torsions = self.dihedrals[key]
-            for torsion in torsions:
+            for torsion in self.dihedrals[key]:
                 # Calculate the dihedral angle in the molecule using the molecule data array.
-                x1 = array(molecule[int(torsion[0])-1][1:])
-                x2 = array(molecule[int(torsion[1])-1][1:])
-                x3 = array(molecule[int(torsion[2])-1][1:])
-                x4 = array(molecule[int(torsion[3])-1][1:])
-                b1 = x2 - x1
-                b2 = x3 - x2
-                b3 = x4 - x3
+                x1, x2, x3, x4 = [array(molecule[int(torsion[i])-1][1:]) for i in range(4)]
+                b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
                 t1 = linalg.norm(b2) * dot(b1, cross(b2, b3))
                 t2 = dot(cross(b1, b2), cross(b2, b3))
-                dih = arctan2(t1, t2)
-                dih = degrees(dih)
-                self.dih_phis[torsion] = dih
+                self.dih_phis[torsion] = degrees(arctan2(t1, t2))
 
         return self.dih_phis
 
     def get_bond_lengths(self, QM=False, MM=False):
         """For the given molecule and topology find the length of all of the bonds."""
 
-        from numpy import array, linalg
-
         self.bond_lengths = {}
 
         if QM:
             molecule = self.QMoptimized
-
         elif MM:
             molecule = self.MMoptimized
-
         else:
             molecule = self.molecule
 
@@ -266,16 +273,12 @@ class Ligand:
         then return a dictionary of angles and values.
         """
 
-        from numpy import array, linalg, dot, arccos, degrees
-
         self.angle_values = {}
 
         if QM:
             molecule = self.QMoptimized
-
         elif MM:
             molecule = self.MMoptimized
-
         else:
             molecule = self.molecule
 
@@ -283,11 +286,9 @@ class Ligand:
             x1 = array(molecule[int(angle[0])-1][1:])
             x2 = array(molecule[int(angle[1])-1][1:])
             x3 = array(molecule[int(angle[2])-1][1:])
-            b1 = x1 - x2
-            b2 = x3 - x2
+            b1, b2 = x1 - x2, x3 - x2
             cosine_angle = dot(b1, b2) / (linalg.norm(b1) * linalg.norm(b2))
-            theta = degrees(arccos(cosine_angle))
-            self.angle_values[angle] = theta
+            self.angle_values[angle] = degrees(arccos(cosine_angle))
 
         return self.angle_values
 
@@ -296,51 +297,39 @@ class Ligand:
         Only for small molecules, not standard residues. No size limit.
         """
 
-        from datetime import datetime
-        from networkx import neighbors
-
-        if name:
-            out = open(f'{name}.pdb', 'w+')
-        else:
-            out = open(f'{self.name}.pdb', 'w+')
-        if MM:
-            molecule = self.MMoptimized
-        elif QM:
+        if QM:
             molecule = self.QMoptimized
+        elif MM:
+            molecule = self.MMoptimized
         else:
             molecule = self.molecule
 
-        # Write out the atomic xyz coordinates
-        out.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
-        out.write(f'COMPND    {self.name:<20}\n')
-        for i, atom in enumerate(molecule):
-            out.write(f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+        with open(f'{name if name else self.name}.pdb', 'w+') as pdb_file:
 
-        # Now add the connection terms
-        for node in self.topology.nodes:
-            bonded = sorted(list(neighbors(self.topology, node)))
-            # we need to write out all conections
-            #if len(bonded) > 2:
-            out.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+            # Write out the atomic xyz coordinates
+            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
+            pdb_file.write(f'COMPND    {self.name:<20}\n')
+            for i, atom in enumerate(molecule):
+                pdb_file.write(f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
 
-        # now end the pdb file
-        out.write('END\n')
-        out.close()
+            # Now add the connection terms
+            for node in self.topology.nodes:
+                bonded = sorted(list(neighbors(self.topology, node)))
+                #if len(bonded) > 2:
+                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+
+            pdb_file.write('END\n')
 
     def write_parameters(self, name=None):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
-        # first build the xml tree
+        # First build the xml tree
         self.build_tree()
 
-        import xml.etree.ElementTree as ET
-        import xml.dom.minidom
-
         tree = self.xml_tree.getroot()
-        messy = ET.tostring(tree, 'utf-8')
+        messy = tostring(tree, 'utf-8')
 
-        xml = xml.dom.minidom.parseString(messy)
-        pretty_xml_as_string = xml.toprettyxml(indent="")
+        pretty_xml_as_string = parseString(messy).toprettyxml(indent="")
 
         if not name:
             name = self.name
@@ -348,91 +337,104 @@ class Ligand:
         with open(f'{name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
-        print('XML made!')
-
     def build_tree(self):
         """Separates the parameters and builds an xml tree ready to be used."""
 
-        import xml.etree.ElementTree as ET
-
         # create XML layout
-        root = ET.Element('ForceField')
-        AtomTypes = ET.SubElement(root, "AtomTypes")
-        Residues = ET.SubElement(root, "Residues")
-        Residue = ET.SubElement(Residues, "Residue", name="UNK")
-        HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
-        HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
-        PeriodicTorsionForce = ET.SubElement(root, "PeriodicTorsionForce")
-        NonbondedForce = ET.SubElement(root, "NonbondedForce", attrib={'coulomb14scale': "0.5", 'lj14scale': "0.5"})
+        root = Element('ForceField')
+        AtomTypes = SubElement(root, "AtomTypes")
+        Residues = SubElement(root, "Residues")
+        Residue = SubElement(Residues, "Residue", name="UNK")
+        HarmonicBondForce = SubElement(root, "HarmonicBondForce")
+        HarmonicAngleForce = SubElement(root, "HarmonicAngleForce")
+        PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
+        NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': "0.5", 'lj14scale': "0.5"})
 
         # Add the AtomTypes
         for i in range(len(self.AtomTypes)):
-            ET.SubElement(AtomTypes, "Type", attrib={'name': self.AtomTypes[i][1], 'class': self.AtomTypes[i][2],
-                                                     'element': self.molecule[i][0],
-                                                     'mass': str(self.element_dict[self.molecule[i][0]])})
-            ET.SubElement(Residue, "Atom", attrib={'name': self.AtomTypes[i][0], 'type': self.AtomTypes[i][1]})
+            SubElement(AtomTypes, "Type", attrib={'name': self.AtomTypes[i][1],
+                                                  'class': self.AtomTypes[i][2],
+                                                  'element': self.molecule[i][0],
+                                                  'mass': str(self.element_dict[self.molecule[i][0]])})
+            SubElement(Residue, "Atom", attrib={'name': self.AtomTypes[i][0], 'type': self.AtomTypes[i][1]})
 
         # add the bonds/connections
         for key in self.HarmonicBondForce.keys():
-            ET.SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
-            ET.SubElement(HarmonicBondForce, "Bond",
-                          attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
-                                  'length': self.HarmonicBondForce[key][0], 'k': self.HarmonicBondForce[key][1]})
+            SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
+            SubElement(HarmonicBondForce, "Bond", attrib={'class1': self.AtomTypes[key[0]][2],
+                                                          'class2': self.AtomTypes[key[1]][2],
+                                                          'length': self.HarmonicBondForce[key][0],
+                                                          'k': self.HarmonicBondForce[key][1]})
 
         # add the angles
         for key in self.HarmonicAngleForce.keys():
-            ET.SubElement(HarmonicAngleForce, "Angle",
-                          attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
-                                  'class3': self.AtomTypes[key[2]][2], 'angle': self.HarmonicAngleForce[key][0],
-                                  'k': self.HarmonicAngleForce[key][1]})
+            SubElement(HarmonicAngleForce, "Angle", attrib={'class1': self.AtomTypes[key[0]][2],
+                                                            'class2': self.AtomTypes[key[1]][2],
+                                                            'class3': self.AtomTypes[key[2]][2],
+                                                            'angle': self.HarmonicAngleForce[key][0],
+                                                            'k': self.HarmonicAngleForce[key][1]})
 
         # add the torsion terms
         for key in self.PeriodicTorsionForce.keys():
-            ET.SubElement(PeriodicTorsionForce, "Proper",
-                          attrib={'class1': self.AtomTypes[key[0]][2], 'class2': self.AtomTypes[key[1]][2],
-                                  'class3': self.AtomTypes[key[2]][2], 'class4': self.AtomTypes[key[3]][2],
-                                  'k1': self.PeriodicTorsionForce[key][0][1], 'k2': self.PeriodicTorsionForce[key][1][1],
-                                  'k3': self.PeriodicTorsionForce[key][2][1], 'k4': self.PeriodicTorsionForce[key][3][1],
-                                  'periodicity1': '1', 'periodicity2': '2', 'periodicity3': '3', 'periodicity4': '4',
-                                  'phase1': self.PeriodicTorsionForce[key][0][2], 'phase2': self.PeriodicTorsionForce[key][1][2],
-                                  'phase3': self.PeriodicTorsionForce[key][2][2], 'phase4': self.PeriodicTorsionForce[key][3][2]})
+            SubElement(PeriodicTorsionForce, "Proper", attrib={'class1': self.AtomTypes[key[0]][2],
+                                                               'class2': self.AtomTypes[key[1]][2],
+                                                               'class3': self.AtomTypes[key[2]][2],
+                                                               'class4': self.AtomTypes[key[3]][2],
+                                                               'k1': self.PeriodicTorsionForce[key][0][1],
+                                                               'k2': self.PeriodicTorsionForce[key][1][1],
+                                                               'k3': self.PeriodicTorsionForce[key][2][1],
+                                                               'k4': self.PeriodicTorsionForce[key][3][1],
+                                                               'periodicity1': '1', 'periodicity2': '2',
+                                                               'periodicity3': '3', 'periodicity4': '4',
+                                                               'phase1': self.PeriodicTorsionForce[key][0][2],
+                                                               'phase2': self.PeriodicTorsionForce[key][1][2],
+                                                               'phase3': self.PeriodicTorsionForce[key][2][2],
+                                                               'phase4': self.PeriodicTorsionForce[key][3][2]})
 
         # add the non-bonded parameters
         for key in self.NonbondedForce.keys():
-            ET.SubElement(NonbondedForce, "Atom",
-                          attrib={'type': self.AtomTypes[key][1], 'charge': self.NonbondedForce[key][0],
-                                  'sigma': self.NonbondedForce[key][1], 'epsilon': self.NonbondedForce[key][2]})
+            SubElement(NonbondedForce, "Atom", attrib={'type': self.AtomTypes[key][1],
+                                                       'charge': self.NonbondedForce[key][0],
+                                                       'sigma': self.NonbondedForce[key][1],
+                                                       'epsilon': self.NonbondedForce[key][2]})
 
         # Store the tree back into the molecule
-        tree = ET.ElementTree(root)
-        self.xml_tree = tree
+        self.xml_tree = ElementTree(root)
 
-    def read_xyz_geo(self):
-        """Read a geometric opt.xyz file to find the molecule array structure."""
+    def read_xyz(self, name=None):
+        """Read an xyz file to store the molecule structure."""
 
         opt_molecule = []
-        write = False
 
         # opt.xyz is the geometric optimised structure file.
-        with open('opt.xyz', 'r') as opt:
-            lines = opt.readlines()
+        with open(f'{name if name else "opt"}.xyz', 'r') as xyz_file:
+            lines = xyz_file.readlines()[2:]
             for line in lines:
                 line = line.split()
-                if 'Iteration' in line:
-                    print(f'Optimisation converged at iteration {int(line[1])} with final energy {float(line[3])}')
-                    write = True
+                opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
 
-                elif write:
-                    opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
         self.QMoptimized = opt_molecule
+
         return self
 
-    def read_xyz(self, QM=False, MM=True):
-        """Read a general xyz file format and return the structure array.
-        QM and MM decide where it will be stored in the molecule.
-        """
+    def write_xyz(self, QM=False, MM=False, name=None):
+        """Write a general xyz file. QM and MM decide where it will be written from in the ligand class."""
 
-        pass
+        if QM:
+            molecule = self.QMoptimized
+        elif MM:
+            molecule = self.MMoptimized
+        else:
+            molecule = self.molecule
+
+        with open(f'{name if name else self.name}.xyz', 'w+') as xyz_file:
+
+            xyz_file.write(f'{len(molecule)}\n')
+            xyz_file.write('xyz file generated with QUBEKit\n')
+
+            for atom in molecule:
+                # Format with spacing
+                xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
 
     def pickle(self, state=None):
         """Pickles the ligand object in its current state to the (hidden) pickle file.
@@ -440,29 +442,26 @@ class Ligand:
         the latest object is put to the top.
         """
 
-        from pickle import dump, load
-
-        mols = []
+        mols = OrderedDict()
         # First check if the pickle file exists
         try:
             # Try to load a hidden pickle file; make sure to get all objects
             with open(f'.{self.name}_states', 'rb') as pickle_jar:
                 while True:
                     try:
-                        mols.append(load(pickle_jar))
+                        mol = load(pickle_jar)
+                        mols[mol.state] = mol
                     except:
                         break
-        except:
-            mols = None
+        except FileNotFoundError:
+            pass
 
-        # Now we can save the items first assign the location
+        # Now we can save the items; first assign the location
         self.state = state
-        # Open the pickle jar which will always be the ligand objects name
-        pickle_jar = open(f'.{self.name}_states', 'wb')
-        # Put the latest ligand object at the top of the jar
-        dump(self, pickle_jar)
-        # If there were other molecules in the jar push them to the bottom
-        if mols:
-            for mol in mols:
-                dump(mol, pickle_jar)
-        pickle_jar.close()
+        mols[self.state] = self
+
+        # Open the pickle jar which will always be the ligand object's name
+        with open(f'.{self.name}_states', 'wb') as pickle_jar:
+            # If there were other molecules of the same state in the jar: overwrite them
+            for key in mols.keys():
+                dump(mols[key], pickle_jar)
