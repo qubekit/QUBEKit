@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 
-from QUBEKit.engines import PSI4, Gaussian
-from QUBEKit.ligand import Ligand
-from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
-from QUBEKit.smiles import smiles_mm_optimise, smiles_to_pdb
-from QUBEKit.helpers import config_loader
-from QUBEKit.dihedrals import TorsionScan
-
+# from QUBEKit.engines import PSI4, Gaussian
+# from QUBEKit.ligand import Ligand
+# from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
+# from QUBEKit.smiles import smiles_mm_optimise, smiles_to_pdb
+# from QUBEKit.helpers import config_loader
+# from QUBEKit.dihedrals import TorsionScan
+#
 
 # def gather_charges():
 #     """Takes the TheoryTests files and extracts the net charge as a tuple with the molecule + functional
@@ -210,40 +210,48 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
 def main():
 
     from QUBEKit.helpers import Configure
+    from QUBEKit.dihedrals import TorsionScan, TorsionOptimizer
+    from QUBEKit.ligand import Ligand
+    from QUBEKit.engines import PSI4
+    from os import chdir
+    from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
+    from shutil import  copy
 
-    # qm, fitting, descriptions = Configure.load_config()
-    # print(qm)
-    # print(fitting)
-    # print(descriptions)
-    Configure.ini_edit('testing2')
+    defaults_dict = {'charge': 0,
+                              'multiplicity': 1,
+                              'config': 'default_config'}
+    print('loading configs')
+    qm, fitting, descriptions = Configure.load_config(defaults_dict['config'])
+
+    config_dict = [defaults_dict, qm, fitting, descriptions]
+    print('loading molecule')
+    scan = (1,2)
+    mol = Ligand('ethane.pdb')
+    print('paramiterising')
+    # OpenFF(mol)
+    # XML(mol)
+    AnteChamber(mol)
+    mol.write_parameters()
+    copy('ethane.xml', 'test.xml')
+    print('loading engine')
+    QMengine = PSI4(mol, config_dict)
+    print('loading scanner')
+    scanner = TorsionScan(mol, QMengine)
+    print('getting energys')
+    scan = (1,2)
+    copy('ethane.pdb', f'SCAN_{scan}')
+    copy('ethane.xml', f'SCAN_{scan}')
+    chdir(f'SCAN_{scan}')
+    scanner.get_energy(mol.scan_order[0])
+    opt = TorsionOptimizer(mol, QMengine, config_dict, opls=False)
+    opt.run()
+    print(mol.PeriodicTorsionForce)
 
 
-    # try loading config from anywhere
-
-    # from ConfigParser import SafeConfigParser
-
-
-# from QUBEKit.engines import Gaussian
-#
-# ethane = Ligand('ethane.pdb')
-#
-# QMengine = Gaussian(ethane, defaults_dict)
-#
-# QMengine.generate_input(optimize=True, hessian=True, density=True)
 
 
 if __name__ == '__main__':
-#
-     main()
-# print('Optimizing molecule using rdkit MMFF')
-# mol.filename, mol.descriptors = smiles_mm_optimise(mol.filename)
-# print('Parameterise molecule using Antechamber')
-# OpenFF(mol)
-# print('Making QM engine')
-# QMengine = PSI4(mol, defaults_dict)
-# print('Gather QM scan info with Torsionscanner object')
-# scanner = TorsionScan(mol, QMengine)
-# scanner.get_energy((1,2))
-# print(mol)
+    main()
+
 
 

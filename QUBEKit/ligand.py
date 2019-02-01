@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from collections import OrderedDict
 
 class Ligand:
 
@@ -34,8 +35,8 @@ class Ligand:
         self.Residues = {}
         self.HarmonicBondForce = {}
         self.HarmonicAngleForce = {}
-        self.PeriodicTorsionForce = {}
-        self.NonbondedForce = {}
+        self.PeriodicTorsionForce = OrderedDict()
+        self.NonbondedForce = OrderedDict()
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -318,14 +319,15 @@ class Ligand:
         # Now add the connection terms
         for node in self.topology.nodes:
             bonded = sorted(list(neighbors(self.topology, node)))
-            if len(bonded) > 2:
-                out.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+            # we need to write out all conections
+            #if len(bonded) > 2:
+            out.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
 
         # now end the pdb file
         out.write('END\n')
         out.close()
 
-    def write_parameters(self):
+    def write_parameters(self, name=None):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
         # first build the xml tree
@@ -340,7 +342,10 @@ class Ligand:
         xml = xml.dom.minidom.parseString(messy)
         pretty_xml_as_string = xml.toprettyxml(indent="")
 
-        with open(f'{self.name}.xml', 'w+') as xml_doc:
+        if not name:
+            name = self.name
+
+        with open(f'{name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
         print('XML made!')

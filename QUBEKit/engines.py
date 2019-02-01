@@ -139,10 +139,19 @@ class PSI4(Engines):
 
         return self.engine_mol
 
-    def energy(self):
-        pass
+    def get_energy(self):
+        """parse a output file from psi4 and get the final converged energy of the calculation."""
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, threads=False):
+        with open('output.dat', 'r') as log:
+            lines = log.readlines()
+        for line in lines:
+            if 'Total Energy =' in line:
+                energy = float(line.split()[3])
+                break
+
+        return energy
+
+    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, threads=False, energy=False):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
 
         if QM:
@@ -164,6 +173,10 @@ class PSI4(Engines):
             for atom in molecule:
                 input_file.write(' {}    {: .10f}  {: .10f}  {: .10f} \n'.format(atom[0], float(atom[1]), float(atom[2]), float(atom[3])))
             input_file.write(' units angstrom\n no_reorient\n}}\n\nset {{\n basis {}\n'.format(self.qm['basis']))
+
+            if energy:
+                print('Writing psi4 energy calculation input')
+                tasks += f"\nenergy  = energy('{self.qm['theory']}')"
 
             if optimize:
                 print('Writing psi4 optimisation input')
@@ -248,8 +261,10 @@ class PSI4(Engines):
 
         if QM:
             molecule = self.engine_mol.QMoptimized
+
         elif MM:
             molecule = self.engine_mol.MMoptimized
+
         else:
             molecule = self.engine_mol.molecule
 

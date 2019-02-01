@@ -40,6 +40,7 @@ class Configure:
         'increment': '15',  # Angle increase increment
         'num_scan': '25',  # Number of optimisations around the dihedral angle
         't_weight': 'infinity',  # Weighting temperature that can be changed to better fit complicated surfaces
+        'l_pen': '0',  # The regularization penalty
         'new_dih_num': '501',  # Parameter number for the new dihedral to be fit
         'q_file': 'results.dat',  # If the results are collected with QuBeKit this is always true
         'tor_limit': '20',  # Torsion Vn limit to speed up fitting
@@ -69,6 +70,7 @@ class Configure:
         'increment': ';Angle increase increment',
         'num_scan': ';Number of optimisations around the dihedral angle',
         't_weight': ';Weighting temperature that can be changed to better fit complicated surfaces',
+        'l_pen': ';The regularization penalty',
         'new_dih_num': ';Parameter number for the new dihedral to be fit',
         'q_file': ';If the results are collected with QuBeKit this is always true',
         'tor_limit': ';Torsion Vn limit to speed up fitting',
@@ -87,7 +89,6 @@ class Configure:
 
             # Now check if the user has made a new master file that we should use
             if not Configure.check_master():
-
                 # if there is no master then assign the default config
                 qm, fitting, descriptions = Configure.qm, Configure.fitting, Configure.descriptions
 
@@ -99,6 +100,7 @@ class Configure:
             # Load in the ini file given
             if path.exists(config_file):
                 qm, fitting, descriptions = Configure.ini_parser(config_file)
+
             else:
                 qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder+config_file)
 
@@ -107,8 +109,10 @@ class Configure:
                         'num_scan', 'new_dih_num', 'tor_limit', 'div_index']
 
         for key in clean_ints:
+
             if key in qm.keys():
                 qm[key] = int(qm[key])
+
             elif key in fitting.keys():
                 fitting[key] = int(fitting[key])
 
@@ -118,16 +122,22 @@ class Configure:
         # Now cast the bools
         if qm['geometric'].lower() == 'true':
             qm['geometric'] = True
+
         else:
             qm['geometric'] = False
+
         if qm['solvent'].lower() == 'true':
             qm['solvent'] = True
+
         else:
             qm['solvent'] = False
 
         # Now handle the wight temp
         if fitting['t_weight'] != 'infinity':
             fitting['t_weight'] = float(fitting['t_weight'])
+
+        # Now cast the regularization penalty to float
+        fitting['l_pen'] = float(fitting['l_pen'])
 
         return qm, fitting, descriptions
 
@@ -159,6 +169,7 @@ class Configure:
         # make sure the ini file has an ini endding
         if not ini.endswith('.ini'):
             ini+='.ini'
+
         # Check the current master template
         if Configure.check_master():
             # if master then load
@@ -168,26 +179,30 @@ class Configure:
             # If default is the config file then assign the defaults
             qm, fitting, descriptions = Configure.qm, Configure.fitting, Configure.descriptions
 
+        # Set config parser to allow for comments
         config = ConfigParser(allow_no_value=True)
         config.add_section('QM')
+
         for key in qm.keys():
             config.set('QM', Configure.help[key])
             config.set('QM', key, qm[key])
 
         config.add_section('FITTING')
+
         for key in fitting.keys():
             config.set('FITTING', Configure.help[key])
             config.set('FITTING', key, fitting[key])
 
         config.add_section('DESCRIPTIONS')
+
         for key in descriptions.keys():
             config.set('DESCRIPTIONS', Configure.help[key])
             config.set('DESCRIPTIONS', key, descriptions[key])
 
-        out = open(f'{Configure.config_folder+ini}', 'w+')
-        config.write(out)
-        out.close()
+        with open(f'{Configure.config_folder+ini}', 'w+')as out:
+            config.write(out)
 
+        return
 
     @staticmethod
     def get_name():

@@ -46,8 +46,6 @@ class Main:
         self.log_file = None
         self.create_log()
         self.execute()
-        self.log_file = None
-        self.dicts_to_print
 
     start_up_string = (
         f'If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n'
@@ -144,6 +142,7 @@ class Main:
                 if self.commands[count + 1] == 'smiles' or self.commands[count + 1] == 'pdb':
 
                     bulk_data = get_mol_data_from_csv(csv_file)
+                    print(bulk_data)
 
                     # Run full analysis for each smiles string or pdb in the .csv file
                     names = list(bulk_data.keys())
@@ -312,7 +311,7 @@ class Main:
         mol.get_bond_lengths(QM=True)
 
         # Extract Hessian
-        mol = qm_engine.hessian()
+        qm_engine.hessian()
 
         # Modified Seminario for bonds and angles
         mod_sem = ModSeminario(mol, self.dicts_to_print)
@@ -325,7 +324,7 @@ class Main:
 
         # Prepare for density calc
         g09 = Gaussian(mol, self.dicts_to_print)
-        g09.generate_input(QM=True, density=True, solvent=bool(self.qm['solvent']))
+        g09.generate_input(QM=True, density=True, solvent=self.qm['solvent'])
 
         # Pickle
         append_to_log(self.log_file, 'Gaussian analysis complete')
@@ -358,10 +357,14 @@ class Main:
         mol.write_parameters()
 
         # TODO Generate file (with a helper function) which nicely formats all the ligand object data.
-        print(mol)
+        # print(mol)
 
-        return
+        print('how is this happening')
 
+        return None
+
+def main():
+    Main()
 
 if __name__ == '__main__':
-    Main()
+    main()
