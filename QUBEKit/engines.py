@@ -31,7 +31,7 @@ class Engines:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
 
-@for_all_methods(timer_logger)
+#@for_all_methods(timer_logger)
 class PSI4(Engines):
     """Writes and executes input files for psi4.
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
@@ -45,7 +45,7 @@ class PSI4(Engines):
         if self.qm['theory'] in list(self.functional_dict.keys()):
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, threads=False,
+    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, energy=False, threads=False,
                        fchk=False, run=True):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
 
@@ -220,6 +220,21 @@ class PSI4(Engines):
                 opt_struct.append(struct_row)
 
         return opt_struct
+
+    def get_energy(self):
+        """Get the energy of a single point calculation."""
+
+        # open the psi4 log file
+        with open('output.dat', 'r') as log:
+            lines = log.readlines()
+
+        # find the total converged energy
+        for line in lines:
+            if 'Total Energy =' in line:
+                energy = float(line.split()[3])
+                break
+
+        return energy
 
     def all_modes(self):
         """Extract all modes from the psi4 output file."""
