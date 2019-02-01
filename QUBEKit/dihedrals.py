@@ -14,6 +14,7 @@ from subprocess import call
 from QUBEKit.decorators import timer_func, for_all_methods
 
 
+
 class TorsionScan:
     """This class will take a QUBEKit molecule object and perform a torsiondrive QM (and MM if True) energy scan
     for each selected dihedral.
@@ -62,6 +63,7 @@ class TorsionScan:
                         f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][1]-1]}-'
                         f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][2]-1]}-'
                         f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][3]-1]}')
+
             scans = list(input('>'))  # Enter as a space separated list
             scans[:] = [scan for scan in scans if scan != ' ']  # remove all spaces from the scan list
             print(scans)

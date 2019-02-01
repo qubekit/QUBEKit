@@ -4,9 +4,7 @@ from QUBEKit.engines import PSI4, Gaussian
 from QUBEKit.ligand import Ligand
 from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
 from QUBEKit.smiles import smiles_mm_optimise, smiles_to_pdb
-import pickle
-
-from QUBEKit.modseminario import modified_seminario_method, input_data_processing_g09
+from QUBEKit.helpers import config_loader
 from QUBEKit.dihedrals import TorsionScan
 
 
@@ -195,24 +193,48 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
 # state = simulation.context.getState(getEnergy=True)
 # print(state.getPotentialEnergy())
 #
-print('Loading Molecule')
-ethane = Ligand('ethane.pdb')
-ethane.pickle(state='bonds')
-print('pickled bonds')
-ethane.pickle(state='charges')
-print('pickled charges')
-ethane.pickle(state='torsions')
-print('pickled torsions')
+# print('Loading Molecule')
+# ethane = Ligand('ethane.pdb')
+# ethane.pickle(state='bonds')
+# print('pickled bonds')
+# ethane.pickle(state='charges')
+# print('pickled charges')
+# ethane.pickle(state='torsions')
+# print('pickled torsions')
+#
+# from helpers import unpickle
+#
+# states = unpickle('.ethane_states')
+# for mol in states:
+#     print(states[mol])
+def main():
 
-from helpers import unpickle
+    from QUBEKit.helpers import Configure
 
-states = unpickle('.ethane_states')
-if 'charges' in states.keys():
-    mol = states['charges']
-    print(mol)
+    # qm, fitting, descriptions = Configure.load_config()
+    # print(qm)
+    # print(fitting)
+    # print(descriptions)
+    Configure.ini_edit('testing2')
 
 
+    # try loading config from anywhere
 
+    # from ConfigParser import SafeConfigParser
+
+
+# from QUBEKit.engines import Gaussian
+#
+# ethane = Ligand('ethane.pdb')
+#
+# QMengine = Gaussian(ethane, defaults_dict)
+#
+# QMengine.generate_input(optimize=True, hessian=True, density=True)
+
+
+if __name__ == '__main__':
+#
+     main()
 # print('Optimizing molecule using rdkit MMFF')
 # mol.filename, mol.descriptors = smiles_mm_optimise(mol.filename)
 # print('Parameterise molecule using Antechamber')

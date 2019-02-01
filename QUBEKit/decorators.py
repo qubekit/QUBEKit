@@ -2,8 +2,8 @@
 
 
 from time import time
-from functools import wraps
 from datetime import datetime
+from functools import wraps
 from os import listdir, path
 from logging import getLogger, Formatter, FileHandler, INFO
 
@@ -25,10 +25,12 @@ def timer_func(orig_func):
 
 
 def timer_logger(orig_func):
-    """Logs the runtime of a function in a dated and numbered file.
-    Outputs the start time, runtime, function/method qualname and docstring.
-    Run number can be changed with -log command.
+    """Logs the various timings of a function in a dated and numbered file.
+    Writes the start time, function / method qualname and docstring when function / method starts.
+    Then outputs the runtime and time when function / method finishes.
     """
+
+    # TODO Make it so that this doesn't crash if a log file doesn't exist; useful for using QUBEKit as a module
 
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
@@ -36,24 +38,25 @@ def timer_logger(orig_func):
         start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         t1 = time()
 
+        # Find all files in current directory; isolate the QUBEKit log file.
+        files = [f for f in listdir('.') if path.isfile(f)]
+        file_name = [file for file in files if file.startswith('QUBEKit_log')][0]
+
+        with open(file_name, 'a+') as log_file:
+            log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
+            log_file.write(f'Docstring for {orig_func.__qualname__}: {orig_func.__doc__}\n\n')
+
         result = orig_func(*args, **kwargs)
 
+        # TODO Better formatting of time taken? Currently displays in seconds which is a bit messy for longer times.
         time_taken = time() - t1
+        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        # Find all files in current directory.
-        files = [f for f in listdir('.') if path.isfile(f)]
+        with open(file_name, 'a+') as log_file:
+            log_file.write(f'{orig_func.__qualname__} finished in {time_taken} seconds at {end_time}.\n\n')
+            # Add some separation space between function / method logs.
+            log_file.write(f'{"-" * 50}\n\n')
 
-        for file in files:
-            # Find log file.
-            if file.startswith('QUBEKit_log'):
-                file_name = file
-
-                with open(file_name, 'a+') as log_file:
-                    log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
-                    log_file.write(f'Docstring for {orig_func.__qualname__}: {orig_func.__doc__}\n\n')
-                    log_file.write(f'{orig_func.__qualname__} finished in {time_taken} seconds.\n\n')
-                    # Add some separation space between function / method logs.
-                    log_file.write('-------------------------------------------------------\n\n')
         return result
     return wrapper
 
@@ -118,6 +121,10 @@ def exception_logger_decorator(func):
             # TODO Print the ligand class objects to the log file as well. Before or after the exception statement?
 
             # Re-raises the exception
+            # TODO Do we want the exception to be re-raised? Maybe just continue onto next ligand.
+
+            # TODO Add better exception handling for certain issues. e.g.
+            #       No such file or directory: 'opt.xyz' should probably check that the charge/multiplicity is correct
             raise
 
     return wrapper
