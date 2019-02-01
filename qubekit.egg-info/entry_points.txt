@@ -1,3 +1,4 @@
 [console_scripts]
 QUBEKit = QUBEKit.run:main
+QUBEKit-josh = QUBEKit.tests_josh:main
 
