@@ -100,7 +100,7 @@ class TorsionScan:
             cmd_qm += f'-g {self.grid_space} '
         if self.QMengine:
             cmd_qm += f'-e {self.QMengine.__class__.__name__.lower()} '
-        if self.MMengine:
+
         if self.native_opt:
             cmd_qm += '--native_opt '
         if self.verbose:
@@ -677,6 +677,7 @@ class TorsionOptimizer:
         # now we need to write out a new xml file with the new parameters in
 
         # move into a tempary folder
+        # truned of for testing
         #with TemporaryDirectory() as temp:
         temp = 'tester'
         mkdir(temp)
