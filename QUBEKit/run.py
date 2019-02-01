@@ -230,6 +230,7 @@ class Main:
                 if self.commands[count + 1] == 'smiles' or self.commands[count + 1] == 'pdb':
 
                     bulk_data = get_mol_data_from_csv(csv_file)
+                    print(bulk_data)
 
                     # Run full analysis for each smiles string or pdb in the .csv file.
                     names = list(bulk_data.keys())
@@ -575,10 +576,13 @@ class Main:
         self.execution_wrapper('torsions')
 
         # This step is always performed
-        self.execution_wrapper('finalise', fin_log_msg='Molecule analysis complete!')
 
-        return
+        print('how is this happening')
 
+        return None
 
 def main():
     Main()
+
+if __name__ == '__main__':
+    main()

@@ -69,6 +69,10 @@ class PSI4(Engines):
                 input_file.write(' {}    {: .10f}  {: .10f}  {: .10f} \n'.format(atom[0], float(atom[1]), float(atom[2]), float(atom[3])))
             input_file.write(' units angstrom\n no_reorient\n}}\n\nset {{\n basis {}\n'.format(self.qm['basis']))
 
+            if energy:
+                print('Writing psi4 energy calculation input')
+                tasks += f"\nenergy  = energy('{self.qm['theory']}')"
+
             if optimize:
                 append_to_log(self.engine_mol.log_file, 'Writing PSI4 optimisation input', 'minor')
                 setters += ' g_convergence {}\n GEOM_MAXITER {}\n'.format(self.qm['convergence'], self.qm['iterations'])
@@ -257,8 +261,10 @@ class PSI4(Engines):
 
         if QM:
             molecule = self.engine_mol.QMoptimized
+
         elif MM:
             molecule = self.engine_mol.MMoptimized
+
         else:
             molecule = self.engine_mol.molecule
 

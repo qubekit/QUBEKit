@@ -69,6 +69,7 @@ class Configure:
         'increment': ';Angle increase increment',
         'num_scan': ';Number of optimisations around the dihedral angle',
         't_weight': ';Weighting temperature that can be changed to better fit complicated surfaces',
+        'l_pen': ';The regularization penalty',
         'new_dih_num': ';Parameter number for the new dihedral to be fit',
         'q_file': ';If the results are collected with QuBeKit this is always true',
         'tor_limit': ';Torsion Vn limit to speed up fitting',
@@ -98,6 +99,7 @@ class Configure:
             # Load in the ini file given
             if path.exists(config_file):
                 qm, fitting, descriptions = Configure.ini_parser(config_file)
+
             else:
                 qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder+config_file)
 
@@ -106,8 +108,10 @@ class Configure:
                       'num_scan', 'new_dih_num', 'tor_limit', 'div_index']
 
         for key in clean_ints:
+
             if key in qm.keys():
                 qm[key] = int(qm[key])
+
             elif key in fitting.keys():
                 fitting[key] = int(fitting[key])
 
@@ -117,16 +121,22 @@ class Configure:
         # Now cast the bools
         if qm['geometric'].lower() == 'true':
             qm['geometric'] = True
+
         else:
             qm['geometric'] = False
+
         if qm['solvent'].lower() == 'true':
             qm['solvent'] = True
+
         else:
             qm['solvent'] = False
 
         # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
             fitting['t_weight'] = float(fitting['t_weight'])
+
+        # Now cast the regularization penalty to float
+        fitting['l_pen'] = float(fitting['l_pen'])
 
         return qm, fitting, descriptions
 
@@ -155,6 +165,7 @@ class Configure:
         # make sure the ini file has an ini ending
         if not ini.endswith('.ini'):
             ini += '.ini'
+
         # Check the current master template
         if Configure.check_master():
             # If master then load
@@ -164,18 +175,22 @@ class Configure:
             # If default is the config file then assign the defaults
             qm, fitting, descriptions = Configure.qm, Configure.fitting, Configure.descriptions
 
+        # Set config parser to allow for comments
         config = ConfigParser(allow_no_value=True)
         config.add_section('QM')
+
         for key in qm.keys():
             config.set('QM', Configure.help[key])
             config.set('QM', key, qm[key])
 
         config.add_section('FITTING')
+
         for key in fitting.keys():
             config.set('FITTING', Configure.help[key])
             config.set('FITTING', key, fitting[key])
 
         config.add_section('DESCRIPTIONS')
+
         for key in descriptions.keys():
             config.set('DESCRIPTIONS', Configure.help[key])
             config.set('DESCRIPTIONS', key, descriptions[key])

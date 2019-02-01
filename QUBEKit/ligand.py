@@ -44,8 +44,8 @@ class Ligand:
         self.Residues = {}
         self.HarmonicBondForce = {}
         self.HarmonicAngleForce = {}
-        self.PeriodicTorsionForce = {}
-        self.NonbondedForce = {}            # Key = atom name: val = charges and L-J parameters
+        self.PeriodicTorsionForce = OrderedDict()
+        self.NonbondedForce = OrderedDict()
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -315,12 +315,12 @@ class Ligand:
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(neighbors(self.topology, node)))
-                if len(bonded) > 2:
-                    pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+                #if len(bonded) > 2:
+                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')
 
-    def write_parameters(self):
+    def write_parameters(self, name=None):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
         # First build the xml tree
@@ -331,7 +331,10 @@ class Ligand:
 
         pretty_xml_as_string = parseString(messy).toprettyxml(indent="")
 
-        with open(f'{self.name}.xml', 'w+') as xml_doc:
+        if not name:
+            name = self.name
+
+        with open(f'{name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
     def build_tree(self):

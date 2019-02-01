@@ -1,0 +1,11 @@
+numpy
+matplotlib
+rdkit
+openmm
+geomeTRIC
+torsiondrive
+simtk
+seaborn
+scipy
+
+
