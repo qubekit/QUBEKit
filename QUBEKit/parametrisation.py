@@ -305,7 +305,7 @@ class OpenFF(Parametrisation):
         self.symmetrise()
 
     def serialise_system(self):
-        """Create the OpenMM system parametrise using frost and serialise the system."""
+        """Create the OpenMM system; parametrise using frost; serialise the system."""
 
         # Load molecule using OpenEye tools
         mol = oechem.OEGraphMol()

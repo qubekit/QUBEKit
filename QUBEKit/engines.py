@@ -31,7 +31,7 @@ class Engines:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
 
-#@for_all_methods(timer_logger)
+@for_all_methods(timer_logger)
 class PSI4(Engines):
     """Writes and executes input files for psi4.
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
@@ -56,7 +56,7 @@ class PSI4(Engines):
         else:
             molecule = self.engine_mol.molecule
 
-        # input.dat is the psi4 input file.
+        # input.dat is the PSI4 input file.
         setters = ''
         tasks = ''
 
@@ -221,7 +221,8 @@ class PSI4(Engines):
 
         return opt_struct
 
-    def get_energy(self):
+    @staticmethod
+    def get_energy():
         """Get the energy of a single point calculation."""
 
         # open the psi4 log file
@@ -233,6 +234,8 @@ class PSI4(Engines):
             if 'Total Energy =' in line:
                 energy = float(line.split()[3])
                 break
+        else:
+            raise EOFError('Cannot find energy in output.dat file.')
 
         return energy
 

@@ -315,7 +315,7 @@ class Ligand:
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(neighbors(self.topology, node)))
-                #if len(bonded) > 2:
+                # if len(bonded) > 2:
                 pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')
@@ -407,15 +407,23 @@ class Ligand:
         opt_molecule = []
 
         # opt.xyz is the geometric optimised structure file.
-        with open(f'{name if name else "opt"}.xyz', 'r') as xyz_file:
-            lines = xyz_file.readlines()[2:]
-            for line in lines:
-                line = line.split()
-                opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
+        try:
+            with open(f'{name if name else "opt"}.xyz', 'r') as xyz_file:
+                lines = xyz_file.readlines()[2:]
+                for line in lines:
+                    line = line.split()
+                    opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
+            self.QMoptimized = opt_molecule
 
-        self.QMoptimized = opt_molecule
+            return self
 
-        return self
+        except FileNotFoundError:
+            raise FileNotFoundError('Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n'
+                                    'Please ensure PSI4 is installed properly and can be called with the command: psi4\n'
+                                    'Alternatively, geometric may not be installed properly.\n'
+                                    'Please ensure it is and can be called with the command: geometric-optimize\n'
+                                    'Installation instructions can be found on the respective github pages and '
+                                    'elsewhere online, see README for more details.')
 
     def write_xyz(self, QM=False, MM=False, name=None):
         """Write a general xyz file. QM and MM decide where it will be written from in the ligand class."""

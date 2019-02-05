@@ -7,6 +7,8 @@
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.helpers import check_net_charge
 
+from os.path import exists
+
 
 @for_all_methods(timer_logger)
 class LennardJones:
@@ -47,6 +49,11 @@ class LennardJones:
             raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
 
         self.ddec_data = []
+
+        if not exists(net_charge_file_name):
+            raise FileNotFoundError('Cannot find the DDEC output file.\nThis could be indicative of several issues.\n'
+                                    'Please check Chargemol is installed in the correct location and that the configs'
+                                    ' point to that location.')
 
         with open(net_charge_file_name, 'r+') as charge_file:
 
@@ -196,6 +203,14 @@ class LennardJones:
         # This should be enough to symmetrise the atoms in MOST cases.
         # It is not sufficient to simply look at the nearest neighbours and no further.
         # This leads to "over-symmetrisation" where different atom types are labelled as the same.
+
+        # 3. Don't do it all
+        # If a symmetrical molecule appears to not be symmetrical, then there is an issue with the QM calculation.
+        # Forcing symmetrisation on "almost" symmetrical molecules obfuscates their true structure.
+        # When symmetrising based on nearby atoms, effects such as hydrogen bonding can be accidentally removed.
+        # This is especially problematic as molecules get larger and these effects are more pronounced.
+        # For example, an atom in alinine involved in the Hydrogen bonding of an alpha helix would not be the same as
+        # that atom in the same position on a different alinine molecule not in an alpha helix.
 
         pass
 

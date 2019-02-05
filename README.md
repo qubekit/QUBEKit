@@ -23,17 +23,28 @@ To install, it is recommended to clone the QUBEKit folder into a home directory 
 
 * [Anaconda3](https://www.anaconda.com/download/)
 * [Gaussian09](http://gaussian.com/)
+* [PSI4](http://www.psicode.org/)
 
 ### Other Python modules used
 
 Many packages come installed with the above requirements, however there are some which require further installation. All packages must be installed through conda and use conda as their path.
-(Standard library packages such as collections are not listed.)
+(Standard library packages and conda default packages (scipy, numpy, etc) are not listed.)
 
-* psi4
-* rdkit
-* numpy
+* [GeomeTRIC](https://github.com/leeping/geomeTRIC)
+* [RDKit](http://rdkit.org/)
+* [OpenFF](https://openforcefield.org/)
 
 You should now be able to use QUBEKit straight away from the command line or as an import.
+
+Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
+This is generally safest, as Anaconda will deal with versions and conflicts in your environment.
+Generally, conda packages will have the conda install command on their website/github.
+For the software not available through Anaconda, either git clone them and install:
+
+    git clone http://<git_address_here>
+    python setup.py install
+
+or follow the described steps in the respective documentation.
 
 ### In Development
 
@@ -67,7 +78,7 @@ The only parameter that must be changed for QUBEKit to run is the chargemol path
 This option is what controls where the chargemol code is kept on your PC.
 It should be the location of the chargemol home directory, plus the name of the chargemol folder itself:
 
-    '/home/user/Programs/chargemol_09_26_2017'
+    '/home/<user>/Programs/chargemol_09_26_2017'
 
 ### QUBEKit Commands: Running Jobs
 

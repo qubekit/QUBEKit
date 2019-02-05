@@ -45,6 +45,7 @@ class Configure:
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array
         'parameter_engine': 'openff',   # Method used for initial parametrisation
+        'l_pen': '0.5',                 # The regularisation penalty
     }
 
     descriptions = {
@@ -57,21 +58,21 @@ class Configure:
         'basis': ';Basis set',
         'vib_scaling': ';Associated scaling to the theory',
         'threads': ';Number of processors used in g09; affects the bonds and dihedral scans',
-        'memory': ';Amount of memory (in GB); specified in the g09 scripts',
+        'memory': ';Amount of memory (in GB); specified in the g09 and PSI4 scripts',
         'convergence': ';Criterion used during optimisations; works using psi4 and geometric so far',
         'iterations': ';Max number of optimisation iterations',
         'bonds_engine': ';Engine used for bonds calculations',
         'charges_engine': ';Engine used for charges calculations',
         'ddec_version': ';DDEC version used by chargemol, 6 recommended but 3 is also available',
-        'geometric': ';Use geometric for optimised structure (if False, will just use psi4)',
+        'geometric': ';Use geometric for optimised structure (if False, will just use PSI4)',
         'solvent': ';Use a solvent in the psi4/gaussian09 input',
         'dih_start': ';Starting angle of dihedral scan',
         'increment': ';Angle increase increment',
         'num_scan': ';Number of optimisations around the dihedral angle',
         't_weight': ';Weighting temperature that can be changed to better fit complicated surfaces',
-        'l_pen': ';The regularization penalty',
+        'l_pen': ';The regularisation penalty',
         'new_dih_num': ';Parameter number for the new dihedral to be fit',
-        'q_file': ';If the results are collected with QuBeKit this is always true',
+        'q_file': ';If the results are collected with QUBEKit this is always true',
         'tor_limit': ';Torsion Vn limit to speed up fitting',
         'div_index': ';Fitting starting index in the division array',
         'parameter_engine': ';Method used for initial parametrisation',
@@ -93,7 +94,7 @@ class Configure:
 
             # else load the master file
             else:
-                qm, fitting, descriptions = Configure.ini_parser(f'{Configure.config_folder+Configure.master_file}')
+                qm, fitting, descriptions = Configure.ini_parser(f'{Configure.config_folder + Configure.master_file}')
 
         else:
             # Load in the ini file given
@@ -101,7 +102,7 @@ class Configure:
                 qm, fitting, descriptions = Configure.ini_parser(config_file)
 
             else:
-                qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder+config_file)
+                qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder + config_file)
 
         # Now cast the numbers
         clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start', 'increment',
@@ -135,7 +136,7 @@ class Configure:
         if fitting['t_weight'] != 'infinity':
             fitting['t_weight'] = float(fitting['t_weight'])
 
-        # Now cast the regularization penalty to float
+        # Now cast the regularisation penalty to float
         fitting['l_pen'] = float(fitting['l_pen'])
 
         return qm, fitting, descriptions
@@ -200,7 +201,7 @@ class Configure:
 
     @staticmethod
     def ini_edit(ini_file):
-        """Open the ini file for editing in the command line using whatever programme the user wants."""
+        """Open the ini file for editing in the command line using whatever program the user wants."""
 
         # Make sure the ini file has an ini ending
         if not ini_file.endswith('.ini'):
