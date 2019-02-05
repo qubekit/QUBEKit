@@ -156,7 +156,7 @@ class TorsionScan:
             chdir('../')
 
 
-# @for_all_methods(timer_func)
+@for_all_methods(timer_logger)
 class TorsionOptimizer:
     """Torsion optimiser class used to optimise dihedral parameters with a range of methods"""
 
