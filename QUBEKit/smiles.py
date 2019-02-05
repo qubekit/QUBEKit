@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
-
 from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors
 from rdkit.Chem.rdForceFieldHelpers import MMFFGetMoleculeForceField, MMFFGetMoleculeProperties, MMFFOptimizeMolecule
 
 
 def smiles_to_pdb(smiles_string, name=None):
     """Converts smiles strings to pdb and mol files."""
-    # TODO Do we really want to generate the mol files too?
     # Originally written by: venkatakrishnan, rewritten and extended by: Chris Ringrose
 
     if 'H' in str(smiles_string):
@@ -50,4 +48,3 @@ def smiles_mm_optimise(pdb_file):
     AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
 
     return f'{pdb_file[:-4]}_rdkit_optimised.pdb', descriptors
-

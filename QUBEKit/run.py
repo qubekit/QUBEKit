@@ -145,11 +145,11 @@ class Main:
             return None (implicitly)
         """
 
-        # Check for config changes or csv generation first.
-        # Multiple configs can be changed at once
         self.commands = cmdline[1:]
         print('\nThese are the commands you gave:', self.commands)
 
+        # Check for config changes or csv generation first.
+        # Multiple configs can be changed at once
         for count, cmd in enumerate(self.commands):
 
             # Change defaults for each analysis.
@@ -215,7 +215,7 @@ class Main:
 
         print('These are the current defaults:', self.defaults_dict, '\nPlease note, some values may not be used.')
 
-        # Then check what kind of analysis is being done.
+        # Check if a bulk analysis is being done.
         for count, cmd in enumerate(self.commands):
 
             # Controls high throughput.
@@ -293,10 +293,11 @@ class Main:
                     sys_exit()
 
                 else:
-                    raise Exception('Bulk commands only supported for pdb files or csv file containing smiles strings. '
-                                    'Please specify the type of bulk analysis you are doing, '
-                                    'and include the name of the csv file defaults are to be extracted from.')
+                    raise KeyError('Bulk commands only supported for pdb files or csv file containing smiles strings. '
+                                   'Please specify the type of bulk analysis you are doing, '
+                                   'and include the name of the csv file defaults are to be extracted from.')
 
+        # Check if an analysis is being done with restart/end arguments
         for count, cmd in enumerate(self.commands):
 
             if '-restart' in cmd or '-end' in cmd:
@@ -328,6 +329,7 @@ class Main:
 
                     return self.file, self.commands
 
+        # Finally, check if a single analysis being done is using a pdb or smiles string (default).
         for count, cmd in enumerate(self.commands):
             if any(s in cmd for s in ('-sm', '-smiles')) or 'pdb' in cmd:
 
@@ -337,16 +339,8 @@ class Main:
                     self.defaults_dict['smiles string'] = self.commands[count + 1]
 
                 # If a pdb is given instead, use that.
-                elif 'pdb' in cmd:
-
-                    self.file = cmd
-
-                # If neither a smiles string nor a pdb is given, raise exception.
                 else:
-                    raise Exception('Missing valid file type or smiles command. '
-                                    'Please use pdb files and be sure to give the extension when typing the file name'
-                                    ' into the terminal. '
-                                    'Alternatively, use the smiles command (-sm) to generate a molecule.')
+                    self.file = cmd
 
                 print(self.start_up_msg)
                 return self.file, self.commands
@@ -576,13 +570,15 @@ class Main:
         self.execution_wrapper('torsions')
 
         # This step is always performed
-
-        print('how is this happening')
+        self.execution_wrapper('finalise', fin_log_msg='Molecule analysis complete!')
 
         return None
 
+
 def main():
+    """This just stops the __repr__ automatically being called when the class is called."""
     Main()
+
 
 if __name__ == '__main__':
     main()
