@@ -161,7 +161,7 @@ class ModSeminario:
         self.calculate_bonds(bond_list, bond_lengths, eigenvalues, eigenvectors, coords)
         self.calculate_angles(angle_list, bond_lengths, eigenvalues, eigenvectors, coords)
 
-    def calculate_angles(self, angle_list, bond_lengths, eigenvalues, eigenvectors, coords):
+    def calculate_angles(self, angle_list, bond_lens, eigenvals, eigenvecs, coords):
         """Uses the modified Seminario method to find the angle parameters and prints them to file."""
 
         from operator import itemgetter
@@ -247,8 +247,8 @@ class ModSeminario:
 
             for i, angle in enumerate(angle_list):
                 # Ensures that there is no difference when the ordering is changed.
-                ab_k_theta, ab_theta_0 = ModSemMaths.force_angle_constant(angle[0] - 1, angle[1] - 1, angle[2] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1])
-                ba_k_theta, ba_theta_0 = ModSemMaths.force_angle_constant(angle[2] - 1, angle[1] - 1, angle[0] - 1, bond_lengths, eigenvalues, eigenvectors, coords, scaling_factors_angles_list[i][1], scaling_factors_angles_list[i][0])
+                ab_k_theta, ab_theta_0 = ModSemMaths.force_angle_constant(angle[0] - 1, angle[1] - 1, angle[2] - 1, bond_lens, eigenvals, eigenvecs, coords, scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1])
+                ba_k_theta, ba_theta_0 = ModSemMaths.force_angle_constant(angle[2] - 1, angle[1] - 1, angle[0] - 1, bond_lens, eigenvals, eigenvecs, coords, scaling_factors_angles_list[i][1], scaling_factors_angles_list[i][0])
                 k_theta[i] = (ab_k_theta + ba_k_theta) / 2
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
@@ -256,13 +256,13 @@ class ModSeminario:
                 k_theta[i] *= (self.qm['vib_scaling'] ** 2)
 
                 angle_file.write(f'{i}  {self.atom_names[angle[0] - 1]}-{self.atom_names[angle[1] - 1]}-{self.atom_names[angle[2] - 1]}  ')
-                angle_file.write('{:.3f}   {:.3f}   {}   {}   {}\n'.format(k_theta[i], theta_0[i], angle[0], angle[1], angle[2]))
+                angle_file.write(f'{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n')
 
                 unique_values_angles.append([self.atom_names[angle[0] - 1], self.atom_names[angle[1] - 1], self.atom_names[angle[2] - 1], k_theta[i], theta_0[i], 1])
 
         return unique_values_angles
 
-    def calculate_bonds(self, bond_list, bond_lengths, eigenvalues, eigenvectors, coords):
+    def calculate_bonds(self, bond_list, bond_lens, eigenvals, eigenvecs, coords):
         """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
         conversion = 418.4
@@ -270,14 +270,14 @@ class ModSeminario:
         with open('Modified_Seminario_Bonds.txt', 'w+') as bond_file:
 
             k_b = zeros(len(bond_list))
-            bond_length_list = zeros(len(bond_list))
+            bond_len_list = zeros(len(bond_list))
 
             # Used to find average values
             unique_values_bonds = []
 
             for i, bond in enumerate(bond_list):
-                ab = ModSemMaths.force_constant_bond(bond[0] - 1, bond[1] - 1, eigenvalues, eigenvectors, coords)
-                ba = ModSemMaths.force_constant_bond(bond[1] - 1, bond[0] - 1, eigenvalues, eigenvectors, coords)
+                ab = ModSemMaths.force_constant_bond(bond[0] - 1, bond[1] - 1, eigenvals, eigenvecs, coords)
+                ba = ModSemMaths.force_constant_bond(bond[1] - 1, bond[0] - 1, eigenvals, eigenvecs, coords)
 
                 # Order of bonds sometimes causes slight differences; find the mean.
                 k_b[i] = real((ab + ba) / 2)
@@ -285,14 +285,14 @@ class ModSeminario:
                 # Vib_scaling takes into account DFT deficiencies/ anharmonicity.
                 k_b[i] *= (self.qm['vib_scaling'] ** 2)
 
-                bond_length_list[i] = bond_lengths[bond[0] - 1][bond[1] - 1]
+                bond_len_list[i] = bond_lens[bond[0] - 1][bond[1] - 1]
                 bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')
-                bond_file.write('{:.3f}   {:.3f}   {}   {}\n'.format(k_b[i], bond_length_list[i], bond[0], bond[1]))
+                bond_file.write(f'{k_b[i]:.3f}   {bond_len_list[i]:.3f}   {bond[0]}   {bond[1]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicBondForce[(bond[0] - 1, bond[1] - 1)] = [str(bond_length_list[i] / 10), str(conversion * k_b[i])]
+                self.molecule.HarmonicBondForce[(bond[0] - 1, bond[1] - 1)] = [str(bond_len_list[i] / 10), str(conversion * k_b[i])]
 
-                unique_values_bonds.append([self.atom_names[bond[0] - 1], self.atom_names[bond[1] - 1], k_b[i], bond_length_list[i], 1])
+                unique_values_bonds.append([self.atom_names[bond[0] - 1], self.atom_names[bond[1] - 1], k_b[i], bond_len_list[i], 1])
 
         return unique_values_bonds
 

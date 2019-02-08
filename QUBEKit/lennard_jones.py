@@ -19,14 +19,15 @@ class LennardJones:
         self.molecule = molecule
         self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
         # This is the DDEC molecule data in the format:
-        # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', vol]
+        # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', 'vol']
         self.ddec_data = self.extract_params()
         self.ddec_ai_bi = self.append_ais_bis()
         self.ddec_polars = self.polar_hydrogens()
 
     def extract_params(self):
         """Extract the useful information from the DDEC xyz files.
-        Prepare this information for the Lennard-Jones coefficient calculations."""
+        Prepare this information for the Lennard-Jones coefficient calculations.
+        """
 
         # Get number of atoms from start of ddec file.
 
@@ -73,8 +74,7 @@ class LennardJones:
                         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole']
                         atom_string_list = line.split()
                         # Append all the float values first.
-                        atom_data = atom_string_list[2:9]
-                        atom_data = [float(datum) for datum in atom_data]
+                        atom_data = [float(datum) for datum in atom_string_list[2:9]]
 
                         # Prepend the first two values (atom_type = str, atom_number = int)
                         atom_data.insert(0, atom_string_list[1])

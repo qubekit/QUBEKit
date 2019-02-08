@@ -88,10 +88,9 @@ class TorsionScan:
         with open('dihedrals.txt', 'w+') as out:
 
             out.write('# dihedral definition by atom indices starting from 0\n# i     j     k     l\n')
-            out.write('  {}     {}     {}     {}\n'.format(self.scan_mol.dihedrals[scan][0][0],
-                                                           self.scan_mol.dihedrals[scan][0][1],
-                                                           self.scan_mol.dihedrals[scan][0][2],
-                                                           self.scan_mol.dihedrals[scan][0][3]))
+            scan_di = self.scan_mol.dihedrals[scan][0]
+            out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}\n')
+
         # TODO need to add PSI4 redundant mode selector
 
         if self.native_opt:
@@ -667,10 +666,8 @@ class TorsionOptimizer:
 
         with open('dihedrals.txt', 'w+') as out:
             out.write('# dihedral definition by atom indices starting from 0\n# i     j     k     l\n')
-            out.write('  {}     {}     {}     {}\n'.format(self.molecule.dihedrals[self.scan][0][0],
-                                                           self.molecule.dihedrals[self.scan][0][1],
-                                                           self.molecule.dihedrals[self.scan][0][2],
-                                                           self.molecule.dihedrals[self.scan][0][3]))
+            mol_di = self.molecule.dihedrals[self.scan][0]
+            out.write(f'  {mol_di[0]}     {mol_di[1]}     {mol_di[2]}     {mol_di[3]}\n')
 
     def drive_mm(self):
         """Drive the torsion again using MM to get new structures."""

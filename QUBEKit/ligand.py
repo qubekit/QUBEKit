@@ -444,6 +444,17 @@ class Ligand:
                 # Format with spacing
                 xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
 
+    def write_gromacs_file(self):
+        """To a gromacs file, write and format the necessary ligand variables."""
+
+        with open(f'{self.name}.gro', 'w+') as gro_file:
+            gro_file.write(f'NEW {self.name.upper()} GRO FILE\n')
+            gro_file.write(f'{len(self.molecule):>5}\n')
+            for count, atom in enumerate(self.molecule, 1):
+                # 'mol number''mol name'  'atom name'   'atom count'   'x coord'   'y coord'   'z coord'
+                # 1WATER  OW1    1   0.126   1.624   1.679
+                gro_file.write(f'    1{self.name.upper()}  {atom[0]}{count}   {count}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
+
     def pickle(self, state=None):
         """Pickles the ligand object in its current state to the (hidden) pickle file.
         If other pickle objects already exist for the particular ligand object:

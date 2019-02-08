@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-# TODO If any defaults are changed when rerunning via -restart, print the defaults again and
-#       add an * next to the changed values.
-
 
 from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise
 from QUBEKit.modseminario import ModSeminario
@@ -22,8 +19,10 @@ from collections import OrderedDict
 from functools import partial
 from datetime import datetime
 
+import profile
 
-# Changes default print behaviour for this class.
+
+# Changes default print behaviour for this file.
 print = partial(print, flush=True)
 
 
@@ -31,10 +30,13 @@ class Main:
     """Interprets commands from the terminal.
     Stores defaults or executes relevant functions.
     Will also create log and working directory where needed.
-    See README.md for detailed discussion of QUBEKit commands.
+    See README.md for detailed discussion of QUBEKit commands or method docstrings for specifics of their functionality.
     """
 
     def __init__(self):
+
+        self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n'
+                             'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
 
         # Configs:
         self.defaults_dict = {'charge': 0,
@@ -44,6 +46,7 @@ class Main:
                         'fitting': {},
                         'descriptions': {}}
 
+        # Call order of the analysing methods. Slices of this dict are taken when changing the start and end points of analyses.
         self.order = OrderedDict([('rdkit_optimise', self.rdkit_optimise),
                                   ('parametrise', self.parametrise),
                                   ('qm_optimise', self.qm_optimise),
@@ -56,9 +59,8 @@ class Main:
                                   ('finalise', self.finalise)])
 
         # Parse the input commands to find the config file, and save changes to configs
-        self.log_file = None
-        self.qm_engine = None
         self.file, self.commands = self.parse_commands()
+        self.log_file, self.qm_engine = None, None  # Defined later.
 
         # Find which config is being used and store arguments accordingly
         if self.defaults_dict['config'] == 'default_config':
@@ -76,38 +78,17 @@ class Main:
         # Get the master configs and apply the changes
         self.config_update()
 
-        # Find the log file rather than creating one.
-        if '-restart' in self.commands:
-            files = [file for file in listdir('.') if path.isfile(file)]
-            self.log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+        # Continue or create log file depending on desired analysis.
+        self.continue_log() if '-restart' in self.commands else self.create_log()
 
-            with open(self.log_file, 'a+') as log_file:
-
-                log_file.write(f'\n\nContinuing log file from previous execution: {datetime.now()}\n\n')
-                log_file.write(f'The commands given were: {self.commands}\n\n')
-
-                # TODO Add logic to reprint commands with *s after changed defaults.
-                # Writes the config dictionaries to the log file.
-                log_file.write('The defaults used are:\n')
-                for dic in self.all_configs:
-                    for key, var in dic.items():
-                        log_file.write(f'{key}: {var}\n')
-                    log_file.write('\n')
-
-                log_file.write('\n')
-        else:
-            self.create_log()
-
+        # Main worker method which handles calling of the modules in the correct order.
         self.execute()
-
-    start_up_msg = (f'If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n'
-                    'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def config_update(self):
-        """Update the config settings with the command line ones."""
+        """Update the config settings with the command line ones from parse_commands()."""
 
         for key in self.configs.keys():
             for sub in self.configs[key].keys():
@@ -121,45 +102,49 @@ class Main:
     def parse_commands(self):
         """Parses commands from the terminal.
 
-        This method has four main blocks, each defined by an enumerate loop.
+        This method has four main blocks, each defined by an enumerate loop which loops over the commands.
         In the first block:
-            First, the program will search for commands which terminate the program such as -progress, -setup.
-            Then, it will search for, and change, config settings such as -c, -ddec.
+            - First, the program will search for commands which terminate the program such as -progress, -setup.
+            - Then, it will search for, and change, config settings such as -c, -ddec.
         In the second block:
-            Search for, and execute bulk commands
+            - Search for, and execute bulk commands
         In the third block:
-            Search for, and execute -restart and -end commands
+            - Search for, and execute -restart and -end commands
         In the fourth and final block:
-            Search for, and execute -sm commands or plain old named .pdb files.
+            - Search for, and execute -sm commands or plain old named .pdb files.
 
         This ordering ensures that the program will always:
-            Terminate immediately if necessary;
-            Store config changes correctly before running anything;
-            Perform bulk analysis rather than single molecule analysis (if requested);
-            Restart or end in the correct way (if requested);
-            Perform single molecule analysis using a pdb or smiles string (if requested).
+            - Terminate immediately if necessary;
+            - Store all config changes correctly before running anything;
+            - Perform bulk analysis rather than single molecule analysis (if requested);
+            - Restart or end in the correct way (if requested);
+            - Perform single molecule analysis using a pdb or smiles string (if requested).
 
         After all commands have been parsed and appropriately used, either:
-            commands are returned, along with the relevant file name
-            the program exits
-            return None (implicitly)
+            - Commands are returned, along with the relevant file name
+            - The program exits
+            - return None
         """
 
         self.commands = cmdline[1:]
-        print('\nThese are the commands you gave:', self.commands)
 
-        # Check for config changes or csv generation first.
-        # Multiple configs can be changed at once
+        # Check for csv generation, progress displaying or config setup first. These will halt the entire program.
+        # Then check for config changes; multiple configs can be changed at once.
         for count, cmd in enumerate(self.commands):
 
-            # Change defaults for each analysis.
+            # csv creation
             if cmd == '-csv':
                 csv_name = self.commands[count + 1]
                 generate_config_csv(csv_name)
                 sys_exit()
 
-            if cmd == '-setup':
+            # Display progress of all folders in current directory.
+            if cmd == '-progress':
+                pretty_progress()
+                sys_exit()
 
+            # Setup configs for all future runs
+            if cmd == '-setup':
                 choice = input('You can now edit config files using QUBEKit, choose an option to continue:\n'
                                '1) Edit a config file\n'
                                '2) Create a new master template\n'
@@ -168,19 +153,19 @@ class Main:
                 if int(choice) == 1:
                     name = input('Enter the name of the config file to edit\n>')
                     Configure.ini_edit(name)
+
                 elif int(choice) == 2:
                     Configure.ini_writer('master_config.ini')
                     Configure.ini_edit('master_config.ini')
+
                 elif int(choice) == 3:
                     name = input('Enter the name of the config file to create\n>')
                     Configure.ini_writer(name)
                     Configure.ini_edit(name)
+
                 else:
                     raise KeyError('Invalid selection; please choose from 1, 2 or 3.')
-                sys_exit()
 
-            if cmd == '-progress':
-                pretty_progress()
                 sys_exit()
 
             if cmd == '-c':
@@ -192,7 +177,7 @@ class Main:
             if cmd == '-ddec':
                 self.configs['qm']['ddec_version'] = int(self.commands[count + 1])
 
-            if any(s in cmd for s in ('-geo', '-geometric')):
+            if cmd == '-geo':
                 self.configs['qm']['geometric'] = False if self.commands[count + 1] == 'false' else True
 
             if cmd == '-bonds':
@@ -210,10 +195,13 @@ class Main:
             if cmd == '-param':
                 self.configs['fitting']['parameter_engine'] = str(self.commands[count + 1])
 
+            # Unlike '-setup', this just changes the config file used for this particular run.
             if cmd == '-config':
                 self.defaults_dict['config'] = str(self.commands[count + 1])
 
-        print('These are the current defaults:', self.defaults_dict, '\nPlease note, some values may not be used.')
+        if self.commands:
+            print('\nThese are the commands you gave:', self.commands)
+            print('These are the current defaults:', self.defaults_dict, '\nPlease note, some values may not be used.')
 
         # Check if a bulk analysis is being done.
         for count, cmd in enumerate(self.commands):
@@ -256,48 +244,42 @@ class Main:
                         self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
                         self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
 
-                        # If starting from the beginning, create log and execute as normal for each run
+                        # If starting from the beginning, create log and pdb file then execute as normal for each run
                         if start_point == 'rdkit_optimise':
 
                             if self.commands[count + 1] == 'smiles':
                                 smile_string = bulk_data[name]['smiles string']
                                 self.file = smiles_to_pdb(smile_string, name)
 
-                            elif self.commands[count + 1] == 'pdb':
+                            else:
                                 self.file = name + '.pdb'
 
                             self.create_log()
-                            self.execute()
-                            chdir('../')
 
-                        # If starting from the middle somewhere, FIND (not create) the folder and log file then execute
+                        # If starting from the middle somewhere, FIND (not create) the folder, and log and pdb files, then execute
                         else:
                             for root, dirs, files in walk('.', topdown=True):
                                 for dir_name in dirs:
                                     if dir_name.startswith(f'QUBEKit_{name}'):
                                         chdir(dir_name)
 
-                                        # These are the files in the active directory, search for the pdb and log file.
-                                        files = [file for file in listdir('.') if path.isfile(file)]
-                                        self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
-                                        self.log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+                            # These are the files in the active directory, search for the pdb.
+                            files = [file for file in listdir('.') if path.isfile(file)]
+                            self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
 
-                                        # TODO Print any changed defaults to the log file.
+                            self.continue_log()
 
-                                        self.execute()
-                                        chdir('../')
-                                        # Break out of the loop to prevent over-searching
-                                        break
+                        self.execute()
+                        chdir('../')
 
-                    print('Finished bulk run. Use the command -progress to view which stages have completed.')
-                    sys_exit()
+                    sys_exit('Finished bulk run. Use the command -progress to view which stages have completed.')
 
                 else:
                     raise KeyError('Bulk commands only supported for pdb files or csv file containing smiles strings. '
                                    'Please specify the type of bulk analysis you are doing, '
                                    'and include the name of the csv file defaults are to be extracted from.')
 
-        # Check if an analysis is being done with restart/end arguments
+        # Check if an analysis is being done with restart / end arguments
         for count, cmd in enumerate(self.commands):
 
             if '-restart' in cmd or '-end' in cmd:
@@ -329,33 +311,56 @@ class Main:
 
                     return self.file, self.commands
 
-        # Finally, check if a single analysis being done is using a pdb or smiles string (default).
+        # Finally, check if a single analysis is being done and if so, is it using a pdb or smiles.
         for count, cmd in enumerate(self.commands):
-            if any(s in cmd for s in ('-sm', '-smiles')) or 'pdb' in cmd:
 
-                if any(s in cmd for s in ('-sm', '-smiles')):
-                    # Generate pdb from smiles string.
-                    self.file = smiles_to_pdb(self.commands[count + 1])
-                    self.defaults_dict['smiles string'] = self.commands[count + 1]
+            if '-sm' in cmd:
+                # Generate pdb from smiles string.
+                self.file = smiles_to_pdb(self.commands[count + 1])
+                self.defaults_dict['smiles string'] = self.commands[count + 1]
 
-                # If a pdb is given instead, use that.
-                else:
-                    self.file = cmd
+            # If a pdb is given instead, use that.
+            elif 'pdb' in cmd:
+                self.file = cmd
 
-                print(self.start_up_msg)
-                return self.file, self.commands
+            print(self.start_up_msg)
+            return self.file, self.commands
+
+        else:
+            sys_exit('You did not ask QUBEKit to perform any kind of analysis, so it has stopped.\n'
+                     'See the documentation (README) for details of acceptable commands with examples.')
+
+    def continue_log(self):
+        """In the event of restarting an analysis, find and append to the existing log file rather than creating a new one."""
+
+        files = [file for file in listdir('.') if path.isfile(file)]
+        self.log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+
+        with open(self.log_file, 'a+') as log_file:
+
+            log_file.write(f'\n\nContinuing log file from previous execution: {datetime.now()}\n\n')
+            log_file.write(f'The commands given were: {self.commands}\n\n')
+
+            # TODO Add logic to reprint commands with *s after changed defaults.
+            # Writes the config dictionaries to the log file.
+            log_file.write('The defaults being used are:\n')
+            for dic in self.all_configs:
+                for key, var in dic.items():
+                    log_file.write(f'{key}: {var}\n')
+                log_file.write('\n')
+
+            log_file.write('\n')
+
+        return
 
     def create_log(self):
         """Creates the working directory for the job as well as the log file.
         This log file is then extended when:
-            decorators.timer_logger wraps a called method;
-            helpers.append_to_log() is called;
-            helpers.pretty_print() is called with to_file set to True;
-            decorators.exception_logger_decorator() wraps a function which throws an exception.
+            - decorators.timer_logger wraps a called method;
+            - helpers.append_to_log() is called;
+            - helpers.pretty_print() is called with to_file set to True;
+            - decorators.exception_logger_decorator() wraps a function / method which throws an exception.
         """
-
-        # TODO create_log() should become create_or_find_log(), allowing it to be called by bulk runs.
-        #   Mostly this would be to remove repeated code.
 
         date = datetime.now().strftime('%Y_%m_%d')
 
@@ -381,7 +386,7 @@ class Main:
             log_file.write(f'Analysing: {self.file[:-4]}\n\n')
 
             # Writes the config dictionaries to the log file.
-            log_file.write('The defaults used are:\n')
+            log_file.write('The defaults being used are:\n')
             for dic in self.all_configs:
                 for key, var in dic.items():
                     log_file.write(f'{key}: {var}\n')
@@ -391,15 +396,16 @@ class Main:
 
         return
 
-    def execution_wrapper(self, start_key, begin_log_msg='', fin_log_msg=''):
-        """Firstly, check if the start key is inside self.order; this tells you if the method should be called or not.
-        If it isn't in self.order, just do nothing.
+    def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg=''):
+        """Firstly, check if the stage start_key is in self.order; this tells you if the stage should be called or not.
+        If it isn't in self.order:
+            - Do nothing
         If it is:
-            - Unpickle the ligand object at the start_key marker
+            - Unpickle the ligand object at the start_key stage
             - Write to the log that something's about to be done (if specified)
             - Do the thing
             - Write to the log that something's been done (if specified)
-            - Pickle it again with the next_key marker
+            - Pickle the ligand object again with the next_key marker as its stage
         """
 
         if start_key in [key for key in self.order.keys()]:
@@ -461,8 +467,7 @@ class Main:
             self.qm_engine.generate_input(MM=True, optimize=True)
             mol.QMoptimized = self.qm_engine.optimised_structure()
 
-        append_to_log(self.log_file,
-                      f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
+        append_to_log(self.log_file, f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
 
         return mol
 
@@ -556,21 +561,21 @@ class Main:
             mol.log_file = self.log_file
             mol.pickle(state='rdkit_optimise')
 
-        # Perform each key stage sequentially adding short messages to terminal to show progress.
+        # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
         # Longer messages should be written inside the key stages' functions using helpers.append_to_log().
         # See PSI4 class in engines for an example of where this is used.
-        self.execution_wrapper('rdkit_optimise', 'Partially optimising with rdkit', 'Optimisation complete')
-        self.execution_wrapper('parametrise', 'Parametrising molecule', 'Molecule parametrised')
-        self.execution_wrapper('qm_optimise', 'Optimising molecule', 'Molecule optimised')
-        self.execution_wrapper('hessian', f'Calculating Hessian matrix with {self.qm_engine.__class__.__name__}')
-        self.execution_wrapper('mod_sem', 'Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated')
-        self.execution_wrapper('density', 'Performing density calculation with Gaussian09', 'Density calculation complete')
-        self.execution_wrapper('charges', f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated')
-        self.execution_wrapper('lennard_jones', 'Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated')
-        self.execution_wrapper('torsions')
+        self.stage_wrapper('rdkit_optimise', 'Partially optimising with rdkit', 'Optimisation complete')
+        self.stage_wrapper('parametrise', 'Parametrising molecule', 'Molecule parametrised')
+        self.stage_wrapper('qm_optimise', 'Optimising molecule', 'Molecule optimised')
+        self.stage_wrapper('hessian', f'Calculating Hessian matrix with {self.qm_engine.__class__.__name__}')
+        self.stage_wrapper('mod_sem', 'Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated')
+        self.stage_wrapper('density', 'Performing density calculation with Gaussian09', 'Density calculation complete')
+        self.stage_wrapper('charges', f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated')
+        self.stage_wrapper('lennard_jones', 'Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated')
+        self.stage_wrapper('torsions')
 
         # This step is always performed
-        self.execution_wrapper('finalise', fin_log_msg='Molecule analysis complete!')
+        self.stage_wrapper('finalise', fin_log_msg='Molecule analysis complete!')
 
         return None
 
@@ -580,5 +585,6 @@ def main():
     Main()
 
 
-if __name__ == '__main__':
-    main()
+def profile_main():
+    """Function for profiling the code. Called with command QUBEProfile <other args>"""
+    profile.run(main())

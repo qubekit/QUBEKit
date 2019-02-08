@@ -64,8 +64,8 @@ Please be aware there are currently no terminal help commands; all necessary inf
 QUBEKit has a lot of settings which are used in production and changing these can result in very different force field parameters.
 The settings are controlled using ini style config files which are easy to edit.
 After installation you should notice a ```QUBEKit_configs``` 
-folder in your main home directory; now you need to create a master template. To do this use the command ```QUBEKit -setup```
-where you will then be presented with some options:
+folder in your main home directory; now you need to create a master template.
+To do this use the command ```QUBEKit -setup``` where you will then be presented with some options:
 
     You can now edit config files using QUBEKit, chose an option to continue:
     1)Edit a config file
@@ -109,14 +109,24 @@ Running a full analysis with a non-default engine (g09):
 The program will tell the user which defaults are being used, and which commands were given.
 Errors will be raised for any invalid commands and the program will not run.
 
+Try running QUBEKit with the command:
+
+    QUBEKit -sm C -end hessian
+
+This will generate a methane pdb file (and mol file) using its smiles string: "C",
+then QUBEKit will analyse it until the hessian is calculated.
+See "QUBEKit Commands: Custom Start and End Points (single molecule)" below for more details on "-end".
+
 ## QUBEKit Commands: Logging
 
-Each time the program runs, a new working directory containing a log file will be created.
-The name of the directory will contain the run number provided via the terminal command (or the default run number in the configs if none is provided).
+Each time QUBEKit runs, a new working directory containing a log file will be created.
+The name of the directory will contain the run number provided via the terminal command "-log" (or the default run number in the configs if none is provided).
 This log file will store which methods were called, how long they took, and any docstring for them (if it exists).
 The log file will also contain information regarding the config options used, as well as the commands given and much more.
 The log file updates in real time and contains far more information than is printed to the terminal during a run.
 If there is an error with QUBEKit, the full stack trace of an exception will be stored in the log file.
+
+Many errors have custom exceptions to help if, for example, a module has not been installed correctly.
 
 The format for the name of the active directory is:
 
@@ -128,13 +138,16 @@ The format for the log file (which is inside this directory) is similar:
 
 If using QUBEKit multiple times per day with the same molecule, it is therefore necessary to update the 'run number'.
 Not updating the run number when analysing the same molecule on the same day will prevent the program from running.
-This is to prevent the directory being written over.
+This is to prevent the directory being overwritten.
 
 Updating the run number can be done with the command:
 
     -log Prop1201
     
 where 'Prop1201' is an example string which can be almost anything you like (no spaces or special characters).
+
+**Inputs are not sanitised so code injection is possible but given QUBEKit's use occurs locally, you're only hurting yourself!
+If you don't understand this, don't worry, just use alphanumeric log strings like above.**
 
 ### QUBEKit Commands: High Throughput
 
@@ -149,7 +162,7 @@ This will automatically generate the file with the appropriate column headers.
 The csv config file will be put into wherever you ran the command from.
 When writing to the csv file, append rows after the header row, rather than overwriting it.
 
-Before running a bulk analysis, *fill in each column for each molecule; 
+Before running a bulk analysis, fill in each column for each molecule*; 
 importantly, different config files can be supplied for each molecule.
 
 *Not all columns need to be filled:
@@ -223,7 +236,7 @@ For single molecule analysis, this is achieved with the -end and -restart comman
 * finalise
 
 In a normal run, all of these functions are called sequentially,
-but with -end and -restart you are free to run *from* any step *to* any step inclusive.
+but with -end and -restart you are free to run *from* any step *to* any step inclusively.
 
 When using -end, simply specify the end-point in the proceeding command,
 when using -restart, specify the start-point, then the end-point as space separated commands.
@@ -236,6 +249,7 @@ If specifying a different end-point, a new directory and log file will be create
 
 Because changing the start point requires files and other information from previous executions, this can only be run from
 inside a directory with those files present.
+
 To illustrate this point, a possible use case would be to perform a full calculation on the molecule ethane,
 then recalculate using a different (set of) default value(s):
 

@@ -62,27 +62,26 @@ class PSI4(Engines):
 
         # opening tag is always writen
         with open('input.dat', 'w+') as input_file:
-            input_file.write('memory {} GB\n\nmolecule {} {{\n{} {} \n'.format(self.qm['threads'], self.engine_mol.name,
-                                                                               self.charge, self.multiplicity))
+            input_file.write(f"memory {self.qm['threads']} GB\n\nmolecule {self.engine_mol.name} {{\n{self.charge} {self.multiplicity} \n")
             # molecule is always printed
             for atom in molecule:
-                input_file.write(' {}    {: .10f}  {: .10f}  {: .10f} \n'.format(atom[0], float(atom[1]), float(atom[2]), float(atom[3])))
-            input_file.write(' units angstrom\n no_reorient\n}}\n\nset {{\n basis {}\n'.format(self.qm['basis']))
+                input_file.write(f' {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
+            input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.qm['basis']}\n")
 
             if energy:
-                print('Writing psi4 energy calculation input')
+                append_to_log(self.engine_mol.log_file, 'Writing psi4 energy calculation input')
                 tasks += f"\nenergy  = energy('{self.qm['theory']}')"
 
             if optimize:
                 append_to_log(self.engine_mol.log_file, 'Writing PSI4 optimisation input', 'minor')
-                setters += ' g_convergence {}\n GEOM_MAXITER {}\n'.format(self.qm['convergence'], self.qm['iterations'])
-                tasks += "\noptimize('{}')".format(self.qm['theory'].lower())
+                setters += f" g_convergence {self.qm['convergence']}\n GEOM_MAXITER {self.qm['iterations']}\n"
+                tasks += f"\noptimize('{self.qm['theory'].lower()}')"
 
             if hessian:
                 append_to_log(self.engine_mol.log_file, 'Writing PSI4 Hessian matrix calculation input', 'minor')
                 setters += ' hessian_write on\n'
 
-                tasks += "\nenergy, wfn = frequency('{}', return_wfn=True)".format(self.qm['theory'].lower())
+                tasks += f"\nenergy, wfn = frequency('{self.qm['theory'].lower()}', return_wfn=True)"
 
                 tasks += '\nwfn.hessian().print_out()\n\n'
 
@@ -93,13 +92,13 @@ class PSI4(Engines):
                 overage = get_overage(self.engine_mol.name)
                 setters += " CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage)
                 setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
-                tasks += "grad, wfn = gradient('{}', return_wfn=True)\ncubeprop(wfn)".format(self.qm['theory'].lower())
+                tasks += f"grad, wfn = gradient('{self.qm['theory'].lower()}', return_wfn=True)\ncubeprop(wfn)"
 
             if fchk:
                 append_to_log(self.engine_mol.log_file, 'Writing PSI4 input file to generate fchk file')
-                tasks += '\ngrad, wfn = gradient("{}", return_wfn=True)'.format(self.qm['theory'].lower())
+                tasks += f"\ngrad, wfn = gradient('{self.qm['theory'].lower()}', return_wfn=True)"
                 tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
-                tasks += '\nfchk_writer.write("{}_psi4.fchk")\n'.format(self.engine_mol.name)
+                tasks += f'\nfchk_writer.write("{self.engine_mol.name}_psi4.fchk")\n'
 
             # TODO If overage cannot be made to work, delete and just use Gaussian.
             # if self.qm['solvent']:
@@ -288,15 +287,15 @@ class PSI4(Engines):
 
         with open(f'{self.engine_mol.name}.psi4in', 'w+') as file:
 
-            file.write('molecule {} {{\n {} {} \n'.format(self.engine_mol.name, self.charge, self.multiplicity))
+            file.write(f'molecule {self.engine_mol.name} {{\n {self.charge} {self.multiplicity} \n')
             for atom in molecule:
-                file.write('  {}    {: .10f}  {: .10f}  {: .10f}\n'.format(atom[0], float(atom[1]), float(atom[2]), float(atom[3])))
+                file.write(f'  {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
-            file.write("units angstrom\n no_reorient\n}}\nset basis {}\n".format(self.qm['basis']))
+            file.write(f"units angstrom\n no_reorient\n}}\nset basis {self.qm['basis']}\n")
 
             if threads:
-                file.write('set_num_threads({})'.format(self.qm['threads']))
-            file.write("\n\ngradient('{}')\n".format(self.qm['theory']))
+                file.write(f"set_num_threads({self.qm['threads']})")
+            file.write(f"\n\ngradient('{self.qm['theory']}')\n")
 
         if run:
             with open('log.txt', 'w+') as log:
@@ -396,7 +395,7 @@ class Gaussian(Engines):
 
             # Add the atomic coordinates
             for atom in molecule:
-                input_file.write('{} {: .3f} {: .3f} {: .3f}\n'.format(atom[0], float(atom[1]), float(atom[2]), float(atom[3])))
+                input_file.write(f'{atom[0]} {float(atom[1]): .3f} {float(atom[2]): .3f} {float(atom[3]): .3f}\n')
 
             if solvent:
                 # Adds the epsilon and cavity params

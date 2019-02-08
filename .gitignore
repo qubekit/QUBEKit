@@ -3,3 +3,5 @@ build
 qubekit.egg-info
 .pytest_cache
 *.pdb
+*.mol
+*.z

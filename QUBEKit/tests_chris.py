@@ -1,14 +1,14 @@
 #! /usr/bin/env python
 
-from QUBEKit.engines import PSI4, Gaussian, Chargemol
+# from QUBEKit.engines import PSI4, Gaussian, Chargemol
 from QUBEKit.ligand import Ligand
-from QUBEKit.dihedrals import TorsionScan
-from QUBEKit.lennard_jones import LennardJones as LJ
-from QUBEKit.modseminario import ModSeminario
-from QUBEKit import smiles, decorators
-from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress, pretty_print, Configure
-from QUBEKit.decorators import exception_logger_decorator
-from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
+# from QUBEKit.dihedrals import TorsionScan
+# from QUBEKit.lennard_jones import LennardJones as LJ
+# from QUBEKit.modseminario import ModSeminario
+# from QUBEKit import smiles, decorators
+# from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress, pretty_print, Configure
+# from QUBEKit.decorators import exception_logger_decorator
+# from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
 
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
@@ -190,10 +190,7 @@ from numpy.polynomial.polynomial import polyfit
 def main():
 
     mol = Ligand('methane.pdb')
-
-    para = Parametrisation(mol)
-
-    para.symmetrise()
+    mol.write_gromacs_file()
 
 
 if __name__ == '__main__':
