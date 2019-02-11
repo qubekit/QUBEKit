@@ -18,14 +18,14 @@ These IDEs often come with prebuilt style guides and help significantly with err
 Beyond the usual style expectations of indenting, naming and so on, there are some key points that can be followed.
 
 Think about your data structures:
-* Could you use a set or tuple instead of a list?
-* Should you use a 2d numpy array rather than a list of lists?
-* How are you storing your data; could you use a dictionary?
+* Could you use a set, tuple or dictionary instead of a list?
+* Should you use a numpy array rather than a list?
 
 Consider how the program will be used:
 * Does this work for different-sized molecules?
 * Is the output in an easily readable format?
 * Are you taking advantage of parallelisation?
+* Are there edge cases that might cause this to break?
 
 Speed-ups:
 * Is anything being run more often than it needs to be? Reloading configs, recalculating values etc.
@@ -33,13 +33,16 @@ Speed-ups:
 * If you're being exact, do you need to be? Is there a faster, approximate algorithm?
 * Are there any unnecessary checks?
 * How is the data being written to memory?
+* Do you need to keep a file open for that long?
 
 Readability:
+* Are you following PEP8?
 * Is the order of your comparison expression terse and logical?
 * How is your spacing?
 * Should you separate this section of code into a new function?
 * Have you commented this section so that a similarly skilled programmer will quickly understand it?
 * Is your object naming logical and clear?
+* Have you written a docstring?
 
 Maintainability:
 * Are there edge cases which might cause issues?
@@ -47,6 +50,7 @@ Maintainability:
 * Will this integrate with future developments?
 * Is the documentation clear?
 * Have you minimised dependencies?
+* Is this modular?
 
 Developers are encouraged to separate code into "paragraphs" of logic.
 For example, loops and variable declarations should be surrounded by empty lines to organise the code:
@@ -74,8 +78,14 @@ according to each "thought" or segment. Partitioning like this significantly imp
 
 Following PEP8, continuation over new lines should be achieved using parentheses, rather than slashes.
 
-Imports should be as specific as is reasonable, to avoid excessive module loading. If possible, avoid using imports altogether:
+Imports should be as specific as is reasonable, to avoid excessive module loading.
+If possible, avoid using imports altogether. Never use ```import *``` (even if it's what another package recommends.)
 
+    # Terrible
+    from math import *
+    
+    ans = factorial(3) // factorial(2)
+    
     # Bad
     import math
     
@@ -95,7 +105,7 @@ Comments should also be used to explain obscure or confusing code, or, ideally, 
 All functions should be independently testable. If a function requires a specific input file to run, it should be tested on 
 files of varying size and complexity. Functions will not be merged until proven to be robust.
 
-If a function or class is carrying out something complex or slow, add a print statement so the user understands something is happening.
+If a function or class is carrying out something complex or slow, append a statement to the log so the user understands something is happening.
 
 Developers are strongly encouraged to use the "DRY" principle when coding.
 
@@ -118,7 +128,8 @@ Object naming examples:
     # Variables
     var_name = True
     
-If variable type is not obvious, a comment should be used to avoid confusion:
+If variable type is not obvious, a comment should be used to avoid confusion.
+(Don't use the type hints)
     
     # returns a 2d numpy array
     return hessian
@@ -215,23 +226,9 @@ With the above bare except, you do not know if the script failed to import bonds
         bonds.perform_function(args)
     
     except ImportError:
-        print('Could not import bonds.')
+        raise ImportError('Could not import bonds.')
 
-It's a good idea to include an else clause as well in case the import error isn't the problem.
-
-    # Best
-    try:
-        import bonds
-        
-        bonds.perform_function(args)
-    
-    except ImportError:
-        print('Could not import bonds.')
-    
-    else:
-        print('bonds.perform_function not working.')
-        
-Finally clauses should also be used where appropriate.
+Else and finally clauses should also be used where appropriate.
 
 
 #### Style Exceptions
@@ -243,7 +240,7 @@ Due to the formatting of the input/output and job files, it is often appropriate
 Sometimes, splitting a line can be less readable than simply running a few characters over, particularly in highly indented sections of code.
 For example:
 
-    subprocess.call('geometric-optimize --psi4 {}.psi4in --nt {}'.format(molecule_name, qm['threads']), shell=True, stdout=log)
+    subprocess.call(f'geometric-optimize --psi4 {self.molecule_name}.psi4in --nt {self.qm['threads']}', shell=True, stdout=log)
 
 Splitting this line would add confusion as to which arguments are parsed where and how the string formatting is carried out.
 This is also relevant when dealing with highly nested sections of code. We have no hard limit on line length.

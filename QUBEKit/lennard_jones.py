@@ -22,7 +22,8 @@ class LennardJones:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', 'vol']
         self.ddec_data = self.extract_params()
         self.ddec_ai_bi = self.append_ais_bis()
-        self.ddec_polars = self.polar_hydrogens()
+        # self.ddec_polars = self.polar_hydrogens()
+        self.ddec_polars = self.append_ais_bis()
 
     def extract_params(self):
         """Extract the useful information from the DDEC xyz files.

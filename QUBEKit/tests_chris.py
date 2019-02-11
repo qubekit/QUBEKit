@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from numpy import arange
 from numpy.polynomial.polynomial import polyfit
+from contextlib import contextmanager
 
 
 # def main():
@@ -187,12 +188,33 @@ from numpy.polynomial.polynomial import polyfit
 #     PSI4(mol, configs).generate_input(run=True, fchk=True)
 
 
+@contextmanager
+def assert_wrapper(exception_type):
+
+    try:
+        yield
+    except AssertionError as exc:
+        raise exception_type(*exc.args)
+
+
+def check_div(arg1, arg2):
+
+    with assert_wrapper(ValueError):
+        assert arg2 != 0, 'Division by zero (arg2)'
+        assert type(arg1) == int, 'Ints only'
+    with assert_wrapper(ZeroDivisionError):
+        assert arg1 != 0, 'Division by zero (arg1)'
+
+    print('passed all assertions')
+    return True
+
+
 def main():
 
-    mol = Ligand('methane.pdb')
-    mol.write_gromacs_file()
+    check_div(1, 0)
 
 
 if __name__ == '__main__':
 
     main()
+
