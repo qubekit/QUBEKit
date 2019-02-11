@@ -2,6 +2,25 @@
 
 **Newcastle University Cole Group.**
 
+## Table of Contents
+
+* [What is QUBEKit?]()
+    * [Requirements]()
+    * [Development]()
+* [Help]()
+* [Config Files]()
+* [QUBEKit Commands]()
+    * [Running Jobs]()
+    * [Some Examples]()
+    * [Logging]()
+    * [High Throughput]()
+    * [Custom Start and End Points]()
+        * [single molecule]()
+        * [multiple molecules]()
+    * [Other Commands and Information]()
+* [Cook Book]()
+
+
 ## What is QUBEKit?
 
 [QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a python based force field derivation toolkit.
@@ -311,3 +330,97 @@ is not a valid command. These should be performed separately:
 Be wary of running QUBEKit concurrently through different terminal windows.
 QUBEKit uses however much RAM is assigned in the config files;
 if QUBEKit is run multiple times without accounting for this, there may be a crash.
+
+
+## Cook Book
+
+**Complete analysis of single molecule from its pdb file:**
+
+    QUBEKit molecule.pdb
+
+Optional commands:
+
+* Enable or disable geomeTRIC: 
+```-geo true``` or ```-geo false```
+
+* Change DDEC version: 
+```-ddec 3``` or ```-ddec 6```
+
+* Enable or disable the solvent model: 
+```-solvent true``` or ```-solvent false```
+
+* Change the method for initial parametrisation: 
+```-param openff```, ```-param xml```, ```-param antechamber``` or ```-param boss```
+
+* Change the log file name and directory label:
+```-log example123```
+
+**Complete analysis of ethane from its smiles string using DDEC3, OpenFF and no solvent:**
+
+    QUBEKit -sm CC -ddec 3 -param openff -solvent false -log ethane_example
+
+**Analyse benzene from its pdb file until the charges are calculated; use DDEC3 (```-log``` command labels the analysis):**
+
+    QUBEKit benzene.pdb -end charges -ddec 3 -log BENZ_DDEC3
+    
+**Redo that analysis but use DDEC6 instead:**
+
+If you don't care about overwriting the previous analysis, skip the next two steps.
+Copy the folder and change the name to indicate it's for DDEC6:
+    
+    cp -r QUBEKit_benzene_2019_01_01_BENZ_DDEC3 QUBEKit_benzene_2019_01_01_BENZ_DDEC6
+
+Move into the new folder:
+
+    cd QUBEKit_benzene_2019_01_01_BENZ_DDEC6
+
+Rerun the analysis with the DDEC version changed.
+This time we can restart just before the charges are calculated to save time.
+Here we're restarting from density and finishing on charges:
+
+    QUBEKit -restart density charges -ddec 6
+
+**Analyse methanol from its smiles string both with and without a solvent:**
+
+    QUBEKit -sm CO -solvent true -log Methanol_Solvent
+
+    cp -r QUBEKit_methanol_2019_01_01_Methanol_Solvent QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
+    cd QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
+    
+    QUBEKit -solvent false -restart density finalise
+    
+**Calculate the density for methane, ethane and propane using their pdbs:**
+
+Generate a blank csv file with a relevant name:
+
+    QUBEKit -csv density.csv
+    
+Fill it in like so:
+
+    name,charge,multiplicity,config,smiles string,torsion order,start,end
+    methane,0,1,master_config.ini,,,,density
+    ethane,0,1,master_config.ini,,,,density
+    propane,0,1,master_config.ini,,,,density
+
+Run the analysis:
+
+    QUBEKit -bulk pdb density.csv
+    
+Note, you can add more commands to the execution but it is recommended that changes are made to the config files instead.
+
+**Running the same analysis but using the smiles strings instead; this time do a complete analysis:**
+
+Generate a blank csv:
+
+    QUBEKit -csv simple_alkanes.csv
+
+Fill in the csv file like so:
+
+    name,charge,multiplicity,config,smiles string,torsion order,start,end
+    methane,0,1,master_config.ini,C,,,
+    ethane,0,1,master_config.ini,CC,,,
+    propane,0,1,master_config.ini,CCC,,,
+    
+Run the analysis:
+
+    QUBEKit -bulk smiles simple_alkanes.csv

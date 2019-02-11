@@ -196,7 +196,7 @@ class XML(Parametrisation):
             out.write(xml)
 
 
-#@for_all_methods(timer_logger)
+@for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
     """Use AnteChamber to parametrise the Ligand first using gaff or gaff2
     then build and export the xml tree object.

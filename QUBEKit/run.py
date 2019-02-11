@@ -200,8 +200,9 @@ class Main:
                 self.defaults_dict['config'] = str(self.commands[count + 1])
 
         if self.commands:
-            print('\nThese are the commands you gave:', self.commands)
-            print('These are the current defaults:', self.defaults_dict, '\nPlease note, some values may not be used.')
+            print(f'\nThese are the commands you gave: {self.commands} \n'
+                  f'These are the current defaults: {self.defaults_dict} \n'
+                  'Please note, some values may not be used depending on what kind of analysis is being done.')
 
         # Check if a bulk analysis is being done.
         for count, cmd in enumerate(self.commands):
@@ -246,6 +247,8 @@ class Main:
 
                         # If starting from the beginning, create log and pdb file then execute as normal for each run
                         if start_point == 'rdkit_optimise':
+
+                            # TODO Scan the csv to see if a smiles string is given rather than explicitly ask.
 
                             if self.commands[count + 1] == 'smiles':
                                 smile_string = bulk_data[name]['smiles string']

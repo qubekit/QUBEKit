@@ -8,6 +8,7 @@ from numpy import allclose
 from pathlib import Path
 from configparser import ConfigParser
 from pickle import load
+from contextlib import contextmanager
 
 
 class Configure:
@@ -403,12 +404,33 @@ def unpickle(pickle_jar):
     return mol_states
 
 
+@contextmanager
+def assert_wrapper(exception_type):
+    """Makes assertions more informative when an Exception is thrown.
+    Rather than just getting 'AssertionError' all the time, an actual named exception can be passed.
+    Can be called multiple times in the same with statement for the same exception type but different specific exceptions.
+
+    Simple example use cases:
+
+        with assert_wrapper(ValueError):
+            assert (arg1 > 0), 'arg1 cannot be non-positive.'
+            assert (arg2 != 12), 'arg2 cannot be 12.'
+        with assert_wrapper(TypeError):
+            assert (type(arg1) is not float), 'arg1 must not be a float.'
+    """
+
+    try:
+        yield
+    except AssertionError as excep:
+        raise exception_type(*excep.args)
+
+
 def check_symmetry(matrix, error=0.00001):
     """Check matrix is symmetric to within some error."""
 
     # Check the matrix transpose is equal to the matrix within error.
-    if not allclose(matrix, matrix.T, atol=error):
-        raise ValueError('Hessian is not symmetric.')
+    with assert_wrapper(ValueError):
+        assert (allclose(matrix, matrix.T, atol=error)), 'Matrix is not symmetric.'
 
     print(f'Symmetry check successful. The matrix is symmetric within an error of {error}.')
     return True
@@ -420,8 +442,8 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
     # Ensure total charge is near to integer value:
     total_charge = sum(atom for atom in charges)
 
-    if abs(total_charge - ideal_net) > error:
-        raise ValueError('Total charge is not close enough to integer value.')
+    with assert_wrapper(ValueError):
+        assert (abs(total_charge - ideal_net) < error), 'Total charge is not close enough to integer value.'
 
     print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
     return True

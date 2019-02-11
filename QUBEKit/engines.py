@@ -291,7 +291,7 @@ class PSI4(Engines):
             for atom in molecule:
                 file.write(f'  {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
-            file.write(f"units angstrom\n no_reorient\n}}\nset basis {self.qm['basis']}\n")
+            file.write(f" units angstrom\n no_reorient\n}}\nset basis {self.qm['basis']}\n")
 
             if threads:
                 file.write(f"set_num_threads({self.qm['threads']})")
@@ -399,7 +399,7 @@ class Gaussian(Engines):
 
             if solvent:
                 # Adds the epsilon and cavity params
-                input_file.write('\n4.0 0.0004')
+                input_file.write('\n2.0 0.0004')
 
             if density:
                 # Specify the creation of the wavefunction file
