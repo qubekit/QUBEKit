@@ -4,33 +4,44 @@
 
 ## Table of Contents
 
-* [What is QUBEKit?]()
-    * [Requirements]()
-    * [Development]()
-* [Help]()
-* [Config Files]()
-* [QUBEKit Commands]()
-    * [Running Jobs]()
-    * [Some Examples]()
-    * [Logging]()
-    * [High Throughput]()
-    * [Custom Start and End Points]()
-        * [single molecule]()
-        * [multiple molecules]()
-    * [Other Commands and Information]()
-* [Cook Book]()
+* [What is QUBEKit?](https://github.com/jthorton/QUBEKitdev#what-is-qubekit)
+    * [Development](https://github.com/jthorton/QUBEKitdev#in-development)
+* [Installation](https://github.com/jthorton/QUBEKitdev#installation)
+    * [Requirements](https://github.com/jthorton/QUBEKitdev#requirements)
+* [Help](https://github.com/jthorton/QUBEKitdev#help)
+    * [Before You Start: Config Files](https://github.com/jthorton/QUBEKitdev#before-you-start-config-files)
+    * [QUBEKit Commands](https://github.com/jthorton/QUBEKitdev#qubekit-commands-running-jobs)
+        * [Running Jobs](https://github.com/jthorton/QUBEKitdev#qubekit-commands-running-jobs)
+        * [Some Examples](https://github.com/jthorton/QUBEKitdev#qubekit-commands-some-examples)
+        * [Logging](https://github.com/jthorton/QUBEKitdev#qubekit-commands-some-examples)
+        * [High Throughput](https://github.com/jthorton/QUBEKitdev#qubekit-commands-high-throughput)
+        * [Custom Start and End Points](https://github.com/jthorton/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule)
+            * [Single Molecules](https://github.com/jthorton/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule)
+            * [Multiple Molecules](https://github.com/jthorton/QUBEKitdev#qubekit-commands-custom-start-and-end-points-multiple-molecules)
+        * [Other Commands and Information](https://github.com/jthorton/QUBEKitdev#qubekit-commands-other-commands-and-information)
+* [Cook Book](https://github.com/jthorton/QUBEKitdev#cook-book)
 
 
 ## What is QUBEKit?
 
-[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a python based force field derivation toolkit.
+[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python based force field derivation toolkit.
 It aims to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
 QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
+QUBEKit aims to use as few parameters as possible while also being highly customisable.
 
 Users who have used QUBEKit to derive any new force field parameters should cite the following papers:
 
 * [Biomolecular Force Field Parameterization via Atoms-in-Molecule Electron Density Partitioning](https://pubs.acs.org/doi/abs/10.1021/acs.jctc.6b00027)
 * [Harmonic Force Constants for Molecular Mechanics Force Fields via Hessian Matrix Projection](https://pubs.acs.org/doi/10.1021/acs.jctc.7b00785)
+
+### In Development
+
+QUBEKit should currently be considered a work in progress.
+While it is stable we are constantly working to improve the code and broaden its compatibility. 
+We use lots of software written by many different people;
+if reporting a bug please (to the best of your ability) make sure it is a bug with QUBEKit and not with a dependency.
+
+## Installation
 
 To install, it is recommended to clone the QUBEKit folder into a home directory and run the setup.py script: 
 
@@ -64,14 +75,6 @@ For the software not available through Anaconda, either git clone them and insta
     python setup.py install
 
 or follow the described steps in the respective documentation.
-
-### In Development
-
-QUBEKit should currently be considered a work in progress.
-While it is stable we are constantly working to improve the code and broaden its compatibility. 
-Please also be aware that some bugs may not be our fault!
-We use lots of software written by many different people;
-if reporting a bug please make sure it is a bug with QUBEKit and not with a dependency.
 
 ## Help
 
@@ -166,7 +169,7 @@ Updating the run number can be done with the command:
 where 'Prop1201' is an example string which can be almost anything you like (no spaces or special characters).
 
 **Inputs are not sanitised so code injection is possible but given QUBEKit's use occurs locally, you're only hurting yourself!
-If you don't understand this, don't worry, just use alphanumeric log strings like above.**
+If you don't understand this, don't worry, just use alphanumeric log names like above.**
 
 ### QUBEKit Commands: High Throughput
 
@@ -187,22 +190,17 @@ importantly, different config files can be supplied for each molecule.
 *Not all columns need to be filled:
 
 * If the config column is not filled, the default config is used.
-* The smiles string column only needs to be filled if calling bulk commands with smiles strings, not when using pdbs.
-* Leaving the start column empty will start the program from the beginning
-* Leaving the end column empty will end the program after a full analysis
+* The smiles string column only needs to be filled if a pdb is not supplied.
+* Leaving the start column empty will start the program from the beginning.
+* Leaving the end column empty will end the program after a full analysis.
 
-If running a bulk analysis with smiles strings, use the command:
+A bulk analysis is called with the command:
 
-    QUBEKit -bulk smiles example.csv
+    QUBEKit -bulk example.csv
     
 where example.csv is the csv file containing all the information described above.
 
-If running a bulk analysis with pdb files, use the command:
-
-    QUBKit -bulk pdb example.csv
-
-again, example.csv is the csv containing the necessary defaults for each molecule.
-The pdb files should all be in the same place: where you're running QUBEKit from.
+Any pdb files should all be in the same place: where you're running QUBEKit from.
 Upon executing this bulk command, QUBEKit will work through the rows in the csv file.
 Each molecule will be given its own directory and log file (as in non-bulk executions).
 
@@ -224,18 +222,17 @@ So, each pdb being analysed should have a corresponding row in the csv file with
 
 For example (csv row order does not matter, and you do not need to include smiles strings when a pdb is provided):
 
-    PATH/files/:
+    <location>/:
         benzene.pdb
         ethane.pdb
-        methane.pdb
-        config.csv
+        bulk_example.csv
 
-    config.csv:
-    name,charge,multiplicity,config,smiles string,torsion order,start,end
-    methane,0,1,default_config,C,,,
-    benzene,0,1,default_config,,,,
-    ethane,0,1,default_config,,,,
-    
+    bulk_example.csv:
+        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        methane,0,1,default_config,C,,,
+        benzene,0,1,default_config,,,,
+        ethane,0,1,default_config,,,,
+
 ### QUBEKit Commands: Custom Start and End Points (single molecule)
 
 QUBEKit also has the ability to run partial analyses, or redo certain parts of an analysis.
@@ -243,16 +240,20 @@ For single molecule analysis, this is achieved with the -end and -restart comman
 
 -end specifies the final stage for an analysis, where 'finalise' is the default. The stages are:
 
-* rdkit_optimise
-* parametrise
-* qm_optimise
-* hessian
-* mod_sem
-* density
-* charges
-* lennard_jones
-* torsions
-* finalise
+* rdkit_optimise - This is a quick, preliminary optimisation with RDKit which speeds up later optimisations.
+This step also loads in the molecule and extracts key information like the atoms and their coordinates. 
+* parametrise - The molecule is parametrised using OpenFF, AnteChamber or XML.
+* qm_optimise - This is the main optimisation stage, default method is to use PSI4 with GeomeTRIC.
+* hessian - This again uses PSI4 to calculate the Hessian matrix.
+* mod_sem - Using the Hessian matrix, the bonds and angles terms are calculated with the Modified Seminario Method.
+* density - The density is calculated using Gaussian09. This is where the solvent is applied as well. 
+* charges - The charges are partitioned and calculated using Chargemol and DDEC3 or 6.
+* lennard_jones - The charges are extracted ready for producing an XML.
+The Lennard-Jones parameters are also calculated and stored.
+* torsions - Using the molecule's geometry, a torsion scan is performed.
+The molecule can then be optimised with respect to these parameters.
+* finalise - This step (which is always performed, regardless of end-point) produces an XML for the molecule.
+This stage also prints the final information to the log file and a truncated version to the terminal.
 
 In a normal run, all of these functions are called sequentially,
 but with -end and -restart you are free to run *from* any step *to* any step inclusively.
@@ -282,7 +283,7 @@ It is recommended to copy (**not cut**) the directory containing the files becau
 
 ### QUBEKit Commands: Custom Start and End Points (multiple molecules)
 
-When using custom start and/or end points with bulk commands, the points are written to the csv file, rather than the terminal.
+When using custom start and/or end points with bulk commands, the stages are written to the csv file, rather than the terminal.
 If no start point is specified, a new working directory and log file will be created.
 Otherwise, QUBEKit will find the correct directory and log file based on the log string and molecule name.
 This means the **log string cannot be changed when restarting a bulk run**.
@@ -290,21 +291,21 @@ This means the **log string cannot be changed when restarting a bulk run**.
 Using a similar example as above, two molecules are analysed with DDEC6, then restarted for analysis with DDEC3:
 
     first_run.csv:
-    name,charge,multiplicity,config,smiles string,torsion order,start,end
-    ethane,0,1,ddec6_config,,,,charges
-    benzene,0,1,ddec6_config,,,,charges
+        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        ethane,0,1,ddec6_config,,,,charges
+        benzene,0,1,ddec6_config,,,,charges
     
-    QUBEKit -bulk pdb first_run.csv
+    QUBEKit -bulk first_run.csv
     
     (optional: copy the folders produced to a different location to store results)
     
     
     second_run.csv:
-    name,charge,multiplicity,config,smiles string,torsion order,start,end
-    ethane,0,1,ddec3_config,,,density,charges
-    benzene,0,1,ddec3_config,,,density,charges
+        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        ethane,0,1,ddec3_config,,,density,charges
+        benzene,0,1,ddec3_config,,,density,charges
     
-    QUBEKit -bulk pdb second_run.csv
+    QUBEKit -bulk second_run.csv
 
 The first execution uses a config file for DDEC6 and runs from the beginning up to the charges stage.
 The second execution uses a config file for DDEC3 and runs from the density stage to the charges stage.
@@ -320,21 +321,21 @@ QUBEKit will then find the log files in those directories and display a table of
 
 You cannot run multiple kinds of analysis at once. For example:
 
-    QUBEKit -bulk pdb example.csv methane.pdb -bonds g09
+    QUBEKit -bulk example.csv methane.pdb -bonds g09
     
 is not a valid command. These should be performed separately:
 
-    QUBEKit -bulk pdb example.csv
+    QUBEKit -bulk example.csv
     QUBEKit methane.pdb -bonds g09
     
 Be wary of running QUBEKit concurrently through different terminal windows.
-QUBEKit uses however much RAM is assigned in the config files;
-if QUBEKit is run multiple times without accounting for this, there may be a crash.
+The programs QUBEKit calls often just try to use however much RAM is assigned in the config files;
+this means they may try to take more than is available, leading to a crash.
 
 
 ## Cook Book
 
-**Complete analysis of single molecule from its pdb file:**
+**Complete analysis of single molecule from its pdb file using only defaults:**
 
     QUBEKit molecule.pdb
 
@@ -350,10 +351,16 @@ Optional commands:
 ```-solvent true``` or ```-solvent false```
 
 * Change the method for initial parametrisation: 
-```-param openff```, ```-param xml```, ```-param antechamber``` or ```-param boss```
+```-param openff```, ```-param xml```, ```-param antechamber```
 
 * Change the log file name and directory label:
-```-log example123```
+```-log Example123```
+
+* Change the functional being used:
+```-func B3LYP```
+
+* Change the basis set:
+```-basis 6-31G```
 
 **Complete analysis of ethane from its smiles string using DDEC3, OpenFF and no solvent:**
 
@@ -365,7 +372,8 @@ Optional commands:
     
 **Redo that analysis but use DDEC6 instead:**
 
-If you don't care about overwriting the previous analysis, skip the next two steps.
+*If you don't care about overwriting the previous analysis, skip the next two steps.*
+
 Copy the folder and change the name to indicate it's for DDEC6:
     
     cp -r QUBEKit_benzene_2019_01_01_BENZ_DDEC3 QUBEKit_benzene_2019_01_01_BENZ_DDEC6
@@ -384,9 +392,11 @@ Here we're restarting from density and finishing on charges:
 
     QUBEKit -sm CO -solvent true -log Methanol_Solvent
 
+*Again, skip the following two steps if you don't care about files being overwritten.*
+
     cp -r QUBEKit_methanol_2019_01_01_Methanol_Solvent QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
     cd QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
-    
+
     QUBEKit -solvent false -restart density finalise
     
 **Calculate the density for methane, ethane and propane using their pdbs:**
@@ -397,14 +407,15 @@ Generate a blank csv file with a relevant name:
     
 Fill it in like so:
 
-    name,charge,multiplicity,config,smiles string,torsion order,start,end
-    methane,0,1,master_config.ini,,,,density
-    ethane,0,1,master_config.ini,,,,density
-    propane,0,1,master_config.ini,,,,density
+    density.csv:
+        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        methane,0,1,master_config.ini,,,,density
+        ethane,0,1,master_config.ini,,,,density
+        propane,0,1,master_config.ini,,,,density
 
 Run the analysis:
 
-    QUBEKit -bulk pdb density.csv
+    QUBEKit -bulk density.csv
     
 Note, you can add more commands to the execution but it is recommended that changes are made to the config files instead.
 
@@ -416,11 +427,12 @@ Generate a blank csv:
 
 Fill in the csv file like so:
 
-    name,charge,multiplicity,config,smiles string,torsion order,start,end
-    methane,0,1,master_config.ini,C,,,
-    ethane,0,1,master_config.ini,CC,,,
-    propane,0,1,master_config.ini,CCC,,,
-    
+    simple_alkanes.csv:
+        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        methane,0,1,master_config.ini,C,,,
+        ethane,0,1,master_config.ini,CC,,,
+        propane,0,1,master_config.ini,CCC,,,
+
 Run the analysis:
 
-    QUBEKit -bulk smiles simple_alkanes.csv
+    QUBEKit -bulk simple_alkanes.csv

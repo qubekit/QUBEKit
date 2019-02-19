@@ -25,15 +25,15 @@ class Configure:
         'theory': 'B3LYP',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
         'basis': '6-311++G(d,p)',       # Basis set
         'vib_scaling': '0.991',         # Associated scaling to the theory
-        'threads': '6',                 # Number of processors used in g09; affects the bonds and dihedral scans
-        'memory': '2',                  # Amount of memory (in GB); specified in the g09 scripts
-        'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using psi4 and geometric so far
+        'threads': '6',                 # Number of processors used in Gaussian09; affects the bonds and dihedral scans
+        'memory': '2',                  # Amount of memory (in GB); specified in the Gaussian09 scripts
+        'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4 and GeomeTRIC so far
         'iterations': '100',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
         'charges_engine': 'chargemol',  # Engine used for charges calculations
-        'ddec_version': '6',            # DDEC version used by chargemol, 6 recommended but 3 is also available
-        'geometric': 'True',            # Use geometric for optimised structure (if False, will just use psi4)
-        'solvent': 'True',              # Use a solvent in the psi4/gaussian09 input
+        'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
+        'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
+        'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
     }
 
     fitting = {
@@ -42,7 +42,7 @@ class Configure:
         'num_scan': '25',               # Number of optimisations around the dihedral angle
         't_weight': 'infinity',         # Weighting temperature that can be changed to better fit complicated surfaces
         'new_dih_num': '501',           # Parameter number for the new dihedral to be fit
-        'q_file': 'results.dat',        # If the results are collected with QuBeKit this is always true
+        'q_file': 'results.dat',        # If the results are collected with QUBEKit this is always true
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array
         'parameter_engine': 'openff',   # Method used for initial parametrisation
@@ -106,8 +106,8 @@ class Configure:
                 qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder + config_file)
 
         # Now cast the numbers
-        clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start', 'increment',
-                      'num_scan', 'new_dih_num', 'tor_limit', 'div_index']
+        clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
+                      'increment', 'num_scan', 'new_dih_num', 'tor_limit', 'div_index']
 
         for key in clean_ints:
 
@@ -181,21 +181,21 @@ class Configure:
         config = ConfigParser(allow_no_value=True)
         config.add_section('QM')
 
-        for key in qm.keys():
+        for key, val in qm.items():
             config.set('QM', Configure.help[key])
-            config.set('QM', key, qm[key])
+            config.set('QM', key, val)
 
         config.add_section('FITTING')
 
-        for key in fitting.keys():
+        for key, val in fitting.items():
             config.set('FITTING', Configure.help[key])
-            config.set('FITTING', key, fitting[key])
+            config.set('FITTING', key, val)
 
         config.add_section('DESCRIPTIONS')
 
-        for key in descriptions.keys():
+        for key, val in descriptions.items():
             config.set('DESCRIPTIONS', Configure.help[key])
-            config.set('DESCRIPTIONS', key, descriptions[key])
+            config.set('DESCRIPTIONS', key, val)
 
         with open(f'{Configure.config_folder + ini}', 'w+') as out:
             config.write(out)
@@ -244,9 +244,9 @@ def get_mol_data_from_csv(csv_name):
         # Removes the names from the sub-dictionaries:
         # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
         # ---> {'methane': {'charge': 0, ...}, ...}
-        for conf in final.keys():
+        for conf, val in final.items():
 
-            del final[conf]['name']
+            del val['name']
 
         return final
 
@@ -298,6 +298,10 @@ def pretty_progress():
     Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
     """
 
+    # TODO Add legend.
+    # TODO Print tick mark after final column (use unicode characters).
+    # TODO May need to improve formatting for longer molecule names.
+
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
     for root, dirs, files in walk('.', topdown=True):
@@ -327,33 +331,33 @@ def pretty_progress():
     print(header_string.format('Name', 'Parametrised', 'Optimised', 'Mod-Sem', 'Gaussian', 'Chargemol', 'L-J', 'Torsions'))
 
     # Outer dict contains the names of the molecules.
-    for key_a, var_a in info.items():
-        print('{:15}'.format(key_a[:13]), end=' ')
+    for key_out, var_out in info.items():
+        print(f'{key_out[:13]:15}', end=' ')
+
         # Inner dict contains the individual molecules' data.
-        for key_b, var_b in info[key_a].items():
-            if info[key_a][key_b] == 1:
+        for key_in, var_in in var_out.items():
+            if var_in == 1:
+
                 # Uses exit codes to set terminal font colours.
                 # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
                 # The second exit code resets the style back to default.
-                print('\033[1;32m{:>12d}\033[0;0m'.format(info[key_a][key_b]), end=' ')
-            else:
-                print('\033[1;31m{:>12d}\033[0;0m'.format(info[key_a][key_b]), end=' ')
-        # TODO Print tick mark after final column (use unicode characters).
-        # TODO Change red to error, orange to not done yet.
-        # TODO May need to improve formatting for longer molecule names.
-        # Add blank line.
-        print('')
+                print(f'\033[1;32m{var_in:>12d}\033[0;0m', end=' ')
 
-    return
+            else:
+                print(f'\033[1;31m{var_in:>12d}\033[0;0m', end=' ')
+
+        print('')
 
 
 def pretty_print(mol, to_file=False, finished=True):
-    """Takes a ligand molecule class object and displays all the class variables in a clean, readable format."""
+    """Takes a ligand molecule class object and displays all the class variables in a clean, readable format.
 
-    # Print to log: * On exception
-    #               * On completion
-    # Print to terminal: * On call
-    #                    * On completion
+    Print to log: * On exception
+                  * On completion
+    Print to terminal: * On call
+                       * On completion
+
+    """
 
     pre_string = f'\nOn {"completion" if finished else "exception"}, the ligand objects are:'
 
@@ -362,7 +366,10 @@ def pretty_print(mol, to_file=False, finished=True):
 
         # Find log file name
         files = [file for file in listdir('.') if path.isfile(file)]
-        qube_log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+        try:
+            qube_log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
+        except:
+            qube_log_file = 'temp_QUBE_log'
 
         with open(qube_log_file, 'a+') as log_file:
             log_file.write(f'{pre_string.upper()}\n\n{mol.__str__()}')
@@ -380,8 +387,8 @@ def set_dict_val(file_name, search_term):
     with open(file_name, 'r+') as file:
         for line in file:
             if search_term in line:
-                return 1
-    return 0
+                return True
+    return False
 
 
 def unpickle(pickle_jar):

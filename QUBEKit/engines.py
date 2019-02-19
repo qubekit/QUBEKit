@@ -24,8 +24,7 @@ class Engines:
         self.engine_mol = molecule
         self.charge = config_dict[0]['charge']
         self.multiplicity = config_dict[0]['multiplicity']
-        # Load the configs using the config_file name from the csv.
-        self.qm, self.fitting, self.descriptions = config_dict[1], config_dict[2], config_dict[3]
+        self.qm, self.fitting, self.descriptions = config_dict[1:]
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -42,7 +41,7 @@ class PSI4(Engines):
         super().__init__(molecule, config_dict)
 
         self.functional_dict = {'PBEPBE': 'PBE'}
-        if self.qm['theory'] in list(self.functional_dict.keys()):
+        if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
     def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, energy=False, threads=False,
@@ -342,8 +341,8 @@ class Chargemol(Engines):
         # sub_call('mv Dt.cube total_density.cube', shell=True)
 
         if run:
-            sub_call(f'{self.descriptions["chargemol"]}/chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt',
-                     shell=True)
+            control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
+            sub_call(f'{self.descriptions["chargemol"]}/{control_path}', shell=True)
 
 
 @for_all_methods(timer_logger)
@@ -357,7 +356,7 @@ class Gaussian(Engines):
         super().__init__(molecule, config_dict)
 
         self.functional_dict = {'PBE': 'PBEPBE'}
-        if self.qm['theory'] in list(self.functional_dict.keys()):
+        if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
     def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, solvent=False, run=True):
@@ -456,9 +455,9 @@ class Gaussian(Engines):
             lines = log_file.readlines()
 
             opt_coords_pos = []
-            for count, line in enumerate(lines):
+            for pos, line in enumerate(lines):
                 if 'Input orientation' in line:
-                    opt_coords_pos.append(count + 5)
+                    opt_coords_pos.append(pos + 5)
                     break
             else:
                 raise EOFError(f'Cannot locate optimised structures in gj_{self.engine_mol.name}.log file.')
@@ -469,10 +468,10 @@ class Gaussian(Engines):
 
             opt_struct = []
 
-            for count, line in enumerate(lines[start_pos: start_pos + num_atoms]):
+            for pos, line in enumerate(lines[start_pos: start_pos + num_atoms]):
 
                 vals = line.split()[-3:]
-                vals = [self.engine_mol.molecule[count][0]] + [float(i) for i in vals]
+                vals = [self.engine_mol.molecule[pos][0]] + [float(i) for i in vals]
                 opt_struct.append(vals)
 
         return opt_struct

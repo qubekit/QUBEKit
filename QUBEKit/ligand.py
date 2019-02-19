@@ -98,6 +98,8 @@ class Ligand:
         Can also generate a simple plot of the network.
         """
 
+        # TODO Rewrite to use .split()
+
         with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
 
