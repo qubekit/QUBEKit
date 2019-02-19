@@ -30,8 +30,6 @@ def timer_logger(orig_func):
     Then outputs the runtime and time when function / method finishes.
     """
 
-    # TODO Make it so that this doesn't crash if a log file doesn't exist; useful for using QUBEKit as a module
-
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
 
@@ -40,20 +38,30 @@ def timer_logger(orig_func):
 
         # Find all files in current directory; isolate the QUBEKit log file.
         files = [f for f in listdir('.') if path.isfile(f)]
-        file_name = [file for file in files if file.startswith('QUBEKit_log')][0]
+        # TODO Test try except add narrow down exception.
+        try:
+            file_name = [file for file in files if file.startswith('QUBEKit_log')][0]
+        except:
+            file_name = 'temp_QUBE_log'
 
         with open(file_name, 'a+') as log_file:
             log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
-            log_file.write(f'Docstring for {orig_func.__qualname__}: {orig_func.__doc__}\n\n')
+            log_file.write(f'Docstring for {orig_func.__qualname__}:\n     {orig_func.__doc__}\n\n')
 
         result = orig_func(*args, **kwargs)
 
-        # TODO Better formatting of time taken? Currently displays in seconds which is a bit messy for longer times.
         time_taken = time() - t1
+
+        mins, secs = divmod(time_taken, 60)
+        hours, mins = divmod(mins, 60)
+
+        secs, remain = str(float(secs)).split('.')
+
+        time_taken = f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}'
         end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         with open(file_name, 'a+') as log_file:
-            log_file.write(f'{orig_func.__qualname__} finished in {time_taken} seconds at {end_time}.\n\n')
+            log_file.write(f'{orig_func.__qualname__} finished in {time_taken} at {end_time}.\n\n')
             # Add some separation space between function / method logs.
             log_file.write(f'{"-" * 50}\n\n')
 
@@ -118,13 +126,7 @@ def exception_logger_decorator(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
-            # TODO Print the ligand class objects to the log file as well. Before or after the exception statement?
-
             # Re-raises the exception
-            # TODO Do we want the exception to be re-raised? Maybe just continue onto next ligand.
-
-            # TODO Add better exception handling for certain issues. e.g.
-            #       No such file or directory: 'opt.xyz' should probably check that the charge/multiplicity is correct
             raise
 
     return wrapper

@@ -6,12 +6,15 @@ from shutil import copy
 from os import getcwd, chdir, path
 from subprocess import call as sub_call
 
-from xml.etree.ElementTree import parse
+from xml.etree.ElementTree import parse as parse_tree
 from simtk.openmm import app, XmlSerializer
 from openeye import oechem
 
 from openforcefield.typing.engines.smirnoff import ForceField
 from openforcefield.utils import get_data_filename, generateTopologyFromOEMol
+
+# TODO Users should be able to just install ONE of the necessary parameters methods and not worry about needing the others too.
+#   Is there a nice way of doing this other than try: import <module>; except ImportError: pass ?
 
 
 class Parametrisation:
@@ -50,7 +53,7 @@ class Parametrisation:
     def __init__(self, molecule, input_file=None, fftype=None):
 
         self.molecule = molecule
-        self.input = input_file
+        self.input_file = input_file
         self.fftype = fftype
 
     def __repr__(self):
@@ -67,7 +70,7 @@ class Parametrisation:
 
         # Now parse the xml file for the rest of the data
         input_xml_file = 'serialised.xml'
-        in_root = parse(input_xml_file).getroot()
+        in_root = parse_tree(input_xml_file).getroot()
 
         # Extract all bond data
         for Bond in in_root.iter('Bond'):
@@ -181,13 +184,13 @@ class XML(Parametrisation):
         pdb = app.PDBFile(self.molecule.filename)
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
-        if self.input:
-            forcefield = app.ForceField(self.input)
-        elif not self.input:
-            forcefield = app.ForceField(self.molecule.name + '.xml')
-        # TODO Is this ever being called?
+        if self.input_file:
+            forcefield = app.ForceField(self.input_file)
         else:
-            raise FileNotFoundError('No .xml type file found.')
+            try:
+                forcefield = app.ForceField(self.molecule.name + '.xml')
+            except FileNotFoundError:
+                raise FileNotFoundError('No .xml type file found.')
 
         system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
@@ -239,19 +242,24 @@ class AnteChamber(Parametrisation):
         with TemporaryDirectory() as temp:
             chdir(temp)
             copy(input_file, 'in.pdb')
+
             # Call Antechamber
             with open('Antechamber.log', 'w+') as log:
                 sub_call(f'antechamber -i {input_file} -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc',
                          shell=True, stdout=log)
+
             # Ensure command worked
             if not path.exists('out.mol2'):
                 raise FileNotFoundError('out.mol2 not found antechamber failed!')
+
             # Run parmchk
             with open('Antechamber.log', 'a') as log:
                 sub_call(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}", shell=True, stdout=log)
+
             # Ensure command worked
             if not path.exists('out.frcmod'):
                 raise FileNotFoundError('out.frcmod not found parmchk2 failed!')
+
             # Now get the files back from the temp folder and close
             copy('out.mol2', mol2)
             copy('out.frcmod', frcmod_file)
@@ -263,6 +271,7 @@ class AnteChamber(Parametrisation):
             copy(mol2, 'in.mol2')
             copy(frcmod_file, 'in.frcmod')
             copy(ant_log, 'Antechamber.log')
+
             # make tleap command file
             with open('tleap_commands', 'w+') as tleap:
                 tleap.write("""source oldff/leaprc.ff99SB
@@ -272,9 +281,11 @@ class AnteChamber(Parametrisation):
                                loadamberparams in.frcmod
                                saveamberparm LIG out.prmtop out.inpcrd
                                quit""")
+
             # Now run tleap
             with open('Antechamber.log', 'a') as log:
                 sub_call('tleap -f tleap_commands', shell=True, stdout=log)
+
             # Check results present
             if not path.exists('out.prmtop') or not path.exists('out.inpcrd'):
                 raise FileNotFoundError('Neither out.prmtop nor out.inpcrd found; tleap failed!')

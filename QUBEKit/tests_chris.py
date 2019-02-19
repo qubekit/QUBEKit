@@ -173,48 +173,18 @@ from contextlib import contextmanager
 #     plt.show()
 
 
-# def main():
-#
-#     defaults_dict = {'charge': 0,
-#                      'multiplicity': 1,
-#                      'config': 'default_config'}
-#
-#     mol = Ligand('methane.pdb')
-#
-#     qm, fitting, descriptions = Configure.load_config()
-#
-#     configs = [defaults_dict, qm, fitting, descriptions]
-#
-#     PSI4(mol, configs).generate_input(run=True, fchk=True)
-
-
-@contextmanager
-def assert_wrapper(exception_type):
-
-    try:
-        yield
-    except AssertionError as exc:
-        raise exception_type(*exc.args)
-
-
-def check_div(arg1, arg2):
-
-    with assert_wrapper(ValueError):
-        assert arg2 != 0, 'Division by zero (arg2)'
-        assert type(arg1) == int, 'Ints only'
-    with assert_wrapper(ZeroDivisionError):
-        assert arg1 != 0, 'Division by zero (arg1)'
-
-    print('passed all assertions')
-    return True
-
-
 def main():
 
-    check_div(1, 0)
+    time = 2345.1
+
+    mins, secs = divmod(time, 60)
+    hours, mins = divmod(mins, 60)
+
+    secs, remain = str(float(secs)).split('.')
+
+    print(f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}')
 
 
 if __name__ == '__main__':
 
     main()
-

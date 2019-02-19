@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-# TODO Symmetry checks.
+# TODO Symmetry checks, revisit polar hydrogens; ensure correct atoms are being adjusted.
 
 
 from QUBEKit.decorators import for_all_methods, timer_logger
@@ -20,7 +20,7 @@ class LennardJones:
         self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
         # This is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', 'vol']
-        self.ddec_data = self.extract_params()
+        self.extract_params()
         self.ddec_ai_bi = self.append_ais_bis()
         # self.ddec_polars = self.polar_hydrogens()
         self.ddec_polars = self.append_ais_bis()
@@ -28,18 +28,12 @@ class LennardJones:
     def extract_params(self):
         """Extract the useful information from the DDEC xyz files.
         Prepare this information for the Lennard-Jones coefficient calculations.
+            - Get number of atoms from start of ddec file;
+            - Extract atom types and numbers;
+            - Extract charges, dipoles, and volumes (from other file);
+            - Ensure total charge ~== net charge
+            - return info for the molecule as a list of lists.
         """
-
-        # Get number of atoms from start of ddec file.
-
-        # Extract atom types and numbers
-        # Extract charges
-        # Extract dipoles
-        # Extract volumes (from other file)
-
-        # Ensure total charge ~== net charge
-
-        # return info for the molecule as a list of lists.
 
         if self.qm['ddec_version'] == 6:
             net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
@@ -64,11 +58,11 @@ class LennardJones:
             # Find number of atoms
             atom_total = int(lines[0])
 
-            for count, row in enumerate(lines):
+            for pos, row in enumerate(lines):
 
                 if 'The following XYZ' in row:
 
-                    start_pos = count + 2
+                    start_pos = pos + 2
 
                     for line in lines[start_pos:start_pos + atom_total]:
                         # Append the atom number and type, coords, charge, dipoles:
@@ -98,8 +92,8 @@ class LennardJones:
 
             vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
 
-            for count, atom in enumerate(self.ddec_data):
-                atom.append(vols[count])
+            for pos, atom in enumerate(self.ddec_data):
+                atom.append(vols[pos])
 
         return self.ddec_data
 
@@ -126,16 +120,17 @@ class LennardJones:
             'Zn': [1, 1, 1]
         }
 
-        for count, atom in enumerate(self.ddec_data):
+        for pos, atom in enumerate(self.ddec_data):
 
-            # r_aim = rfree * ((vol / vfree) ** (1 / 3))
+            # r_aim = r_free * ((vol / v_free) ** (1 / 3))
             r_aim = elem_dict[f'{atom[1]}'][2] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** (1 / 3))
 
-            # b_i = bfree * ((vol / vfree) ** 2)
+            # b_i = bfree * ((vol / v_free) ** 2)
             b_i = elem_dict[f'{atom[1]}'][1] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** 2)
 
             a_i = 32 * b_i * (r_aim ** 6)
-            self.ddec_data[count] += [r_aim, b_i, a_i]
+
+            self.ddec_data[pos] += [r_aim, b_i, a_i]
 
         return self.ddec_data
 
@@ -157,7 +152,7 @@ class LennardJones:
             new_pair = (str(pair[0]) + positions[pair[0]], str(pair[1]) + positions[pair[1]])
             new_pairs.append(new_pair)
 
-        # Find all the polar hydrogens and store their positions/atom numbers
+        # Find all the polar hydrogens and store their positions / atom numbers
         polars = []
         for pair in new_pairs:
             if 'O' in pair[0] or 'N' in pair[0] or 'S' in pair[0]:
@@ -177,6 +172,7 @@ class LennardJones:
                         polar_h_pos = int(pair[1][0]) - 1
                         polar_son_pos = int(pair[0][0]) - 1
                     # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
+                    # TODO Check combining rule!
                     self.ddec_ai_bi[polar_son_pos][-2] = ((self.ddec_ai_bi[polar_son_pos][-2]) ** 0.5 + (self.ddec_ai_bi[polar_h_pos][-2]) ** 0.5) ** 2
                     self.ddec_ai_bi[polar_h_pos][-2] = 0
 

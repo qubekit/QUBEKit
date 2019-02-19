@@ -5,3 +5,4 @@ qubekit.egg-info
 *.pdb
 *.mol
 *.z
+.idea

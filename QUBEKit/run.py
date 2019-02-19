@@ -19,8 +19,6 @@ from collections import OrderedDict
 from functools import partial
 from datetime import datetime
 
-import profile
-
 
 # Changes default print behaviour for this file.
 print = partial(print, flush=True)
@@ -58,9 +56,10 @@ class Main:
                                   ('torsions', self.torsions),
                                   ('finalise', self.finalise)])
 
+        self.log_file = None  # Defined later, not strictly necessary to define them here.
+        self.engine_dict = {'psi4': PSI4, 'g09': Gaussian}
         # Parse the input commands to find the config file, and save changes to configs
         self.file, self.commands = self.parse_commands()
-        self.log_file, self.qm_engine = None, None  # Defined later.
 
         # Find which config is being used and store arguments accordingly
         if self.defaults_dict['config'] == 'default_config':
@@ -178,7 +177,7 @@ class Main:
                 self.configs['qm']['ddec_version'] = int(self.commands[count + 1])
 
             if cmd == '-geo':
-                self.configs['qm']['geometric'] = False if self.commands[count + 1] == 'false' else True
+                self.configs['qm']['geometric'] = False if self.commands[count + 1].lower() == 'false' else True
 
             if cmd == '-bonds':
                 self.configs['qm']['bonds_engine'] = str(self.commands[count + 1])
@@ -190,7 +189,7 @@ class Main:
                 self.configs['descriptions']['log'] = str(self.commands[count + 1])
 
             if cmd == '-solvent':
-                self.configs['qm']['solvent'] = False if self.commands[count + 1] == 'false' else True
+                self.configs['qm']['solvent'] = False if self.commands[count + 1].lower() == 'false' else True
 
             if cmd == '-param':
                 self.configs['fitting']['parameter_engine'] = str(self.commands[count + 1])
@@ -198,6 +197,12 @@ class Main:
             # Unlike '-setup', this just changes the config file used for this particular run.
             if cmd == '-config':
                 self.defaults_dict['config'] = str(self.commands[count + 1])
+
+            if cmd == '-func':
+                self.configs['qm']['theory'] = str(self.commands[count + 1])
+
+            if cmd == '-basis':
+                self.configs['qm']['basis'] = str(self.commands[count + 1])
 
         if self.commands:
             print(f'\nThese are the commands you gave: {self.commands} \n'
@@ -209,78 +214,68 @@ class Main:
 
             # Controls high throughput.
             # Basically just runs the same functions but forces certain defaults.
-            # '-bulk pdb example.csv' searches for local pdbs, runs analysis for each, defaults are in the csv file.
-            # '-bulk smiles example.csv' will run analysis for all smile strings in the example.csv file.
+            # '-bulk example.csv' will run analysis for all smile strings in the example.csv file, otherwise it'll use the pdbs it finds
+            # with the correct name.
             if cmd == '-bulk':
 
-                csv_file = self.commands[count + 2]
+                csv_file = self.commands[count + 1]
                 print(self.start_up_msg)
 
-                if self.commands[count + 1] == 'smiles' or self.commands[count + 1] == 'pdb':
+                bulk_data = get_mol_data_from_csv(csv_file)
 
-                    bulk_data = get_mol_data_from_csv(csv_file)
-                    print(bulk_data)
+                # Run full analysis for each smiles string or pdb in the .csv file.
+                names = list(bulk_data.keys())
+                # Store a copy of self.order which will not be mutated.
+                # This allows self.order to be built up after each run.
+                temp = self.order
 
-                    # Run full analysis for each smiles string or pdb in the .csv file.
-                    names = list(bulk_data.keys())
-                    # Store a copy of self.order which will not be mutated.
-                    # This allows self.order to be built up after each run.
-                    temp = self.order
+                for name in names:
 
-                    for name in names:
+                    print(f'Currently analysing: {name}')
 
-                        print(f'Currently analysing: {name}')
+                    # Set the start + end points to what is given in the csv. See the -restart / -end section below
+                    # for further details and better documentation.
+                    start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'rdkit_optimise'
+                    end_point = bulk_data[name]['end']
+                    stages = [key for key in temp.keys()]
+                    extra = 1 if end_point != 'finalise' else 0
+                    stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
+                    self.order = OrderedDict(pair for pair in temp.items() if pair[0] in set(stages))
 
-                        # Set the start + end points to what is given in the csv. See the -restart / -end section below
-                        # for further details and better documentation.
-                        start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'rdkit_optimise'
-                        end_point = bulk_data[name]['end']
-                        stages = [key for key in temp.keys()]
-                        extra = 1 if end_point != 'finalise' else 0
-                        stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
-                        self.order = OrderedDict(pair for pair in temp.items() if pair[0] in set(stages))
+                    # Configs
+                    self.defaults_dict = bulk_data[name]
+                    self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
+                    self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
 
-                        # Configs
-                        self.defaults_dict = bulk_data[name]
-                        self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
-                        self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
+                    # If starting from the beginning, create log and pdb file then execute as normal for each run
+                    if start_point == 'rdkit_optimise':
 
-                        # If starting from the beginning, create log and pdb file then execute as normal for each run
-                        if start_point == 'rdkit_optimise':
+                        if bulk_data[name]['smiles string'] is not None:
+                            smile_string = bulk_data[name]['smiles string']
+                            self.file = smiles_to_pdb(smile_string, name)
 
-                            # TODO Scan the csv to see if a smiles string is given rather than explicitly ask.
-
-                            if self.commands[count + 1] == 'smiles':
-                                smile_string = bulk_data[name]['smiles string']
-                                self.file = smiles_to_pdb(smile_string, name)
-
-                            else:
-                                self.file = name + '.pdb'
-
-                            self.create_log()
-
-                        # If starting from the middle somewhere, FIND (not create) the folder, and log and pdb files, then execute
                         else:
-                            for root, dirs, files in walk('.', topdown=True):
-                                for dir_name in dirs:
-                                    if dir_name.startswith(f'QUBEKit_{name}'):
-                                        chdir(dir_name)
+                            self.file = f'{name}.pdb'
 
-                            # These are the files in the active directory, search for the pdb.
-                            files = [file for file in listdir('.') if path.isfile(file)]
-                            self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
+                        self.create_log()
 
-                            self.continue_log()
+                    # If starting from the middle somewhere, FIND (not create) the folder, and log and pdb files, then execute
+                    else:
+                        for root, dirs, files in walk('.', topdown=True):
+                            for dir_name in dirs:
+                                if dir_name.startswith(f'QUBEKit_{name}'):
+                                    chdir(dir_name)
 
-                        self.execute()
-                        chdir('../')
+                        # These are the files in the active directory, search for the pdb.
+                        files = [file for file in listdir('.') if path.isfile(file)]
+                        self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
 
-                    sys_exit('Finished bulk run. Use the command -progress to view which stages have completed.')
+                        self.continue_log()
 
-                else:
-                    raise KeyError('Bulk commands only supported for pdb files or csv file containing smiles strings. '
-                                   'Please specify the type of bulk analysis you are doing, '
-                                   'and include the name of the csv file defaults are to be extracted from.')
+                    self.execute()
+                    chdir('../')
+
+                sys_exit('Finished bulk run. Use the command -progress to view which stages have completed.')
 
         # Check if an analysis is being done with restart / end arguments
         for count, cmd in enumerate(self.commands):
@@ -457,18 +452,17 @@ class Main:
     def qm_optimise(self, mol):
         """Optimise the molecule with or without geometric."""
 
-        engine_dict = {'g09': Gaussian, 'psi4': PSI4}
-        self.qm_engine = engine_dict[self.qm['bonds_engine']](mol, self.all_configs)
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](mol, self.all_configs)
 
         if self.qm['geometric']:
 
             # Calc geometric-related gradient and geometry
-            self.qm_engine.geo_gradient(MM=True)
+            qm_engine.geo_gradient(MM=True)
             mol.read_xyz()
 
         else:
-            self.qm_engine.generate_input(MM=True, optimize=True)
-            mol.QMoptimized = self.qm_engine.optimised_structure()
+            qm_engine.generate_input(MM=True, optimize=True)
+            mol.QMoptimized = qm_engine.optimised_structure()
 
         append_to_log(self.log_file, f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
 
@@ -477,23 +471,27 @@ class Main:
     def hessian(self, mol):
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](mol, self.all_configs)
+
         # Write input file for bonds engine
-        self.qm_engine.generate_input(QM=True, hessian=True)
+        qm_engine.generate_input(QM=True, hessian=True)
 
         # Calc bond lengths from molecule topology
         mol.get_bond_lengths(QM=True)
 
         # Extract Hessian
-        mol.hessian = self.qm_engine.hessian()
+        mol.hessian = qm_engine.hessian()
 
         return mol
 
     def mod_sem(self, mol):
         """Modified Seminario for bonds and angles."""
 
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](mol, self.all_configs)
+
         mod_sem = ModSeminario(mol, self.all_configs)
         mod_sem.modified_seminario_method()
-        mol.modes = self.qm_engine.all_modes()
+        mol.modes = qm_engine.all_modes()
 
         append_to_log(self.log_file, 'Modified Seminario method complete')
 
@@ -510,7 +508,7 @@ class Main:
         return mol
 
     def charges(self, mol):
-        """Perform DDEC calculation."""
+        """Perform DDEC calculation with Chargemol."""
 
         c_mol = Chargemol(mol, self.all_configs)
         c_mol.generate_input()
@@ -569,8 +567,8 @@ class Main:
         # See PSI4 class in engines for an example of where this is used.
         self.stage_wrapper('rdkit_optimise', 'Partially optimising with rdkit', 'Optimisation complete')
         self.stage_wrapper('parametrise', 'Parametrising molecule', 'Molecule parametrised')
-        self.stage_wrapper('qm_optimise', 'Optimising molecule', 'Molecule optimised')
-        self.stage_wrapper('hessian', f'Calculating Hessian matrix with {self.qm_engine.__class__.__name__}')
+        self.stage_wrapper('qm_optimise', 'Optimising molecule, view .xyz file for progress', 'Molecule optimised')
+        self.stage_wrapper('hessian', f'Calculating Hessian matrix')
         self.stage_wrapper('mod_sem', 'Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated')
         self.stage_wrapper('density', 'Performing density calculation with Gaussian09', 'Density calculation complete')
         self.stage_wrapper('charges', f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated')
@@ -586,8 +584,3 @@ class Main:
 def main():
     """This just stops the __repr__ automatically being called when the class is called."""
     Main()
-
-
-def profile_main():
-    """Function for profiling the code. Called with command QUBEProfile <other args>"""
-    profile.run(main())
