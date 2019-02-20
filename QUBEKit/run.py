@@ -429,104 +429,104 @@ class Main:
                 return
 
     @staticmethod
-    def rdkit_optimise(mol):
+    def rdkit_optimise(molecule):
         """Optimise the molecule coordinates using rdkit. Purely used to speed up bonds engine convergence."""
 
-        mol.filename, mol.descriptors = smiles_mm_optimise(mol.filename)
+        molecule.filename, molecule.descriptors = smiles_mm_optimise(molecule.filename)
 
         # Initialise the molecule's pdb with its optimised form.
-        mol.read_pdb(MM=True)
+        molecule.read_pdb(mm=True)
 
-        return mol
+        return molecule
 
-    def parametrise(self, mol):
+    def parametrise(self, molecule):
         """Perform initial molecule parametrisation using OpenFF, Antechamber or XML."""
 
         # Parametrisation options:
         param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
-        param_dict[self.fitting['parameter_engine']](mol)
+        param_dict[self.fitting['parameter_engine']](molecule)
         append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter_engine"]}')
 
-        return mol
+        return molecule
 
-    def qm_optimise(self, mol):
+    def qm_optimise(self, molecule):
         """Optimise the molecule with or without geometric."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](mol, self.all_configs)
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
 
         if self.qm['geometric']:
 
             # Calc geometric-related gradient and geometry
-            qm_engine.geo_gradient(MM=True)
-            mol.read_xyz()
+            qm_engine.geo_gradient(mm=True)
+            molecule.read_xyz()
 
         else:
-            qm_engine.generate_input(MM=True, optimize=True)
-            mol.QMoptimized = qm_engine.optimised_structure()
+            qm_engine.generate_input(mm=True, optimise=True)
+            molecule.qm_optimised = qm_engine.optimised_structure()
 
         append_to_log(self.log_file, f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
 
-        return mol
+        return molecule
 
-    def hessian(self, mol):
+    def hessian(self, molecule):
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](mol, self.all_configs)
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
 
         # Write input file for bonds engine
-        qm_engine.generate_input(QM=True, hessian=True)
+        qm_engine.generate_input(qm=True, hessian=True)
 
         # Calc bond lengths from molecule topology
-        mol.get_bond_lengths(QM=True)
+        molecule.get_bond_lengths(qm=True)
 
         # Extract Hessian
-        mol.hessian = qm_engine.hessian()
+        molecule.hessian = qm_engine.hessian()
 
-        return mol
+        return molecule
 
-    def mod_sem(self, mol):
+    def mod_sem(self, molecule):
         """Modified Seminario for bonds and angles."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](mol, self.all_configs)
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
 
-        mod_sem = ModSeminario(mol, self.all_configs)
+        mod_sem = ModSeminario(molecule, self.all_configs)
         mod_sem.modified_seminario_method()
-        mol.modes = qm_engine.all_modes()
+        molecule.modes = qm_engine.all_modes()
 
         append_to_log(self.log_file, 'Modified Seminario method complete')
 
-        return mol
+        return molecule
 
-    def density(self, mol):
+    def density(self, molecule):
         """Perform density calculation with the qm engine."""
 
-        g09 = Gaussian(mol, self.all_configs)
-        g09.generate_input(QM=True, density=True, solvent=self.qm['solvent'])
+        g09 = Gaussian(molecule, self.all_configs)
+        g09.generate_input(qm=True, density=True, solvent=self.qm['solvent'])
 
         append_to_log(self.log_file, 'Gaussian analysis complete')
 
-        return mol
+        return molecule
 
-    def charges(self, mol):
+    def charges(self, molecule):
         """Perform DDEC calculation with Chargemol."""
 
-        c_mol = Chargemol(mol, self.all_configs)
+        c_mol = Chargemol(molecule, self.all_configs)
         c_mol.generate_input()
 
         append_to_log(self.log_file, f'Chargemol analysis with DDEC{self.qm["ddec_version"]} complete')
 
-        return mol
+        return molecule
 
-    def lennard_jones(self, mol):
+    def lennard_jones(self, molecule):
         """Calculate Lennard-Jones parameters."""
 
-        lj = LennardJones(mol, self.all_configs)
-        mol.NonbondedForce = lj.amend_sig_eps()
+        lj = LennardJones(molecule, self.all_configs)
+        molecule.NonbondedForce = lj.amend_sig_eps()
         append_to_log(self.log_file, 'Lennard-Jones parameters calculated')
 
-        return mol
+        return molecule
 
-    def torsions(self, mol):
+    def torsions(self, molecule):
         """Perform torsion scan."""
 
         # scan = TorsionScan(mol, qm_engine, 'OpenMM')
@@ -535,19 +535,19 @@ class Main:
 
         append_to_log(self.log_file, 'Torsion scans complete')
 
-        return mol
+        return molecule
 
     @staticmethod
-    def finalise(mol):
+    def finalise(molecule):
         """Make the xml and print the ligand object to terminal (in abbreviated form) and to the log file."""
 
-        mol.write_parameters()
+        molecule.write_parameters()
 
         # Print ligand objects to log file and terminal
-        pretty_print(mol, to_file=True)
-        pretty_print(mol)
+        pretty_print(molecule, to_file=True)
+        pretty_print(molecule)
 
-        return mol
+        return molecule
 
     @exception_logger_decorator
     def execute(self):

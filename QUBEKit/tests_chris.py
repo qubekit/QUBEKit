@@ -175,14 +175,13 @@ from contextlib import contextmanager
 
 def main():
 
-    time = 2345.1
+    substr = 'folder.123'
+    location = '../../../folder.123/../..'
 
-    mins, secs = divmod(time, 60)
-    hours, mins = divmod(mins, 60)
+    separated = location.split(substr, 1)
+    separated[0] += substr
 
-    secs, remain = str(float(secs)).split('.')
-
-    print(f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}')
+    print(separated)
 
 
 if __name__ == '__main__':

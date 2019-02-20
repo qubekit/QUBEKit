@@ -101,6 +101,8 @@ This option is what controls where the chargemol code is kept on your PC.
 It should be the location of the chargemol home directory, plus the name of the chargemol folder itself:
 
     '/home/<user>/Programs/chargemol_09_26_2017'
+    
+Following this, feel free to change any of the other options.
 
 ### QUBEKit Commands: Running Jobs
 
@@ -109,12 +111,12 @@ Others however, such as changing defaults: ("-c", "0") ("-m", "1") etc are taken
 The first command of tuple commands is always preceded by a "-", while single word commands are not.
 (An error is raised for hanging commands e.g. "-c", "1", "-sm".)
 
-Single-word commands are taken in any order, assuming they are given, tuple commands are taken as ("-key", "val").
-All commands are optional. If nothing at all is given, the program will run entirely with defaults.
+Single-word commands are taken in any order, assuming they are given, while tuple commands are taken as ("-key", "val").
+**All commands are optional**. If nothing at all is given, the program will run entirely with defaults.
 
 Files to be analysed must be written with their file extension (.pdb) attached or they will not be recognised commands.
 All commands should be given in lower case with two main exceptions;
-you may use whatever case you like for the name of files (e.g. DMSO.pdb) or log strings (e.g. Run013).
+you may use whatever case you like for the name of files (e.g. DMSO.pdb) or the name of the log files (e.g. Run013).
 
 ### QUBEKit Commands: Some Examples
 
@@ -124,7 +126,7 @@ Note, ordering does not matter as long as tuples commands (-c, 1) are together.
     QUBEKit molecule.pdb -c 1 -geo false
     QUBEKit -c 1 -geo false molecule.pdb
 
-Running a full analysis with a non-default engine (g09):
+Running a full analysis with a non-default bonds engine (g09):
 
     QUBEKit molecule.pdb -bonds g09
 
@@ -139,7 +141,7 @@ This will generate a methane pdb file (and mol file) using its smiles string: "C
 then QUBEKit will analyse it until the hessian is calculated.
 See "QUBEKit Commands: Custom Start and End Points (single molecule)" below for more details on "-end".
 
-## QUBEKit Commands: Logging
+### QUBEKit Commands: Logging
 
 Each time QUBEKit runs, a new working directory containing a log file will be created.
 The name of the directory will contain the run number provided via the terminal command "-log" (or the default run number in the configs if none is provided).
@@ -202,7 +204,7 @@ where example.csv is the csv file containing all the information described above
 
 Any pdb files should all be in the same place: where you're running QUBEKit from.
 Upon executing this bulk command, QUBEKit will work through the rows in the csv file.
-Each molecule will be given its own directory and log file (as in non-bulk executions).
+Each molecule will be given its own directory and log file (the same as single molecule analyses).
 
 Please note, there are deliberately two config files.
 The changeable parameters are spread across a .csv and a .ini config files.
@@ -215,7 +217,7 @@ You can change defaults inside the terminal when running bulk analyses, and thes
 However, the config files themselves will not be overwritten.
 It is therefore recommended to manually edit the config files rather than doing, for example:
 
-    QUBEKit -bulk pdb example.csv -log run42 -ddec 3 -solvent true
+    QUBEKit -bulk example.csv -log run42 -ddec 3 -solvent true
     
 Be aware that the names of the pdb files are used as keys to find the configs.
 So, each pdb being analysed should have a corresponding row in the csv file with the correct name.
@@ -240,19 +242,19 @@ For single molecule analysis, this is achieved with the -end and -restart comman
 
 -end specifies the final stage for an analysis, where 'finalise' is the default. The stages are:
 
-* rdkit_optimise - This is a quick, preliminary optimisation with RDKit which speeds up later optimisations.
+* **rdkit_optimise** - This is a quick, preliminary optimisation with RDKit which speeds up later optimisations.
 This step also loads in the molecule and extracts key information like the atoms and their coordinates. 
-* parametrise - The molecule is parametrised using OpenFF, AnteChamber or XML.
-* qm_optimise - This is the main optimisation stage, default method is to use PSI4 with GeomeTRIC.
-* hessian - This again uses PSI4 to calculate the Hessian matrix.
-* mod_sem - Using the Hessian matrix, the bonds and angles terms are calculated with the Modified Seminario Method.
-* density - The density is calculated using Gaussian09. This is where the solvent is applied as well. 
-* charges - The charges are partitioned and calculated using Chargemol and DDEC3 or 6.
-* lennard_jones - The charges are extracted ready for producing an XML.
+* **parametrise** - The molecule is parametrised using OpenFF, AnteChamber or XML.
+* **qm_optimise** - This is the main optimisation stage, default method is to use PSI4 with GeomeTRIC.
+* **hessian** - This again uses PSI4 to calculate the Hessian matrix.
+* **mod_sem** - Using the Hessian matrix, the bonds and angles terms are calculated with the Modified Seminario Method.
+* **density** - The density is calculated using Gaussian09. This is where the solvent is applied as well. 
+* **charges** - The charges are partitioned and calculated using Chargemol and DDEC3 or 6.
+* **lennard_jones** - The charges are extracted ready for producing an XML.
 The Lennard-Jones parameters are also calculated and stored.
-* torsions - Using the molecule's geometry, a torsion scan is performed.
+* **torsions** - Using the molecule's geometry, a torsion scan is performed.
 The molecule can then be optimised with respect to these parameters.
-* finalise - This step (which is always performed, regardless of end-point) produces an XML for the molecule.
+* **finalise** - This step (which is always performed, regardless of end-point) produces an XML for the molecule.
 This stage also prints the final information to the log file and a truncated version to the terminal.
 
 In a normal run, all of these functions are called sequentially,
@@ -262,13 +264,15 @@ When using -end, simply specify the end-point in the proceeding command,
 when using -restart, specify the start-point, then the end-point as space separated commands.
 When using these commands, all other commands can be used in the same ways as before. For example:
 
+    QUBEKit methanol.pdb -end charges
+    QUBEKit -sm CC -restart qm_optimise density
     QUBEKit benzene.pdb -log BEN001 -end charges -geo false 
     QUBEKit ethanol.pdb -restart hessian torsions -ddec 3
     
 If specifying a different end-point, a new directory and log file will be created within wherever the command is run from.
 
-Because changing the start point requires files and other information from previous executions, this can only be run from
-inside a directory with those files present.
+Because changing the start-point requires files and other information from previous executions, this can only be run from
+*inside* a directory with those files present.
 
 To illustrate this point, a possible use case would be to perform a full calculation on the molecule ethane,
 then recalculate using a different (set of) default value(s):
@@ -362,11 +366,11 @@ Optional commands:
 * Change the basis set:
 ```-basis 6-31G```
 
-**Complete analysis of ethane from its smiles string using DDEC3, OpenFF and no solvent:**
+**Complete analysis of ethane from its smiles string using DDEC3, OpenFF and no solvent (```-log``` command labels the analysis):**
 
     QUBEKit -sm CC -ddec 3 -param openff -solvent false -log ethane_example
 
-**Analyse benzene from its pdb file until the charges are calculated; use DDEC3 (```-log``` command labels the analysis):**
+**Analyse benzene from its pdb file until the charges are calculated; use DDEC3:**
 
     QUBEKit benzene.pdb -end charges -ddec 3 -log BENZ_DDEC3
     
@@ -405,7 +409,7 @@ Generate a blank csv file with a relevant name:
 
     QUBEKit -csv density.csv
     
-Fill it in like so:
+Fill in each row like so:
 
     density.csv:
         name,charge,multiplicity,config,smiles string,torsion order,start,end

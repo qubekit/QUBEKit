@@ -21,7 +21,7 @@ class Engines:
 
     def __init__(self, molecule, config_dict):
 
-        self.engine_mol = molecule
+        self.molecule = molecule
         self.charge = config_dict[0]['charge']
         self.multiplicity = config_dict[0]['multiplicity']
         self.qm, self.fitting, self.descriptions = config_dict[1:]
@@ -44,16 +44,16 @@ class PSI4(Engines):
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, energy=False, threads=False,
+    def generate_input(self, qm=False, mm=False, optimise=False, hessian=False, density=False, energy=False, threads=False,
                        fchk=False, run=True):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
 
-        if QM:
-            molecule = self.engine_mol.QMoptimized
-        elif MM:
-            molecule = self.engine_mol.MMoptimized
+        if qm:
+            molecule = self.molecule.qm_optimised
+        elif mm:
+            molecule = self.molecule.mm_optimised
         else:
-            molecule = self.engine_mol.molecule
+            molecule = self.molecule.molecule
 
         # input.dat is the PSI4 input file.
         setters = ''
@@ -61,23 +61,23 @@ class PSI4(Engines):
 
         # opening tag is always writen
         with open('input.dat', 'w+') as input_file:
-            input_file.write(f"memory {self.qm['threads']} GB\n\nmolecule {self.engine_mol.name} {{\n{self.charge} {self.multiplicity} \n")
+            input_file.write(f"memory {self.qm['threads']} GB\n\nmolecule {self.molecule.name} {{\n{self.charge} {self.multiplicity} \n")
             # molecule is always printed
             for atom in molecule:
                 input_file.write(f' {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
             input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.qm['basis']}\n")
 
             if energy:
-                append_to_log(self.engine_mol.log_file, 'Writing psi4 energy calculation input')
+                append_to_log(self.molecule.log_file, 'Writing psi4 energy calculation input')
                 tasks += f"\nenergy  = energy('{self.qm['theory']}')"
 
-            if optimize:
-                append_to_log(self.engine_mol.log_file, 'Writing PSI4 optimisation input', 'minor')
+            if optimise:
+                append_to_log(self.molecule.log_file, 'Writing PSI4 optimisation input', 'minor')
                 setters += f" g_convergence {self.qm['convergence']}\n GEOM_MAXITER {self.qm['iterations']}\n"
                 tasks += f"\noptimize('{self.qm['theory'].lower()}')"
 
             if hessian:
-                append_to_log(self.engine_mol.log_file, 'Writing PSI4 Hessian matrix calculation input', 'minor')
+                append_to_log(self.molecule.log_file, 'Writing PSI4 Hessian matrix calculation input', 'minor')
                 setters += ' hessian_write on\n'
 
                 tasks += f"\nenergy, wfn = frequency('{self.qm['theory'].lower()}', return_wfn=True)"
@@ -85,19 +85,19 @@ class PSI4(Engines):
                 tasks += '\nwfn.hessian().print_out()\n\n'
 
             if density:
-                append_to_log(self.engine_mol.log_file, 'Writing PSI4 density calculation input', 'minor')
+                append_to_log(self.molecule.log_file, 'Writing PSI4 density calculation input', 'minor')
                 setters += " cubeprop_tasks ['density']\n"
 
-                overage = get_overage(self.engine_mol.name)
+                overage = get_overage(self.molecule.name)
                 setters += " CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage)
                 setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
                 tasks += f"grad, wfn = gradient('{self.qm['theory'].lower()}', return_wfn=True)\ncubeprop(wfn)"
 
             if fchk:
-                append_to_log(self.engine_mol.log_file, 'Writing PSI4 input file to generate fchk file')
+                append_to_log(self.molecule.log_file, 'Writing PSI4 input file to generate fchk file')
                 tasks += f"\ngrad, wfn = gradient('{self.qm['theory'].lower()}', return_wfn=True)"
                 tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
-                tasks += f'\nfchk_writer.write("{self.engine_mol.name}_psi4.fchk")\n'
+                tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
 
             # TODO If overage cannot be made to work, delete and just use Gaussian.
             # if self.qm['solvent']:
@@ -124,7 +124,7 @@ class PSI4(Engines):
         Molecule is a numpy array of size N x N.
         """
 
-        hess_size = 3 * len(self.engine_mol.molecule)
+        hess_size = 3 * len(self.molecule.molecule)
 
         # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
@@ -208,7 +208,7 @@ class PSI4(Engines):
 
             opt_struct = []
 
-            for row in range(len(self.engine_mol.molecule)):
+            for row in range(len(self.molecule.molecule)):
 
                 # Append the first 4 columns of each row, converting to float as necessary.
                 struct_row = [lines[start_of_vals + row].split()[0]]
@@ -257,7 +257,7 @@ class PSI4(Engines):
                 raise EOFError('Cannot locate modes in output.dat file.')
 
             # Barring the first (and sometimes last) line, dat file has 6 values per row.
-            end_of_vals = start_of_vals + (3 * len(self.engine_mol.molecule)) // 6
+            end_of_vals = start_of_vals + (3 * len(self.molecule.molecule)) // 6
 
             structures = lines[start_of_vals][24:].replace("'", "").split()
             structures = structures[6:]
@@ -270,23 +270,23 @@ class PSI4(Engines):
 
             return array(all_modes)
 
-    def geo_gradient(self, QM=False, MM=False, threads=False, run=True):
+    def geo_gradient(self, qm=False, mm=False, threads=False, run=True):
         """Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
         """
 
-        if QM:
-            molecule = self.engine_mol.QMoptimized
+        if qm:
+            molecule = self.molecule.qm_optimised
 
-        elif MM:
-            molecule = self.engine_mol.MMoptimized
+        elif mm:
+            molecule = self.molecule.mm_optimised
 
         else:
-            molecule = self.engine_mol.molecule
+            molecule = self.molecule.molecule
 
-        with open(f'{self.engine_mol.name}.psi4in', 'w+') as file:
+        with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
-            file.write(f'molecule {self.engine_mol.name} {{\n {self.charge} {self.multiplicity} \n')
+            file.write(f'molecule {self.molecule.name} {{\n {self.charge} {self.multiplicity} \n')
             for atom in molecule:
                 file.write(f'  {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
@@ -298,7 +298,7 @@ class PSI4(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_call(f'geometric-optimize --psi4 {self.engine_mol.name}.psi4in --nt {self.qm["threads"]}',
+                sub_call(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
                          shell=True, stdout=log)
 
 
@@ -315,7 +315,7 @@ class Chargemol(Engines):
         """
 
         if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
-            append_to_log(log_file=self.engine_mol.log_file,
+            append_to_log(log_file=self.molecule.log_file,
                           message='Invalid or unsupported DDEC version given, running with default version 6.',
                           msg_type='warning')
             self.qm['ddec_version'] = 6
@@ -323,7 +323,7 @@ class Chargemol(Engines):
         # Write the charges job file.
         with open('job_control.txt', 'w+') as charge_file:
 
-            charge_file.write(f'<input filename>\n{self.engine_mol.name}.wfx\n</input filename>')
+            charge_file.write(f'<input filename>\n{self.molecule.name}.wfx\n</input filename>')
 
             charge_file.write('\n\n<net charge>\n0.0\n</net charge>')
 
@@ -359,17 +359,17 @@ class Gaussian(Engines):
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, QM=False, MM=False, optimize=False, hessian=False, density=False, solvent=False, run=True):
+    def generate_input(self, qm=False, mm=False, optimize=False, hessian=False, density=False, solvent=False, run=True):
         """Generates the relevant job file for Gaussian, then executes this job file."""
 
-        if QM:
-            molecule = self.engine_mol.QMoptimized
-        elif MM:
-            molecule = self.engine_mol.MMoptimized
+        if qm:
+            molecule = self.molecule.qm_optimised
+        elif mm:
+            molecule = self.molecule.mm_optimised
         else:
-            molecule = self.engine_mol.molecule
+            molecule = self.molecule.molecule
 
-        with open(f'gj_{self.engine_mol.name}', 'w+') as input_file:
+        with open(f'gj_{self.molecule.name}', 'w+') as input_file:
 
             input_file.write(f'%Mem={self.qm["memory"]}GB\n%NProcShared={self.qm["threads"]}\n%Chk=lig\n')
 
@@ -388,7 +388,7 @@ class Gaussian(Engines):
             if density:
                 commands += 'density=current OUTPUT=WFX '
 
-            commands += f'\n\n{self.engine_mol.name}\n\n{self.charge} {self.multiplicity}\n'
+            commands += f'\n\n{self.molecule.name}\n\n{self.charge} {self.multiplicity}\n'
 
             input_file.write(commands)
 
@@ -402,13 +402,13 @@ class Gaussian(Engines):
 
             if density:
                 # Specify the creation of the wavefunction file
-                input_file.write(f'\n{self.engine_mol.name}.wfx')
+                input_file.write(f'\n{self.molecule.name}.wfx')
 
             # Blank lines because Gaussian.
             input_file.write('\n\n')
 
         if run:
-            sub_call(f'g09 < gj_{self.engine_mol.name} > gj_{self.engine_mol.name}.log', shell=True)
+            sub_call(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log', shell=True)
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
@@ -431,7 +431,7 @@ class Gaussian(Engines):
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
                 hessian_list.extend([float(num) * 0.529 for num in line.strip('\n').split()])
 
-        hess_size = 3 * len(self.engine_mol.molecule)
+        hess_size = 3 * len(self.molecule.molecule)
 
         hessian = zeros((hess_size, hess_size))
 
@@ -450,7 +450,7 @@ class Gaussian(Engines):
     def optimised_structure(self):
         """Extract the optimised structure from the Gaussian log file."""
 
-        with open(f'gj_{self.engine_mol.name}.log', 'r') as log_file:
+        with open(f'gj_{self.molecule.name}.log', 'r') as log_file:
 
             lines = log_file.readlines()
 
@@ -460,18 +460,18 @@ class Gaussian(Engines):
                     opt_coords_pos.append(pos + 5)
                     break
             else:
-                raise EOFError(f'Cannot locate optimised structures in gj_{self.engine_mol.name}.log file.')
+                raise EOFError(f'Cannot locate optimised structures in gj_{self.molecule.name}.log file.')
 
             start_pos = opt_coords_pos[-1]
 
-            num_atoms = len(self.engine_mol.molecule)
+            num_atoms = len(self.molecule.molecule)
 
             opt_struct = []
 
             for pos, line in enumerate(lines[start_pos: start_pos + num_atoms]):
 
                 vals = line.split()[-3:]
-                vals = [self.engine_mol.molecule[pos][0]] + [float(i) for i in vals]
+                vals = [self.molecule.molecule[pos][0]] + [float(i) for i in vals]
                 opt_struct.append(vals)
 
         return opt_struct
@@ -479,7 +479,7 @@ class Gaussian(Engines):
     def all_modes(self):
         """Extract the frequencies from the Gaussian log file."""
 
-        with open(f'gj_{self.engine_mol.name}.log', 'r') as log_file:
+        with open(f'gj_{self.molecule.name}.log', 'r') as log_file:
 
             lines = log_file.readlines()
             freqs = []
@@ -491,7 +491,7 @@ class Gaussian(Engines):
                     freq_positions.append(count)
                     break
             else:
-                raise EOFError(f'Cannot locate modes in gj_{self.engine_mol.name}.log file.')
+                raise EOFError(f'Cannot locate modes in gj_{self.molecule.name}.log file.')
 
             for pos in freq_positions:
                 freqs.extend(float(num) for num in lines[pos].split()[2:])
