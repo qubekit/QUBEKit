@@ -9,6 +9,7 @@ from simtk.openmm import app
 import simtk.openmm as mm
 from simtk import unit
 from numpy import array, zeros, sqrt, sum, exp, round, append
+from scipy.optimize import minimize
 
 from subprocess import call as sub_call
 from math import pi
@@ -26,12 +27,12 @@ class TorsionScan:
     for each selected dihedral.
     """
 
-    def __init__(self, molecule, qmengine, mmengine='openmm', native_opt=False, verbose=False):
+    def __init__(self, molecule, qm_engine, mm_engine='openmm', native_opt=False, verbose=False):
 
-        self.qmengine = qmengine
-        self.mmengine = mmengine
+        self.qm_engine = qm_engine
+        self.mm_engine = mm_engine
         self.constraints = None
-        self.grid_space = qmengine.fitting['increment']
+        self.grid_space = qm_engine.fitting['increment']
         self.native_opt = native_opt
         self.verbose = verbose
         self.scan_mol = molecule
@@ -59,10 +60,11 @@ class TorsionScan:
             return self.scan_mol
 
         else:
-            # get the rotatable dihedrals from the molecule
+            # Get the rotatable dihedrals from the molecule
             rotatable = list(self.scan_mol.rotatable)
             print('Please select the central bonds round which you wish to scan in the order to be scanned')
             print('Torsion number   Central-Bond   Representative Dihedral')
+            # TODO Padding
             for i, bond in enumerate(rotatable):
                 print(f'  {i + 1}                    {bond[0]}-{bond[1]}             '
                       f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][0] - 1]}-'
@@ -75,7 +77,7 @@ class TorsionScan:
             print(scans)
 
             scan_order = []
-            # now add the rotatable dihedral keys to an array
+            # Add the rotatable dihedral keys to an array
             for scan in scans:
                 scan_order.append(rotatable[int(scan) - 1])
             self.scan_mol.scan_order = scan_order
@@ -94,20 +96,20 @@ class TorsionScan:
         # TODO need to add PSI4 redundant mode selector
 
         if self.native_opt:
-            self.QMengine.generate_input(optimize=True, threads=True)
+            self.qm_engine.generate_input(optimise=True, threads=True)
 
         else:
-            self.QMengine.geo_gradient(run=False, threads=True)
+            self.qm_engine.geo_gradient(run=False, threads=True)
 
     def torsion_cmd(self):
         """Function generates a command strings to run torsiondrive based on the input commands for QM and MM."""
 
         # add the first basic command elements for QM
-        cmd_qm = f'torsiondrive-launch {self.scan_mol.name}.{self.QMengine.__class__.__name__.lower()}in dihedrals.txt '
+        cmd_qm = f'torsiondrive-launch {self.scan_mol.name}.{self.qm_engine.__class__.__name__.lower()}in dihedrals.txt '
         if self.grid_space:
             cmd_qm += f'-g {self.grid_space} '
-        if self.QMengine:
-            cmd_qm += f'-e {self.QMengine.__class__.__name__.lower()} '
+        if self.qm_engine:
+            cmd_qm += f'-e {self.qm_engine.__class__.__name__.lower()} '
 
         if self.native_opt:
             cmd_qm += '--native_opt '
@@ -121,7 +123,7 @@ class TorsionScan:
         """Function will extract an array of energies from the scan results
         and store it back into the molecule in a dictionary using the scan order as keys.
         """
-        from numpy import array
+
         with open('scan.xyz', 'r') as scan_file:
             scan_energy = []
             for line in scan_file:
@@ -136,18 +138,13 @@ class TorsionScan:
         """Function makes a folder and writes a new a dihedral input file for each scan."""
         # TODO put all the scans in a work queue so they can be performed in parallel
 
-        from os import mkdir, chdir
-
         for scan in self.scan_mol.scan_order:
-            try:
-                mkdir(f'SCAN_{scan}')
 
-            except:
-                raise Exception(f'Cannot create SCAN_{scan} dir.')
-
+            mkdir(f'SCAN_{scan}')
             chdir(f'SCAN_{scan}')
             mkdir('QM')
             chdir('QM')
+
             # now make the scan input files
             self.qm_scan_input(scan)
             sub_call(self.cmd, shell=True)
@@ -156,23 +153,23 @@ class TorsionScan:
 
 
 @for_all_methods(timer_logger)
-class TorsionOptimizer:
+class TorsionOptimiser:
     """Torsion optimiser class used to optimise dihedral parameters with a range of methods"""
 
-    def __init__(self, molecule, qmengine, config_dict, wieght_mm=True, opls=True, use_force=False, step_size=0.002,
-                 error_tol=1e-5, xtol=1e-4, method='BFGS'):
-        self.qm, self.fitting, self.descriptions = config_dict[1], config_dict[2], config_dict[3]
+    def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, opls=True, use_force=False, step_size=0.002,
+                 error_tol=1e-5, x_tol=1e-4, method='BFGS'):
+        self.qm, self.fitting, self.descriptions = config_dict[1:]
         self.l_pen = self.fitting['l_pen']
         self.t_weight = self.fitting['t_weight']
         self.molecule = molecule
-        self.QMengine = qmengine
-        self.OPLS = opls
-        self.weight_MM = wieght_mm
+        self.qm_engine = qm_engine
+        self.opls = opls
+        self.weight_mm = weight_mm
         self.step_size = step_size
         self.methods = {'NM': 'Nelder-Mead', 'BFGS': 'BFGS'}    # Scipy minimisation method; BFGS with custom step size
         self.method = self.methods[method]
         self.error_tol = error_tol
-        self.xtol = xtol
+        self.x_tol = x_tol
         self.energy_dict = molecule.QM_scan_energy
         self.use_Force = use_force
         self.mm_energy = []
@@ -187,7 +184,7 @@ class TorsionOptimizer:
         self.scan = None
         self.param_vector = None
         self.torsion_store = None
-        self.K_b = 0.001987
+        self.k_b = 0.001987
         self.tor_types = OrderedDict()
         self.phases = [0, pi, 0, pi]
         self.rest_torsions()
@@ -204,7 +201,7 @@ class TorsionOptimizer:
             # Then get the energy from the new state
             state = self.simulation.context.getState(getEnergy=True, getForces=self.use_Force)
             # print(f'{float(str(state.getPotentialEnergy())[:-6])/4.184} kcal/mol')
-            self.mm_energy.append(float(str(state.getPotentialEnergy())[:-6]) / 4.184)  # convert from kj to kcal
+            self.mm_energy.append(float(str(state.getPotentialEnergy())[:-6]) / 4.184)  # convert from kJ to kcal
 
         return array(self.mm_energy)
         # get forces from the system
@@ -233,13 +230,13 @@ class TorsionOptimizer:
     def openmm_system(self):
         """Initialise the OpenMM system we will use to evaluate the energies."""
 
-        # load the initial coords into the system and initialise
+        # Load the initial coords into the system and initialise
         pdb = app.PDBFile(self.molecule.filename)
         forcefield = app.ForceField(f'{self.molecule.name}.xml')
-        modeller = app.Modeller(pdb.topology, pdb.positions)  # set the intial positions from the pdb
+        modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
         self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
-        if self.OPLS:
+        if self.opls:
             self.opls_lj()
 
         temperature = 298.15 * unit.kelvin
@@ -248,16 +245,14 @@ class TorsionOptimizer:
         self.simulation = app.Simulation(modeller.topology, self.system, integrator)
         self.simulation.context.setPositions(modeller.positions)
 
-    def initial_energys(self):
+    def initial_energies(self):
         """Calculate the initial energies using the input xml."""
 
         # First, reset all periodic torsion terms back to their initial values
-        i = 0
-        for key in self.torsion_store:
-            self.tor_types[i] = [[key], [float(self.torsion_store[key][0][1]), float(self.torsion_store[key][1][1]),
-                                         float(self.torsion_store[key][2][1]), float(self.torsion_store[key][3][1])],
-                                 [list(self.torsion_store.keys()).index(key)]]
-            i += 1
+        for pos, key in enumerate(self.torsion_store):
+            self.tor_types[pos] = [[key], [float(self.torsion_store[key][0][1]), float(self.torsion_store[key][1][1]),
+                                           float(self.torsion_store[key][2][1]), float(self.torsion_store[key][3][1])],
+                                   [list(self.torsion_store.keys()).index(key)]]
 
         self.update_torsions()
         self.initial_energy = deepcopy(self.mm_energies())
@@ -271,8 +266,8 @@ class TorsionOptimizer:
         x = round(x, decimals=4)
 
         # Update the param vector for the right torsions by slicing the vector every 4 places
-        for key in self.tor_types.keys():
-            self.tor_types[key][1] = x[key * 4:key * 4 + 4]
+        for key, val in self.tor_types.items():
+            val[1] = x[key * 4:key * 4 + 4]
 
     def objective(self, x):
         """Return the output of the objective function."""
@@ -297,10 +292,10 @@ class TorsionOptimizer:
 
         # if using a weighting, add that here
         if self.t_weight != 'infinity':
-            error *= exp(-self.qm_energy / (self.K_b * self.t_weight))
+            error *= exp(-self.qm_energy / (self.k_b * self.t_weight))
 
         # Find the total error
-        total_error = sqrt(sum(error) / (len(self.scan_coords)))
+        total_error = sqrt(sum(error) / len(self.scan_coords))
 
         # Calculate the penalty
         pen = self.l_pen * sum((x - self.starting_params) ** 2)
@@ -329,12 +324,12 @@ class TorsionOptimizer:
             self.initial_coords = deepcopy(self.scan_coords)
 
             # Get the initial energies
-            self.initial_energys()
+            self.initial_energies()
 
-            # Get the torsions that will be fit and make the parm vector
+            # Get the torsions that will be fit and make the param vector
             self.get_torsion_params()
 
-            # TODO start master optimizer loop
+            # TODO start master optimiser loop
             # Start the main optimiser loop and get the final error and parameters back
             error, opt_parameters = self.scipy_optimier()
 
@@ -348,7 +343,7 @@ class TorsionOptimizer:
             self.scan_coords = self.drive_mm()
 
             # Calculate the single point energies of each of the positions returned
-            # Using the QMengine, store back into the qm_energy as the new reference
+            # Using the qm_engine, store back into the qm_energy as the new reference
             self.qm_energy = self.single_point()
 
             # Keep a copy of the energy before adjusting in case another loop is needed
@@ -389,7 +384,7 @@ class TorsionOptimizer:
 
             self.plot_results(name='Final')
 
-            # TODO optimize the single points again
+            # TODO optimise the single points again
 
             # TODO now plot the results of the scan when converged
             # TODO write out the final xml with the new parameters.
@@ -409,7 +404,7 @@ class TorsionOptimizer:
         self.torsion_store = deepcopy(self.molecule.PeriodicTorsionForce)
 
         # Set all the torsion to 1 to get them into the system
-
+        # TODO .keys() / .items() ?
         for key in self.molecule.PeriodicTorsionForce:
             self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', '3.141592653589793'],
                                                        ['3', '1', '0'], ['4', '1', '3.141592653589793']]
@@ -488,13 +483,13 @@ class TorsionOptimizer:
         # Make the param_vector of the correct size
         self.param_vector = zeros((1, len(list(self.tor_types.keys())) * 4))
 
-    def full_scan_optimizer(self):
-        """A steepest decent optimizer as implimented in QUBEKit-V1, that will optimize the torsion terms
+    def full_scan_optimiser(self):
+        """A steepest decent optimiser as implemented in QUBEKit-V1, which will optimise the torsion terms
          using full relaxed surface scans."""
         pass
 
     def rmsd(self):
-        """Calculate the rmsd between the MM and QM predicted structures from the relaxed scans
+        """Calculate the rmsd between the MM and QM predicted structures from the relaxed scans;
         this can be added into the penalty function."""
 
         pass
@@ -503,28 +498,25 @@ class TorsionOptimizer:
         """Compute the gradient of changing the parameter vector using central difference scheme."""
 
         gradient = []
-        for i in range(len(x)):
-            x[i] += self.step_size / 2
+        for item in x:
+            item += self.step_size / 2
             plus = self.objective(x)
-            x[i] -= self.step_size
+            item -= self.step_size
             minus = self.objective(x)
             diff = (plus - minus) / self.step_size
             gradient.append(diff)
         return array(gradient)
 
-    def scipy_optimier(self):
-        """The main torsion parameter optimizer that controls the optimization method used."""
+    def scipy_optimiser(self):
+        """The main torsion parameter optimiser that controls the optimisation method used."""
 
-        from scipy.optimize import minimize
-
-        # select the scipy minimize method from the ones available
-
-        # run the optimiser
         print(f'Running scipy {self.method} optimiser ... ')
+
         # Does not work in dictionary for some reason
+        # TODO Try .get() ?
         if self.method == 'Nelder-Mead':
             res = minimize(self.objective, self.param_vector, method='Nelder-Mead',
-                           options={'xtol': self.xtol, 'ftol': self.error_tol, 'disp': True})
+                           options={'xtol': self.x_tol, 'ftol': self.error_tol, 'disp': True})
 
         elif self.method == 'BFGS':
             res = minimize(self.objective, self.param_vector, method='BFGS', jac=self.finite_difference,
@@ -543,6 +535,7 @@ class TorsionOptimizer:
 
     def use_forcebalance(self):
         """Call force balance to do the single point energy matching."""
+
         pass
 
     def update_torsions(self):
@@ -552,14 +545,14 @@ class TorsionOptimizer:
                   index in range(self.simulation.system.getNumForces())}
         torsion_force = forces['PeriodicTorsionForce']
         i = 0
-        for key in self.tor_types.keys():
-            for j, dihedral in enumerate(self.tor_types[key][0]):
+        for key, val in self.tor_types.items():
+            for j, dihedral in enumerate(val[0]):
                 for v_n in range(4):
-                    torsion_force.setTorsionParameters(index=v_n + (self.tor_types[key][2][j] * 4),
+                    torsion_force.setTorsionParameters(index=v_n + (val[2][j] * 4),
                                                        particle1=dihedral[0], particle2=dihedral[1],
                                                        particle3=dihedral[2], particle4=dihedral[3],
                                                        periodicity=v_n + 1, phase=self.phases[v_n],
-                                                       k=self.tor_types[key][1][v_n])
+                                                       k=val[1][v_n])
                     i += 1
         torsion_force.updateParametersInContext(self.simulation.context)
 
@@ -568,19 +561,17 @@ class TorsionOptimizer:
     def plot_test(self, energies):
         """Plot the results of the fitting."""
 
-        import matplotlib.pyplot as plt
-        import seaborn as sns
         sns.set()
 
         # Make sure we have the same number of energy terms in the QM and MM lists
         assert len(self.qm_energy) == len(self.mm_energy)
 
         # Now adjust the MM energies
-        # self.MM_energy -= min(self.MM_energy)
-        # self.MM_energy /= 4.184 # convert from kj to kcal
+        # self.mm_energy -= min(self.mm_energy)
+        # self.mm_energy /= 4.184 # convert from kj to kcal
 
         # Make the angle array
-        angles = [x for x in range(-165, 195, self.QMengine.fitting['increment'])]
+        angles = [x for x in range(-165, 195, self.qm_engine.fitting['increment'])]
         plt.plot(angles, self.qm_energy, 'o', label='QM')
         for i, scan in enumerate(energies):
             self.mm_energy = array(scan)
@@ -596,17 +587,17 @@ class TorsionOptimizer:
 
         # sns.set()
 
-        # Make sure we have the same amount of energy terms in the QM and mm lists
+        # Make sure we have the same number of energy terms in the QM and MM lists
         assert len(self.qm_energy) == len(self.mm_energy)
 
-        # Now adjust the MM energies
+        # Adjust the MM energies
         # self.mm_energy -= min(self.mm_energy)
 
-        # Now adjust the initial MM energies
+        # Adjust the initial MM energies
         initial_energy = self.initial_energy - min(self.initial_energy)
 
-        # make the angle array
-        angles = [x for x in range(-165, 195, self.QMengine.fitting['increment'])]
+        # Construct the angle array
+        angles = [x for x in range(-165, 195, self.qm_engine.fitting['increment'])]
 
         if len(self.qm_energy) > len(angles):
             points = [x for x in range(len(self.qm_energy))]
@@ -629,29 +620,25 @@ class TorsionOptimizer:
         else:
             # Print a table of the results
             print(f'Angle    QM(relative)        MM(relative)    MM_initial(relative)')
-            for i, angle in enumerate(angles):
-                print(f'{angle:4}  {self.qm_energy[i]:15.10f}     {self.mm_energy[i]:15.10f}    {initial_energy[i]:15.10f}')
+            for pos, angle in enumerate(angles):
+                print(f'{angle:4}  {self.qm_energy[pos]:15.10f}     {self.mm_energy[pos]:15.10f}    {initial_energy[pos]:15.10f}')
 
             plt.xlabel('Dihedral angle$^{\circ}$')
 
+            # Plot the qm and mm data
+            plt.plot(angles, self.qm_energy, 'o', label='QM')
             if not validate:
-                # Plot the qm and mm data
-                plt.plot(angles, self.qm_energy, 'o', label='QM')
                 plt.plot(angles, initial_energy, label='MM initial')
-                plt.plot(angles, self.mm_energy, label=f'MM final')
+                plt.plot(angles, self.mm_energy, label='MM final')
 
             else:
-                # Now plot the qm and mm data
-                plt.plot(angles, self.qm_energy, 'o', label='QM')
-                plt.plot(angles, self.mm_energy, label=f'MM validate')
+                plt.plot(angles, self.mm_energy, label='MM validate')
 
-        # label the graph and save the pdf
+        # Label the graph and save the pdf
         plt.ylabel('Relative energy (kcal/mol)')
         plt.legend(loc=1)
         plt.savefig(f'{name}.pdf')
         plt.clf()
-
-        print('Torsion graph made!')
 
     def make_constraints(self):
         """Write a constraint file used by geometric during optimizations."""
@@ -675,12 +662,11 @@ class TorsionOptimizer:
         # Create a temporary working directory to call torsion drive from
         # Write an xml file with the new parameters
 
-        # move into a temporary folder
-        # turned off for testing
+        # Move into a temporary folder
+        # Turned off for testing
         # with TemporaryDirectory() as temp:
         temp = 'tester'
         mkdir(temp)
-
         chdir(temp)
 
         # Write out a pdb file of the qm optimised geometry
@@ -702,11 +688,11 @@ class TorsionOptimizer:
         return self.get_coords()
 
     def single_point(self):
-        """Take set of coordinates of a molecule and do a single point calculations returns a array of the energies."""
+        """Take set of coordinates of a molecule and do a single point calculation; returns an array of the energies."""
 
         sp_energy = []
-        # for each coordinate in the system we need to write a QMinput file and get the single point energy
-        # TODO add progress bar
+        # for each coordinate in the system we need to write a qm input file and get the single point energy
+        # TODO add progress bar (tqdm?)
         for i, x in enumerate(self.scan_coords):
             mkdir(f'SP_{i}')
             chdir(f'SP_{i}')
@@ -714,16 +700,15 @@ class TorsionOptimizer:
             # now we need to change the positions of the molecule in the molecule array
             for y, coord in enumerate(x):
                 for z, pos in enumerate(coord):
-                    self.QMengine.engine_mol.molecule[y][
-                        z + 1] = pos * 10  # convert from nanometers in openmm to A in QM
+                    self.qm_engine.engine_mol.molecule[y][z + 1] = pos * 10  # convert from nanometers in openmm to A in QM
 
-            # now try to write the new coordinate file and run the calculation
-            self.QMengine.generate_input(energy=True)
+            # Write the new coordinate file and run the calculation
+            self.qm_engine.generate_input(energy=True)
 
-            # extract the energy and save to the array
-            sp_energy.append(self.QMengine.get_energy())
+            # Extract the energy and save to the array
+            sp_energy.append(self.qm_engine.get_energy())
 
-            # move back to the base directory
+            # Move back to the base directory
             chdir('../')
 
         # return the array of the new single point energies
@@ -732,10 +717,10 @@ class TorsionOptimizer:
     def update_mol(self):
         """When the optimization is complete update the PeriodicTorsionForce parameters in the molecule."""
 
-        for key in self.tor_types.keys():
-            for dihedral in self.tor_types[key][0]:
+        for key, val in self.tor_types.items():
+            for dihedral in val[0]:
                 for vn in range(4):
-                    self.molecule.PeriodicTorsionForce[dihedral][vn][1] = str(self.tor_types[key][1][vn])
+                    self.molecule.PeriodicTorsionForce[dihedral][vn][1] = str(val[1][vn])
 
     def opls_lj(self, excep_pairs=None, normal_pairs=None):
         """This function changes the standard OpenMM combination rules to use OPLS, execp and normal pairs are only
@@ -769,6 +754,7 @@ class TorsionOptimizer:
             lorentz.addExclusion(p1, p2)
             if eps._value != 0.0:
                 sig14 = sqrt(l_j_set[p1][0] * l_j_set[p2][0])
+                # TODO eps14 not used
                 eps14 = sqrt(l_j_set[p1][1] * l_j_set[p2][1])
                 nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
             # If there is a virtual site in the molecule we have to change the exceptions and pairs lists

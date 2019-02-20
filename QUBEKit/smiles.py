@@ -35,7 +35,7 @@ def smiles_mm_optimise(pdb_file):
 
     mol = MolFromPDBFile(pdb_file, removeHs=False)
     AllChem.EmbedMolecule(mol)
-    # use rdkit Descriptors to extract properties and store in Descriptors dictionary
+    # Use rdkit Descriptors to extract properties and store in Descriptors dictionary
     descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(mol),
                    'H-bond donors': Descriptors.NumHDonors(mol),
                    'H-bond acceptors': Descriptors.NumHAcceptors(mol),

@@ -210,7 +210,7 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
 def main():
 
     from QUBEKit.helpers import Configure
-    from QUBEKit.dihedrals import TorsionScan, TorsionOptimizer
+    from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
     from QUBEKit.ligand import Ligand
     from QUBEKit.engines import PSI4
     from os import chdir
@@ -243,7 +243,7 @@ def main():
     copy('ethane.xml', f'SCAN_{scan}')
     chdir(f'SCAN_{scan}')
     scanner.get_energy(mol.scan_order[0])
-    opt = TorsionOptimizer(mol, QMengine, config_dict, opls=False)
+    opt = TorsionOptimiser(mol, QMengine, config_dict, opls=False)
     opt.run()
     print(mol.PeriodicTorsionForce)
 

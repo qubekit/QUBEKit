@@ -27,8 +27,8 @@ class Ligand:
         self.bond_lengths = None
         self.angle_values = None
         self.bonds = None
-        self.MMoptimized = None
-        self.QMoptimized = None
+        self.mm_optimised = None
+        self.qm_optimised = None
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
@@ -90,7 +90,7 @@ class Ligand:
 
         return return_str
 
-    def read_pdb(self, QM=False, MM=False):
+    def read_pdb(self, qm=False, mm=False):
         """Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
         Then reads through the connection tags and builds a connectivity network
         (only works if connections are present in PDB file).
@@ -136,10 +136,10 @@ class Ligand:
         # draw(topology, with_labels=True, font_weight='bold')
         # plt.show()
 
-        if QM:
-            self.QMoptimized = molecule
-        elif MM:
-            self.MMoptimized = molecule
+        if qm:
+            self.qm_optimised = molecule
+        elif mm:
+            self.mm_optimised = molecule
         else:
             self.molecule = molecule
 
@@ -222,7 +222,7 @@ class Ligand:
 
         return self.rotatable
 
-    def get_dihedral_values(self, QM=False, MM=False):
+    def get_dihedral_values(self, qm=False, mm=False):
         """Taking the molecules' xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
@@ -232,10 +232,10 @@ class Ligand:
 
         keys = self.rotatable if self.rotatable else list(self.dihedrals.keys())
 
-        if QM:
-            molecule = self.QMoptimized
-        elif MM:
-            molecule = self.MMoptimized
+        if qm:
+            molecule = self.qm_optimised
+        elif mm:
+            molecule = self.mm_optimised
         else:
             molecule = self.molecule
 
@@ -250,15 +250,15 @@ class Ligand:
 
         return self.dih_phis
 
-    def get_bond_lengths(self, QM=False, MM=False):
+    def get_bond_lengths(self, qm=False, mm=False):
         """For the given molecule and topology find the length of all of the bonds."""
 
         self.bond_lengths = {}
 
-        if QM:
-            molecule = self.QMoptimized
-        elif MM:
-            molecule = self.MMoptimized
+        if qm:
+            molecule = self.qm_optimised
+        elif mm:
+            molecule = self.mm_optimised
         else:
             molecule = self.molecule
 
@@ -270,17 +270,17 @@ class Ligand:
 
         return self.bond_lengths
 
-    def get_angle_values(self, QM=False, MM=False):
+    def get_angle_values(self, qm=False, mm=False):
         """For the given molecule and list of angle terms measure the angle values,
         then return a dictionary of angles and values.
         """
 
         self.angle_values = {}
 
-        if QM:
-            molecule = self.QMoptimized
-        elif MM:
-            molecule = self.MMoptimized
+        if qm:
+            molecule = self.qm_optimised
+        elif mm:
+            molecule = self.mm_optimised
         else:
             molecule = self.molecule
 
@@ -294,15 +294,15 @@ class Ligand:
 
         return self.angle_values
 
-    def write_pdb(self, QM=False, MM=False, name=None):
+    def write_pdb(self, qm=False, mm=False, name=None):
         """Take the current molecule and topology and write a pdb file for the molecule.
         Only for small molecules, not standard residues. No size limit.
         """
 
-        if QM:
-            molecule = self.QMoptimized
-        elif MM:
-            molecule = self.MMoptimized
+        if qm:
+            molecule = self.qm_optimised
+        elif mm:
+            molecule = self.mm_optimised
         else:
             molecule = self.molecule
 
@@ -415,7 +415,7 @@ class Ligand:
                 for line in lines:
                     line = line.split()
                     opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
-            self.QMoptimized = opt_molecule
+            self.qm_optimised = opt_molecule
 
             return self
 
@@ -427,13 +427,13 @@ class Ligand:
                                     'Installation instructions can be found on the respective github pages and '
                                     'elsewhere online, see README for more details.')
 
-    def write_xyz(self, QM=False, MM=False, name=None):
+    def write_xyz(self, qm=False, mm=False, name=None):
         """Write a general xyz file. QM and MM decide where it will be written from in the ligand class."""
 
-        if QM:
-            molecule = self.QMoptimized
-        elif MM:
-            molecule = self.MMoptimized
+        if qm:
+            molecule = self.qm_optimised
+        elif mm:
+            molecule = self.mm_optimised
         else:
             molecule = self.molecule
 

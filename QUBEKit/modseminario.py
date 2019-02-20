@@ -133,11 +133,11 @@ class ModSeminario:
 
         # Take required parameters from the molecule object; always use QMoptimized structure
         hessian = self.molecule.hessian
-        size_mol = len(self.molecule.QMoptimized)
+        size_mol = len(self.molecule.qm_optimised)
         bond_list = self.molecule.topology.edges  # with pdb numbering starting from 1 not 0
         angle_list = self.molecule.angles
 
-        coords = [atom[j + 1] for atom in self.molecule.QMoptimized for j in range(3)]
+        coords = [atom[j + 1] for atom in self.molecule.qm_optimised for j in range(3)]
         coords = reshape(coords, (size_mol, 3))
 
         # Find bond lengths and create empty matrix of correct size.
@@ -248,6 +248,7 @@ class ModSeminario:
             for i, angle in enumerate(angle_list):
                 angles = [angle[0] - 1, angle[1] - 1, angle[2] - 1]
                 scalings = [scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1]]
+
                 # Ensures that there is no difference when the ordering is changed.
                 ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(*angles, bond_lens, eigenvals, eigenvecs, coords, *scalings)
                 ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(*reversed(angles), bond_lens, eigenvals, eigenvecs, coords, *reversed(scalings))
