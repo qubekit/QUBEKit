@@ -17,6 +17,7 @@ from QUBEKit.decorators import for_all_methods, timer_logger
 
 from numpy import cross, linalg, empty, zeros, array, reshape, dot, real
 from math import degrees, acos
+from operator import itemgetter
 
 
 class ModSemMaths:
@@ -163,8 +164,6 @@ class ModSeminario:
 
     def calculate_angles(self, angle_list, bond_lens, eigenvals, eigenvecs, coords):
         """Uses the modified Seminario method to find the angle parameters and prints them to file."""
-
-        from operator import itemgetter
 
         k_theta = theta_0 = zeros(len(angle_list))
 

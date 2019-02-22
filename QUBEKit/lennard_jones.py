@@ -20,19 +20,26 @@ class LennardJones:
         self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
         # This is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', 'vol']
-        self.extract_params()
+        self.ddec_data = []
+
+        if self.qm['charges_engine'] == 'chargemol':
+            self.extract_params_chargemol()
+
+        elif self.qm['charges_engine'] == 'onetep':
+            self.extract_params_onetep()
+
+        else:
+            raise KeyError('Invalid Charges engine provided, cannot extract charges.')
+
         self.ddec_ai_bi = self.append_ais_bis()
         # self.ddec_polars = self.polar_hydrogens()
         self.ddec_polars = self.append_ais_bis()
 
-    def extract_params(self):
-        """Extract the useful information from the DDEC xyz files.
-        Prepare this information for the Lennard-Jones coefficient calculations.
-            - Get number of atoms from start of ddec file;
-            - Extract atom types and numbers;
-            - Extract charges, dipoles, and volumes (from other file);
-            - Ensure total charge ~== net charge
-            - return info for the molecule as a list of lists.
+    def extract_params_chargemol(self):
+        """From Chargemol output files, extract the necessary parameters for calculation of L-J.
+        Desired format:
+        ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x_dipole', 'y_dipole', 'z_dipole', 'vol']
+        All vals are float except atom number (int) and atom type (str).
         """
 
         if self.qm['ddec_version'] == 6:
@@ -43,8 +50,6 @@ class LennardJones:
 
         else:
             raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
-
-        self.ddec_data = []
 
         if not exists(net_charge_file_name):
             raise FileNotFoundError('Cannot find the DDEC output file.\nThis could be indicative of several issues.\n'
@@ -59,29 +64,19 @@ class LennardJones:
             atom_total = int(lines[0])
 
             for pos, row in enumerate(lines):
-
+                # Data marker:
                 if 'The following XYZ' in row:
-
                     start_pos = pos + 2
-
-                    for line in lines[start_pos:start_pos + atom_total]:
-                        # Append the atom number and type, coords, charge, dipoles:
-                        # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole']
-                        atom_string_list = line.split()
-                        # Append all the float values first.
-                        atom_data = [float(datum) for datum in atom_string_list[2:9]]
-
-                        # Prepend the first two values (atom_type = str, atom_number = int)
-                        atom_data.insert(0, atom_string_list[1])
-                        atom_data.insert(0, int(atom_string_list[0]))
-
-                        self.ddec_data.append(atom_data)
                     break
             else:
                 raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
 
-        charges = [atom[5] for atom in self.ddec_data]
+            # Append the atom number and type, coords, charge, dipoles:
+            for line in lines[start_pos: start_pos + atom_total]:
+                a_number, a_type, *data = line.split()
+                self.ddec_data.append([int(a_number), a_type] + [float(datum) for datum in data])
 
+        charges = [atom[5] for atom in self.ddec_data]
         check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
 
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
@@ -97,8 +92,50 @@ class LennardJones:
 
         return self.ddec_data
 
+    def extract_params_onetep(self):
+        """From ONETEP output files, extract the necessary parameters for calculation of L-J.
+        Desired format:
+        ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'vol']
+        All vals are float except atom number (int) and atom type (str).
+        """
+
+        # First file contains atom number, type and xyz coords:
+        with open('ddec.xyz', 'r') as file:
+            lines = file.readlines()
+
+        for pos, line in enumerate(lines[2:]):
+            atom, *coords = line.split()
+            self.ddec_data.append([pos, atom] + [float(coord) for coord in coords])
+
+        # Second file contains the rest (charges, dipoles and volumes):
+        with open('ddec.onetep', 'r') as file:
+            lines = file.readlines()
+
+        charge_pos, vol_pos = False, False
+        for pos, line in enumerate(lines):
+            # Charges marker:
+            if 'DDEC density' in line:
+                charge_pos = pos + 7
+
+            # Volumes marker:
+            if 'DDEC Radial' in line:
+                vol_pos = pos + 4
+
+        if not charge_pos and vol_pos:
+            raise EOFError('Cannot locate charges and or volumes in ddec.onetep file.')
+
+        charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
+        check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
+
+        volumes = [float(line.split()[-1]) for line in lines[vol_pos: vol_pos + len(self.ddec_data)]]
+
+        # Add the charges and volumes to the end of the inner lists (containing coords etc)
+        for pos, atom in enumerate(self.ddec_data):
+            atom.append(charges[pos])
+            atom.append(volumes[pos])
+
     def append_ais_bis(self):
-        """Use the atom in molecule parameters from extract_params to calculate the coefficients
+        """Use the atom in molecule parameters from extract_params_*() to calculate the coefficients
         of the Lennard-Jones Potential.
         """
 
@@ -106,7 +143,6 @@ class LennardJones:
         # Calculations from paper have been combined and simplified for faster computation.
 
         # 'elem' : [vfree, bfree, rfree]
-        # TODO Remove Au and Zn after testing.
         elem_dict = {
             'H': [7.6, 6.5, 1.64],
             'C': [34.4, 46.6, 2.08],
@@ -116,8 +152,6 @@ class LennardJones:
             'S': [75.2, 134.0, 2.00],
             'Cl': [65.1, 94.6, 1.88],
             'Br': [95.7, 162.0, 1.96],
-            'Au': [1, 1, 1],
-            'Zn': [1, 1, 1]
         }
 
         for pos, atom in enumerate(self.ddec_data):
@@ -172,7 +206,6 @@ class LennardJones:
                         polar_h_pos = int(pair[1][0]) - 1
                         polar_son_pos = int(pair[0][0]) - 1
                     # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                    # TODO Check combining rule!
                     self.ddec_ai_bi[polar_son_pos][-2] = ((self.ddec_ai_bi[polar_son_pos][-2]) ** 0.5 + (self.ddec_ai_bi[polar_h_pos][-2]) ** 0.5) ** 2
                     self.ddec_ai_bi[polar_h_pos][-2] = 0
 
@@ -228,13 +261,16 @@ class LennardJones:
         # Epsilon: qm to kcal/mol to kJ/mol (* conversion)
         conversion = 10 * 4.184
 
-        for atom_index in range(len(self.molecule.molecule)):
-            if self.ddec_polars[atom_index][-1] == 0:
-                sigma, epsilon = 0, 0
+        for pos, atom in enumerate(self.ddec_polars):
+
+            if atom[-1] == 0:
+                sigma = epsilon = 0
+
             else:
-                sigma = 0.1 * ((self.ddec_polars[atom_index][-1] / self.ddec_polars[atom_index][-2]) ** (1 / 6))
-                epsilon = conversion * ((self.ddec_polars[atom_index][-2] ** 2) / (4 * self.ddec_polars[atom_index][-1]))
+                sigma = 0.1 * ((atom[-1] / atom[-2]) ** (1 / 6))
+                epsilon = conversion * ((atom[-2] ** 2) / (4 * atom[-1]))
 
-            new_NonbondedForce[atom_index] = [str(self.ddec_polars[atom_index][5]), str(sigma), str(epsilon)]
+            new_NonbondedForce[pos] = [str(atom[5]), str(sigma), str(epsilon)]
 
+        print(new_NonbondedForce)
         return new_NonbondedForce

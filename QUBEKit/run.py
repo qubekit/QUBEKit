@@ -445,6 +445,7 @@ class Main:
         # Parametrisation options:
         param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
         param_dict[self.fitting['parameter_engine']](molecule)
+
         append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter_engine"]}')
 
         return molecule
@@ -522,6 +523,7 @@ class Main:
 
         lj = LennardJones(molecule, self.all_configs)
         molecule.NonbondedForce = lj.amend_sig_eps()
+
         append_to_log(self.log_file, 'Lennard-Jones parameters calculated')
 
         return molecule
@@ -529,7 +531,7 @@ class Main:
     def torsions(self, molecule):
         """Perform torsion scan."""
 
-        # scan = TorsionScan(mol, qm_engine, 'OpenMM')
+        # scan = TorsionScan(molecule, PSI4, self.all_configs)
         # sub_call(f'{scan.cmd}', shell=True)
         # scan.start_scan()
 

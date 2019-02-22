@@ -450,7 +450,7 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
     total_charge = sum(atom for atom in charges)
 
     with assert_wrapper(ValueError):
-        assert (abs(total_charge - ideal_net) < error), 'Total charge is not close enough to integer value.'
+        assert (abs(total_charge - ideal_net) < error), 'Total charge is not close enough to desired integer value in configs.'
 
     print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
     return True

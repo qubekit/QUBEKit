@@ -45,7 +45,7 @@ class Ligand:
         self.HarmonicBondForce = {}
         self.HarmonicAngleForce = {}
         self.PeriodicTorsionForce = OrderedDict()
-        self.NonbondedForce = OrderedDict()
+        self.NonbondedForce = OrderedDict()     # Dictionary of L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()

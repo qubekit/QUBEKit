@@ -13,7 +13,7 @@ from openeye import oechem
 from openforcefield.typing.engines.smirnoff import ForceField
 from openforcefield.utils import get_data_filename, generateTopologyFromOEMol
 
-# TODO Users should be able to just install ONE of the necessary parameters methods and not worry about needing the others too.
+# TODO Users should be able to just install ONE of the necessary parametrisation methods and not worry about needing the others too.
 #   Is there a nice way of doing this other than try: import <module>; except ImportError: pass ?
 
 
