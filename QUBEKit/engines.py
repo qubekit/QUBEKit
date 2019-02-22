@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
-# TODO Eliminate sub_call where possible.
 # TODO Add better error handling for missing info. (Done for file extraction.)
 #       Maybe add path checking for chargemol?
 
@@ -55,12 +54,12 @@ class PSI4(Engines):
         else:
             molecule = self.molecule.molecule
 
-        # input.dat is the PSI4 input file.
         setters = ''
         tasks = ''
 
-        # opening tag is always writen
+        # input.dat is the PSI4 input file.
         with open('input.dat', 'w+') as input_file:
+            # opening tag is always writen
             input_file.write(f"memory {self.qm['threads']} GB\n\nmolecule {self.molecule.name} {{\n{self.charge} {self.multiplicity} \n")
             # molecule is always printed
             for atom in molecule:
@@ -173,7 +172,7 @@ class PSI4(Engines):
 
             hess_matrix = array(reshaped)
 
-            # Units conversion.
+            # Cache the unit conversion.
             conversion = 627.509391 / (0.529 ** 2)
             hess_matrix *= conversion
 
@@ -199,9 +198,6 @@ class PSI4(Engines):
             for count, line in enumerate(lines):
                 if "==> Geometry" in line:
                     geo_pos_list.append(count)
-                    break
-            else:
-                raise EOFError('Cannot locate optimised structure in output.dat file.')
 
             # Set the start as the last instance of '==> Geometry'.
             start_of_vals = geo_pos_list[-1] + 9
@@ -458,9 +454,6 @@ class Gaussian(Engines):
             for pos, line in enumerate(lines):
                 if 'Input orientation' in line:
                     opt_coords_pos.append(pos + 5)
-                    break
-            else:
-                raise EOFError(f'Cannot locate optimised structures in gj_{self.molecule.name}.log file.')
 
             start_pos = opt_coords_pos[-1]
 
@@ -489,11 +482,20 @@ class Gaussian(Engines):
             for count, line in enumerate(lines):
                 if line.startswith(' Frequencies'):
                     freq_positions.append(count)
-                    break
-            else:
-                raise EOFError(f'Cannot locate modes in gj_{self.molecule.name}.log file.')
 
             for pos in freq_positions:
                 freqs.extend(float(num) for num in lines[pos].split()[2:])
 
         return array(freqs)
+
+
+@for_all_methods(timer_logger)
+class ONETEP(Engines):
+
+    def __init__(self, molecule, config_dict):
+
+        super().__init__(molecule, config_dict)
+
+    def generate_input(self, run=True):
+
+        pass

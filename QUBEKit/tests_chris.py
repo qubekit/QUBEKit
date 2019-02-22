@@ -1,14 +1,14 @@
 #! /usr/bin/env python
 
-# from QUBEKit.engines import PSI4, Gaussian, Chargemol
+from QUBEKit.engines import PSI4, Gaussian, Chargemol
 from QUBEKit.ligand import Ligand
 # from QUBEKit.dihedrals import TorsionScan
-# from QUBEKit.lennard_jones import LennardJones as LJ
+from QUBEKit.lennard_jones import LennardJones as LJ
 # from QUBEKit.modseminario import ModSeminario
 # from QUBEKit import smiles, decorators
-# from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress, pretty_print, Configure
+from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress, pretty_print, Configure
 # from QUBEKit.decorators import exception_logger_decorator
-# from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
+from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
 
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
@@ -172,18 +172,28 @@ from contextlib import contextmanager
 #
 #     plt.show()
 
+defaults_dict = {'charge': 0,
+                 'multiplicity': 1,
+                 'config': 'default_config'}
+
+qm, fitting, descriptions = Configure.load_config(defaults_dict['config'])
+config_dict = [defaults_dict, qm, fitting, descriptions]
+
 
 def main():
 
-    substr = 'folder.123'
-    location = '../../../folder.123/../..'
+    molecule = Ligand('propane.pdb')
+    # g09 = Gaussian(molecule, config_dict)
+    #
+    # g09.all_modes()
+    # molecule.write_xyz()
+    OpenFF(molecule)
 
-    separated = location.split(substr, 1)
-    separated[0] += substr
-
-    print(separated)
+    lj = LJ(molecule, config_dict)
+    molecule.NonbondedForce = lj.amend_sig_eps()
+    molecule.write_parameters()
 
 
 if __name__ == '__main__':
 
-    main()
+    print(main())

@@ -74,6 +74,7 @@ def for_all_methods(decorator):
     This class decorator is applied using '@for_all_methods(timer_func)' for example.
     """
 
+    @wraps(decorator)
     def decorate(cls):
         # Examine all class attributes.
         for attr in cls.__dict__:

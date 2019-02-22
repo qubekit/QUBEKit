@@ -27,12 +27,15 @@ class TorsionScan:
     for each selected dihedral.
     """
 
-    def __init__(self, molecule, qm_engine, mm_engine='openmm', native_opt=False, verbose=False):
+    def __init__(self, molecule, qm_engine, config_dict, mm_engine='openmm', native_opt=False, verbose=False):
+
+        # TODO Keep track of log file path in __init__ then change it when moving through scan folders.
 
         self.qm_engine = qm_engine
+        self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
         self.mm_engine = mm_engine
         self.constraints = None
-        self.grid_space = qm_engine.fitting['increment']
+        self.grid_space = self.fitting['increment']
         self.native_opt = native_opt
         self.verbose = verbose
         self.scan_mol = molecule
@@ -102,17 +105,20 @@ class TorsionScan:
             self.qm_engine.geo_gradient(run=False, threads=True)
 
     def torsion_cmd(self):
-        """Function generates a command strings to run torsiondrive based on the input commands for QM and MM."""
+        """Generates a command string to run torsiondrive based on the input commands for QM and MM."""
 
         # add the first basic command elements for QM
-        cmd_qm = f'torsiondrive-launch {self.scan_mol.name}.{self.qm_engine.__class__.__name__.lower()}in dihedrals.txt '
+        cmd_qm = f'torsiondrive-launch {self.scan_mol.name}.psi4in dihedrals.txt '
+
         if self.grid_space:
             cmd_qm += f'-g {self.grid_space} '
+
         if self.qm_engine:
-            cmd_qm += f'-e {self.qm_engine.__class__.__name__.lower()} '
+            cmd_qm += '-e psi4 '
 
         if self.native_opt:
             cmd_qm += '--native_opt '
+
         if self.verbose:
             cmd_qm += '-v '
 
@@ -120,8 +126,8 @@ class TorsionScan:
         return self.cmd
 
     def get_energy(self, scan):
-        """Function will extract an array of energies from the scan results
-        and store it back into the molecule in a dictionary using the scan order as keys.
+        """Extracts an array of energies from the scan results then stores it back
+         into the molecule (in a dictionary) using the scan orders as the keys.
         """
 
         with open('scan.xyz', 'r') as scan_file:
@@ -135,7 +141,7 @@ class TorsionScan:
             return self.scan_mol
 
     def start_scan(self):
-        """Function makes a folder and writes a new a dihedral input file for each scan."""
+        """Makes a folder and writes a new a dihedral input file for each scan."""
         # TODO put all the scans in a work queue so they can be performed in parallel
 
         for scan in self.scan_mol.scan_order:
