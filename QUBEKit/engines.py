@@ -2,7 +2,7 @@
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. (Done for file extraction.)
-#       Maybe add path checking for chargemol?
+#       Maybe add path checking for Chargemol?
 
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log

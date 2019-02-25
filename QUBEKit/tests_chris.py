@@ -182,7 +182,7 @@ config_dict = [defaults_dict, qm, fitting, descriptions]
 
 def main():
 
-    molecule = Ligand('propane.pdb')
+    molecule = Ligand('acetamide.pdb')
     # g09 = Gaussian(molecule, config_dict)
     #
     # g09.all_modes()

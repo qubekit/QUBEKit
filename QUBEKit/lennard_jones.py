@@ -60,21 +60,21 @@ class LennardJones:
 
             lines = charge_file.readlines()
 
-            # Find number of atoms
-            atom_total = int(lines[0])
+        # Find number of atoms
+        atom_total = int(lines[0])
 
-            for pos, row in enumerate(lines):
-                # Data marker:
-                if 'The following XYZ' in row:
-                    start_pos = pos + 2
-                    break
-            else:
-                raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
+        for pos, row in enumerate(lines):
+            # Data marker:
+            if 'The following XYZ' in row:
+                start_pos = pos + 2
+                break
+        else:
+            raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
 
-            # Append the atom number and type, coords, charge, dipoles:
-            for line in lines[start_pos: start_pos + atom_total]:
-                a_number, a_type, *data = line.split()
-                self.ddec_data.append([int(a_number), a_type] + [float(datum) for datum in data])
+        # Append the atom number and type, coords, charge, dipoles:
+        for line in lines[start_pos: start_pos + atom_total]:
+            a_number, a_type, *data = line.split()
+            self.ddec_data.append([int(a_number), a_type] + [float(datum) for datum in data])
 
         charges = [atom[5] for atom in self.ddec_data]
         check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
@@ -85,10 +85,10 @@ class LennardJones:
 
             lines = vol_file.readlines()
 
-            vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
+        vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
 
-            for pos, atom in enumerate(self.ddec_data):
-                atom.append(vols[pos])
+        for pos, atom in enumerate(self.ddec_data):
+            atom.append(vols[pos])
 
         return self.ddec_data
 
@@ -113,26 +113,26 @@ class LennardJones:
 
         charge_pos, vol_pos = False, False
         for pos, line in enumerate(lines):
-            # Charges marker:
+
+            # Charges marker in file:
             if 'DDEC density' in line:
                 charge_pos = pos + 7
 
-            # Volumes marker:
+            # Volumes marker in file:
             if 'DDEC Radial' in line:
                 vol_pos = pos + 4
 
         if not charge_pos and vol_pos:
-            raise EOFError('Cannot locate charges and or volumes in ddec.onetep file.')
+            raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
 
         charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
         check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
 
-        volumes = [float(line.split()[-1]) for line in lines[vol_pos: vol_pos + len(self.ddec_data)]]
+        volumes = [float(line.split()[2]) for line in lines[vol_pos: vol_pos + len(self.ddec_data)]]
 
         # Add the charges and volumes to the end of the inner lists (containing coords etc)
         for pos, atom in enumerate(self.ddec_data):
-            atom.append(charges[pos])
-            atom.append(volumes[pos])
+            atom.extend((charges[pos], volumes[pos]))
 
     def append_ais_bis(self):
         """Use the atom in molecule parameters from extract_params_*() to calculate the coefficients
@@ -246,16 +246,16 @@ class LennardJones:
 
     def amend_sig_eps(self):
         """Adds the sigma, epsilon terms to the ligand class object as a dictionary.
-        The class object (NonbondedForce) is stored as an empty dictionary until this method is called.
+        The ligand class object (NonbondedForce) is stored as an empty dictionary until this method is called.
         """
 
         # TODO Add the sigma/epsilon terms after symmetry fixes.
 
-        # Creates Nonbondedforce dict:
+        # Creates Nonbondedforce dict for later xml creation.
         # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
-        # This follows the usual ordering of the atoms which is consistent throughout QUBEKit.
+        # This follows the usual ordering of the atoms such as in molecule.molecule.
 
-        new_NonbondedForce = {}
+        non_bonded_force = {}
 
         # Sigma: angstrom to nm (* 0.1)
         # Epsilon: qm to kcal/mol to kJ/mol (* conversion)
@@ -267,10 +267,12 @@ class LennardJones:
                 sigma = epsilon = 0
 
             else:
+                # sigma = (a_i / b_i) ** (1 / 6)
                 sigma = 0.1 * ((atom[-1] / atom[-2]) ** (1 / 6))
+                # eps = (b_i ** 2) / (4 * a_i)
                 epsilon = conversion * ((atom[-2] ** 2) / (4 * atom[-1]))
 
-            new_NonbondedForce[pos] = [str(atom[5]), str(sigma), str(epsilon)]
+            non_bonded_force[pos] = [str(atom[5]), str(sigma), str(epsilon)]
 
-        print(new_NonbondedForce)
-        return new_NonbondedForce
+        print(non_bonded_force)
+        return non_bonded_force
