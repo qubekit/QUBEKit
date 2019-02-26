@@ -18,8 +18,11 @@ class LennardJones:
         # Ligand class object
         self.molecule = molecule
         self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
-        # This is the DDEC molecule data in the format:
+        # self.ddec_data is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', 'vol']
+        # It will be extended and tweaked by each core method of this class.
+        # self.amend_sig_eps() can then be called after class initialisation which will return the
+        # nonBondedForce dict for the xml writer.
         self.ddec_data = []
 
         if self.qm['charges_engine'] == 'chargemol':
@@ -31,9 +34,10 @@ class LennardJones:
         else:
             raise KeyError('Invalid Charges engine provided, cannot extract charges.')
 
-        self.ddec_ai_bi = self.append_ais_bis()
-        # self.ddec_polars = self.polar_hydrogens()
-        self.ddec_polars = self.append_ais_bis()
+        # Calculate initial a_is and b_is
+        self.append_ais_bis()
+        # Tweak for polar Hydrogens
+        self.polar_hydrogens()
 
     def extract_params_chargemol(self):
         """From Chargemol output files, extract the necessary parameters for calculation of L-J.
@@ -90,8 +94,6 @@ class LennardJones:
         for pos, atom in enumerate(self.ddec_data):
             atom.append(vols[pos])
 
-        return self.ddec_data
-
     def extract_params_onetep(self):
         """From ONETEP output files, extract the necessary parameters for calculation of L-J.
         Desired format:
@@ -128,21 +130,22 @@ class LennardJones:
         charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
         check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
 
-        volumes = [float(line.split()[2]) for line in lines[vol_pos: vol_pos + len(self.ddec_data)]]
+        # Add the AIM-Valence and the AIM-Core to get V^AIM
+        volumes = [float(line.split()[2]) + float(line.split()[3]) for line in lines[vol_pos: vol_pos + len(self.ddec_data)]]
 
         # Add the charges and volumes to the end of the inner lists (containing coords etc)
         for pos, atom in enumerate(self.ddec_data):
             atom.extend((charges[pos], volumes[pos]))
 
     def append_ais_bis(self):
-        """Use the atom in molecule parameters from extract_params_*() to calculate the coefficients
-        of the Lennard-Jones Potential.
+        """Use the AIM parameters from extract_params_*() to calculate a_i and b_i according to paper.
+        Calculations from paper have been combined and simplified for faster computation.
         """
 
-        # Calculate a_i and b_i according to paper calcs
-        # Calculations from paper have been combined and simplified for faster computation.
-
+        # Beware weird units, (wrong in the paper too).
         # 'elem' : [vfree, bfree, rfree]
+        # Units: [vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs]
+
         elem_dict = {
             'H': [7.6, 6.5, 1.64],
             'C': [34.4, 46.6, 2.08],
@@ -165,8 +168,6 @@ class LennardJones:
             a_i = 32 * b_i * (r_aim ** 6)
 
             self.ddec_data[pos] += [r_aim, b_i, a_i]
-
-        return self.ddec_data
 
     def polar_hydrogens(self):
         """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly.
@@ -206,14 +207,12 @@ class LennardJones:
                         polar_h_pos = int(pair[1][0]) - 1
                         polar_son_pos = int(pair[0][0]) - 1
                     # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                    self.ddec_ai_bi[polar_son_pos][-2] = ((self.ddec_ai_bi[polar_son_pos][-2]) ** 0.5 + (self.ddec_ai_bi[polar_h_pos][-2]) ** 0.5) ** 2
-                    self.ddec_ai_bi[polar_h_pos][-2] = 0
+                    self.ddec_data[polar_son_pos][-2] = ((self.ddec_data[polar_son_pos][-2]) ** 0.5 + (self.ddec_data[polar_h_pos][-2]) ** 0.5) ** 2
+                    self.ddec_data[polar_h_pos][-2] = 0
 
                     # Reset the a_i for the two polar atoms using the new b_i values.
-                    self.ddec_ai_bi[polar_son_pos][-1] = 32 * self.ddec_ai_bi[polar_son_pos][-2] * (self.ddec_ai_bi[polar_son_pos][-3] ** 6)
-                    self.ddec_ai_bi[polar_h_pos][-1] = 0
-
-        return self.ddec_ai_bi
+                    self.ddec_data[polar_son_pos][-1] = 32 * self.ddec_data[polar_son_pos][-2] * (self.ddec_data[polar_son_pos][-3] ** 6)
+                    self.ddec_data[polar_h_pos][-1] = 0
 
     def symmetry(self):
         """Symmetrises the sigma and epsilon terms.
@@ -257,22 +256,30 @@ class LennardJones:
 
         non_bonded_force = {}
 
-        # Sigma: angstrom to nm (* 0.1)
-        # Epsilon: qm to kcal/mol to kJ/mol (* conversion)
-        conversion = 10 * 4.184
+        # Sigma: Angs -> nm
+        sigma_conversion = 0.1
 
-        for pos, atom in enumerate(self.ddec_polars):
+        # Epsilon: (Ha * (Bohr ** 6)) / (Angs ** 6) -> kJ / mol
+        # (Ha * (Bohr ** 6)) / (Angs ** 6) -> Ha = * 0.529177 ** 6
+        # Ha -> kcal / mol = * 627.509
+        # kcal / mol -> kJ / mol = * 4.184
+        # PI = 57.65240039
+        epsilon_conversion = 57.65240039        # kJ/mol
+
+        for pos, atom in enumerate(self.ddec_data):
 
             if atom[-1] == 0:
                 sigma = epsilon = 0
 
             else:
                 # sigma = (a_i / b_i) ** (1 / 6)
-                sigma = 0.1 * ((atom[-1] / atom[-2]) ** (1 / 6))
+                sigma = (atom[-1] / atom[-2]) ** (1 / 6)
+                sigma *= sigma_conversion
+
                 # eps = (b_i ** 2) / (4 * a_i)
-                epsilon = conversion * ((atom[-2] ** 2) / (4 * atom[-1]))
+                epsilon = (atom[-2] ** 2) / (4 * atom[-1])
+                epsilon *= epsilon_conversion
 
             non_bonded_force[pos] = [str(atom[5]), str(sigma), str(epsilon)]
 
-        print(non_bonded_force)
         return non_bonded_force

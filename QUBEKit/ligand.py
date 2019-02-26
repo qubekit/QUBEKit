@@ -306,7 +306,7 @@ class Ligand:
         else:
             molecule = self.molecule
 
-        with open(f'{name if name else self.name}.pdb', 'w+') as pdb_file:
+        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 
             # Write out the atomic xyz coordinates
             pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
@@ -333,10 +333,7 @@ class Ligand:
 
         pretty_xml_as_string = parseString(messy).toprettyxml(indent="")
 
-        if not name:
-            name = self.name
-
-        with open(f'{name}.xml', 'w+') as xml_doc:
+        with open(f'{name if name is not None else self.name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
     def build_tree(self):
@@ -410,7 +407,7 @@ class Ligand:
 
         # opt.xyz is the geometric optimised structure file.
         try:
-            with open(f'{name if name else "opt"}.xyz', 'r') as xyz_file:
+            with open(f'{name if name is not None else "opt"}.xyz', 'r') as xyz_file:
                 lines = xyz_file.readlines()[2:]
                 for line in lines:
                     line = line.split()
@@ -437,7 +434,7 @@ class Ligand:
         else:
             molecule = self.molecule
 
-        with open(f'{name if name else self.name}.xyz', 'w+') as xyz_file:
+        with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
 
             xyz_file.write(f'{len(molecule)}\n')
             xyz_file.write('xyz file generated with QUBEKit\n')
