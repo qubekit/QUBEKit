@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-
-# TODO Symmetry checks, revisit polar hydrogens; ensure correct atoms are being adjusted.
-
-
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.helpers import check_net_charge
 
@@ -18,26 +14,24 @@ class LennardJones:
         # Ligand class object
         self.molecule = molecule
         self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
+
         # self.ddec_data is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', 'vol']
         # It will be extended and tweaked by each core method of this class.
-        # self.amend_sig_eps() can then be called after class initialisation which will return the
-        # nonBondedForce dict for the xml writer.
+
         self.ddec_data = []
 
-        if self.qm['charges_engine'] == 'chargemol':
-            self.extract_params_chargemol()
+        # Sigma: Angs -> nm
+        self.sigma_conversion = 0.1
 
-        elif self.qm['charges_engine'] == 'onetep':
-            self.extract_params_onetep()
+        # Epsilon: (Ha * (Bohr ** 6)) / (Angs ** 6) -> kJ / mol
+        # (Ha * (Bohr ** 6)) / (Angs ** 6) -> Ha = * 0.529177 ** 6
+        # Ha -> kcal / mol = * 627.509
+        # kcal / mol -> kJ / mol = * 4.184
+        # PI = 57.65240039
+        self.epsilon_conversion = 57.65240039
 
-        else:
-            raise KeyError('Invalid Charges engine provided, cannot extract charges.')
-
-        # Calculate initial a_is and b_is
-        self.append_ais_bis()
-        # Tweak for polar Hydrogens
-        self.polar_hydrogens()
+        self.non_bonded_force = {}
 
     def extract_params_chargemol(self):
         """From Chargemol output files, extract the necessary parameters for calculation of L-J.
@@ -169,51 +163,6 @@ class LennardJones:
 
             self.ddec_data[pos] += [r_aim, b_i, a_i]
 
-    def polar_hydrogens(self):
-        """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly.
-        May be removed / heavily changed if we switch away from atom typing and use SMARTS.
-        """
-
-        # Create dictionary which stores the atom number and its type:
-        # atoms = {1: 'C', 2: 'C', 3: 'H', 4: 'H', ...}
-        # (+1 because topology indices count from 1, not 0)
-        positions = {self.molecule.molecule.index(atom) + 1: atom[0] for atom in self.molecule.molecule}
-
-        # Loop through pairs in topology
-        # Create new pair list with atom types and positions using the dictionary:
-        # new_pairs = [('1C', '3H'), ('1C', '4H'), ('1C', '5H') ...]
-        new_pairs = []
-        for pair in self.molecule.topology.edges:
-            new_pair = (str(pair[0]) + positions[pair[0]], str(pair[1]) + positions[pair[1]])
-            new_pairs.append(new_pair)
-
-        # Find all the polar hydrogens and store their positions / atom numbers
-        polars = []
-        for pair in new_pairs:
-            if 'O' in pair[0] or 'N' in pair[0] or 'S' in pair[0]:
-                if 'H' in pair[1]:
-                    polars.append(pair)
-            if 'O' in pair[1] or 'N' in pair[1] or 'S' in pair[1]:
-                if 'H' in pair[0]:
-                    polars.append(pair)
-
-        if polars:
-            for pair in polars:
-                if 'H' in pair[0] or 'H' in pair[1]:
-                    if 'H' in pair[0]:
-                        polar_h_pos = int(pair[0][0]) - 1
-                        polar_son_pos = int(pair[1][0]) - 1
-                    else:
-                        polar_h_pos = int(pair[1][0]) - 1
-                        polar_son_pos = int(pair[0][0]) - 1
-                    # Reset the b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                    self.ddec_data[polar_son_pos][-2] = ((self.ddec_data[polar_son_pos][-2]) ** 0.5 + (self.ddec_data[polar_h_pos][-2]) ** 0.5) ** 2
-                    self.ddec_data[polar_h_pos][-2] = 0
-
-                    # Reset the a_i for the two polar atoms using the new b_i values.
-                    self.ddec_data[polar_son_pos][-1] = 32 * self.ddec_data[polar_son_pos][-2] * (self.ddec_data[polar_son_pos][-3] ** 6)
-                    self.ddec_data[polar_h_pos][-1] = 0
-
     def symmetry(self):
         """Symmetrises the sigma and epsilon terms.
         This means setting the sigma and epsilon values to be equal if the atom types are the same.
@@ -243,28 +192,15 @@ class LennardJones:
 
         pass
 
-    def amend_sig_eps(self):
+    def calculate_sig_eps(self):
         """Adds the sigma, epsilon terms to the ligand class object as a dictionary.
         The ligand class object (NonbondedForce) is stored as an empty dictionary until this method is called.
+        first_pass argument prevents the sigmas being recalculated (unlike the epsilons).
         """
-
-        # TODO Add the sigma/epsilon terms after symmetry fixes.
 
         # Creates Nonbondedforce dict for later xml creation.
         # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
         # This follows the usual ordering of the atoms such as in molecule.molecule.
-
-        non_bonded_force = {}
-
-        # Sigma: Angs -> nm
-        sigma_conversion = 0.1
-
-        # Epsilon: (Ha * (Bohr ** 6)) / (Angs ** 6) -> kJ / mol
-        # (Ha * (Bohr ** 6)) / (Angs ** 6) -> Ha = * 0.529177 ** 6
-        # Ha -> kcal / mol = * 627.509
-        # kcal / mol -> kJ / mol = * 4.184
-        # PI = 57.65240039
-        epsilon_conversion = 57.65240039        # kJ/mol
 
         for pos, atom in enumerate(self.ddec_data):
 
@@ -274,12 +210,104 @@ class LennardJones:
             else:
                 # sigma = (a_i / b_i) ** (1 / 6)
                 sigma = (atom[-1] / atom[-2]) ** (1 / 6)
-                sigma *= sigma_conversion
+                sigma *= self.sigma_conversion
 
-                # eps = (b_i ** 2) / (4 * a_i)
+                # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (atom[-2] ** 2) / (4 * atom[-1])
-                epsilon *= epsilon_conversion
+                epsilon *= self.epsilon_conversion
 
-            non_bonded_force[pos] = [str(atom[5]), str(sigma), str(epsilon)]
+            self.non_bonded_force[pos] = [str(atom[5]), str(sigma), str(epsilon)]
 
-        return non_bonded_force
+    def correct_polar_hydrogens(self):
+        """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly.
+        May be removed / heavily changed if we switch away from atom typing and use SMARTS.
+        """
+
+        # Create dictionary which stores the atom number and its type:
+        # atoms = {1: 'C', 2: 'C', 3: 'H', 4: 'H', ...}
+        # (+1 because topology indices count from 1, not 0)
+        positions = {self.molecule.molecule.index(atom) + 1: atom[0] for atom in self.molecule.molecule}
+
+        # Loop through pairs in topology
+        # Create new pair list with atom types and positions using the dictionary:
+        # new_pairs = [('1C', '3H'), ('1C', '4H'), ('1C', '5H') ...]
+        new_pairs = []
+        for pair in self.molecule.topology.edges:
+            new_pair = (str(pair[0]) + positions[pair[0]], str(pair[1]) + positions[pair[1]])
+            new_pairs.append(new_pair)
+
+        # Find all the polar hydrogens and store their positions / atom numbers
+        polars = []
+        for pair in new_pairs:
+            if 'O' in pair[0] or 'N' in pair[0] or 'S' in pair[0]:
+                if 'H' in pair[1]:
+                    polars.append(pair)
+            if 'O' in pair[1] or 'N' in pair[1] or 'S' in pair[1]:
+                if 'H' in pair[0]:
+                    polars.append(pair)
+
+        # Find square root of all b_i values so that they can be added easily according to paper's formula.
+        for atom in self.ddec_data:
+            atom[-2] = (atom[-2]) ** 0.5
+
+        if polars:
+            for pair in polars:
+                if 'H' in pair[0] or 'H' in pair[1]:
+                    if 'H' in pair[0]:
+                        polar_h_pos = int(pair[0][0]) - 1
+                        polar_son_pos = int(pair[1][0]) - 1
+                    else:
+                        polar_h_pos = int(pair[1][0]) - 1
+                        polar_son_pos = int(pair[0][0]) - 1
+
+                    # Calculate the new b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
+                    self.ddec_data[polar_son_pos][-2] += self.ddec_data[polar_h_pos][-2]
+                    self.ddec_data[polar_h_pos][-2] = 0
+
+        # Square all the b_i values again
+        for atom in self.ddec_data:
+            atom[-2] *= atom[-2]
+
+        # Recalculate the a_i values
+        for atom in self.ddec_data:
+            atom[-1] = 32 * atom[-2] * (atom[-3] ** 6)
+
+        # Update epsilon (not sigma) according to new a_i and b_i values
+        for pos, atom in enumerate(self.ddec_data):
+
+            if atom[-1] == 0:
+                epsilon, self.non_bonded_force[pos][1] = 0, str(0)
+            else:
+                # epsilon = (b_i ** 2) / (4 * a_i)
+                epsilon = (atom[-2] ** 2) / (4 * atom[-1])
+                epsilon *= self.epsilon_conversion
+
+            self.non_bonded_force[pos] = [str(atom[5]), self.non_bonded_force[pos][1], str(epsilon)]
+
+    def calculate_non_bonded_force(self):
+        """Main worker method for LennardJones class. Extracts necessary parameters from ONETEP or Chargemol files;
+        Calculates the a_i and b_i values;
+        Calculates the sigma and epsilon values using those a_i and b_i values;
+        Redistributes L-J parameters according to polar Hydrogens, then recalculates epsilon values.
+        returns non_bonded_force for the XML creator in Ligand class.
+        """
+
+        if self.qm['charges_engine'] == 'chargemol':
+            self.extract_params_chargemol()
+
+        elif self.qm['charges_engine'] == 'onetep':
+            self.extract_params_onetep()
+
+        else:
+            raise KeyError('Invalid Charges engine provided, cannot extract charges.')
+
+        # Calculate initial a_is and b_is
+        self.append_ais_bis()
+
+        # Use the a_is and b_is to calculate the non_bonded_force dict
+        self.calculate_sig_eps()
+
+        # Tweak for polar Hydrogens
+        self.correct_polar_hydrogens()
+
+        return self.non_bonded_force

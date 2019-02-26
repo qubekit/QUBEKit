@@ -522,7 +522,7 @@ class Main:
         """Calculate Lennard-Jones parameters."""
 
         lj = LennardJones(molecule, self.all_configs)
-        molecule.NonbondedForce = lj.amend_sig_eps()
+        molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
         append_to_log(self.log_file, 'Lennard-Jones parameters calculated')
 
