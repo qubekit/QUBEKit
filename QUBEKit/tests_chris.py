@@ -190,7 +190,7 @@ def main():
     OpenFF(molecule)
 
     lj = LJ(molecule, config_dict)
-    molecule.NonbondedForce = lj.amend_sig_eps()
+    molecule.NonbondedForce = lj.calculate_non_bonded_force()
     molecule.write_parameters()
 
 
