@@ -94,18 +94,18 @@ class Parametrisation:
                                   int(Torsion.get('p4')))
             tor_string_back = (int(Torsion.get('p4')), int(Torsion.get('p3')), int(Torsion.get('p2')),
                                int(Torsion.get('p1')))
-            if tor_string_forward not in self.molecule.PeriodicTorsionForce.keys() and tor_string_back not in self.molecule.PeriodicTorsionForce.keys():
+            if tor_string_forward not in self.molecule.PeriodicTorsionForce and tor_string_back not in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_string_forward] = [
                     [Torsion.get('periodicity'), Torsion.get('k'), Torsion.get('phase')]]
-            elif tor_string_forward in self.molecule.PeriodicTorsionForce.keys():
+            elif tor_string_forward in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_string_forward].append(
                     [Torsion.get('periodicity'), Torsion.get('k'), Torsion.get('phase')])
-            elif tor_string_back in self.molecule.PeriodicTorsionForce.keys():
+            elif tor_string_back in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_string_back].append([Torsion.get('periodicity'),
                                                                             Torsion.get('k'), Torsion.get('phase')])
 
         # Now we need to fill in all blank phases of the Torsions
-        for key in self.molecule.PeriodicTorsionForce.keys():
+        for key in self.molecule.PeriodicTorsionForce:
             Vns = ['1', '2', '3', '4']
             if len(self.molecule.PeriodicTorsionForce[key]) < 4:
                 # now need to add the missing terms from the torsion force
@@ -114,7 +114,7 @@ class Parametrisation:
                 for i in Vns:
                     self.molecule.PeriodicTorsionForce[key].append([i, '0', phases[int(i) - 1]])
         # sort by periodicity using lambda function
-        for key in self.molecule.PeriodicTorsionForce.keys():
+        for key in self.molecule.PeriodicTorsionForce:
             self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
 
     def symmetrise(self):
@@ -152,14 +152,14 @@ class Parametrisation:
         for a_type in range(len(eps_list)):
 
             # If a sigma value exists as a key, extend that key's list with the atom's index
-            if eps_list[a_type] in eps_dict.keys():
+            if eps_list[a_type] in eps_dict:
                 eps_dict[eps_list[a_type]] += [a_type]
             # Otherwise, create a new key with the [atom index] as the value
             else:
                 eps_dict[eps_list[a_type]] = [a_type]
 
         # Convert dictionary to list of lists where each inner list is the values from the eps_dict
-        groups = [val for key, val in eps_dict.items()]
+        groups = [val for val in eps_dict.values()]
 
         # Set the variable in the ligand class object
         self.molecule.symmetry_types = groups

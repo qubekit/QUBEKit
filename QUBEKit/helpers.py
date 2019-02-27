@@ -111,10 +111,10 @@ class Configure:
 
         for key in clean_ints:
 
-            if key in qm.keys():
+            if key in qm:
                 qm[key] = int(qm[key])
 
-            elif key in fitting.keys():
+            elif key in fitting:
                 fitting[key] = int(fitting[key])
 
         # Now cast the one float the scaling
@@ -244,7 +244,7 @@ def get_mol_data_from_csv(csv_name):
         # Removes the names from the sub-dictionaries:
         # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
         # ---> {'methane': {'charge': 0, ...}, ...}
-        for conf, val in final.items():
+        for val in final.values():
 
             del val['name']
 
@@ -335,7 +335,7 @@ def pretty_progress():
         print(f'{key_out[:13]:15}', end=' ')
 
         # Inner dict contains the individual molecules' data.
-        for key_in, var_in in var_out.items():
+        for var_in in var_out.values():
             if var_in == 1:
 
                 # Uses exit codes to set terminal font colours.

@@ -12,14 +12,56 @@ from collections import OrderedDict
 
 class Ligand:
 
-    def __init__(self, filename, smilesstring=None):
+    def __init__(self, filename, smiles_string=None):
+
+        # TODO Tidy up unused ligand objects; add more explicit info for each one.
+        #   Do we need bonds; parameter_engine; modes?
+        #   atom_names seems very similar to AtomTypes too.
+
+        """
+        filename                str; Full filename e.g. methane.pdb
+        name                    str; Molecule name e.g. methane
+        molecule                List of lists; Inner list is the atom type followed by its coords
+                                e.g. [['C', -0.022, 0.003, 0.017], ['H', -0.669, 0.889, -0.101], ...]
+        topology
+        smiles                  str; equal to the smiles_string if one is provided
+        angles                  Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
+        dihedrals
+        rotatable
+        scan_order
+        dih_phis
+        bond_lengths
+        angle_values
+        bonds
+        mm_optimised
+        qm_optimised
+        parameter_engine
+        hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
+        modes
+        atom_names
+        xml_tree
+        state
+        QM_scan_energy
+        MM_scan_energy
+        descriptors
+        AtomTypes               dict of lists; basic non-symmetrised atoms types for each atom in the molecule
+                                e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
+        symmetry_types          list; symmetrised atom types
+        Residues
+        HarmonicBondForce
+        HarmonicAngleForce
+        PeriodicTorsionForce
+        NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
+        log_file                str; Full log file name used by the run file in special run cases
+
+        """
 
         self.filename = filename
         self.name = filename[:-4]
-        self.molecule = None                # List of lists where the inner list is the atom type followed by its coords
+        self.molecule = None
         self.topology = None
-        self.smiles = smilesstring
-        self.angles = None                  # Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
+        self.smiles = smiles_string
+        self.angles = None
         self.dihedrals = None
         self.rotatable = None
         self.scan_order = None
@@ -33,19 +75,18 @@ class Ligand:
         self.hessian = None
         self.modes = None
         self.atom_names = None
-        self.polar = None
         self.xml_tree = None
         self.state = None
         self.QM_scan_energy = {}
         self.MM_scan_energy = {}
         self.descriptors = {}
-        self.AtomTypes = {}                 # Basic non-symmetrised atoms types
-        self.symmetry_types = []            # Symmetrised atom types
+        self.AtomTypes = {}
+        self.symmetry_types = []
         self.Residues = {}
         self.HarmonicBondForce = {}
         self.HarmonicAngleForce = {}
         self.PeriodicTorsionForce = OrderedDict()
-        self.NonbondedForce = OrderedDict()     # Dictionary of L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
+        self.NonbondedForce = OrderedDict()
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -53,7 +94,7 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
-        self.log_file = None                # Full log file name used by the run file in special run cases
+        self.log_file = None
 
     element_dict = {'H': 1.008000,      # Group 1
                     'C': 12.011000,     # Group 4
@@ -154,12 +195,8 @@ class Ligand:
 
         for node in self.topology.nodes:
             bonded = sorted(list(neighbors(self.topology, node)))
+
             # Check that the atom has more than one bond
-            # TODO Reverse this? Currently I don't think it does anything.
-            """
-            if len(bonded) >= 2:
-                raise Exception('')
-            """
             if len(bonded) < 2:
                 continue
 
@@ -192,7 +229,7 @@ class Ligand:
                         # Check atom not in main bond
                         if end != edge[0] and end != edge[1]:
 
-                            if edge not in self.dihedrals.keys():
+                            if edge not in self.dihedrals:
                                 # Add the central edge as a key the first time it is used
                                 self.dihedrals[edge] = [(start, edge[0], edge[1], end)]
 
@@ -210,7 +247,7 @@ class Ligand:
         self.rotatable = []
 
         # For each dihedral key remove the edge from the network
-        for key in self.dihedrals.keys():
+        for key in self.dihedrals:
             self.topology.remove_edge(*key)
 
             # Check if there is still a path between the two atoms in the edges.
@@ -349,53 +386,45 @@ class Ligand:
         PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
         NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': "0.5", 'lj14scale': "0.5"})
 
-        # Add the AtomTypes
-        for i in range(len(self.AtomTypes)):
-            SubElement(AtomTypes, "Type", attrib={'name': self.AtomTypes[i][1],
-                                                  'class': self.AtomTypes[i][2],
-                                                  'element': self.molecule[i][0],
-                                                  'mass': str(self.element_dict[self.molecule[i][0]])})
-            SubElement(Residue, "Atom", attrib={'name': self.AtomTypes[i][0], 'type': self.AtomTypes[i][1]})
+        for atom in self.AtomTypes:
+            SubElement(AtomTypes, "Type", attrib={'name': self.AtomTypes[atom][1], 'class': self.AtomTypes[atom][2],
+                                                  'element': self.molecule[atom][0],
+                                                  'mass': str(self.element_dict[self.molecule[atom][0]])})
 
-        # add the bonds/connections
-        for key in self.HarmonicBondForce.keys():
+            SubElement(Residue, "Atom", attrib={'name': self.AtomTypes[atom][0], 'type': self.AtomTypes[atom][1]})
+
+        # Add the bonds/connections
+        for key, val in self.HarmonicBondForce.items():
             SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
+
             SubElement(HarmonicBondForce, "Bond", attrib={'class1': self.AtomTypes[key[0]][2],
                                                           'class2': self.AtomTypes[key[1]][2],
-                                                          'length': self.HarmonicBondForce[key][0],
-                                                          'k': self.HarmonicBondForce[key][1]})
+                                                          'length': val[0], 'k': val[1]})
 
-        # add the angles
-        for key in self.HarmonicAngleForce.keys():
+        # Add the angles
+        for key, val in self.HarmonicAngleForce.items():
             SubElement(HarmonicAngleForce, "Angle", attrib={'class1': self.AtomTypes[key[0]][2],
                                                             'class2': self.AtomTypes[key[1]][2],
                                                             'class3': self.AtomTypes[key[2]][2],
-                                                            'angle': self.HarmonicAngleForce[key][0],
-                                                            'k': self.HarmonicAngleForce[key][1]})
+                                                            'angle': val[0], 'k': val[1]})
 
-        # add the torsion terms
-        for key in self.PeriodicTorsionForce.keys():
+        # Add the torsion terms
+        for key, val in self.PeriodicTorsionForce.items():
             SubElement(PeriodicTorsionForce, "Proper", attrib={'class1': self.AtomTypes[key[0]][2],
                                                                'class2': self.AtomTypes[key[1]][2],
                                                                'class3': self.AtomTypes[key[2]][2],
                                                                'class4': self.AtomTypes[key[3]][2],
-                                                               'k1': self.PeriodicTorsionForce[key][0][1],
-                                                               'k2': self.PeriodicTorsionForce[key][1][1],
-                                                               'k3': self.PeriodicTorsionForce[key][2][1],
-                                                               'k4': self.PeriodicTorsionForce[key][3][1],
+                                                               'k1': val[0][1], 'k2': val[1][1],
+                                                               'k3': val[2][1], 'k4': val[3][1],
                                                                'periodicity1': '1', 'periodicity2': '2',
                                                                'periodicity3': '3', 'periodicity4': '4',
-                                                               'phase1': self.PeriodicTorsionForce[key][0][2],
-                                                               'phase2': self.PeriodicTorsionForce[key][1][2],
-                                                               'phase3': self.PeriodicTorsionForce[key][2][2],
-                                                               'phase4': self.PeriodicTorsionForce[key][3][2]})
+                                                               'phase1': val[0][2], 'phase2': val[1][2],
+                                                               'phase3': val[2][2], 'phase4': val[3][2]})
 
-        # add the non-bonded parameters
-        for key in self.NonbondedForce.keys():
-            SubElement(NonbondedForce, "Atom", attrib={'type': self.AtomTypes[key][1],
-                                                       'charge': self.NonbondedForce[key][0],
-                                                       'sigma': self.NonbondedForce[key][1],
-                                                       'epsilon': self.NonbondedForce[key][2]})
+        # Add the non-bonded parameters
+        for key, val in self.NonbondedForce.items():
+            SubElement(NonbondedForce, "Atom", attrib={'type': self.AtomTypes[key][1], 'charge': val[0],
+                                                       'sigma': val[1], 'epsilon': val[2]})
 
         # Store the tree back into the molecule
         self.xml_tree = ElementTree(root)
@@ -449,10 +478,10 @@ class Ligand:
         with open(f'{self.name}.gro', 'w+') as gro_file:
             gro_file.write(f'NEW {self.name.upper()} GRO FILE\n')
             gro_file.write(f'{len(self.molecule):>5}\n')
-            for count, atom in enumerate(self.molecule, 1):
+            for pos, atom in enumerate(self.molecule, 1):
                 # 'mol number''mol name'  'atom name'   'atom count'   'x coord'   'y coord'   'z coord'
                 # 1WATER  OW1    1   0.126   1.624   1.679
-                gro_file.write(f'    1{self.name.upper()}  {atom[0]}{count}   {count}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
+                gro_file.write(f'    1{self.name.upper()}  {atom[0]}{pos}   {pos}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
 
     def pickle(self, state=None):
         """Pickles the ligand object in its current state to the (hidden) pickle file.
@@ -481,5 +510,5 @@ class Ligand:
         # Open the pickle jar which will always be the ligand object's name
         with open(f'.{self.name}_states', 'wb') as pickle_jar:
             # If there were other molecules of the same state in the jar: overwrite them
-            for key in mols.keys():
-                dump(mols[key], pickle_jar)
+            for val in mols.values():
+                dump(val, pickle_jar)
