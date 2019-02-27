@@ -487,7 +487,7 @@ class TorsionOptimiser:
             i += 1
 
         # Make the param_vector of the correct size
-        self.param_vector = zeros((1, len(list(self.tor_types.keys())) * 4))
+        self.param_vector = zeros((1, 4 * len(self.tor_types)))
 
     def full_scan_optimiser(self):
         """A steepest decent optimiser as implemented in QUBEKit-V1, which will optimise the torsion terms
@@ -551,7 +551,7 @@ class TorsionOptimiser:
                   index in range(self.simulation.system.getNumForces())}
         torsion_force = forces['PeriodicTorsionForce']
         i = 0
-        for key, val in self.tor_types.items():
+        for val in self.tor_types.values():
             for j, dihedral in enumerate(val[0]):
                 for v_n in range(4):
                     torsion_force.setTorsionParameters(index=v_n + (val[2][j] * 4),
@@ -723,7 +723,7 @@ class TorsionOptimiser:
     def update_mol(self):
         """When the optimization is complete update the PeriodicTorsionForce parameters in the molecule."""
 
-        for key, val in self.tor_types.items():
+        for val in self.tor_types.values():
             for dihedral in val[0]:
                 for vn in range(4):
                     self.molecule.PeriodicTorsionForce[dihedral][vn][1] = str(val[1][vn])

@@ -89,13 +89,13 @@ class Main:
     def config_update(self):
         """Update the config settings with the command line ones from parse_commands()."""
 
-        for key in self.configs.keys():
-            for sub in self.configs[key].keys():
-                if sub in self.qm.keys():
+        for key in self.configs:
+            for sub in self.configs[key]:
+                if sub in self.qm:
                     self.qm[sub] = self.configs[key][sub]
-                elif sub in self.fitting.keys():
+                elif sub in self.fitting:
                     self.fitting[sub] = self.configs[key][sub]
-                elif sub in self.descriptions.keys():
+                elif sub in self.descriptions:
                     self.descriptions[sub] = self.configs[key][sub]
 
     def parse_commands(self):
@@ -237,7 +237,7 @@ class Main:
                     # for further details and better documentation.
                     start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'rdkit_optimise'
                     end_point = bulk_data[name]['end']
-                    stages = [key for key in temp.keys()]
+                    stages = [key for key in temp]
                     extra = 1 if end_point != 'finalise' else 0
                     stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
                     self.order = OrderedDict(pair for pair in temp.items() if pair[0] in set(stages))
@@ -289,7 +289,7 @@ class Main:
                     end_point = self.commands[count + 1]
 
                 # Create list of all keys
-                stages = [key for key in self.order.keys()]
+                stages = [key for key in self.order]
 
                 # This ensures that the run is start_point to end_point inclusive rather than exclusive.
                 # e.g. -restart parametrise charges goes from parametrise to charges while doing the charges step.
@@ -406,7 +406,7 @@ class Main:
             - Pickle the ligand object again with the next_key marker as its stage
         """
 
-        if start_key in [key for key in self.order.keys()]:
+        if start_key in [key for key in self.order]:
 
             mol = unpickle(f'.{self.file[:-4]}_states')[start_key]
 
@@ -418,7 +418,7 @@ class Main:
 
             # Loop through the ordered dict, but return after the first iteration.
             # This is a cheaty way of getting the zeroth key, val pair.
-            for key, val in self.order.items():
+            for key in self.order:
                 next_key = key
 
                 if fin_log_msg:
@@ -558,7 +558,7 @@ class Main:
         """
 
         # Check if starting from the beginning; if so:
-        if 'rdkit_optimise' in [key for key in self.order.keys()]:
+        if 'rdkit_optimise' in [key for key in self.order]:
             # Initialise ligand object fully before pickling it
             mol = Ligand(self.file)
             mol.log_file = self.log_file
