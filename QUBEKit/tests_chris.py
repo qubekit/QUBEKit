@@ -2,13 +2,13 @@
 
 from QUBEKit.engines import PSI4, Gaussian, Chargemol
 from QUBEKit.ligand import Ligand
-# from QUBEKit.dihedrals import TorsionScan
+from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.lennard_jones import LennardJones as LJ
-# from QUBEKit.modseminario import ModSeminario
-# from QUBEKit import smiles, decorators
+from QUBEKit.modseminario import ModSeminario
 from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress, pretty_print, Configure
-# from QUBEKit.decorators import exception_logger_decorator
-from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
+from QUBEKit.decorators import exception_logger_decorator
+# from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
+from QUBEKit import smiles
 
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
@@ -182,16 +182,17 @@ config_dict = [defaults_dict, qm, fitting, descriptions]
 
 def main():
 
-    molecule = Ligand('acetamide.pdb')
-    # g09 = Gaussian(molecule, config_dict)
-    #
-    # g09.all_modes()
-    # molecule.write_xyz()
-    OpenFF(molecule)
+    molecule = Ligand('methane.pdb')
+    # OpenFF(molecule)
 
-    lj = LJ(molecule, config_dict)
-    molecule.NonbondedForce = lj.calculate_non_bonded_force()
-    molecule.write_parameters()
+    bonds_engine = PSI4(molecule, config_dict)
+
+    bonds_engine.generate_input(qm=True, hessian=True, run=True)
+
+    molecule.hessian = bonds_engine.hessian()
+
+    mod_sem = ModSeminario(molecule, config_dict)
+    mod_sem.modified_seminario_method()
 
 
 if __name__ == '__main__':

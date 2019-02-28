@@ -410,7 +410,6 @@ class TorsionOptimiser:
         self.torsion_store = deepcopy(self.molecule.PeriodicTorsionForce)
 
         # Set all the torsion to 1 to get them into the system
-        # TODO .keys() / .items() ?
         for key in self.molecule.PeriodicTorsionForce:
             self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', '3.141592653589793'],
                                                        ['3', '1', '0'], ['4', '1', '3.141592653589793']]
@@ -491,12 +490,15 @@ class TorsionOptimiser:
 
     def full_scan_optimiser(self):
         """A steepest decent optimiser as implemented in QUBEKit-V1, which will optimise the torsion terms
-         using full relaxed surface scans."""
+         using full relaxed surface scans.
+         """
+
         pass
 
     def rmsd(self):
         """Calculate the rmsd between the MM and QM predicted structures from the relaxed scans;
-        this can be added into the penalty function."""
+        this can be added into the penalty function.
+        """
 
         pass
 
@@ -516,7 +518,7 @@ class TorsionOptimiser:
     def scipy_optimiser(self):
         """The main torsion parameter optimiser that controls the optimisation method used."""
 
-        print(f'Running scipy {self.method} optimiser ... ')
+        print(f'Running SciPy {self.method} optimiser ... ')
 
         # Does not work in dictionary for some reason
         # TODO Try .get() ?
@@ -531,7 +533,7 @@ class TorsionOptimiser:
         else:
             raise NotImplementedError('The optimisation method is not implemented')
 
-        print('Scipy optimisation complete')
+        print('SciPy optimisation complete')
 
         # Update the tor types dict using the optimised vector
         self.update_tor_vec(res.x)

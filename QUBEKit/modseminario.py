@@ -7,8 +7,8 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-from numpy import cross, linalg, empty, zeros, array, reshape, dot, real
-from math import degrees, acos
+from numpy import cross, linalg, empty, zeros, array, reshape, dot, real, average
+from math import degrees, acos, sin, cos
 from operator import itemgetter
 
 
@@ -68,7 +68,6 @@ class ModSemMaths:
         u_ab = ModSemMaths.vector_along_bond(coords, atom_a, atom_b)
         u_cb = ModSemMaths.vector_along_bond(coords, atom_c, atom_b)
 
-        # Bond lengths and eigenvalues found
         bond_len_ab = bond_lens[atom_a, atom_b]
         eigenvals_ab = eigenvals[atom_a, atom_b, :]
         eigenvecs_ab = eigenvecs[0:3, 0:3, atom_a, atom_b]
@@ -80,22 +79,55 @@ class ModSemMaths:
         # Normal vector to angle plane found
         u_n = ModSemMaths.unit_vector_n(u_cb, u_ab)
 
-        u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
-        u_pc = ModSemMaths.unit_vector_n(u_cb, u_n)
+        if sum(u_n):
+            # Scalings are set to 1.
+            k_theta, theta_0 = ModSemMaths.f_c_a_special_case(u_ab, u_cb, [bond_len_ab, bond_len_bc], [eigenvals_ab, eigenvals_cb],
+                                                              [eigenvecs_ab, eigenvecs_cb])
 
-        # Scaling due to additional angles - Modified Seminario Part
-        sum_first = sum(eigenvals_ab[i] * abs(ModSemMaths.dot_product(u_pa, eigenvecs_ab[:, i])) for i in range(3)) / scalings[0]
-        sum_second = sum(eigenvals_cb[i] * abs(ModSemMaths.dot_product(u_pc, eigenvecs_cb[:, i])) for i in range(3)) / scalings[1]
+        else:
+            u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
+            u_pc = ModSemMaths.unit_vector_n(u_cb, u_n)
 
-        # Added as two springs in series
-        k_theta = (1 / ((bond_len_ab ** 2) * sum_first)) + (1 / ((bond_len_bc ** 2) * sum_second))
-        k_theta = 1 / k_theta
+            # Scaling due to additional angles - Modified Seminario Part
+            sum_first = sum(eigenvals_ab[i] * abs(ModSemMaths.dot_product(u_pa, eigenvecs_ab[:, i])) for i in range(3)) / scalings[0]
+            sum_second = sum(eigenvals_cb[i] * abs(ModSemMaths.dot_product(u_pc, eigenvecs_cb[:, i])) for i in range(3)) / scalings[1]
 
-        # Change to OPLS form
-        k_theta = abs(-k_theta * 0.5)
+            # Added as two springs in series
+            k_theta = (1 / ((bond_len_ab ** 2) * sum_first)) + (1 / ((bond_len_bc ** 2) * sum_second))
+            k_theta = 1 / k_theta
 
-        # Equilibrium Angle
-        theta_0 = degrees(acos(dot(u_ab, u_cb)))
+            # Change to OPLS form
+            k_theta = abs(k_theta * 0.5)
+
+            # Equilibrium Angle
+            theta_0 = degrees(acos(dot(u_ab, u_cb)))
+
+        return k_theta, theta_0
+
+    @staticmethod
+    def f_c_a_special_case(u_ab, u_cb, bond_lens, eigenvals, eigenvecs):
+        """Force constant angle special case, for example nitrile groups."""
+
+        n_samples = 200
+        k_theta_array = zeros(n_samples)
+
+        for theta in range(n_samples):
+
+            u_n = [sin(theta) * cos(theta), sin(theta) * sin(theta), cos(theta)]
+
+            u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
+            u_pc = ModSemMaths.unit_vector_n(u_cb, u_n)
+
+            sum_first = sum(eigenvals[0][i] * abs(ModSemMaths.dot_product(u_pa, eigenvecs[0][:, i])) for i in range(3))
+            sum_second = sum(eigenvals[1][i] * abs(ModSemMaths.dot_product(u_pc, eigenvecs[1][:, i])) for i in range(3))
+
+            k_theta_i = (1 / ((bond_lens[0] ** 2) * sum_first)) + (1 / ((bond_lens[1] ** 2) * sum_second))
+            k_theta_i = 1 / k_theta_i
+
+            k_theta_array[theta] = abs(k_theta_i * 0.5)
+
+        k_theta = average(k_theta_array)
+        theta_0 = acos(dot(u_ab, u_cb))
 
         return k_theta, theta_0
 
@@ -121,6 +153,7 @@ class ModSeminario:
         coords = [atom[j + 1] for atom in self.molecule.qm_optimised for j in range(3)]
         size_mol = len(self.molecule.qm_optimised)
         coords = reshape(coords, (size_mol, 3))
+        hessian = self.molecule.hessian
 
         # Find bond lengths and create empty matrix of correct size.
         bond_lens = zeros((size_mol, size_mol))
@@ -133,7 +166,7 @@ class ModSeminario:
                 diff_i_j = array(coords[i, :]) - array(coords[j, :])
                 bond_lens[i][j] = linalg.norm(diff_i_j)
 
-                partial_hessian = self.molecule.hessian[(i * 3):((i + 1) * 3), (j * 3):((j + 1) * 3)]
+                partial_hessian = hessian[(i * 3):((i + 1) * 3), (j * 3):((j + 1) * 3)]
                 [a, b] = linalg.eig(partial_hessian)
 
                 eigenvals[i, j, :], eigenvecs[:, :, i, j] = a, b
@@ -230,10 +263,10 @@ class ModSeminario:
 
                 # Ensures that there is no difference when the ordering is changed.
                 ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(*angles, bond_lens, eigenvals, eigenvecs, coords, scalings)
-                ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(*reversed(angles), bond_lens, eigenvals, eigenvecs, coords, reversed(scalings))
+                ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(*angles[::-1], bond_lens, eigenvals, eigenvecs, coords, scalings[::-1])
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
-                k_theta[i] = ((self.qm['vib_scaling'] ** 2) * (ab_k_theta + ba_k_theta)) / 2
+                k_theta[i] = (self.qm['vib_scaling'] ** 2) * ((ab_k_theta + ba_k_theta) / 2)
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
                 angle_file.write(f'{i}  {self.atom_names[angle[0] - 1]}-{self.atom_names[angle[1] - 1]}-{self.atom_names[angle[2] - 1]}  ')
@@ -259,11 +292,8 @@ class ModSeminario:
                 ab = ModSemMaths.force_constant_bond(bond[0] - 1, bond[1] - 1, eigenvals, eigenvecs, coords)
                 ba = ModSemMaths.force_constant_bond(bond[1] - 1, bond[0] - 1, eigenvals, eigenvecs, coords)
 
-                # Order of bonds sometimes causes slight differences; find the mean.
-                k_b[pos] = real((ab + ba) / 2)
-
-                # Vib_scaling takes into account DFT deficiencies/ anharmonicity.
-                k_b[pos] *= (self.qm['vib_scaling'] ** 2)
+                # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
+                k_b[pos] = real((ab + ba) / 2) * (self.qm['vib_scaling'] ** 2)
 
                 bond_len_list[pos] = bond_lens[bond[0] - 1, bond[1] - 1]
                 bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')
