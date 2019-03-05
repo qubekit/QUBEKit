@@ -15,6 +15,7 @@ import matplotlib.lines as mlines
 from numpy import arange
 from numpy.polynomial.polynomial import polyfit
 from contextlib import contextmanager
+from itertools import accumulate
 
 
 # def main():
@@ -182,17 +183,13 @@ config_dict = [defaults_dict, qm, fitting, descriptions]
 
 def main():
 
-    molecule = Ligand('methane.pdb')
-    # OpenFF(molecule)
+    a = [i for i in range(10)]
 
-    bonds_engine = PSI4(molecule, config_dict)
+    b = [0]
+    for pos, item in enumerate(a):
+        b.append(item + b[pos])
 
-    bonds_engine.generate_input(qm=True, hessian=True, run=True)
-
-    molecule.hessian = bonds_engine.hessian()
-
-    mod_sem = ModSeminario(molecule, config_dict)
-    mod_sem.modified_seminario_method()
+    return b
 
 
 if __name__ == '__main__':

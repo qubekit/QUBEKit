@@ -337,7 +337,6 @@ def pretty_progress():
         # Inner dict contains the individual molecules' data.
         for var_in in var_out.values():
             if var_in == 1:
-
                 # Uses exit codes to set terminal font colours.
                 # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
                 # The second exit code resets the style back to default.
@@ -349,7 +348,7 @@ def pretty_progress():
         print('')
 
 
-def pretty_print(mol, to_file=False, finished=True):
+def pretty_print(molecule, to_file=False, finished=True):
     """Takes a ligand molecule class object and displays all the class variables in a clean, readable format.
 
     Print to log: * On exception
@@ -372,13 +371,13 @@ def pretty_print(mol, to_file=False, finished=True):
             qube_log_file = 'temp_QUBE_log'
 
         with open(qube_log_file, 'a+') as log_file:
-            log_file.write(f'{pre_string.upper()}\n\n{mol.__str__()}')
+            log_file.write(f'{pre_string.upper()}\n\n{molecule.__str__()}')
 
     # Print to terminal
     else:
         print(pre_string)
         # Custom __str__ method; see its documentation for details.
-        print(mol.__str__(trunc=True))
+        print(molecule.__str__(trunc=True))
 
 
 def set_dict_val(file_name, search_term):
@@ -415,7 +414,7 @@ def unpickle(pickle_jar):
 def assert_wrapper(exception_type):
     """Makes assertions more informative when an Exception is thrown.
     Rather than just getting 'AssertionError' all the time, an actual named exception can be passed.
-    Can be called multiple times in the same with statement for the same exception type but different specific exceptions.
+    Can be called multiple times in the same 'with' statement for the same exception type but different exceptions.
 
     Simple example use cases:
 

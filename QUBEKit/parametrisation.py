@@ -89,33 +89,41 @@ class Parametrisation:
 
         # Extract all of the torsion data
         phases = ['0', str(pi), '0', str(pi)]
-        for Torsion in in_root.iter('Torsion'):
-            tor_string_forward = (int(Torsion.get('p1')), int(Torsion.get('p2')), int(Torsion.get('p3')),
-                                  int(Torsion.get('p4')))
-            tor_string_back = (int(Torsion.get('p4')), int(Torsion.get('p3')), int(Torsion.get('p2')),
-                               int(Torsion.get('p1')))
-            if tor_string_forward not in self.molecule.PeriodicTorsionForce and tor_string_back not in self.molecule.PeriodicTorsionForce:
-                self.molecule.PeriodicTorsionForce[tor_string_forward] = [
-                    [Torsion.get('periodicity'), Torsion.get('k'), Torsion.get('phase')]]
-            elif tor_string_forward in self.molecule.PeriodicTorsionForce:
-                self.molecule.PeriodicTorsionForce[tor_string_forward].append(
-                    [Torsion.get('periodicity'), Torsion.get('k'), Torsion.get('phase')])
-            elif tor_string_back in self.molecule.PeriodicTorsionForce:
-                self.molecule.PeriodicTorsionForce[tor_string_back].append([Torsion.get('periodicity'),
-                                                                            Torsion.get('k'), Torsion.get('phase')])
 
-        # Now we need to fill in all blank phases of the Torsions
-        for key in self.molecule.PeriodicTorsionForce:
-            Vns = ['1', '2', '3', '4']
-            if len(self.molecule.PeriodicTorsionForce[key]) < 4:
-                # now need to add the missing terms from the torsion force
-                for force in self.molecule.PeriodicTorsionForce[key]:
-                    Vns.remove(force[0])
-                for i in Vns:
-                    self.molecule.PeriodicTorsionForce[key].append([i, '0', phases[int(i) - 1]])
-        # sort by periodicity using lambda function
-        for key in self.molecule.PeriodicTorsionForce:
-            self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
+        for Torsion in in_root.iter('Torsion'):
+
+            tor_string_forward = (int(Torsion.get('p1')), int(Torsion.get('p2')), int(Torsion.get('p3')), int(Torsion.get('p4')))
+            tor_string_back = tuple(reversed(tor_string_forward))
+
+            if tor_string_forward in self.molecule.PeriodicTorsionForce:
+                self.molecule.PeriodicTorsionForce[tor_string_forward].append([Torsion.get('periodicity'), Torsion.get('k'),
+                                                                               Torsion.get('phase')])
+
+            elif tor_string_back in self.molecule.PeriodicTorsionForce:
+                self.molecule.PeriodicTorsionForce[tor_string_back].append([Torsion.get('periodicity'), Torsion.get('k'),
+                                                                            Torsion.get('phase')])
+
+            else:
+                self.molecule.PeriodicTorsionForce[tor_string_forward] = [[Torsion.get('periodicity'), Torsion.get('k'),
+                                                                           Torsion.get('phase')]]
+
+        # Fill in all blank phases of the Torsions
+        for val in self.molecule.PeriodicTorsionForce.values():
+
+            v_ns = ['1', '2', '3', '4']
+
+            if len(val) < 4:
+
+                # Add the missing terms from the torsion force
+                for force in val:
+                    v_ns.remove(force[0])
+
+                for i in v_ns:
+                    val.append([i, '0', phases[int(i) - 1]])
+
+        # Sort by periodicity using lambda function
+        for val in self.molecule.PeriodicTorsionForce.values():
+            val.sort(key=lambda x: x[0])
 
     def symmetrise(self):
         """Search the xml and generate a dictionary based on the calculated Lennard-Jones parameters.
