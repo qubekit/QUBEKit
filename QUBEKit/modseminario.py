@@ -7,7 +7,7 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-from numpy import cross, linalg, empty, zeros, array, reshape, dot, real, average
+from numpy import cross, linalg, empty, zeros, reshape, dot, real, average
 from math import degrees, acos, sin, cos
 from operator import itemgetter
 
@@ -51,7 +51,6 @@ class ModSemMaths:
     def force_constant_bond(atom_a, atom_b, eigenvals, eigenvecs, coords):
         """Force Constant - Equation 10 of Seminario paper - gives force constant for bond."""
 
-        # Eigenvalues and vectors calculated
         eigenvals_ab = eigenvals[atom_a, atom_b, :]
         eigenvecs_ab = eigenvecs[:, :, atom_a, atom_b]
 
@@ -108,6 +107,7 @@ class ModSemMaths:
     def f_c_a_special_case(u_ab, u_cb, bond_lens, eigenvals, eigenvecs):
         """Force constant angle special case, for example nitrile groups."""
 
+        # Number of samples around the bond.
         n_samples = 200
         k_theta_array = zeros(n_samples)
 
@@ -163,13 +163,12 @@ class ModSeminario:
 
         for i in range(size_mol):
             for j in range(size_mol):
-                diff_i_j = array(coords[i, :]) - array(coords[j, :])
+                diff_i_j = coords[i, :] - coords[j, :]
                 bond_lens[i][j] = linalg.norm(diff_i_j)
 
                 partial_hessian = hessian[(i * 3):((i + 1) * 3), (j * 3):((j + 1) * 3)]
-                [a, b] = linalg.eig(partial_hessian)
 
-                eigenvals[i, j, :], eigenvecs[:, :, i, j] = a, b
+                eigenvals[i, j, :], eigenvecs[:, :, i, j] = linalg.eig(partial_hessian)
 
         # The bond and angle values are calculated and written to file.
         self.calculate_bonds(self.molecule.topology.edges, bond_lens, eigenvals, eigenvecs, coords)

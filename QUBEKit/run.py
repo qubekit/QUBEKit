@@ -44,7 +44,8 @@ class Main:
                         'fitting': {},
                         'descriptions': {}}
 
-        # Call order of the analysing methods. Slices of this dict are taken when changing the start and end points of analyses.
+        # Call order of the analysing methods.
+        # Slices of this dict are taken when changing the start and end points of analyses.
         self.order = OrderedDict([('rdkit_optimise', self.rdkit_optimise),
                                   ('parametrise', self.parametrise),
                                   ('qm_optimise', self.qm_optimise),
@@ -349,8 +350,6 @@ class Main:
 
             log_file.write('\n')
 
-        return
-
     def create_log(self):
         """Creates the working directory for the job as well as the log file.
         This log file is then extended when:
@@ -392,8 +391,6 @@ class Main:
 
             log_file.write('\n')
 
-        return
-
     def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg=''):
         """Firstly, check if the stage start_key is in self.order; this tells you if the stage should be called or not.
         If it isn't in self.order:
@@ -416,8 +413,7 @@ class Main:
             self.order[start_key](mol)
             self.order.pop(start_key, None)
 
-            # Loop through the ordered dict, but return after the first iteration.
-            # This is a cheaty way of getting the zeroth key, val pair.
+            # Begin looping through self.order, but return after the first iteration.
             for key in self.order:
                 next_key = key
 
@@ -578,7 +574,7 @@ class Main:
         self.stage_wrapper('torsions')
 
         # This step is always performed
-        self.stage_wrapper('finalise', fin_log_msg='Molecule analysis complete!')
+        self.stage_wrapper('finalise', 'Finalising analysis', 'Molecule analysis complete!')
 
         return None
 

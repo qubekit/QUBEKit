@@ -2,7 +2,8 @@ dist
 build
 qubekit.egg-info
 .pytest_cache
+.idea
 *.pdb
 *.mol
 *.z
-.idea
+*.csv

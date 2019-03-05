@@ -74,7 +74,7 @@ class Ligand:
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
-        self.atom_names = None
+        self.atom_names = []
         self.xml_tree = None
         self.state = None
         self.QM_scan_energy = {}
@@ -118,16 +118,16 @@ class Ligand:
         """
 
         # This is the old __str__ definition which is basically a one-line alternative to the else case below.
-        # return '\n'.join(('{} = {}'.format(item, self.__dict__[item]) for item in self.__dict__))
+        # return '\n'.join(('{} = {}'.format(key, val) for key, val in self.__dict__.items()))
 
         return_str = ''
-        for item in self.__dict__:
+        for key, val in self.__dict__.items():
             if trunc:
-                # if (None) or (it's smaller than 120 chars): print it as is. Otherwise print a truncated version.
-                return_str += f'\n{item} = {self.__dict__[item] if (self.__dict__[item] is None) or (len(str(self.__dict__[item]) + str(item)) < 120) else str(self.__dict__[item])[:121 - len(str(item))] + "..."}'
+                # if it's smaller than 120 chars: print it as is. Otherwise print a truncated version.
+                return_str += f'\n{key} = {val if (len(str(key) + str(val)) < 120) else str(val)[:121 - len(str(key))] + "..."}'
             else:
                 # Return all objects as {ligand object name} = {ligand object value(s)} without any special formatting.
-                return_str += f'\n{item} = {self.__dict__[item]}'
+                return_str += f'\n{key} = {val}\n'
 
         return return_str
 
@@ -146,7 +146,6 @@ class Ligand:
 
         molecule = []
         self.topology = Graph()
-        self.atom_names = []
 
         # atom counter used for graph node generation
         atom_count = 1
@@ -376,7 +375,7 @@ class Ligand:
     def build_tree(self):
         """Separates the parameters and builds an xml tree ready to be used."""
 
-        # create XML layout
+        # Create XML layout
         root = Element('ForceField')
         AtomTypes = SubElement(root, "AtomTypes")
         Residues = SubElement(root, "Residues")
@@ -386,14 +385,14 @@ class Ligand:
         PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
         NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': "0.5", 'lj14scale': "0.5"})
 
-        for atom in self.AtomTypes:
-            SubElement(AtomTypes, "Type", attrib={'name': self.AtomTypes[atom][1], 'class': self.AtomTypes[atom][2],
-                                                  'element': self.molecule[atom][0],
-                                                  'mass': str(self.element_dict[self.molecule[atom][0]])})
+        for key, val in self.AtomTypes.items():
+            SubElement(AtomTypes, "Type", attrib={'name': val[1], 'class': val[2],
+                                                  'element': self.molecule[key][0],
+                                                  'mass': str(self.element_dict[self.molecule[key][0]])})
 
-            SubElement(Residue, "Atom", attrib={'name': self.AtomTypes[atom][0], 'type': self.AtomTypes[atom][1]})
+            SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
 
-        # Add the bonds/connections
+        # Add the bonds / connections
         for key, val in self.HarmonicBondForce.items():
             SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
 
