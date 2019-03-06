@@ -23,7 +23,7 @@ class Ligand:
         name                    str; Molecule name e.g. methane
         molecule                List of lists; Inner list is the atom type followed by its coords
                                 e.g. [['C', -0.022, 0.003, 0.017], ['H', -0.669, 0.889, -0.101], ...]
-        topology
+        topology                Graph class object. Contains connection information for molecule
         smiles                  str; equal to the smiles_string if one is provided
         angles                  Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
         dihedrals

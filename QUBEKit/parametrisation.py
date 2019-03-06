@@ -38,10 +38,12 @@ class Parametrisation:
     Returns
     -------
     AtomTypes : dictionary of the atom names, the associated OPLS type and class type stored under number.
+                {0: [C00, OPLS_800, C800]}
 
     Residues : dictionary of residue names indexed by the order they appear.
 
     HarmonicBondForce: dictionary of equilibrium distances and force constants stored under the bond tuple.
+                {(0, 1): [eqr=456, fc=984375]}
 
     HarmonicAngleForce: dictionary of equilibrium  angles and force constant stored under the angle tuple.
 

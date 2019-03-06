@@ -7,6 +7,8 @@ from functools import wraps
 from os import listdir, path
 from logging import getLogger, Formatter, FileHandler, INFO
 
+from QUBEKit.helpers import pretty_print, unpickle
+
 
 def timer_func(orig_func):
     """Prints the runtime of a function when applied as a decorator (@timer_func)."""
@@ -106,17 +108,19 @@ def exception_logger():
 
     logger.addHandler(file_handler)
 
-    return logger
+    return logger, log_file
 
 
 def exception_logger_decorator(func):
     """Decorator which logs exceptions to QUBEKit_log file if one occurs.
-    Do not apply this decorator to a function / method unless a log file has been produced.
+    Do not apply this decorator to a function / method unless a log file exists in the working dir.
+    On exception, the full stack trace is printed to the log file,
+    as well as the Ligand class objects which are taken from the pickle file.
     """
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        logger = exception_logger()
+        logger, log_file = exception_logger()
 
         # Run as normal
         try:
@@ -126,6 +130,22 @@ def exception_logger_decorator(func):
         except:
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
+
+            with open(log_file, 'r') as log:
+
+                # Run through log file backwards to quickly find proper pickle point
+                lines = list(reversed(log.readlines()))
+
+                for pos, line in enumerate(lines):
+                    if ' stage_wrapper' in line:
+                        # The stage_wrapper always wraps the method which is the name of the pickle point.
+                        pickle_point = lines[pos - 2].split()[-1]
+
+                        # Extract the mol name from the log file name
+                        mol_name = log_file.split('_')[2]
+
+                        mol = unpickle(f'.{mol_name}_states')[pickle_point]
+                        pretty_print(mol, to_file=True, finished=False)
 
             # Re-raises the exception
             raise

@@ -163,35 +163,6 @@ class LennardJones:
 
             self.ddec_data[pos] += [r_aim, b_i, a_i]
 
-    def symmetry(self):
-        """Symmetrises the sigma and epsilon terms.
-        This means setting the sigma and epsilon values to be equal if the atom types are the same.
-        """
-
-        # Symmetrisation may be carried out in different ways.
-
-        # 1. Work backwards
-        # Perform a charges calculation for each atom.
-        # If the charge on a set of atoms is largely consistent then set their terms to be equal to their average.
-        # Use these values to then calculate the L-J terms which are now symmetrised.
-
-        # 2. Use the molecular structure
-        # Examine the topology of the molecule and find similar atoms.
-        # Look at the nearest neighbour atoms, as well as the nearest neighbours of the nearest neighbours.
-        # This should be enough to symmetrise the atoms in MOST cases.
-        # It is not sufficient to simply look at the nearest neighbours and no further.
-        # This leads to "over-symmetrisation" where different atom types are labelled as the same.
-
-        # 3. Don't do it all
-        # If a symmetrical molecule appears to not be symmetrical, then there is an issue with the QM calculation.
-        # Forcing symmetrisation on "almost" symmetrical molecules obfuscates their true structure.
-        # When symmetrising based on nearby atoms, effects such as hydrogen bonding can be accidentally removed.
-        # This is especially problematic as molecules get larger and these effects are more pronounced.
-        # For example, an atom in alinine involved in the Hydrogen bonding of an alpha helix would not be the same as
-        # that atom in the same position on a different alinine molecule not in an alpha helix.
-
-        pass
-
     def calculate_sig_eps(self):
         """Adds the sigma, epsilon terms to the ligand class object as a dictionary.
         The ligand class object (NonbondedForce) is stored as an empty dictionary until this method is called.
