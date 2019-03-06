@@ -146,6 +146,7 @@ class Ligand:
 
         molecule = []
         self.topology = Graph()
+        self.atom_names = []
 
         # atom counter used for graph node generation
         atom_count = 1
