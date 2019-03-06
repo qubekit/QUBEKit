@@ -9,13 +9,12 @@ from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_p
 from QUBEKit.decorators import exception_logger_decorator
 # from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
 from QUBEKit import smiles
+from QUBEKit.protein import Protein
 
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from numpy import arange
 from numpy.polynomial.polynomial import polyfit
-from contextlib import contextmanager
-from itertools import accumulate
 
 
 # def main():
@@ -183,15 +182,11 @@ config_dict = [defaults_dict, qm, fitting, descriptions]
 
 def main():
 
-    a = [i for i in range(10)]
+    aa = Protein('test.pdb')
 
-    b = [0]
-    for pos, item in enumerate(a):
-        b.append(item + b[pos])
-
-    return b
+    aa.read_pdb()
 
 
 if __name__ == '__main__':
 
-    print(main())
+    main()
