@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from numpy import arange
 from numpy.polynomial.polynomial import polyfit
+from operator import itemgetter
+from itertools import chain
 
 
 # def main():
@@ -183,8 +185,8 @@ config_dict = [defaults_dict, qm, fitting, descriptions]
 def main():
 
     aa = Protein('test.pdb')
-
     aa.read_pdb()
+    aa.identify_bonds()
 
 
 if __name__ == '__main__':
