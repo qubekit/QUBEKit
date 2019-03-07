@@ -1,6 +1,7 @@
-from itertools import groupby
-
+from itertools import groupby, chain
 from re import sub
+from networkx import Graph, draw
+import matplotlib.pyplot as plt
 
 
 class Protein:
@@ -13,10 +14,11 @@ class Protein:
         """
         filename                str; full name of the file e.g. haem.pdb
         name                    str; filename without the extension e.g. haem
-        molecule                list of lists; Inner list is the atom type followed by its coords
+        molecule                list of lists; Inner list is the atom type (str) followed by its coords (float)
                                 e.g. [['C', -0.022, 0.003, 0.017], ['H', -0.669, 0.889, -0.101], ...]
         atom_names              list of str;
         order                   list of str; list of the residues in the protein, in order.
+        bonds                   list of tuples of two ints; describes each bond in the molecule where the ints are the atom indices.
         bonds_dict              dict, key=str, val=list of tuples; key=residue name: val=list of the bond connections which are tuples
                                 e.g. {'leu': [(0, 1), (1, 2), ...], ...}
         externals               dict, key=str, val=tuple, int or None; Similar to bonds_dict except this is only for the external bonds.
@@ -33,6 +35,7 @@ class Protein:
         self.molecule = []
         self.atom_names = []
         self.order = []
+        self.bonds = []
 
         self.bonds_dict = {'ace': [(0, 1), (1, 2), (1, 3), (1, 4), (4, 5)],
                            'ala': [(0, 1), (0, 2), (2, 3), (2, 4), (2, 8), (4, 5), (4, 6), (4, 7), (8, 9)],
@@ -294,21 +297,25 @@ class Protein:
                            'val': [(0, 1), (0, 2), (2, 3), (2, 4), (2, 14), (4, 5), (4, 6), (4, 10), (6, 7), (6, 8), (6, 9), (10, 11),
                                    (10, 12), (10, 13), (14, 15)]}
 
+        # Ordering of the tuples is (N, C). For the caps, whether or not it's a Nitrogen or Carbon atom is implicit.
         self.externals = {'ace': 4, 'ala': (0, 8), 'arg': (0, 22), 'ash': (0, 11), 'asn': (0, 12), 'asp': (0, 10), 'cala': 0, 'carg': 0,
                           'casn': 0, 'casp': 0, 'ccys': 0, 'ccyx': (0, 7), 'cgln': 0, 'cglu': 0, 'cgly': 0, 'chid': 0, 'chie': 0, 'chip': 0,
                           'cile': 0, 'cleu': 0, 'clys': 0, 'cmet': 0, 'cphe': 0, 'cpro': 0, 'cser': 0, 'cthr': 0, 'ctrp': 0, 'ctyr': 0,
-                          'cval': 0, 'cym': (0, 8), 'cys': (0, 9), 'cyx': (0, 8), 'cl-': (None, None), 'cs+': (None, None), 'da': (0, 31),
-                          'da3': 0, 'da5': 29, 'dan': (None, None), 'dc': (0, 29), 'dc3': 0, 'dc5': 27, 'dcn': (None, None), 'dg': (0, 32),
-                          'dg3': 0, 'dg5': 30, 'dgn': (None, None), 'dt': (0, 31), 'dt3': 0, 'dt5': 29, 'dtn': (None, None), 'glh': (0, 14),
-                          'gln': (0, 15), 'glu': (0, 13), 'gly': (0, 5), 'hid': (0, 15), 'hie': (0, 15), 'hip': (0, 16), 'ile': (0, 17),
-                          'k+': (None, None), 'leu': (0, 17), 'lyn': (0, 19), 'lys': (0, 20), 'li+': (None, None), 'met': (0, 15),
-                          'mg2': (None, None), 'nala': 10, 'narg': 24, 'nasn': 14, 'nasp': 12, 'ncys': 11, 'ncyx': (10, 9), 'ngln': 17,
-                          'nglu': 15, 'ngly': 7, 'nhe': 0, 'nhid': 17, 'nhie': 17, 'nhip': 18, 'nile': 19, 'nleu': 19, 'nlys': 22, 'nme': 0,
-                          'nmet': 17, 'nphe': 20, 'npro': 14, 'nser': 11, 'nthr': 14, 'ntrp': 24, 'ntyr': 21, 'nval': 16,
-                          'na+': (None, None), 'phe': (0, 18), 'pro': (0, 12), 'ra': (0, 32), 'ra3': 0, 'ra5': 30, 'ran': (None, None),
-                          'rc': (0, 30), 'rc3': 0, 'rc5': 28, 'rcn': (None, None), 'rg': (0, 33), 'rg3': 0, 'rg5': 31, 'rgn': (None, None),
-                          'ru': (0, 29), 'ru3': 0, 'ru5': 27, 'run': (None, None), 'rb+': (None, None), 'ser': (0, 9), 'thr': (0, 12),
-                          'trp': (0, 22), 'tyr': (0, 19), 'val': (0, 14)}
+                          'cval': 0, 'cym': (0, 8), 'cys': (0, 9), 'cyx': (0, 8), 'cl-': None, 'cs+': None, 'da': (0, 31), 'da3': 0,
+                          'da5': 29, 'dan': None, 'dc': (0, 29), 'dc3': 0, 'dc5': 27, 'dcn': None, 'dg': (0, 32), 'dg3': 0, 'dg5': 30,
+                          'dgn': None, 'dt': (0, 31), 'dt3': 0, 'dt5': 29, 'dtn': None, 'glh': (0, 14), 'gln': (0, 15), 'glu': (0, 13),
+                          'gly': (0, 5), 'hid': (0, 15), 'hie': (0, 15), 'hip': (0, 16), 'ile': (0, 17), 'k+': None, 'leu': (0, 17),
+                          'lyn': (0, 19), 'lys': (0, 20), 'li+': None, 'met': (0, 15), 'mg2': None, 'nala': 10, 'narg': 24, 'nasn': 14,
+                          'nasp': 12, 'ncys': 11, 'ncyx': (10, 9), 'ngln': 17, 'nglu': 15, 'ngly': 7, 'nhe': 0, 'nhid': 17, 'nhie': 17,
+                          'nhip': 18, 'nile': 19, 'nleu': 19, 'nlys': 22, 'nme': 0, 'nmet': 17, 'nphe': 20, 'npro': 14, 'nser': 11,
+                          'nthr': 14, 'ntrp': 24, 'ntyr': 21, 'nval': 16, 'na+': None, 'phe': (0, 18), 'pro': (0, 12), 'ra': (0, 32),
+                          'ra3': 0, 'ra5': 30, 'ran': None, 'rc': (0, 30), 'rc3': 0, 'rc5': 28, 'rcn': None, 'rg': (0, 33), 'rg3': 0,
+                          'rg5': 31, 'rgn': None, 'ru': (0, 29), 'ru3': 0, 'ru5': 27, 'run': None, 'rb+': None, 'ser': (0, 9),
+                          'thr': (0, 12), 'trp': (0, 22), 'tyr': (0, 19), 'val': (0, 14)}
+
+        # Find the number of atoms in each residue; find the max value from the list of tuples (0 if the list of tuples is empty)
+        # Because this finds the max index from the tuples, +1 is needed to get the actual number of atoms
+        self.n_atoms = {k: max(chain.from_iterable(v)) + 1 if v else 0 for k, v in self.bonds_dict.items()}
 
         # self.bond_constants = {'res': {(0, 1): [0.1011, 235634567], ...}, ...}
 
@@ -334,7 +341,7 @@ class Protein:
                 element = sub('[0-9]+', '', element)
                 element = element.replace(" ", "")
                 self.atom_names.append(str(line.split()[2]))
-                all_residues.append(line.split()[3])
+                all_residues.append(line.split()[3].lower())
 
                 # If the element column is missing from the pdb, extract the element from the name.
                 if not element:
@@ -346,8 +353,53 @@ class Protein:
         self.molecule = molecule
         self.order = [res for res, group in groupby(all_residues)]
 
-    def combine_residues(self):
-        """Stitch together the residues' parameters from the xml file."""
+    def identify_bonds(self):
+        """Stitch together the residues' parameters from the xml file.
 
-        for res in self.order:
-            pass
+        For each residue add the external bond;
+        this will be tuple[1] for the first residue and the tuple[0] for the next residue.
+        Then add the internal bonds.
+        All bonds will be incremented by however many atoms came before them in the chain.
+        """
+
+        # Append the cap's bonds to the bonds list
+        self.bonds.extend(self.bonds_dict[self.order[0]])
+        # Identify the current capping atom (the atom where the cap attaches to the protein)
+        current_cap = self.externals[self.order[0]]
+        # atom_count isn't always just the current_cap; sometimes the highest index atom is on a sidechain
+        atom_count = self.n_atoms[self.order[0]]
+
+        # Build topology to view molecule
+        topology = Graph()
+
+        # Start main loop, checking through all the chained residues (not the caps)
+        for res in self.order[1:-1]:
+            # Construct the tuple for the external bond
+            external = [(current_cap, self.externals[res][0] + atom_count)]
+            self.bonds.extend(external)
+            # For each tuple in self.bonds_dict[res] (list of bonds for that residue),
+            # increment the tuples' values (the atoms' indices) by atom_count (the number of atoms up to that point)
+            incremented_bonds = [tuple((group[0] + atom_count, group[1] + atom_count)) for group in self.bonds_dict[res]]
+            self.bonds.extend(incremented_bonds)
+            # Identify the externally bonding atom
+            current_cap = self.externals[res][1] + atom_count
+            # Increment the atom count for the next iteration in the loop
+            atom_count += self.n_atoms[res]
+
+        end_cap = self.order[-1]
+        external = [(current_cap, self.externals[end_cap] + atom_count)]
+        self.bonds.extend(external)
+        incremented_bonds = [tuple((group[0] + atom_count, group[1] + atom_count)) for group in self.bonds_dict[end_cap]]
+        self.bonds.extend(incremented_bonds)
+        atom_count += self.n_atoms[end_cap]
+
+        # Draw molecule as graph:
+        topology.add_node(i for i in self.molecule)
+        for t in self.bonds:
+            a, b = t
+            a = self.atom_names[a]
+            b = self.atom_names[b]
+            topology.add_edge(a, b)
+
+        draw(topology, with_labels=True, font_weight='bold')
+        plt.show()

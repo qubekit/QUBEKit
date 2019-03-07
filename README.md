@@ -65,7 +65,7 @@ Many packages come installed with the above requirements, however there are some
 * [RDKit](http://rdkit.org/)
 * [OpenFF](https://openforcefield.org/)
 
-You should now be able to use QUBEKit straight away from the command line or as an import.
+You should now be able to use QUBEKit straight away from the command line or as an imported Python module.
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda will deal with versions and conflicts in your environment.

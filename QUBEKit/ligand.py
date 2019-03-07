@@ -32,7 +32,6 @@ class Ligand:
         dih_phis
         bond_lengths
         angle_values
-        bonds
         mm_optimised
         qm_optimised
         parameter_engine
@@ -68,7 +67,6 @@ class Ligand:
         self.dih_phis = None
         self.bond_lengths = None
         self.angle_values = None
-        self.bonds = None
         self.mm_optimised = None
         self.qm_optimised = None
         self.parameter_engine = None
