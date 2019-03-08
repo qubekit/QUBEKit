@@ -9,7 +9,7 @@ from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_p
 from QUBEKit.decorators import exception_logger_decorator
 # from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
 from QUBEKit import smiles
-from QUBEKit.protein import Protein
+from QUBEKit.ligand import Protein
 
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
@@ -187,6 +187,9 @@ def main():
     aa = Protein('test.pdb')
     aa.read_pdb()
     aa.identify_bonds()
+    aa.atom_types()
+
+    print(aa.AtomTypes)
 
 
 if __name__ == '__main__':
