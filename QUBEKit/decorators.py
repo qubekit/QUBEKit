@@ -27,7 +27,8 @@ def timer_func(orig_func):
 
 
 def timer_logger(orig_func):
-    """Logs the various timings of a function in a dated and numbered file.
+    """
+    Logs the various timings of a function in a dated and numbered file.
     Writes the start time, function / method qualname and docstring when function / method starts.
     Then outputs the runtime and time when function / method finishes.
     """
@@ -72,7 +73,8 @@ def timer_logger(orig_func):
 
 
 def for_all_methods(decorator):
-    """Applies a decorator to all methods of a class (includes sub-classes and init; it is literally all callables).
+    """
+    Applies a decorator to all methods of a class (includes sub-classes and init; it is literally all callables).
     This class decorator is applied using '@for_all_methods(timer_func)' for example.
     """
 
@@ -89,7 +91,8 @@ def for_all_methods(decorator):
 
 
 def exception_logger():
-    """Creates logging object to be returned. Contains proper formatting and locations for logging exceptions.
+    """
+    Creates logging object to be returned. Contains proper formatting and locations for logging exceptions.
     This isn't a decorator itself but is only used by exception_logger_decorator so it makes sense for it to be here.
     """
 
@@ -112,7 +115,8 @@ def exception_logger():
 
 
 def exception_logger_decorator(func):
-    """Decorator which logs exceptions to QUBEKit_log file if one occurs.
+    """
+    Decorator which logs exceptions to QUBEKit_log file if one occurs.
     Do not apply this decorator to a function / method unless a log file exists in the working dir.
     On exception, the full stack trace is printed to the log file,
     as well as the Ligand class objects which are taken from the pickle file.

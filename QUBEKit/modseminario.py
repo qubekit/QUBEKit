@@ -60,7 +60,8 @@ class ModSemMaths:
 
     @staticmethod
     def force_constant_angle(atom_a, atom_b, atom_c, bond_lens, eigenvals, eigenvecs, coords, scalings):
-        """Force Constant - Equation 14 of Seminario paper - gives force constant for angle
+        """
+        Force Constant - Equation 14 of Seminario paper - gives force constant for angle
         (in kcal/mol/rad^2) and equilibrium angle (in degrees).
         """
 
@@ -146,7 +147,8 @@ class ModSeminario:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def modified_seminario_method(self):
-        """Calculate the new bond and angle terms after being passed the symmetric Hessian and optimised
+        """
+        Calculate the new bond and angle terms after being passed the symmetric Hessian and optimised
         molecule coordinates.
         """
 

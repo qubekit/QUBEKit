@@ -13,7 +13,8 @@ from numpy import array, zeros
 
 
 class Engines:
-    """Engines superclass containing core information that all other engines (PSI4, Gaussian etc) will have.
+    """
+    Engines superclass containing core information that all other engines (PSI4, Gaussian etc) will have.
     Provides atoms' coordinates with name tags for each atom and entire molecule.
     Also gives all configs from the appropriate config file.
     """
@@ -31,7 +32,8 @@ class Engines:
 
 @for_all_methods(timer_logger)
 class PSI4(Engines):
-    """Writes and executes input files for psi4.
+    """
+    Writes and executes input files for psi4.
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
     """
 
@@ -119,7 +121,8 @@ class PSI4(Engines):
             sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     def hessian(self):
-        """Parses the Hessian from the output.dat file (from psi4) into a numpy array.
+        """
+        Parses the Hessian from the output.dat file (from psi4) into a numpy array.
         Molecule is a numpy array of size N x N.
         """
 
@@ -267,7 +270,8 @@ class PSI4(Engines):
             return array(all_modes)
 
     def geo_gradient(self, qm=False, mm=False, threads=False, run=True):
-        """Write the psi4 style input file to get the gradient for geometric
+        """
+        Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
         """
 
@@ -306,7 +310,8 @@ class Chargemol(Engines):
         super().__init__(molecule, config_file)
 
     def generate_input(self, run=True):
-        """Given a DDEC version (from the defaults), this function writes the job file for chargemol and
+        """
+        Given a DDEC version (from the defaults), this function writes the job file for chargemol and
         executes it.
         """
 
@@ -343,7 +348,8 @@ class Chargemol(Engines):
 
 @for_all_methods(timer_logger)
 class Gaussian(Engines):
-    """Writes and executes input files for Gaussian09.
+    """
+    Writes and executes input files for Gaussian09.
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
     """
 

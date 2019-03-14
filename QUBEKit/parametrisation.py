@@ -18,7 +18,8 @@ from openforcefield.utils import get_data_filename, generateTopologyFromOEMol
 
 
 class Parametrisation:
-    """Class of methods which perform the initial parametrisation for the molecule.
+    """
+    Class of methods which perform the initial parametrisation for the molecule.
     The Parameters will be stored into the molecule as dictionaries as this is easy to manipulate and convert
     to a parameter tree.
 
@@ -62,7 +63,8 @@ class Parametrisation:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def gather_parameters(self):
-        """This method parses the serialised xml file and collects the parameters ready to pass them
+        """
+        This method parses the serialised xml file and collects the parameters ready to pass them
         to build tree.
         """
 
@@ -76,11 +78,13 @@ class Parametrisation:
 
         # Extract all bond data
         for Bond in in_root.iter('Bond'):
-            self.molecule.HarmonicBondForce[(int(Bond.get('p1')), int(Bond.get('p2')))] = [Bond.get('d'), Bond.get('k')]
+            bond = (int(Bond.get('p1')), int(Bond.get('p2')))
+            self.molecule.HarmonicBondForce[bond] = [Bond.get('d'), Bond.get('k')]
 
         # Extract all angle data
         for Angle in in_root.iter('Angle'):
-            self.molecule.HarmonicAngleForce[int(Angle.get('p1')), int(Angle.get('p2')), int(Angle.get('p3'))] = [Angle.get('a'), Angle.get('k')]
+            angle = int(Angle.get('p1')), int(Angle.get('p2')), int(Angle.get('p3'))
+            self.molecule.HarmonicAngleForce[angle] = [Angle.get('a'), Angle.get('k')]
 
         # Extract all non-bonded data
         i = 0
@@ -127,8 +131,15 @@ class Parametrisation:
         for val in self.molecule.PeriodicTorsionForce.values():
             val.sort(key=lambda x: x[0])
 
+        print(self.molecule.AtomTypes, end='\n\n\n')
+        print(self.molecule.HarmonicBondForce, end='\n\n\n')
+        print(self.molecule.HarmonicAngleForce, end='\n\n\n')
+        print(self.molecule.PeriodicTorsionForce, end='\n\n\n')
+        print(self.molecule.NonbondedForce, end='\n\n\n')
+
     def symmetrise(self):
-        """Search the xml and generate a dictionary based on the calculated Lennard-Jones parameters.
+        """
+        Search the xml and generate a dictionary based on the calculated Lennard-Jones parameters.
         Each Lennard-Jones parameter value will be assigned as a dictionary key.
         The values are then whichever atoms have that Lennard-Jones parameter.
         For example, for methane:
@@ -211,7 +222,8 @@ class XML(Parametrisation):
 
 @for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
-    """Use AnteChamber to parametrise the Ligand first using gaff or gaff2
+    """
+    Use AnteChamber to parametrise the Ligand first using gaff or gaff2
     then build and export the xml tree object.
     """
 
@@ -312,7 +324,8 @@ class AnteChamber(Parametrisation):
 
 @for_all_methods(timer_logger)
 class OpenFF(Parametrisation):
-    """This class uses the openFF in openeye to parametrise the molecule using frost.
+    """
+    This class uses the openFF in openeye to parametrise the molecule using frost.
     A serialised XML is then stored in the parameter dictionaries.
     """
 
@@ -350,7 +363,8 @@ class OpenFF(Parametrisation):
 
 @for_all_methods(timer_logger)
 class BOSS(Parametrisation):
-    """This class uses the BOSS software to parametrise a molecule using the CM1A/OPLS FF.
+    """
+    This class uses the BOSS software to parametrise a molecule using the CM1A/OPLS FF.
     The parameters are then stored in the parameter dictionaries.
     """
 
@@ -365,7 +379,8 @@ class BOSS(Parametrisation):
         self.symmetrise()
 
     def BOSS_cmd(self):
-        """This method is used to call the required BOSS scripts.
+        """
+        This method is used to call the required BOSS scripts.
         1 The zmat file with CM1A charges is first generated for the molecule keeping the same pdb order.
         2 A single point calculation is done.
         """
@@ -373,7 +388,8 @@ class BOSS(Parametrisation):
         pass
 
     def gather_parameters(self):
-        """This method parses the BOSS out file and collects the parameters ready to pass them
+        """
+        This method parses the BOSS out file and collects the parameters ready to pass them
         to build tree.
         """
 

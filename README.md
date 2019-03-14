@@ -53,19 +53,29 @@ To install, it is recommended to git clone the QUBEKit folder into a home direct
 ### Requirements
 
 * [Anaconda3](https://www.anaconda.com/download/)
+
+Download Anaconda from the above like and install with the linux command ```./Anaconda3<version>.sh```
+
+*You may need to use ```chmod +x Anaconda3<version>.sh``` to make it executable.*
+
+We recommend you add conda to your .bashrc
+
 * [Gaussian09](http://gaussian.com/)
+
+Installation of Gaussian is likely handled by your institution; QUBEKit uses it for density calculations only.
+If you don't plan on performing these sorts of calculations then it is not necessary. 
+
 * [PSI4](http://www.psicode.org/)
+
+PSI4 can be installed with anaconda. Simply use the command ```conda install -c psi4 psi4``` to get the latest stable version.
 
 ### Other Python modules used
 
-Many packages come installed with the above requirements, however there are some which require further installation. All packages must be installed through conda and use conda as their path.
-(Standard library packages and conda default packages (SciPy, Numpy, etc) are not listed.)
+Many packages come pre-installed with Anaconda, however there are some which require further installation.
 
 * [GeomeTRIC](https://github.com/leeping/geomeTRIC)
 * [RDKit](http://rdkit.org/)
 * [OpenFF](https://openforcefield.org/)
-
-You should now be able to use QUBEKit straight away from the command line or as an imported Python module.
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda will deal with versions and conflicts in your environment.
@@ -73,9 +83,12 @@ Generally, conda packages will have the conda install command on their website o
 For the software not available through Anaconda, either git clone them and install:
 
     git clone http://<git_address_here>
+    cd <location of cloned package>
     python setup.py install
 
 or follow the described steps in the respective documentation.
+
+You should now be able to use QUBEKit straight away from the command line or as an imported Python module.
 
 ## Help
 
