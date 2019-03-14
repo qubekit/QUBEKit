@@ -23,7 +23,8 @@ import seaborn as sns
 
 @for_all_methods(timer_logger)
 class TorsionScan:
-    """This class will take a QUBEKit molecule object and perform a torsiondrive QM (and MM if True) energy scan
+    """
+    This class will take a QUBEKit molecule object and perform a torsiondrive QM (and MM if True) energy scan
     for each selected dihedral.
     """
 
@@ -44,7 +45,8 @@ class TorsionScan:
         self.torsion_cmd()
 
     def find_scan_order(self):
-        """Function takes the molecule and displays the rotatable central bonds,
+        """
+        Function takes the molecule and displays the rotatable central bonds,
         the user then enters the number of the torsions to be scanned in the order to be scanned.
         The molecule can also be supplied with a scan order already.
         """
@@ -126,8 +128,9 @@ class TorsionScan:
         return self.cmd
 
     def get_energy(self, scan):
-        """Extracts an array of energies from the scan results then stores it back
-         into the molecule (in a dictionary) using the scan orders as the keys.
+        """
+        Extracts an array of energies from the scan results then stores it back
+        into the molecule (in a dictionary) using the scan orders as the keys.
         """
 
         with open('scan.xyz', 'r') as scan_file:
@@ -215,8 +218,10 @@ class TorsionOptimiser:
 
     @staticmethod
     def get_coords():
-        """Read the torsion drive output file to get all of the coords in a format that can be passed to openmm
-        so we can update positions in context without reloading the molecule."""
+        """
+        Read the torsion drive output file to get all of the coords in a format that can be passed to openmm
+        so we can update positions in context without reloading the molecule.
+        """
 
         scan_coords = []
         # open the torsion drive data file read all the scan coordinates
@@ -310,8 +315,10 @@ class TorsionOptimiser:
         return total_error
 
     def run(self):
-        """Optimize the parameters for the chosen torsions in the molecule scan_order,
-        also set up a work queue to do the single point calculations if they are needed."""
+        """
+        Optimise the parameters for the chosen torsions in the molecule scan_order,
+        also set up a work queue to do the single point calculations if they are needed.
+        """
 
         # Set up the first fitting
         for self.scan in self.scan_order:
@@ -397,7 +404,8 @@ class TorsionOptimiser:
             # TODO 2D torsions using the same technique ?
 
     def rest_torsions(self):
-        """Set all the torsion k values to one for every torsion in the system.
+        """
+        Set all the torsion k values to one for every torsion in the system.
 
         Once an OpenMM system is created we cannot add new torsions without making a new PeriodicTorsion
         force every time.
@@ -421,8 +429,10 @@ class TorsionOptimiser:
         self.molecule.PeriodicTorsionForce = self.torsion_store
 
     def get_torsion_params(self):
-        """Get the torsions and their parameters that will scanned, work out how many different torsion types needed,
-        make a vector corresponding to this size."""
+        """
+        Get the torsions and their parameters that will scanned, work out how many different torsion types needed,
+        make a vector corresponding to this size.
+        """
 
         # Get a list of which dihedrals parameters are to be varied
         # Convert to be indexed from 0
@@ -489,14 +499,16 @@ class TorsionOptimiser:
         self.param_vector = zeros((1, 4 * len(self.tor_types)))
 
     def full_scan_optimiser(self):
-        """A steepest decent optimiser as implemented in QUBEKit-V1, which will optimise the torsion terms
-         using full relaxed surface scans.
-         """
+        """
+        A steepest decent optimiser as implemented in QUBEKit-V1, which will optimise the torsion terms
+        using full relaxed surface scans.
+        """
 
         pass
 
     def rmsd(self):
-        """Calculate the rmsd between the MM and QM predicted structures from the relaxed scans;
+        """
+        Calculate the rmsd between the MM and QM predicted structures from the relaxed scans;
         this can be added into the penalty function.
         """
 
@@ -723,7 +735,7 @@ class TorsionOptimiser:
         return array(sp_energy)
 
     def update_mol(self):
-        """When the optimization is complete update the PeriodicTorsionForce parameters in the molecule."""
+        """When the optimisation is complete update the PeriodicTorsionForce parameters in the molecule."""
 
         for val in self.tor_types.values():
             for dihedral in val[0]:
@@ -731,7 +743,8 @@ class TorsionOptimiser:
                     self.molecule.PeriodicTorsionForce[dihedral][vn][1] = str(val[1][vn])
 
     def opls_lj(self, excep_pairs=None, normal_pairs=None):
-        """This function changes the standard OpenMM combination rules to use OPLS, execp and normal pairs are only
+        """
+        This function changes the standard OpenMM combination rules to use OPLS, execp and normal pairs are only
         required if their are virtual sites in the molecule.
         """
 

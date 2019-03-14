@@ -34,7 +34,8 @@ class LennardJones:
         self.non_bonded_force = {}
 
     def extract_params_chargemol(self):
-        """From Chargemol output files, extract the necessary parameters for calculation of L-J.
+        """
+        From Chargemol output files, extract the necessary parameters for calculation of L-J.
         Desired format:
         ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x_dipole', 'y_dipole', 'z_dipole', 'vol']
         All vals are float except atom number (int) and atom type (str).
@@ -89,7 +90,8 @@ class LennardJones:
             atom.append(vols[pos])
 
     def extract_params_onetep(self):
-        """From ONETEP output files, extract the necessary parameters for calculation of L-J.
+        """
+        From ONETEP output files, extract the necessary parameters for calculation of L-J.
         Desired format:
         ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'vol']
         All vals are float except atom number (int) and atom type (str).
@@ -132,7 +134,8 @@ class LennardJones:
             atom.extend((charges[pos], volumes[pos]))
 
     def append_ais_bis(self):
-        """Use the AIM parameters from extract_params_*() to calculate a_i and b_i according to paper.
+        """
+        Use the AIM parameters from extract_params_*() to calculate a_i and b_i according to paper.
         Calculations from paper have been combined and simplified for faster computation.
         """
 
@@ -164,7 +167,8 @@ class LennardJones:
             self.ddec_data[pos] += [r_aim, b_i, a_i]
 
     def calculate_sig_eps(self):
-        """Adds the sigma, epsilon terms to the ligand class object as a dictionary.
+        """
+        Adds the sigma, epsilon terms to the ligand class object as a dictionary.
         The ligand class object (NonbondedForce) is stored as an empty dictionary until this method is called.
         first_pass argument prevents the sigmas being recalculated (unlike the epsilons).
         """
@@ -190,7 +194,8 @@ class LennardJones:
             self.non_bonded_force[pos] = [str(atom[5]), str(sigma), str(epsilon)]
 
     def correct_polar_hydrogens(self):
-        """Identifies the polar Hydrogens and changes the a_i, b_i values accordingly.
+        """
+        Identifies the polar Hydrogens and changes the a_i, b_i values accordingly.
         May be removed / heavily changed if we switch away from atom typing and use SMARTS.
         """
 
@@ -256,7 +261,8 @@ class LennardJones:
             self.non_bonded_force[pos] = [str(atom[5]), self.non_bonded_force[pos][1], str(epsilon)]
 
     def calculate_non_bonded_force(self):
-        """Main worker method for LennardJones class. Extracts necessary parameters from ONETEP or Chargemol files;
+        """
+        Main worker method for LennardJones class. Extracts necessary parameters from ONETEP or Chargemol files;
         Calculates the a_i and b_i values;
         Calculates the sigma and epsilon values using those a_i and b_i values;
         Redistributes L-J parameters according to polar Hydrogens, then recalculates epsilon values.

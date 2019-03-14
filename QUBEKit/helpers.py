@@ -12,8 +12,10 @@ from contextlib import contextmanager
 
 
 class Configure:
-    """Class to help load, read and write ini style configuration files returns dictionaries of the config
-     settings as strings, all numbers must then be cast before use."""
+    """
+    Class to help load, read and write ini style configuration files returns dictionaries of the config
+    settings as strings, all numbers must then be cast before use.
+    """
 
     home = Path.home()
     config_folder = f'{home}/QUBEKit_configs/'
@@ -214,7 +216,8 @@ class Configure:
 
 
 def get_mol_data_from_csv(csv_name):
-    """Scan the csv file to find the row with the desired molecule data.
+    """
+    Scan the csv file to find the row with the desired molecule data.
     Returns a dictionary of dictionaries in the form:
     {'methane': {'charge': 0, 'multiplicity': 1, ...}, 'ethane': {'charge': 0, ...}, ...}
     """
@@ -252,7 +255,8 @@ def get_mol_data_from_csv(csv_name):
 
 
 def generate_config_csv(csv_name):
-    """Generates a csv with name "csv_name" with minimal information inside.
+    """
+    Generates a csv with name "csv_name" with minimal information inside.
     Contains only headers and a row of defaults.
     """
 
@@ -269,7 +273,8 @@ def generate_config_csv(csv_name):
 
 
 def append_to_log(log_file, message, msg_type='major'):
-    """Appends a message to the log file in a specific format.
+    """
+    Appends a message to the log file in a specific format.
     Used for significant stages in the program such as when G09 has finished.
     """
 
@@ -294,7 +299,8 @@ def get_overage(molecule):
 
 
 def pretty_progress():
-    """Neatly displays the state of all QUBEKit running directories in the terminal.
+    """
+    Neatly displays the state of all QUBEKit running directories in the terminal.
     Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
     """
 
@@ -349,7 +355,8 @@ def pretty_progress():
 
 
 def pretty_print(molecule, to_file=False, finished=True):
-    """Takes a ligand molecule class object and displays all the class variables in a clean, readable format.
+    """
+    Takes a ligand molecule class object and displays all the class variables in a clean, readable format.
 
     Print to log: * On exception
                   * On completion
@@ -391,7 +398,8 @@ def set_dict_val(file_name, search_term):
 
 
 def unpickle(pickle_jar):
-    """Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of ligands
+    """
+    Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of ligands
     indexed by their progress.
     """
 
@@ -412,7 +420,8 @@ def unpickle(pickle_jar):
 
 @contextmanager
 def assert_wrapper(exception_type):
-    """Makes assertions more informative when an Exception is thrown.
+    """
+    Makes assertions more informative when an Exception is thrown.
     Rather than just getting 'AssertionError' all the time, an actual named exception can be passed.
     Can be called multiple times in the same 'with' statement for the same exception type but different exceptions.
 

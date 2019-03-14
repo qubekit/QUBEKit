@@ -25,7 +25,8 @@ print = partial(print, flush=True)
 
 
 class Main:
-    """Interprets commands from the terminal.
+    """
+    Interprets commands from the terminal.
     Stores defaults or executes relevant functions.
     Will also create log and working directory where needed.
     See README.md for detailed discussion of QUBEKit commands or method docstrings for specifics of their functionality.
@@ -100,7 +101,8 @@ class Main:
                     self.descriptions[sub] = self.configs[key][sub]
 
     def parse_commands(self):
-        """Parses commands from the terminal.
+        """
+        Parses commands from the terminal.
 
         This method has four main blocks, each defined by an enumerate loop which loops over the commands.
         In the first block:
@@ -351,7 +353,8 @@ class Main:
             log_file.write('\n')
 
     def create_log(self):
-        """Creates the working directory for the job as well as the log file.
+        """
+        Creates the working directory for the job as well as the log file.
         This log file is then extended when:
             - decorators.timer_logger wraps a called method;
             - helpers.append_to_log() is called;
@@ -392,7 +395,8 @@ class Main:
             log_file.write('\n')
 
     def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg=''):
-        """Firstly, check if the stage start_key is in self.order; this tells you if the stage should be called or not.
+        """
+        Firstly, check if the stage start_key is in self.order; this tells you if the stage should be called or not.
         If it isn't in self.order:
             - Do nothing
         If it is:
@@ -549,16 +553,17 @@ class Main:
 
     @exception_logger_decorator
     def execute(self):
-        """Calls all the relevant classes and methods for the full QM calculation in the correct order.
+        """
+        Calls all the relevant classes and methods for the full QM calculation in the correct order.
         Exceptions are added to log (if raised).
         """
 
         # Check if starting from the beginning; if so:
         if 'rdkit_optimise' in [key for key in self.order]:
             # Initialise ligand object fully before pickling it
-            mol = Ligand(self.file)
-            mol.log_file = self.log_file
-            mol.pickle(state='rdkit_optimise')
+            molecule = Ligand(self.file)
+            molecule.log_file = self.log_file
+            molecule.pickle(state='rdkit_optimise')
 
         # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
         # Longer messages should be written inside the key stages' functions using helpers.append_to_log().
