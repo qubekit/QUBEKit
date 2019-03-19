@@ -21,7 +21,7 @@ from itertools import groupby, chain
 class Molecule:
     """Base class for ligands and proteins."""
 
-    def __init__(self, filename, smiles_string=None):
+    def __init__(self, filename, smilesstring=None, combination='opls'):
         """
         filename                str; Full filename e.g. methane.pdb
         name                    str; Molecule name e.g. methane
@@ -61,6 +61,7 @@ class Molecule:
         self.molecule = None
         self.angles = None
         self.dihedrals = None
+        self.improper_torsions = None
         self.rotatable = None
         self.atom_names = None
         self.bond_lengths = None
@@ -77,6 +78,7 @@ class Molecule:
         self.HarmonicAngleForce = {}
         self.PeriodicTorsionForce = OrderedDict()
         self.NonbondedForce = OrderedDict()
+        self.combination = combination 
 
         # QUBEKit internals
         self.log_file = None
@@ -172,6 +174,18 @@ class Molecule:
             self.molecule = molecule
 
         return self
+
+    def find_impropers(self):
+        """Take the topology graph and find all of the improper torsions in the molecule these are atoms with 3
+        bonds. """
+
+        self.improper_torsions = []
+        for node in self.topology.nodes:
+            near = sorted(list(neighbors(self.topology, node)))
+            # if the atom has 3 bonds it could be an imporper
+            if len(near) == 3:
+                self.improper_torsions.append((node, near[0], near[1], near[2]))
+        # print(self.improper_torsions)
 
     def find_angles(self):
         """
@@ -330,7 +344,8 @@ class Molecule:
             pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
             pdb_file.write(f'COMPND    {self.name:<20}\n')
             for i, atom in enumerate(molecule):
-                pdb_file.write(f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+                pdb_file.write(
+                    f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
@@ -340,11 +355,11 @@ class Molecule:
 
             pdb_file.write('END\n')
 
-    def write_parameters(self, name=None):
+    def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
         # First build the xml tree
-        self.build_tree()
+        self.build_tree(protein=protein)
 
         tree = self.xml_tree.getroot()
         messy = tostring(tree, 'utf-8')
@@ -354,18 +369,25 @@ class Molecule:
         with open(f'{name if name is not None else self.name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
-    def build_tree(self):
+    def build_tree(self, protein):
         """Separates the parameters and builds an xml tree ready to be used."""
 
         # Create XML layout
         root = Element('ForceField')
         AtomTypes = SubElement(root, "AtomTypes")
         Residues = SubElement(root, "Residues")
-        Residue = SubElement(Residues, "Residue", name="UNK")
+        if protein:
+            Residue = SubElement(Residues, "Residue", name="QUP")
+        else:
+            Residue = SubElement(Residues, "Residue", name="UNK")
         HarmonicBondForce = SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = SubElement(root, "HarmonicAngleForce")
         PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
-        NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': "0.5", 'lj14scale': "0.5"})
+        # now we need to asign the combination rule
+        c14 = l14 = '0.5'
+        if self.combination == 'amber':
+            c14 = '0.83333'
+        NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14})
 
         for key, val in self.AtomTypes.items():
             SubElement(AtomTypes, "Type", attrib={'name': val[1], 'class': val[2],
@@ -389,23 +411,35 @@ class Molecule:
                                                             'class3': self.AtomTypes[key[2]][2],
                                                             'angle': val[0], 'k': val[1]})
 
-        # Add the torsion terms
-        for key, val in self.PeriodicTorsionForce.items():
-            SubElement(PeriodicTorsionForce, "Proper", attrib={'class1': self.AtomTypes[key[0]][2],
-                                                               'class2': self.AtomTypes[key[1]][2],
-                                                               'class3': self.AtomTypes[key[2]][2],
-                                                               'class4': self.AtomTypes[key[3]][2],
-                                                               'k1': val[0][1], 'k2': val[1][1],
-                                                               'k3': val[2][1], 'k4': val[3][1],
-                                                               'periodicity1': '1', 'periodicity2': '2',
-                                                               'periodicity3': '3', 'periodicity4': '4',
-                                                               'phase1': val[0][2], 'phase2': val[1][2],
-                                                               'phase3': val[2][2], 'phase4': val[3][2]})
+        # add the proper and improper torsion terms
+        for key in self.PeriodicTorsionForce.keys():
+            if self.PeriodicTorsionForce[key][-1] == 'Improper':
+                tor_type = 'Improper'
+            else:
+                tor_type = 'Proper'
+            SubElement(PeriodicTorsionForce, tor_type,
+                       attrib={'class1': self.AtomTypes[key[0]][2],
+                               'class2': self.AtomTypes[key[1]][2],
+                               'class3': self.AtomTypes[key[2]][2],
+                               'class4': self.AtomTypes[key[3]][2],
+                               'k1': self.PeriodicTorsionForce[key][0][1],
+                               'k2': self.PeriodicTorsionForce[key][1][1],
+                               'k3': self.PeriodicTorsionForce[key][2][1],
+                               'k4': self.PeriodicTorsionForce[key][3][1],
+                               'periodicity1': '1', 'periodicity2': '2',
+                               'periodicity3': '3', 'periodicity4': '4',
+                               'phase1': self.PeriodicTorsionForce[key][0][2],
+                               'phase2': self.PeriodicTorsionForce[key][1][2],
+                               'phase3': self.PeriodicTorsionForce[key][2][2],
+                               'phase4': self.PeriodicTorsionForce[key][3][2]})
 
-        # Add the non-bonded parameters
-        for key, val in self.NonbondedForce.items():
-            SubElement(NonbondedForce, "Atom", attrib={'type': self.AtomTypes[key][1], 'charge': val[0],
-                                                       'sigma': val[1], 'epsilon': val[2]})
+
+        # add the non-bonded parameters
+        for key in self.NonbondedForce.keys():
+            SubElement(NonbondedForce, "Atom", attrib={'type': self.AtomTypes[key][1],
+                                                       'charge': self.NonbondedForce[key][0],
+                                                       'sigma': self.NonbondedForce[key][1],
+                                                       'epsilon': self.NonbondedForce[key][2]})
 
         # Store the tree back into the molecule
         self.xml_tree = ElementTree(root)
@@ -428,6 +462,9 @@ class Molecule:
             for atom in molecule:
                 # Format with spacing
                 xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
+            # add one black line at the end of the file for onetep
+            #TODO is this needed for programs?
+            xyz_file.write('\n')
 
     def write_gromacs_file(self):
         """To a gromacs file, write and format the necessary variables."""
@@ -468,13 +505,15 @@ class Molecule:
         # Open the pickle jar which will always be the ligand object's name
         with open(f'.{self.name}_states', 'wb') as pickle_jar:
             # If there were other molecules of the same state in the jar: overwrite them
+
             for val in mols.values():
                 dump(val, pickle_jar)
 
 
+
 class Ligand(Molecule):
 
-    def __init__(self, filename, smiles_string=None):
+    def __init__(self, filename, smiles_string=None, combination='opls'):
         """
         scan_order
         mm_optimised
@@ -488,7 +527,7 @@ class Ligand(Molecule):
         symmetry_types          list; symmetrised atom types
         """
 
-        super().__init__(filename, smiles_string)
+        super().__init__(filename, smiles_string, combination)
 
         self.scan_order = None
         self.parameter_engine = None
@@ -530,8 +569,111 @@ class Ligand(Molecule):
                                     Installation instructions can be found on the respective github pages and 
                                     elsewhere online, see README for more details.''')
 
+class Protein(Ligand):
+    """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
-class Protein(Molecule):
+    def __init__(self, filename, smilesstring=None, combination='opls'):
+        super().__init__(filename, smilesstring, combination)
+
+    def read_pdb(self, qm=False, mm=False):
+        """Read the pdb file which proberly does not have the right conections so we need to find them using QUBE.xml"""           
+
+        with open(self.filename, 'r') as pdb:
+            lines = pdb.readlines()
+
+        protein = []
+        self.topology = Graph()
+        self.atom_names = []
+
+        # atom counter used for graph node generation
+        atom_count = 1
+        for line in lines:
+            if 'ATOM' in line or 'HETATM' in line:
+                element = str(line[76:78])
+                element = sub('[0-9]+', '', element)
+                element = element.replace(" ", "")
+                self.atom_names.append(f'{element}{799 + atom_count}')
+
+                # If the element column is missing from the pdb, extract the element from the name.
+                if not element:
+                    element = str(line.split()[2])[:-1]
+                    element = sub('[0-9]+', '', element)
+
+                # also get the residue order from the pdb file so we can rewrite the file
+                self.residues.append(str(line.split()[3]))
+
+                # Also add the atom number as the node in the graph
+                self.topology.add_node(atom_count)
+                atom_count += 1
+                protein.append([element, float(line[30:38]), float(line[38:46]), float(line[46:54])])
+
+            if 'CONECT' in line:
+                # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
+                for i in range(2, len(line.split())):
+                    if int(line.split()[i]) != 0:
+                        self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
+
+        # check if there are any conect terms in the file first
+        if len(self.topology.edges) == 0:
+            print('No connections found!')
+
+        # now we need to remove all of the duplicates
+        self.residues = [res for res, group in groupby(self.residues)]
+
+        # Uncomment the following lines to draw the graph network generated from the pdb.
+        # draw(topology, with_labels=True, font_weight='bold')
+        # plt.show()
+
+        if qm:
+            self.qm_optimised = protein
+        elif mm:
+            self.mm_optimised = protein
+        else:
+            self.molecule = protein
+
+        return self
+
+    def write_pdb(self, name=None):
+        """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
+
+        molecule = self.molecule
+
+        with open(f'{name if name else self.name}.pdb', 'w+') as pdb_file:
+
+            # Write out the atomic xyz coordinates
+            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
+            pdb_file.write(f'COMPND    {self.name:<20}\n')
+            for i, atom in enumerate(molecule):
+                pdb_file.write(
+                    f'HETATM{i+1:>5}{self.atom_names[i]:>5} QUP     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+
+            # Now add the connection terms
+            for node in self.topology.nodes:
+                bonded = sorted(list(neighbors(self.topology, node)))
+                # if len(bonded) > 2:
+                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+
+            pdb_file.write('END\n')
+
+    def update(self):
+        """After the protein has been passed to the parameterisation class we get back the bond info
+        use this to update all missing terms."""
+
+        # using the new harmonic bond force dict we can add the bond edges to the topology graph
+        for key in self.HarmonicBondForce.keys():
+            self.topology.add_edge(key[0] + 1, key[1] + 1)
+
+
+        self.find_angles()
+        self.find_dihedrals()
+        self.find_rotatable_dihedrals()
+        self.get_dihedral_values()
+        self.get_bond_lengths()
+        self.get_angle_values()
+        self.find_impropers()
+                              
+                               
+class Protein_2(Molecule):
     """
     Class to handle proteins as chains of amino acids.
     Dicts are used to provide any standard parameters;
@@ -871,10 +1013,7 @@ class Protein(Molecule):
 
     def get_aa_order(self):
         """From a protein pdb file, extract the residue order (self.order)."""
-
-        with open(self.filename, 'r') as pdb:
-            lines = pdb.readlines()
-
+        
         all_residues = []
 
         for line in lines:
@@ -982,4 +1121,5 @@ class Protein(Molecule):
             self.HarmonicBondForce[tuple((bond[0] + atom_count, bond[1] + atom_count))] = self.bond_constants[end][bond]
 
         external_bond = (external_atom, self.externals[end] + atom_count)
-        self.HarmonicBondForce[external_bond] = self.ext_bond_constant
+        self.HarmonicBondForce[external_bond] = self.ext_bond_constant                       
+                               

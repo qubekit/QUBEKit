@@ -122,7 +122,7 @@ class LennardJones:
 
         if not charge_pos and vol_pos:
             raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
-
+            
         charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
         check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
 

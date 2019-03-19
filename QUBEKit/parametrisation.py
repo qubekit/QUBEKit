@@ -1,10 +1,11 @@
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-from math import pi
 from tempfile import TemporaryDirectory
 from shutil import copy
 from os import getcwd, chdir, path
 from subprocess import call as sub_call
+from collections import OrderedDict
+from copy import deepcopy
 
 from xml.etree.ElementTree import parse as parse_tree
 from simtk.openmm import app, XmlSerializer
@@ -58,6 +59,7 @@ class Parametrisation:
         self.molecule = molecule
         self.input_file = input_file
         self.fftype = fftype
+        self.gaff_types = {}
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -70,9 +72,11 @@ class Parametrisation:
 
         # Try to gather the AtomTypes first
         for i, atom in enumerate(self.molecule.atom_names):
-            self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i), str(self.molecule.molecule[i][0]) + str(800 + i)]
+            self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i),
+                                          str(self.molecule.molecule[i][0]) + str(800 + i), self.gaff_types[atom]]
+            # self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i),
+            #                               str(self.molecule.molecule[i][0]) + str(800 + i)]
 
-        # Now parse the xml file for the rest of the data
         input_xml_file = 'serialised.xml'
         in_root = parse_tree(input_xml_file).getroot()
 
@@ -94,42 +98,104 @@ class Parametrisation:
                 i += 1
 
         # Extract all of the torsion data
-        phases = ['0', str(pi), '0', str(pi)]
-
+        phases = ['0', '3.141592653589793', '0', '3.141592653589793']
         for Torsion in in_root.iter('Torsion'):
-
-            tor_string_forward = (int(Torsion.get('p1')), int(Torsion.get('p2')), int(Torsion.get('p3')), int(Torsion.get('p4')))
+            tor_string_forward = tuple(int(Torsion.get(f'p{i}')) for i in range(1, 5))
             tor_string_back = tuple(reversed(tor_string_forward))
 
-            if tor_string_forward in self.molecule.PeriodicTorsionForce:
-                self.molecule.PeriodicTorsionForce[tor_string_forward].append([Torsion.get('periodicity'), Torsion.get('k'),
-                                                                               Torsion.get('phase')])
+            if tor_string_forward not in self.molecule.PeriodicTorsionForce.keys() and tor_string_back not in self.molecule.PeriodicTorsionForce.keys():
+                self.molecule.PeriodicTorsionForce[tor_string_forward] = [
+                    [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]]]
+            elif tor_string_forward in self.molecule.PeriodicTorsionForce.keys():
+                self.molecule.PeriodicTorsionForce[tor_string_forward].append(
+                    [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+            elif tor_string_back in self.molecule.PeriodicTorsionForce.keys():
+                self.molecule.PeriodicTorsionForce[tor_string_back].append([Torsion.get('periodicity'),
+                                                                            Torsion.get('k'), phases[
+                                                                                int(Torsion.get('periodicity')) - 1]])
+        # Now we have all of the torsions from the openMM system
+        # we should check if any torsions we found in the molecule do not have parameters
+        # if they don't give them the default 0 parameter this will not change the energy
+        for tor_list in self.molecule.dihedrals.values():
+            for torsion in tor_list:
+                # change the indexing to check if they match
+                param = tuple(torsion[i] - 1 for i in range(4))
+                if param not in self.molecule.PeriodicTorsionForce.keys() and tuple(reversed(param)) not in self.molecule.PeriodicTorsionForce.keys():
+                    self.molecule.PeriodicTorsionForce[param] = [['1', '0', '0'], ['2', '0', '3.141592653589793'], ['3', '0', '0'], ['4', '0', '3.141592653589793']]
 
-            elif tor_string_back in self.molecule.PeriodicTorsionForce:
-                self.molecule.PeriodicTorsionForce[tor_string_back].append([Torsion.get('periodicity'), Torsion.get('k'),
-                                                                            Torsion.get('phase')])
+        # Now we need to fill in all blank phases of the Torsions
+        for key in self.molecule.PeriodicTorsionForce.keys():
+            Vns = ['1', '2', '3', '4']
+            if len(self.molecule.PeriodicTorsionForce[key]) < 4:
+                # now need to add the missing terms from the torsion force
+                for force in self.molecule.PeriodicTorsionForce[key]:
+                    Vns.remove(force[0])
+                for i in Vns:
+                    self.molecule.PeriodicTorsionForce[key].append([i, '0', phases[int(i) - 1]])
+        # sort by periodicity using lambda function
+        for key in self.molecule.PeriodicTorsionForce.keys():
+            self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
 
-            else:
-                self.molecule.PeriodicTorsionForce[tor_string_forward] = [[Torsion.get('periodicity'), Torsion.get('k'),
-                                                                           Torsion.get('phase')]]
 
-        # Fill in all blank phases of the Torsions
-        for val in self.molecule.PeriodicTorsionForce.values():
+        # now we need to tag the proper and improper torsions and reorder them so the first atom is the central
+        improper_torsions = OrderedDict()
+        for improper in self.molecule.improper_torsions:
+            print(improper)
+            for key in self.molecule.PeriodicTorsionForce:
+                # for each improper find the corresponding torsion parameters and save
+                if sorted(key) == sorted(tuple([x - 1 for x in improper])):
+                    # if they match tag the dihedral
+                    print(f'imporper found {sorted(key)}')
+                    self.molecule.PeriodicTorsionForce[key].append('Improper')
+                    # replace the key with the strict improper order first atom is center
+                    improper_torsions[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
 
-            v_ns = ['1', '2', '3', '4']
+        torsions = deepcopy(self.molecule.PeriodicTorsionForce)
+        # now we should remake the torsion store in the ligand
+        self.molecule.PeriodicTorsionForce = OrderedDict((v, k) for v, k in torsions.items() if k[-1] != 'Improper')
+        # now we need to add the impropers at the end of the torsion object
+        for key in improper_torsions.keys():
+            self.molecule.PeriodicTorsionForce[key] = improper_torsions[key]
 
-            if len(val) < 4:
 
-                # Add the missing terms from the torsion force
-                for force in val:
-                    v_ns.remove(force[0])
 
-                for i in v_ns:
-                    val.append([i, '0', phases[int(i) - 1]])
+    def get_gaff_types(self, file=None):
+        """Convert the pdb file into a mol2 antechamber file and get the gaff atom types."""
 
-        # Sort by periodicity using lambda function
-        for val in self.molecule.PeriodicTorsionForce.values():
-            val.sort(key=lambda x: x[0])
+        # call Antechamber to convert if we don't have the mol2 file
+        if file is None:
+            cwd = getcwd()
+            # do this in a temp directory as it produces a lot of files
+            pdb = path.abspath(self.molecule.filename)
+            mol2 = path.abspath(f'{self.molecule.name}.mol2')
+            file = mol2
+            with TemporaryDirectory() as temp:
+                chdir(temp)
+                copy(pdb, 'in.pdb')
+                # call antechamber
+                with open('Antechamber.log', 'w+') as log:
+                    sub_call(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at '
+                             f'{self.fftype} -c bcc', shell=True, stdout=log)
+
+                # now copy the file back from the folder
+                copy('out.mol2', mol2)
+                chdir(cwd)
+
+        # now get the gaff atom types
+        with open(file, 'r') as mol_in:
+            ATOMS = False
+            BONDS = False
+            for line in mol_in.readlines():
+                if '@<TRIPOS>ATOM' in line:
+                    ATOMS = True
+                    continue
+                elif '@<TRIPOS>BOND' in line:
+                    ATOMS = False
+                    BONDS = True
+                    continue
+                if ATOMS:
+                    self.gaff_types[line.split()[1]] = str(line.split()[5])
+        print(self.gaff_types)
 
     def symmetrise(self):
         """
@@ -188,6 +254,7 @@ class XML(Parametrisation):
 
         super().__init__(molecule, input_file, fftype)
 
+        self.get_gaff_types()
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
@@ -212,6 +279,133 @@ class XML(Parametrisation):
         xml = XmlSerializer.serializeSystem(system)
         with open('serialised.xml', 'w+') as out:
             out.write(xml)
+
+
+@for_all_methods(timer_logger)
+class XML_Protein(Parametrisation):
+    """Read in the parameters for a protein from the QUBEKit_general XML file and store them into the protein."""
+
+    def __init__(self, protein, input_file='QUBE_general_pi.xml', fftype='CM1A/OPLS'):
+
+        super().__init__(protein, input_file, fftype)
+
+        self.serialise_system()
+        self.gather_parameters()
+        self.molecule.parameter_engine = 'XML input ' + self.fftype
+
+    def serialise_system(self):
+        """Serialise the input XML system using openmm."""
+
+        pdb = app.PDBFile(self.molecule.filename)
+        modeller = app.Modeller(pdb.topology, pdb.positions)
+
+        if self.input_file:
+            forcefield = app.ForceField(self.input_file)
+        else:
+            try:
+                forcefield = app.ForceField(self.molecule.name + '.xml')
+            except FileNotFoundError:
+                raise FileNotFoundError('No .xml type file found.')
+
+        system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+
+        xml = XmlSerializer.serializeSystem(system)
+        with open('serialised.xml', 'w+') as out:
+            out.write(xml)
+
+    def gather_parameters(self):
+        """This method parses the serialised xml file and collects the parameters ready to pass them
+        to build tree.
+        """
+
+        # Try to gather the AtomTypes first
+        for i, atom in enumerate(self.molecule.atom_names):
+            self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i),
+                                          str(self.molecule.molecule[i][0]) + str(800 + i)]
+
+        input_xml_file = 'serialised.xml'
+        in_root = parse_tree(input_xml_file).getroot()
+
+        # Extract all bond data
+        for Bond in in_root.iter('Bond'):
+            self.molecule.HarmonicBondForce[(int(Bond.get('p1')), int(Bond.get('p2')))] = [Bond.get('d'), Bond.get('k')]
+
+        # before we continue update the protein class
+        self.molecule.update()
+
+        # Extract all angle data
+        for Angle in in_root.iter('Angle'):
+            self.molecule.HarmonicAngleForce[int(Angle.get('p1')), int(Angle.get('p2')), int(Angle.get('p3'))] = [
+                Angle.get('a'), Angle.get('k')]
+
+        # Extract all non-bonded data
+        i = 0
+        for Atom in in_root.iter('Particle'):
+            if "eps" in Atom.attrib:
+                self.molecule.NonbondedForce[i] = [Atom.get('q'), Atom.get('sig'), Atom.get('eps')]
+                i += 1
+
+        # Extract all of the torsion data
+        phases = ['0', '3.141592653589793', '0', '3.141592653589793']
+        for Torsion in in_root.iter('Torsion'):
+            tor_string_forward = tuple(int(Torsion.get(f'p{i}')) for i in range(1, 5))
+            tor_string_back = tuple(reversed(tor_string_forward))
+
+            if tor_string_forward not in self.molecule.PeriodicTorsionForce.keys() and tor_string_back not in self.molecule.PeriodicTorsionForce.keys():
+                self.molecule.PeriodicTorsionForce[tor_string_forward] = [
+                    [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]]]
+            elif tor_string_forward in self.molecule.PeriodicTorsionForce.keys():
+                self.molecule.PeriodicTorsionForce[tor_string_forward].append(
+                    [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+            elif tor_string_back in self.molecule.PeriodicTorsionForce.keys():
+                self.molecule.PeriodicTorsionForce[tor_string_back].append([Torsion.get('periodicity'),
+                                                                            Torsion.get('k'), phases[
+                                                                                int(Torsion.get('periodicity')) - 1]])
+        # Now we have all of the torsions from the openMM system
+        # we should check if any torsions we found in the molecule do not have parameters
+        # if they don't give them the default 0 parameter this will not change the energy
+        for tor_list in self.molecule.dihedrals.values():
+            for torsion in tor_list:
+                # change the indexing to check if they match
+                param = tuple(torsion[i] - 1 for i in range(4))
+                if param not in self.molecule.PeriodicTorsionForce.keys() and tuple(
+                        reversed(param)) not in self.molecule.PeriodicTorsionForce.keys():
+                    self.molecule.PeriodicTorsionForce[param] = [['1', '0', '0'], ['2', '0', '3.141592653589793'],
+                                                                 ['3', '0', '0'], ['4', '0', '3.141592653589793']]
+
+        # Now we need to fill in all blank phases of the Torsions
+        for key in self.molecule.PeriodicTorsionForce.keys():
+            Vns = ['1', '2', '3', '4']
+            if len(self.molecule.PeriodicTorsionForce[key]) < 4:
+                # now need to add the missing terms from the torsion force
+                for force in self.molecule.PeriodicTorsionForce[key]:
+                    Vns.remove(force[0])
+                for i in Vns:
+                    self.molecule.PeriodicTorsionForce[key].append([i, '0', phases[int(i) - 1]])
+        # sort by periodicity using lambda function
+        for key in self.molecule.PeriodicTorsionForce.keys():
+            self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
+
+        # now we need to tag the proper and improper torsions and reorder them so the first atom is the central
+        improper_torsions = OrderedDict()
+        for improper in self.molecule.improper_torsions:
+            # print(improper)
+            for key in self.molecule.PeriodicTorsionForce:
+                # for each improper find the corresponding torsion parameters and save
+                if sorted(key) == sorted(tuple([x - 1 for x in improper])):
+                    # if they match tag the dihedral
+                    # print(f'imporper found {sorted(key)}')
+                    self.molecule.PeriodicTorsionForce[key].append('Improper')
+                    # replace the key with the strict improper order first atom is center
+                    improper_torsions[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
+
+        torsions = deepcopy(self.molecule.PeriodicTorsionForce)
+        # now we should remake the torsion store in the ligand
+        self.molecule.PeriodicTorsionForce = OrderedDict((v, k) for v, k in torsions.items() if k[-1] != 'Improper')
+        # now we need to add the impropers at the end of the torsion object
+        for key in improper_torsions.keys():
+            self.molecule.PeriodicTorsionForce[key] = improper_torsions[key]
+
 
 
 @for_all_methods(timer_logger)
@@ -268,6 +462,9 @@ class AnteChamber(Parametrisation):
             if not path.exists('out.mol2'):
                 raise FileNotFoundError('out.mol2 not found antechamber failed!')
 
+            # now get the gaff atom types
+            self.get_gaff_types(file='out.mol2')
+
             # Run parmchk
             with open('Antechamber.log', 'a') as log:
                 sub_call(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}", shell=True, stdout=log)
@@ -276,7 +473,7 @@ class AnteChamber(Parametrisation):
             if not path.exists('out.frcmod'):
                 raise FileNotFoundError('out.frcmod not found parmchk2 failed!')
 
-            # Now get the files back from the temp folder and close
+            # Now get the files back from the temp folder
             copy('out.mol2', mol2)
             copy('out.frcmod', frcmod_file)
             copy('Antechamber.log', ant_log)
@@ -317,6 +514,7 @@ class AnteChamber(Parametrisation):
 
 
 @for_all_methods(timer_logger)
+# TODO is this method viable if we lo   se all atom info ?
 class OpenFF(Parametrisation):
     """
     This class uses the openFF in openeye to parametrise the molecule using frost.
@@ -324,7 +522,6 @@ class OpenFF(Parametrisation):
     """
 
     def __init__(self, molecule, input_file=None, fftype='frost'):
-
         super().__init__(molecule, input_file, fftype)
 
         self.serialise_system()
@@ -354,6 +551,9 @@ class OpenFF(Parametrisation):
         with open('serialised.xml', 'w+') as out:
             out.write(XmlSerializer.serializeSystem(system))
 
+        # get the gaff atom types
+        self.get_gaff_types()
+
 
 @for_all_methods(timer_logger)
 class BOSS(Parametrisation):
@@ -364,7 +564,6 @@ class BOSS(Parametrisation):
 
     # TODO make sure order is consistent with PDB.
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
-
         super().__init__(molecule, input_file, fftype)
 
         self.BOSS_cmd()

@@ -31,7 +31,7 @@ class Engines:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
 
-@for_all_methods(timer_logger)
+#@for_all_methods(timer_logger)
 class PSI4(Engines):
     """
     Writes and executes input files for psi4.
