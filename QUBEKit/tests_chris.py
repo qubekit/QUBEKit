@@ -1,20 +1,22 @@
 #! /usr/bin/env python
 
-# from QUBEKit.engines import PSI4, Gaussian, Chargemol
+from QUBEKit.engines import PSI4, Gaussian, Chargemol
 from QUBEKit.ligand import Ligand
 # from QUBEKit.dihedrals import TorsionScan
-# from QUBEKit.lennard_jones import LennardJones as LJ
-# from QUBEKit.modseminario import ModSeminario
-# from QUBEKit import smiles, decorators
-# from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress, pretty_print, Configure
-# from QUBEKit.decorators import exception_logger_decorator
+from QUBEKit.lennard_jones import LennardJones as LJ
+from QUBEKit.mod_seminario import ModSeminario
+from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress, pretty_print, Configure
+from QUBEKit.decorators import exception_logger_decorator
 # from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
+# from QUBEKit import smiles
+from QUBEKit.ligand import Protein
 
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from numpy import arange
 from numpy.polynomial.polynomial import polyfit
-from contextlib import contextmanager
+from operator import itemgetter
+from itertools import chain
 
 
 # def main():
@@ -172,16 +174,37 @@ from contextlib import contextmanager
 #
 #     plt.show()
 
+defaults_dict = {'charge': 0,
+                 'multiplicity': 1,
+                 'config': 'default_config'}
+
+qm, fitting, descriptions = Configure.load_config(defaults_dict['config'])
+config_dict = [defaults_dict, qm, fitting, descriptions]
+
 
 def main():
 
-    substr = 'folder.123'
-    location = '../../../folder.123/../..'
+    # aa = Protein('aceleunme.pdb')
+    #
+    # # Rather than using the parametrisation classes:
+    # aa.atom_types()
+    # aa.residues()
+    # aa.construct_xml_dicts()
+    #
+    # XML(aa, input_file='qube.xml')
+    #
+    # aa.write_parameters()
 
-    separated = location.split(substr, 1)
-    separated[0] += substr
+    # aa.harmonic_bond_force()
+    # aa.harmonic_angle_force()
+    # aa.periodic_torsion_force()
+    # aa.improper_torsion_force()
 
-    print(separated)
+    # Need a ONETEP file to gather LJ params
+    # lj = LJ(aa, config_dict)
+    # aa.NonbondedForce = lj.calculate_non_bonded_force()
+
+    pass
 
 
 if __name__ == '__main__':

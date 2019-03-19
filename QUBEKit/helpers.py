@@ -12,8 +12,10 @@ from contextlib import contextmanager
 
 
 class Configure:
-    """Class to help load, read and write ini style configuration files returns dictionaries of the config
-     settings as strings, all numbers must then be cast before use."""
+    """
+    Class to help load, read and write ini style configuration files returns dictionaries of the config
+    settings as strings, all numbers must then be cast before use.
+    """
 
     home = Path.home()
     config_folder = f'{home}/QUBEKit_configs/'
@@ -111,10 +113,10 @@ class Configure:
 
         for key in clean_ints:
 
-            if key in qm.keys():
+            if key in qm:
                 qm[key] = int(qm[key])
 
-            elif key in fitting.keys():
+            elif key in fitting:
                 fitting[key] = int(fitting[key])
 
         # Now cast the one float the scaling
@@ -214,7 +216,8 @@ class Configure:
 
 
 def get_mol_data_from_csv(csv_name):
-    """Scan the csv file to find the row with the desired molecule data.
+    """
+    Scan the csv file to find the row with the desired molecule data.
     Returns a dictionary of dictionaries in the form:
     {'methane': {'charge': 0, 'multiplicity': 1, ...}, 'ethane': {'charge': 0, ...}, ...}
     """
@@ -244,7 +247,7 @@ def get_mol_data_from_csv(csv_name):
         # Removes the names from the sub-dictionaries:
         # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
         # ---> {'methane': {'charge': 0, ...}, ...}
-        for conf, val in final.items():
+        for val in final.values():
 
             del val['name']
 
@@ -252,7 +255,8 @@ def get_mol_data_from_csv(csv_name):
 
 
 def generate_config_csv(csv_name):
-    """Generates a csv with name "csv_name" with minimal information inside.
+    """
+    Generates a csv with name "csv_name" with minimal information inside.
     Contains only headers and a row of defaults.
     """
 
@@ -269,7 +273,8 @@ def generate_config_csv(csv_name):
 
 
 def append_to_log(log_file, message, msg_type='major'):
-    """Appends a message to the log file in a specific format.
+    """
+    Appends a message to the log file in a specific format.
     Used for significant stages in the program such as when G09 has finished.
     """
 
@@ -294,7 +299,8 @@ def get_overage(molecule):
 
 
 def pretty_progress():
-    """Neatly displays the state of all QUBEKit running directories in the terminal.
+    """
+    Neatly displays the state of all QUBEKit running directories in the terminal.
     Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
     """
 
@@ -335,9 +341,8 @@ def pretty_progress():
         print(f'{key_out[:13]:15}', end=' ')
 
         # Inner dict contains the individual molecules' data.
-        for key_in, var_in in var_out.items():
+        for var_in in var_out.values():
             if var_in == 1:
-
                 # Uses exit codes to set terminal font colours.
                 # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
                 # The second exit code resets the style back to default.
@@ -349,8 +354,9 @@ def pretty_progress():
         print('')
 
 
-def pretty_print(mol, to_file=False, finished=True):
-    """Takes a ligand molecule class object and displays all the class variables in a clean, readable format.
+def pretty_print(molecule, to_file=False, finished=True):
+    """
+    Takes a ligand molecule class object and displays all the class variables in a clean, readable format.
 
     Print to log: * On exception
                   * On completion
@@ -372,13 +378,13 @@ def pretty_print(mol, to_file=False, finished=True):
             qube_log_file = 'temp_QUBE_log'
 
         with open(qube_log_file, 'a+') as log_file:
-            log_file.write(f'{pre_string.upper()}\n\n{mol.__str__()}')
+            log_file.write(f'{pre_string.upper()}\n\n{molecule.__str__()}')
 
     # Print to terminal
     else:
         print(pre_string)
         # Custom __str__ method; see its documentation for details.
-        print(mol.__str__(trunc=True))
+        print(molecule.__str__(trunc=True))
 
 
 def set_dict_val(file_name, search_term):
@@ -392,7 +398,8 @@ def set_dict_val(file_name, search_term):
 
 
 def unpickle(pickle_jar):
-    """Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of ligands
+    """
+    Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of ligands
     indexed by their progress.
     """
 
@@ -413,9 +420,10 @@ def unpickle(pickle_jar):
 
 @contextmanager
 def assert_wrapper(exception_type):
-    """Makes assertions more informative when an Exception is thrown.
+    """
+    Makes assertions more informative when an Exception is thrown.
     Rather than just getting 'AssertionError' all the time, an actual named exception can be passed.
-    Can be called multiple times in the same with statement for the same exception type but different specific exceptions.
+    Can be called multiple times in the same 'with' statement for the same exception type but different exceptions.
 
     Simple example use cases:
 
@@ -450,7 +458,7 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
     total_charge = sum(atom for atom in charges)
 
     with assert_wrapper(ValueError):
-        assert (abs(total_charge - ideal_net) < error), 'Total charge is not close enough to integer value.'
+        assert (abs(total_charge - ideal_net) < error), 'Total charge is not close enough to desired integer value in configs.'
 
     print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
     return True

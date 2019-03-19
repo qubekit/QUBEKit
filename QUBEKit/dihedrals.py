@@ -25,16 +25,20 @@ import matplotlib.pyplot as plt
 
 @for_all_methods(timer_logger)
 class TorsionScan:
-    """This class will take a QUBEKit molecule object and perform a torsiondrive QM (and MM if True) energy scan
+    """
+    This class will take a QUBEKit molecule object and perform a torsiondrive QM (and MM if True) energy scan
     for each selected dihedral.
     """
 
-    def __init__(self, molecule, qm_engine, mm_engine='openmm', native_opt=False, verbose=False):
+    def __init__(self, molecule, qm_engine, config_dict, mm_engine='openmm', native_opt=False, verbose=False):
+
+        # TODO Keep track of log file path in __init__ then change it when moving through scan folders.
 
         self.qm_engine = qm_engine
+        self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
         self.mm_engine = mm_engine
         self.constraints = None
-        self.grid_space = qm_engine.fitting['increment']
+        self.grid_space = self.fitting['increment']
         self.native_opt = native_opt
         self.verbose = verbose
         self.scan_mol = molecule
@@ -43,7 +47,8 @@ class TorsionScan:
         self.torsion_cmd()
 
     def find_scan_order(self):
-        """Function takes the molecule and displays the rotatable central bonds,
+        """
+        Function takes the molecule and displays the rotatable central bonds,
         the user then enters the number of the torsions to be scanned in the order to be scanned.
         The molecule can also be supplied with a scan order already.
         """
@@ -104,17 +109,20 @@ class TorsionScan:
             self.qm_engine.geo_gradient(run=False, threads=True)
 
     def torsion_cmd(self):
-        """Function generates a command strings to run torsiondrive based on the input commands for QM and MM."""
+        """Generates a command string to run torsiondrive based on the input commands for QM and MM."""
 
         # add the first basic command elements for QM
-        cmd_qm = f'torsiondrive-launch {self.scan_mol.name}.{self.qm_engine.__class__.__name__.lower()}in dihedrals.txt '
+        cmd_qm = f'torsiondrive-launch {self.scan_mol.name}.psi4in dihedrals.txt '
+
         if self.grid_space:
             cmd_qm += f'-g {self.grid_space} '
+
         if self.qm_engine:
-            cmd_qm += f'-e {self.qm_engine.__class__.__name__.lower()} '
+            cmd_qm += '-e psi4 '
 
         if self.native_opt:
             cmd_qm += '--native_opt '
+
         if self.verbose:
             cmd_qm += '-v '
 
@@ -122,8 +130,9 @@ class TorsionScan:
         return self.cmd
 
     def get_energy(self, scan):
-        """Function will extract an array of energies from the scan results
-        and store it back into the molecule in a dictionary using the scan order as keys.
+        """
+        Extracts an array of energies from the scan results then stores it back
+        into the molecule (in a dictionary) using the scan orders as the keys.
         """
 
         with open('scan.xyz', 'r') as scan_file:
@@ -137,7 +146,8 @@ class TorsionScan:
             return self.scan_mol
 
     def start_scan(self):
-        """Function makes a folder and writes a new a dihedral input file for each scan."""
+        """Makes a folder and writes a new a dihedral input file for each scan."""
+        # TODO put all the scans in a work queue so they can be performed in parallel
 
         for scan in self.scan_mol.scan_order:
             mkdir(f'SCAN_{scan[0]}_{scan[1]}')
@@ -221,8 +231,10 @@ class TorsionOptimiser:
 
     @staticmethod
     def get_coords(engine):
-        """Read the torsion drive output file to get all of the coords in a format that can be passed to openmm
-        so we can update positions in context without reloading the molecule."""
+        """
+        Read the torsion drive output file to get all of the coords in a format that can be passed to openmm
+        so we can update positions in context without reloading the molecule.
+        """
 
         scan_coords = []
         if engine == 'torsiondrive':
@@ -675,8 +687,10 @@ class TorsionOptimiser:
         plt.clf()
 
     def run(self):
-        """Optimize the parameters for the chosen torsions in the molecule scan_order,
-        also set up a work queue to do the single point calculations if they are needed."""
+        """
+        Optimise the parameters for the chosen torsions in the molecule scan_order,
+        also set up a work queue to do the single point calculations if they are needed.
+        """
 
         # Set up the first fitting
         for self.scan in self.scan_order:
@@ -807,7 +821,8 @@ class TorsionOptimiser:
         return error, opt_parameters
 
     def rest_torsions(self):
-        """Set all the torsion k values to one for every torsion in the system.
+        """
+        Set all the torsion k values to one for every torsion in the system.
 
         Once an OpenMM system is created we cannot add new torsions without making a new PeriodicTorsion
         force every time.
@@ -820,7 +835,6 @@ class TorsionOptimiser:
         self.torsion_store = deepcopy(self.molecule.PeriodicTorsionForce)
 
         # Set all the torsion to 1 to get them into the system
-        # TODO .keys() / .items() ?
         for key in self.molecule.PeriodicTorsionForce:
             if self.molecule.PeriodicTorsionForce[key][-1] == 'Improper':
                 self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', '3.141594'],
@@ -837,8 +851,10 @@ class TorsionOptimiser:
         self.molecule.PeriodicTorsionForce = deepcopy(self.torsion_store)
 
     def get_torsion_params(self):
-        """Get the torsions and their parameters that will scanned, work out how many different torsion types needed,
-        make a vector corresponding to this size."""
+        """
+        Get the torsions and their parameters that will scanned, work out how many different torsion types needed,
+        make a vector corresponding to this size.
+        """
 
         # TODO check the atom types are the same as well as the parameters
         # Get a list of which dihedrals parameters are to be varied
@@ -921,7 +937,7 @@ class TorsionOptimiser:
         self.tor_types = OrderedDict((index, k) for index, k in enumerate(torsion_string_dict.values()))
 
         # Make the param_vector of the correct size
-        self.param_vector = zeros((1, len(list(self.tor_types.keys())) * 4))
+        self.param_vector = zeros((1, 4 * len(self.tor_types)))
 
         # now take the master vectors and make the starting parameter list
         # Store the original parameter vectors to use regularisation
@@ -970,7 +986,7 @@ class TorsionOptimiser:
     def scipy_optimiser(self):
         """The main torsion parameter optimiser that controls the optimisation method used."""
 
-        print(f'Running scipy {self.method} optimiser ... ')
+        print(f'Running SciPy {self.method} optimiser ... ')
 
         # Does not work in dictionary for some reason
         # TODO Try .get() ?
@@ -985,7 +1001,7 @@ class TorsionOptimiser:
         else:
             raise NotImplementedError('The optimisation method is not implemented')
 
-        print('Scipy optimisation complete')
+        print('SciPy optimisation complete')
 
         # Update the tor types dict using the optimised vector
         self.update_tor_vec(res.x)
@@ -1005,7 +1021,7 @@ class TorsionOptimiser:
                   index in range(self.simulation.system.getNumForces())}
         torsion_force = forces['PeriodicTorsionForce']
         i = 0
-        for key, val in self.tor_types.items():
+        for val in self.tor_types.values():
             for j, dihedral in enumerate(val[0]):
                 for v_n in range(4):
                     # print the torsion we are replacing and the new torsion
@@ -1222,9 +1238,9 @@ class TorsionOptimiser:
         return array(sp_energy)
 
     def update_mol(self):
-        """When the optimization is complete update the PeriodicTorsionForce parameters in the molecule."""
+        """When the optimisation is complete update the PeriodicTorsionForce parameters in the molecule."""
 
-        for key, val in self.tor_types.items():
+        for val in self.tor_types.values():
             for dihedral in val[0]:
                 for vn in range(4):
                     try:
@@ -1233,7 +1249,8 @@ class TorsionOptimiser:
                         self.molecule.PeriodicTorsionForce[tuple(reversed(dihedral))][vn][1] = str(val[1][vn])
 
     def opls_lj(self, excep_pairs=None, normal_pairs=None):
-        """This function changes the standard OpenMM combination rules to use OPLS, execp and normal pairs are only
+        """
+        This function changes the standard OpenMM combination rules to use OPLS, execp and normal pairs are only
         required if their are virtual sites in the molecule.
         """
 

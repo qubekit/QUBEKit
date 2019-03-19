@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
-# TODO Eliminate sub_call where possible.
 # TODO Add better error handling for missing info. (Done for file extraction.)
-#       Maybe add path checking for chargemol?
+#       Maybe add path checking for Chargemol?
+# TODO Convert to subprocess.run()
 
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
@@ -14,7 +14,8 @@ from numpy import array, zeros
 
 
 class Engines:
-    """Engines superclass containing core information that all other engines (PSI4, Gaussian etc) will have.
+    """
+    Engines superclass containing core information that all other engines (PSI4, Gaussian etc) will have.
     Provides atoms' coordinates with name tags for each atom and entire molecule.
     Also gives all configs from the appropriate config file.
     """
@@ -32,7 +33,8 @@ class Engines:
 
 #@for_all_methods(timer_logger)
 class PSI4(Engines):
-    """Writes and executes input files for psi4.
+    """
+    Writes and executes input files for psi4.
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
     """
 
@@ -44,8 +46,8 @@ class PSI4(Engines):
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, qm=False, mm=False, optimise=False, hessian=False, density=False, energy=False, threads=False,
-                       fchk=False, run=True):
+    def generate_input(self, qm=False, mm=False, optimise=False, hessian=False, density=False, energy=False,
+                       threads=False, fchk=False, run=True):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
 
         if qm:
@@ -55,12 +57,12 @@ class PSI4(Engines):
         else:
             molecule = self.molecule.molecule
 
-        # input.dat is the PSI4 input file.
         setters = ''
         tasks = ''
 
-        # opening tag is always writen
+        # input.dat is the PSI4 input file.
         with open('input.dat', 'w+') as input_file:
+            # opening tag is always writen
             input_file.write(f"memory {self.qm['threads']} GB\n\nmolecule {self.molecule.name} {{\n{self.charge} {self.multiplicity} \n")
             # molecule is always printed
             for atom in molecule:
@@ -120,7 +122,8 @@ class PSI4(Engines):
             sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     def hessian(self):
-        """Parses the Hessian from the output.dat file (from psi4) into a numpy array.
+        """
+        Parses the Hessian from the output.dat file (from psi4) into a numpy array.
         Molecule is a numpy array of size N x N.
         """
 
@@ -132,7 +135,7 @@ class PSI4(Engines):
             lines = file.readlines()
 
             for count, line in enumerate(lines):
-                if '## Hessian' in line:
+                if '## Hessian' in line or '## New Matrix (Symmetry' in line:
                     # Set the start of the hessian to the row of the first value.
                     hess_start = count + 5
                     break
@@ -173,7 +176,7 @@ class PSI4(Engines):
 
             hess_matrix = array(reshaped)
 
-            # Units conversion.
+            # Cache the unit conversion.
             conversion = 627.509391 / (0.529 ** 2)
             hess_matrix *= conversion
 
@@ -199,9 +202,6 @@ class PSI4(Engines):
             for count, line in enumerate(lines):
                 if "==> Geometry" in line:
                     geo_pos_list.append(count)
-                    break
-            else:
-                raise EOFError('Cannot locate optimised structure in output.dat file.')
 
             # Set the start as the last instance of '==> Geometry'.
             start_of_vals = geo_pos_list[-1] + 9
@@ -271,16 +271,15 @@ class PSI4(Engines):
             return array(all_modes)
 
     def geo_gradient(self, qm=False, mm=False, threads=False, run=True):
-        """Write the psi4 style input file to get the gradient for geometric
+        """
+        Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
         """
 
         if qm:
             molecule = self.molecule.qm_optimised
-
         elif mm:
             molecule = self.molecule.mm_optimised
-
         else:
             molecule = self.molecule.molecule
 
@@ -310,7 +309,8 @@ class Chargemol(Engines):
         super().__init__(molecule, config_file)
 
     def generate_input(self, run=True):
-        """Given a DDEC version (from the defaults), this function writes the job file for chargemol and
+        """
+        Given a DDEC version (from the defaults), this function writes the job file for chargemol and
         executes it.
         """
 
@@ -347,7 +347,8 @@ class Chargemol(Engines):
 
 @for_all_methods(timer_logger)
 class Gaussian(Engines):
-    """Writes and executes input files for Gaussian09.
+    """
+    Writes and executes input files for Gaussian09.
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
     """
 
@@ -458,9 +459,6 @@ class Gaussian(Engines):
             for pos, line in enumerate(lines):
                 if 'Input orientation' in line:
                     opt_coords_pos.append(pos + 5)
-                    break
-            else:
-                raise EOFError(f'Cannot locate optimised structures in gj_{self.molecule.name}.log file.')
 
             start_pos = opt_coords_pos[-1]
 
@@ -489,11 +487,20 @@ class Gaussian(Engines):
             for count, line in enumerate(lines):
                 if line.startswith(' Frequencies'):
                     freq_positions.append(count)
-                    break
-            else:
-                raise EOFError(f'Cannot locate modes in gj_{self.molecule.name}.log file.')
 
             for pos in freq_positions:
                 freqs.extend(float(num) for num in lines[pos].split()[2:])
 
         return array(freqs)
+
+
+@for_all_methods(timer_logger)
+class ONETEP(Engines):
+
+    def __init__(self, molecule, config_dict):
+
+        super().__init__(molecule, config_dict)
+
+    def generate_input(self, run=True):
+
+        pass

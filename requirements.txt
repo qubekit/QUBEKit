@@ -1,6 +1,7 @@
-rdkit
-openmm
 geomeTRIC
-torsiondrive
-simtk
+openmm
+networkx
+rdkit
 seaborn
+simtk
+torsiondrive

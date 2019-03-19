@@ -96,7 +96,7 @@ class LennardJones:
         ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'vol']
         All vals are float except atom number (int) and atom type (str).
         """
-        # TODO do we need this if we know the order from the ligand class?
+
         # First file contains atom number, type and xyz coords:
         with open('ddec.xyz', 'r') as file:
             lines = file.readlines()
@@ -122,7 +122,7 @@ class LennardJones:
 
         if not charge_pos and vol_pos:
             raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
-
+            
         charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
         check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
 

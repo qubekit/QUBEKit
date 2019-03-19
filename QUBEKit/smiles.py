@@ -29,7 +29,8 @@ def smiles_to_pdb(smiles_string, name=None):
 
 
 def smiles_mm_optimise(pdb_file):
-    """Perform rough preliminary optimisation to speed up later optimisations
+    """
+    Perform rough preliminary optimisation to speed up later optimisations
     and extract some extra information about the molecule.
     """
 

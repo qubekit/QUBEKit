@@ -24,7 +24,7 @@
 
 ## What is QUBEKit?
 
-[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python based force field derivation toolkit.
+[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python 3.6 based force field derivation toolkit for Linux operating systems.
 It aims to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
 QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
 QUBEKit aims to use as few parameters as possible while also being highly customisable.
@@ -40,41 +40,71 @@ QUBEKit should currently be considered a work in progress.
 While it is stable we are constantly working to improve the code and broaden its compatibility. 
 We use lots of software written by many different people;
 if reporting a bug please (to the best of your ability) make sure it is a bug with QUBEKit and not with a dependency.
+We welcome any suggestions for additions or changes. 
 
 ## Installation
 
-To install, it is recommended to clone the QUBEKit folder into a home directory and run the setup.py script: 
+To install, it is recommended to git clone the QUBEKit folder into a home directory and run the setup.py script: 
 
     git clone git@github.com:cole-group/QuBeKit.git
-    cd QUBEKit
+    cd <path to QUBEKit setup.py script>
     python setup.py install
 
 ### Requirements
 
 * [Anaconda3](https://www.anaconda.com/download/)
+
+Download Anaconda from the above link and install with the linux command ```./Anaconda3<version>.sh```
+
+*You may need to use ```chmod +x Anaconda3<version>.sh``` to make it executable.*
+
+We recommend you add conda to your .bashrc when prompted.
+
 * [Gaussian09](http://gaussian.com/)
+
+Installation of Gaussian is likely handled by your institution; QUBEKit uses it for density calculations only.
+If you don't plan on performing these sorts of calculations then it is not necessary.
+
+* [Chargemol](https://sourceforge.net/projects/ddec/files/)
+
+Chargemol can be downloaded and installed from a zip file in the above link. 
+Be sure to add the path to configs once you've generated them *([explanation](https://github.com/jthorton/QUBEKitdev#before-you-start-config-files))*.
+
+Many packages come pre-installed with Anaconda, however there are some which require further installation.
+These packages are on different conda channels, hence needing the extra arguments.
+
 * [PSI4](http://www.psicode.org/)
 
-### Other Python modules used
-
-Many packages come installed with the above requirements, however there are some which require further installation. All packages must be installed through conda and use conda as their path.
-(Standard library packages and conda default packages (scipy, numpy, etc) are not listed.)
+```conda install -c psi4 psi4```
 
 * [GeomeTRIC](https://github.com/leeping/geomeTRIC)
+
+```conda install -c conda-forge geometric``` 
+
 * [RDKit](http://rdkit.org/)
+
+```conda install -c rdkit rdkit```
+
 * [OpenFF](https://openforcefield.org/)
 
-You should now be able to use QUBEKit straight away from the command line or as an import.
+```conda install -c omnia openforcefield```
+
+* [OpenEye](https://docs.eyesopen.com/toolkits/python/index.html)
+
+```conda install -c openeye openeye-toolkits```
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda will deal with versions and conflicts in your environment.
-Generally, conda packages will have the conda install command on their website/github.
+Generally, conda packages will have the conda install command on their website or github.
 For the software not available through Anaconda, either git clone them and install:
 
     git clone http://<git_address_here>
+    cd <location of cloned package>
     python setup.py install
 
 or follow the described steps in the respective documentation.
+
+You should now be able to use QUBEKit straight away from the command line or as an imported Python module.
 
 ## Help
 
@@ -85,9 +115,9 @@ Please be aware there are currently no terminal help commands; all necessary inf
 
 QUBEKit has a lot of settings which are used in production and changing these can result in very different force field parameters.
 The settings are controlled using ini style config files which are easy to edit.
-After installation you should notice a ```QUBEKit_configs``` 
+After installation you should notice a `QUBEKit_configs` 
 folder in your main home directory; now you need to create a master template.
-To do this use the command ```QUBEKit -setup``` where you will then be presented with some options:
+To do this use the command `QUBEKit -setup` where you will then be presented with some options:
 
     You can now edit config files using QUBEKit, chose an option to continue:
     1)Edit a config file
@@ -96,9 +126,9 @@ To do this use the command ```QUBEKit -setup``` where you will then be presented
 
 Choose option two to set up a new template which will be used every time you run QUBEKit 
 (unless you supply the name of another ini file in the configs folder).
-The only parameter that must be changed for QUBEKit to run is the chargemol path in the descriptions section.
-This option is what controls where the chargemol code is kept on your PC.
-It should be the location of the chargemol home directory, plus the name of the chargemol folder itself:
+The only parameter that must be changed for QUBEKit to run is the Chargemol path in the descriptions section.
+This option is what controls where the Chargemol code is kept on your PC.
+It should be the location of the Chargemol home directory, plus the name of the Chargemol folder itself:
 
     '/home/<user>/Programs/chargemol_09_26_2017'
     
@@ -106,27 +136,27 @@ Following this, feel free to change any of the other options.
 
 ### QUBEKit Commands: Running Jobs
 
-Given a list of commands, such as: "-end", "psi4" some are taken as single word commands.
-Others however, such as changing defaults: ("-c", "0") ("-m", "1") etc are taken as tuple commands.
-The first command of tuple commands is always preceded by a "-", while single word commands are not.
-(An error is raised for hanging commands e.g. "-c", "1", "-sm".)
+Given a list of commands, such as: `-end`, `psi4` some are taken as single word commands.
+Others however, such as changing defaults: (`-c` `0`), (`-m` `1`), etc are taken as tuple commands.
+The first command of tuple commands is always preceded by a `-`, while single word commands are not.
+(An error is raised for hanging commands e.g. `-c`, `1` or `-sm`.)
 
-Single-word commands are taken in any order, assuming they are given, while tuple commands are taken as ("-key", "val").
+Single-word commands are taken in any order, assuming they are given, while tuple commands are taken as (`-key` `value`).
 **All commands are optional**. If nothing at all is given, the program will run entirely with defaults.
 
 Files to be analysed must be written with their file extension (.pdb) attached or they will not be recognised commands.
 All commands should be given in lower case with two main exceptions;
-you may use whatever case you like for the name of files (e.g. DMSO.pdb) or the name of the log files (e.g. Run013).
+you may use whatever case you like for the name of files (e.g. `DMSO.pdb`) or the name of the log files (e.g. `Run013`).
 
 ### QUBEKit Commands: Some Examples
 
-Running a full analysis on molecule.pdb with a non-default charge of 1, the default charge engine (chargemol) and with geometric off:
-Note, ordering does not matter as long as tuples commands (-c, 1) are together.
+Running a full analysis on molecule.pdb with a non-default charge of 1, the default charge engine (Chargemol) and with GeomeTRIC off:
+Note, ordering does not matter as long as tuples commands (`-c` `1`) are together.
     
     QUBEKit molecule.pdb -c 1 -geo false
     QUBEKit -c 1 -geo false molecule.pdb
 
-Running a full analysis with a non-default bonds engine (g09):
+Running a full analysis with a non-default bonds engine: Gaussian09 (g09):
 
     QUBEKit molecule.pdb -bonds g09
 
@@ -137,14 +167,14 @@ Try running QUBEKit with the command:
 
     QUBEKit -sm C -end hessian
 
-This will generate a methane pdb file (and mol file) using its smiles string: "C",
+This will generate a methane pdb file (and mol file) using its smiles string: `C`,
 then QUBEKit will analyse it until the hessian is calculated.
-See "QUBEKit Commands: Custom Start and End Points (single molecule)" below for more details on "-end".
+See [QUBEKit Commands: Custom Start and End Points (single molecule)](https://github.com/jthorton/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule) below for more details on `-end`.
 
 ### QUBEKit Commands: Logging
 
 Each time QUBEKit runs, a new working directory containing a log file will be created.
-The name of the directory will contain the run number provided via the terminal command "-log" (or the default run number in the configs if none is provided).
+The name of the directory will contain the run number provided via the terminal command `-log` (or the default run number in the configs if none is provided).
 This log file will store which methods were called, how long they took, and any docstring for them (if it exists).
 The log file will also contain information regarding the config options used, as well as the commands given and much more.
 The log file updates in real time and contains far more information than is printed to the terminal during a run.
@@ -168,14 +198,14 @@ Updating the run number can be done with the command:
 
     -log Prop1201
     
-where 'Prop1201' is an example string which can be almost anything you like (no spaces or special characters).
+where `Prop1201` is an example string which can be almost anything you like (no spaces or special characters).
 
 **Inputs are not sanitised so code injection is possible but given QUBEKit's use occurs locally, you're only hurting yourself!
 If you don't understand this, don't worry, just use alphanumeric log names like above.**
 
 ### QUBEKit Commands: High Throughput
 
-Bulk commands are for high throughput analysis; they are invoked with the -bulk keyword.
+Bulk commands are for high throughput analysis; they are invoked with the `-bulk` keyword.
 A csv must be used when running a bulk analysis.
 If you would like to generate a blank csv config file, simply run the command:
 
@@ -210,8 +240,8 @@ Please note, there are deliberately two config files.
 The changeable parameters are spread across a .csv and a .ini config files.
 The configs in the .ini are more likely to be kept constant across a bulk analysis.
 For this reason, the .csv config contains highly specific parameters such as torsions which will change molecule to molecule.
-The .ini contains more typically static parameters such as the basis sets and engines being used (e.g. psi4, chargemol, etc).
-If you would like the .ini config to change from molecule to molecule, you may specify that in the .csv config.
+The .ini contains more typically static parameters such as the basis sets and engines being used (e.g. PSI4, Chargemol, etc).
+If you would like the ini config to change from molecule to molecule, you may specify that in the csv config.
 
 You can change defaults inside the terminal when running bulk analyses, and these changed defaults will be printed to the log file.
 However, the config files themselves will not be overwritten.
@@ -238,9 +268,9 @@ For example (csv row order does not matter, and you do not need to include smile
 ### QUBEKit Commands: Custom Start and End Points (single molecule)
 
 QUBEKit also has the ability to run partial analyses, or redo certain parts of an analysis.
-For single molecule analysis, this is achieved with the -end and -restart commands. 
+For single molecule analysis, this is achieved with the `-end` and `-restart` commands. 
 
--end specifies the final stage for an analysis, where 'finalise' is the default. The stages are:
+`-end` specifies the final stage for an analysis, where `finalise` is the default. The stages are:
 
 * **rdkit_optimise** - This is a quick, preliminary optimisation with RDKit which speeds up later optimisations.
 This step also loads in the molecule and extracts key information like the atoms and their coordinates. 
@@ -260,9 +290,9 @@ This stage also prints the final information to the log file and a truncated ver
 In a normal run, all of these functions are called sequentially,
 but with -end and -restart you are free to run *from* any step *to* any step inclusively.
 
-When using -end, simply specify the end-point in the proceeding command,
-when using -restart, specify the start-point, then the end-point as space separated commands.
-When using these commands, all other commands can be used in the same ways as before. For example:
+When using `-end`, simply specify the end-point in the proceeding command,
+when using `-restart`, specify the start-point, then the end-point as space separated commands.
+When using these commands, all other config-changing commands can be used in the same ways as before. For example:
 
     QUBEKit methanol.pdb -end charges
     QUBEKit -sm CC -restart qm_optimise density
@@ -345,28 +375,28 @@ this means they may try to take more than is available, leading to a crash.
 
 Optional commands:
 
-* Enable or disable geomeTRIC: 
-```-geo true``` or ```-geo false```
+* Enable or disable GeomeTRIC: 
+`-geo true` or `-geo false`
 
 * Change DDEC version: 
-```-ddec 3``` or ```-ddec 6```
+`-ddec 3` or `-ddec 6`
 
 * Enable or disable the solvent model: 
-```-solvent true``` or ```-solvent false```
+`-solvent true` or `-solvent false`
 
 * Change the method for initial parametrisation: 
-```-param openff```, ```-param xml```, ```-param antechamber```
+`-param openff`, `-param xml`, `-param antechamber`
 
 * Change the log file name and directory label:
-```-log Example123```
+`-log Example123`
 
 * Change the functional being used:
-```-func B3LYP```
+`-func B3LYP`
 
 * Change the basis set:
-```-basis 6-31G```
+`-basis 6-31G`
 
-**Complete analysis of ethane from its smiles string using DDEC3, OpenFF and no solvent (```-log``` command labels the analysis):**
+**Complete analysis of ethane from its smiles string using DDEC3, OpenFF and no solvent (`-log` command labels the analysis):**
 
     QUBEKit -sm CC -ddec 3 -param openff -solvent false -log ethane_example
 

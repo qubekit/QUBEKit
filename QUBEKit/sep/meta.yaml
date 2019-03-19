@@ -1,0 +1,45 @@
+package:
+  name: qubekit
+  version: 2.0.0
+
+source:
+  git_url: https://github.com/jthorton/QUBEKitdev.git
+
+build:
+  entry_points:
+    - QUBEKit = QUBEKit.run:main
+  preserve_egg_dir: True
+  script: python setup.py install
+
+requirements:
+  build:
+    - setuptools
+    - numpy
+    - python >=3.6
+    - matplotlib
+    - networkx
+    - rdkit
+    - openforcefield
+    - openeye-toolkits
+    - psi4
+  run:
+    - numpy
+    - python >=3.6
+    - matplotlib
+    - networkx
+    - rdkit
+    - openforcefield
+    - openeye-toolkits
+    - psi4
+
+about:
+  home: https://github.com/jthorton/QUBEKitdev
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE.txt
+  summary: Quantum mechanical bespoke force field derivation toolkit
+  doc_url: https://github.com/jthorton/QUBEKitdev
+
+extra:
+  recipe-maintainers:
+    - CRingrose94
