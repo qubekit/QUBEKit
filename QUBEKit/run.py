@@ -2,7 +2,7 @@
 
 
 from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise
-from QUBEKit.modseminario import ModSeminario
+from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.engines import PSI4, Chargemol, Gaussian
 from QUBEKit.ligand import Ligand
@@ -34,8 +34,9 @@ class Main:
 
     def __init__(self):
 
-        self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n'
-                             'Our documentation (README.md) also contains help on handling the various commands for QUBEKit')
+        self.start_up_msg = ('''
+            If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n
+            Our documentation (README.md) also contains help on handling the various commands for QUBEKit''')
 
         # Configs:
         self.defaults_dict = {'charge': 0,
@@ -58,31 +59,24 @@ class Main:
                                   ('torsions', self.torsions),
                                   ('finalise', self.finalise)])
 
-        self.log_file = None  # Defined later, not strictly necessary to define them here.
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian}
-        # Parse the input commands to find the config file, and save changes to configs
-        self.file, self.commands = self.parse_commands()
+        self.parse_commands()
 
         # Find which config is being used and store arguments accordingly
         if self.defaults_dict['config'] == 'default_config':
             if not Configure.check_master():
                 # Press any key to continue
-                input('You must set up a master config to use QUBEKit and change the chargemol path; '
-                      'press enter to edit master config. '
-                      'You are free to change it later, with whichever editor you prefer.')
+                input('''You must set up a master config to use QUBEKit and change the chargemol path; 
+                      press enter to edit master config. 
+                      You are free to change it later, with whichever editor you prefer.''')
                 Configure.ini_writer('master_config.ini')
                 Configure.ini_edit('master_config.ini')
 
         self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
         self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
 
-        # Get the master configs and apply the changes
         self.config_update()
-
-        # Continue or create log file depending on desired analysis.
         self.continue_log() if '-restart' in self.commands else self.create_log()
-
-        # Main worker method which handles calling of the modules in the correct order.
         self.execute()
 
     def __repr__(self):
@@ -147,10 +141,10 @@ class Main:
 
             # Setup configs for all future runs
             if cmd == '-setup':
-                choice = input('You can now edit config files using QUBEKit, choose an option to continue:\n'
-                               '1) Edit a config file\n'
-                               '2) Create a new master template\n'
-                               '3) Make a normal config file\n>')
+                choice = input('''You can now edit config files using QUBEKit, choose an option to continue:\n
+                               1) Edit a config file\n
+                               2) Create a new master template\n
+                               3) Make a normal config file\n>''')
 
                 if int(choice) == 1:
                     name = input('Enter the name of the config file to edit\n>')
@@ -208,9 +202,9 @@ class Main:
                 self.configs['qm']['basis'] = str(self.commands[count + 1])
 
         if self.commands:
-            print(f'\nThese are the commands you gave: {self.commands} \n'
-                  f'These are the current defaults: {self.defaults_dict} \n'
-                  'Please note, some values may not be used depending on what kind of analysis is being done.')
+            print(f'''\nThese are the commands you gave: {self.commands} \n
+                  These are the current defaults: {self.defaults_dict} \n
+                  Please note, some values may not be used depending on what kind of analysis is being done.''')
 
         # Check if a bulk analysis is being done.
         for count, cmd in enumerate(self.commands):
@@ -310,8 +304,6 @@ class Main:
                     files = [file for file in listdir('.') if path.isfile(file)]
                     self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
 
-                    return self.file, self.commands
-
         # Finally, check if a single analysis is being done and if so, is it using a pdb or smiles.
         for count, cmd in enumerate(self.commands):
 
@@ -325,14 +317,18 @@ class Main:
                 self.file = cmd
 
             print(self.start_up_msg)
-            return self.file, self.commands
 
         else:
-            sys_exit('You did not ask QUBEKit to perform any kind of analysis, so it has stopped.\n'
-                     'See the documentation (README) for details of acceptable commands with examples.')
+            sys_exit('''You did not ask QUBEKit to perform any kind of analysis, so it has stopped.\n
+                     See the documentation (README) for details of acceptable commands with examples.\n
+                     Try QUBEKit -sm C for an analysis of methane based on its smiles string.\n
+                     Or, if you have not set up any configs yet, try QUBEKit -setup''')
 
     def continue_log(self):
-        """In the event of restarting an analysis, find and append to the existing log file rather than creating a new one."""
+        """
+        In the event of restarting an analysis, find and append to the existing log file
+        rather than creating a new one.
+        """
 
         files = [file for file in listdir('.') if path.isfile(file)]
         self.log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
@@ -372,11 +368,9 @@ class Main:
         # Copy active pdb into new directory.
         abspath = path.abspath(self.file)
         copy(abspath, f'{dir_string}/{self.file}')
-        # Move into new working directory.
         chdir(dir_string)
 
-        # Create log file in working directory.
-        # This is formatted as 'QUBEKit_log_molecule name_yyyy_mm_dd_log_string'.
+        # Create log file in working directory, format: 'QUBEKit_log_molecule name_yyyy_mm_dd_log_string'.
         self.log_file = f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
 
         with open(self.log_file, 'w+') as log_file:
@@ -580,8 +574,6 @@ class Main:
 
         # This step is always performed
         self.stage_wrapper('finalise', 'Finalising analysis', 'Molecule analysis complete!')
-
-        return None
 
 
 def main():

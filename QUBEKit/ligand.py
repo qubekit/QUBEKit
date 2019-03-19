@@ -30,7 +30,7 @@ class Molecule:
         topology                Graph class object. Contains connection information for molecule
         molecule                List of lists; Inner list is the atom type followed by its coords
                                 e.g. [['C', -0.022, 0.003, 0.017], ['H', -0.669, 0.889, -0.101], ...]
-        angles                  Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
+        angles                  List of tuples; Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
         dihedrals
         rotatable
         atom_names
@@ -48,7 +48,7 @@ class Molecule:
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
 
         log_file                str; Full log file name used by the run file in special run cases
-        state
+        state                   str; Describes the stage the analysis is in for pickling and unpickling
         """
 
         # Namings
@@ -523,12 +523,12 @@ class Ligand(Molecule):
             self.qm_optimised = opt_molecule
 
         except FileNotFoundError:
-            raise FileNotFoundError('Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n'
-                                    'Please ensure PSI4 is installed properly and can be called with the command: psi4\n'
-                                    'Alternatively, geometric may not be installed properly.\n'
-                                    'Please ensure it is and can be called with the command: geometric-optimize\n'
-                                    'Installation instructions can be found on the respective github pages and '
-                                    'elsewhere online, see README for more details.')
+            raise FileNotFoundError('''Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n
+                                    Please ensure PSI4 is installed properly and can be called with the command: psi4\n
+                                    Alternatively, geometric may not be installed properly.\n
+                                    Please ensure it is and can be called with the command: geometric-optimize\n
+                                    Installation instructions can be found on the respective github pages and 
+                                    elsewhere online, see README for more details.''')
 
 
 class Protein(Molecule):
@@ -830,6 +830,8 @@ class Protein(Molecule):
             'rc': (0, 30), 'rc3': 0, 'rc5': 28, 'rg': (0, 33), 'rg3': 0, 'rg5': 31, 'ru': (0, 29), 'ru3': 0, 'ru5': 27,
             'ser': (0, 9), 'thr': (0, 12), 'trp': (0, 22), 'tyr': (0, 19), 'val': (0, 14)}
 
+        # TODO Remove bonds_dict and only use the constants dict.
+
         # Describes the internal bonds constants for the residues
         self.bond_constants = {
             'ace': {(0, 1): [0.1092, 273432.768], (1, 2): [0.1092, 273432.768], (1, 3): [0.1092, 273432.768],
@@ -846,7 +848,8 @@ class Protein(Molecule):
         self.angle_constants = {
             'ace': {},
             'leu': {},
-            'nme': {}}
+            'nme': {}
+        }
 
         # Bond is always R1--(C--N)--R2 with same bond constant throughout protein
         self.ext_bond_constant = [0.1353, 312461.12]
@@ -891,17 +894,12 @@ class Protein(Molecule):
         """
 
         # TODO The keys of self.int_bond_constants are the same as the values of self.bonds_dict.
-        #   Therefore, self.bonds_dict can be removed, using only self.int_bond_constants and self.externals
+        #   Therefore, self.bonds_dict can be removed, using only self.bond_constants and self.externals
         #   to construct self.bonds
 
-        self.bonds = []
-
         cap = self.order[0]
-        self.bonds.extend(self.bonds_dict[cap])
 
-        # for bond in self.bonds_dict[cap]:
-        #     self.HarmonicBondForce[bond] = self.bond_constants[cap][bond]
-
+        self.bonds = self.bonds_dict[cap]
         cap_atom = self.externals[cap]
         atom_count = self.n_atoms[cap]
 

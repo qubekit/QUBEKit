@@ -54,28 +54,44 @@ To install, it is recommended to git clone the QUBEKit folder into a home direct
 
 * [Anaconda3](https://www.anaconda.com/download/)
 
-Download Anaconda from the above like and install with the linux command ```./Anaconda3<version>.sh```
+Download Anaconda from the above link and install with the linux command ```./Anaconda3<version>.sh```
 
 *You may need to use ```chmod +x Anaconda3<version>.sh``` to make it executable.*
 
-We recommend you add conda to your .bashrc
+We recommend you add conda to your .bashrc when prompted.
 
 * [Gaussian09](http://gaussian.com/)
 
 Installation of Gaussian is likely handled by your institution; QUBEKit uses it for density calculations only.
-If you don't plan on performing these sorts of calculations then it is not necessary. 
+If you don't plan on performing these sorts of calculations then it is not necessary.
+
+* [Chargemol](https://sourceforge.net/projects/ddec/files/)
+
+Chargemol can be downloaded and installed from a zip file in the above link. 
+Be sure to add the path to configs once you've generated them *([explanation](https://github.com/jthorton/QUBEKitdev#before-you-start-config-files))*.
+
+Many packages come pre-installed with Anaconda, however there are some which require further installation.
+These packages are on different conda channels, hence needing the extra arguments.
 
 * [PSI4](http://www.psicode.org/)
 
-PSI4 can be installed with anaconda. Simply use the command ```conda install -c psi4 psi4``` to get the latest stable version.
-
-### Other Python modules used
-
-Many packages come pre-installed with Anaconda, however there are some which require further installation.
+```conda install -c psi4 psi4```
 
 * [GeomeTRIC](https://github.com/leeping/geomeTRIC)
+
+```conda install -c conda-forge geometric``` 
+
 * [RDKit](http://rdkit.org/)
+
+```conda install -c rdkit rdkit```
+
 * [OpenFF](https://openforcefield.org/)
+
+```conda install -c omnia openforcefield```
+
+* [OpenEye](https://docs.eyesopen.com/toolkits/python/index.html)
+
+```conda install -c openeye openeye-toolkits```
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda will deal with versions and conflicts in your environment.
