@@ -8,19 +8,21 @@ from xml.etree.ElementTree import tostring, Element, SubElement, ElementTree
 from xml.dom.minidom import parseString
 from pickle import dump, load
 from collections import OrderedDict
+from itertools import groupby
 
 
 class Ligand:
 
-    def __init__(self, filename, smilesstring=None):
+    def __init__(self, filename, smilesstring=None, combination='opls'):
 
         self.filename = filename
         self.name = filename[:-4]
-        self.molecule = None                # List of lists where the inner list is the atom type followed by its coords
+        self.molecule = None  # List of lists where the inner list is the atom type followed by its coords
         self.topology = None
         self.smiles = smilesstring
-        self.angles = None                  # Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
+        self.angles = None  # Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
         self.dihedrals = None
+        self.improper_torsions = None
         self.rotatable = None
         self.scan_order = None
         self.dih_phis = None
@@ -36,12 +38,13 @@ class Ligand:
         self.polar = None
         self.xml_tree = None
         self.state = None
+        self.combination = combination
         self.QM_scan_energy = {}
         self.MM_scan_energy = {}
         self.descriptors = {}
-        self.AtomTypes = {}                 # Basic non-symmetrised atoms types
-        self.symmetry_types = []            # Symmetrised atom types
-        self.Residues = {}
+        self.AtomTypes = {}  # Basic non-symmetrised atoms types
+        self.symmetry_types = []  # Symmetrised atom types
+        self.residues = []
         self.HarmonicBondForce = {}
         self.HarmonicAngleForce = {}
         self.PeriodicTorsionForce = OrderedDict()
@@ -53,13 +56,14 @@ class Ligand:
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
-        self.log_file = None                # Full log file name used by the run file in special run cases
+        self.find_impropers()
+        self.log_file = None  # Full log file name used by the run file in special run cases
 
-    element_dict = {'H': 1.008000,      # Group 1
-                    'C': 12.011000,     # Group 4
-                    'N': 14.007000, 'P': 30.973762,     # Group 5
-                    'O': 15.999000, 'S': 32.060000,     # Group 6
-                    'F': 18.998403, 'Cl': 35.450000, 'Br': 79.904000, 'I': 126.904470       # Group 7
+    element_dict = {'H': 1.008000,  # Group 1
+                    'C': 12.011000,  # Group 4
+                    'N': 14.007000, 'P': 30.973762,  # Group 5
+                    'O': 15.999000, 'S': 32.060000,  # Group 6
+                    'F': 18.998403, 'Cl': 35.450000, 'Br': 79.904000, 'I': 126.904470  # Group 7
                     }
 
     def __repr__(self):
@@ -97,8 +101,6 @@ class Ligand:
         Bonds are easily found through the edges of the network.
         Can also generate a simple plot of the network.
         """
-
-        # TODO Rewrite to use .split()
 
         with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
@@ -144,6 +146,18 @@ class Ligand:
             self.molecule = molecule
 
         return self
+
+    def find_impropers(self):
+        """Take the topology graph and find all of the improper torsions in the molecule these are atoms with 3
+        bonds. """
+
+        self.improper_torsions = []
+        for node in self.topology.nodes:
+            near = sorted(list(neighbors(self.topology, node)))
+            # if the atom has 3 bonds it could be an imporper
+            if len(near) == 3:
+                self.improper_torsions.append((node, near[0], near[1], near[2]))
+        # print(self.improper_torsions)
 
     def find_angles(self):
         """Take the topology graph network and return a list of all angle combinations.
@@ -242,7 +256,7 @@ class Ligand:
         for key in keys:
             for torsion in self.dihedrals[key]:
                 # Calculate the dihedral angle in the molecule using the molecule data array.
-                x1, x2, x3, x4 = [array(molecule[int(torsion[i])-1][1:]) for i in range(4)]
+                x1, x2, x3, x4 = [array(molecule[int(torsion[i]) - 1][1:]) for i in range(4)]
                 b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
                 t1 = linalg.norm(b2) * dot(b1, cross(b2, b3))
                 t2 = dot(cross(b1, b2), cross(b2, b3))
@@ -285,9 +299,9 @@ class Ligand:
             molecule = self.molecule
 
         for angle in self.angles:
-            x1 = array(molecule[int(angle[0])-1][1:])
-            x2 = array(molecule[int(angle[1])-1][1:])
-            x3 = array(molecule[int(angle[2])-1][1:])
+            x1 = array(molecule[int(angle[0]) - 1][1:])
+            x2 = array(molecule[int(angle[1]) - 1][1:])
+            x3 = array(molecule[int(angle[2]) - 1][1:])
             b1, b2 = x1 - x2, x3 - x2
             cosine_angle = dot(b1, b2) / (linalg.norm(b1) * linalg.norm(b2))
             self.angle_values[angle] = degrees(arccos(cosine_angle))
@@ -312,7 +326,8 @@ class Ligand:
             pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
             pdb_file.write(f'COMPND    {self.name:<20}\n')
             for i, atom in enumerate(molecule):
-                pdb_file.write(f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+                pdb_file.write(
+                    f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
@@ -322,11 +337,11 @@ class Ligand:
 
             pdb_file.write('END\n')
 
-    def write_parameters(self, name=None):
+    def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
         # First build the xml tree
-        self.build_tree()
+        self.build_tree(protein=protein)
 
         tree = self.xml_tree.getroot()
         messy = tostring(tree, 'utf-8')
@@ -339,18 +354,25 @@ class Ligand:
         with open(f'{name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
-    def build_tree(self):
+    def build_tree(self, protein):
         """Separates the parameters and builds an xml tree ready to be used."""
 
         # create XML layout
         root = Element('ForceField')
         AtomTypes = SubElement(root, "AtomTypes")
         Residues = SubElement(root, "Residues")
-        Residue = SubElement(Residues, "Residue", name="UNK")
+        if protein:
+            Residue = SubElement(Residues, "Residue", name="QUP")
+        else:
+            Residue = SubElement(Residues, "Residue", name="UNK")
         HarmonicBondForce = SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = SubElement(root, "HarmonicAngleForce")
         PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
-        NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': "0.5", 'lj14scale': "0.5"})
+        # now we need to asign the combination rule
+        c14 = l14 = '0.5'
+        if self.combination == 'amber':
+            c14 = '0.83333'
+        NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14})
 
         # Add the AtomTypes
         for i in range(len(self.AtomTypes)):
@@ -376,22 +398,28 @@ class Ligand:
                                                             'angle': self.HarmonicAngleForce[key][0],
                                                             'k': self.HarmonicAngleForce[key][1]})
 
-        # add the torsion terms
+        # add the proper and improper torsion terms
         for key in self.PeriodicTorsionForce.keys():
-            SubElement(PeriodicTorsionForce, "Proper", attrib={'class1': self.AtomTypes[key[0]][2],
-                                                               'class2': self.AtomTypes[key[1]][2],
-                                                               'class3': self.AtomTypes[key[2]][2],
-                                                               'class4': self.AtomTypes[key[3]][2],
-                                                               'k1': self.PeriodicTorsionForce[key][0][1],
-                                                               'k2': self.PeriodicTorsionForce[key][1][1],
-                                                               'k3': self.PeriodicTorsionForce[key][2][1],
-                                                               'k4': self.PeriodicTorsionForce[key][3][1],
-                                                               'periodicity1': '1', 'periodicity2': '2',
-                                                               'periodicity3': '3', 'periodicity4': '4',
-                                                               'phase1': self.PeriodicTorsionForce[key][0][2],
-                                                               'phase2': self.PeriodicTorsionForce[key][1][2],
-                                                               'phase3': self.PeriodicTorsionForce[key][2][2],
-                                                               'phase4': self.PeriodicTorsionForce[key][3][2]})
+            if self.PeriodicTorsionForce[key][-1] == 'Improper':
+                tor_type = 'Improper'
+            else:
+                tor_type = 'Proper'
+            SubElement(PeriodicTorsionForce, tor_type,
+                       attrib={'class1': self.AtomTypes[key[0]][2],
+                               'class2': self.AtomTypes[key[1]][2],
+                               'class3': self.AtomTypes[key[2]][2],
+                               'class4': self.AtomTypes[key[3]][2],
+                               'k1': self.PeriodicTorsionForce[key][0][1],
+                               'k2': self.PeriodicTorsionForce[key][1][1],
+                               'k3': self.PeriodicTorsionForce[key][2][1],
+                               'k4': self.PeriodicTorsionForce[key][3][1],
+                               'periodicity1': '1', 'periodicity2': '2',
+                               'periodicity3': '3', 'periodicity4': '4',
+                               'phase1': self.PeriodicTorsionForce[key][0][2],
+                               'phase2': self.PeriodicTorsionForce[key][1][2],
+                               'phase3': self.PeriodicTorsionForce[key][2][2],
+                               'phase4': self.PeriodicTorsionForce[key][3][2]})
+
 
         # add the non-bonded parameters
         for key in self.NonbondedForce.keys():
@@ -445,6 +473,9 @@ class Ligand:
             for atom in molecule:
                 # Format with spacing
                 xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
+            # add one black line at the end of the file for onetep
+            #TODO is this needed for programs?
+            xyz_file.write('\n')
 
     def write_gromacs_file(self):
         """To a gromacs file, write and format the necessary ligand variables."""
@@ -455,7 +486,8 @@ class Ligand:
             for count, atom in enumerate(self.molecule, 1):
                 # 'mol number''mol name'  'atom name'   'atom count'   'x coord'   'y coord'   'z coord'
                 # 1WATER  OW1    1   0.126   1.624   1.679
-                gro_file.write(f'    1{self.name.upper()}  {atom[0]}{count}   {count}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
+                gro_file.write(
+                    f'    1{self.name.upper()}  {atom[0]}{count}   {count}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
 
     def pickle(self, state=None):
         """Pickles the ligand object in its current state to the (hidden) pickle file.
@@ -486,3 +518,107 @@ class Ligand:
             # If there were other molecules of the same state in the jar: overwrite them
             for key in mols.keys():
                 dump(mols[key], pickle_jar)
+
+
+class Protein(Ligand):
+    """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
+
+    def __init__(self, filename, smilesstring=None, combination='opls'):
+        super().__init__(filename, smilesstring, combination)
+
+    def read_pdb(self, qm=False, mm=False):
+        """Read the pdb file which proberly does not have the right conections so we need to find them using QUBE.xml"""
+
+        with open(self.filename, 'r') as pdb:
+            lines = pdb.readlines()
+
+        protein = []
+        self.topology = Graph()
+        self.atom_names = []
+
+        # atom counter used for graph node generation
+        atom_count = 1
+        for line in lines:
+            if 'ATOM' in line or 'HETATM' in line:
+                element = str(line[76:78])
+                element = sub('[0-9]+', '', element)
+                element = element.replace(" ", "")
+                self.atom_names.append(f'{element}{799 + atom_count}')
+
+                # If the element column is missing from the pdb, extract the element from the name.
+                if not element:
+                    element = str(line.split()[2])[:-1]
+                    element = sub('[0-9]+', '', element)
+
+                # also get the residue order from the pdb file so we can rewrite the file
+                self.residues.append(str(line.split()[3]))
+
+                # Also add the atom number as the node in the graph
+                self.topology.add_node(atom_count)
+                atom_count += 1
+                protein.append([element, float(line[30:38]), float(line[38:46]), float(line[46:54])])
+
+            if 'CONECT' in line:
+                # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
+                for i in range(2, len(line.split())):
+                    if int(line.split()[i]) != 0:
+                        self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
+
+        # check if there are any conect terms in the file first
+        if len(self.topology.edges) == 0:
+            print('No connections found!')
+
+        # now we need to remove all of the duplicates
+        self.residues = [res for res, group in groupby(self.residues)]
+
+        # Uncomment the following lines to draw the graph network generated from the pdb.
+        # draw(topology, with_labels=True, font_weight='bold')
+        # plt.show()
+
+        if qm:
+            self.qm_optimised = protein
+        elif mm:
+            self.mm_optimised = protein
+        else:
+            self.molecule = protein
+
+        return self
+
+    def write_pdb(self, name=None):
+        """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
+
+        molecule = self.molecule
+
+        with open(f'{name if name else self.name}.pdb', 'w+') as pdb_file:
+
+            # Write out the atomic xyz coordinates
+            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
+            pdb_file.write(f'COMPND    {self.name:<20}\n')
+            for i, atom in enumerate(molecule):
+                pdb_file.write(
+                    f'HETATM{i+1:>5}{self.atom_names[i]:>5} QUP     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+
+            # Now add the connection terms
+            for node in self.topology.nodes:
+                bonded = sorted(list(neighbors(self.topology, node)))
+                # if len(bonded) > 2:
+                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+
+            pdb_file.write('END\n')
+
+    def update(self):
+        """After the protein has been passed to the parameterisation class we get back the bond info
+        use this to update all missing terms."""
+
+        # using the new harmonic bond force dict we can add the bond edges to the topology graph
+        for key in self.HarmonicBondForce.keys():
+            self.topology.add_edge(key[0] + 1, key[1] + 1)
+
+
+        self.find_angles()
+        self.find_dihedrals()
+        self.find_rotatable_dihedrals()
+        self.get_dihedral_values()
+        self.get_bond_lengths()
+        self.get_angle_values()
+        self.find_impropers()

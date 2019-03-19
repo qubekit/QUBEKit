@@ -1,89 +1,5 @@
 #! /usr/bin/env python
 
-# from QUBEKit.engines import PSI4, Gaussian
-# from QUBEKit.ligand import Ligand
-# from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
-# from QUBEKit.smiles import smiles_mm_optimise, smiles_to_pdb
-# from QUBEKit.helpers import config_loader
-# from QUBEKit.dihedrals import TorsionScan
-#
-
-# def gather_charges():
-#     """Takes the TheoryTests files and extracts the net charge as a tuple with the molecule + functional
-#     For example, opens the benzene_PBE0_001 folder, finds the charges file from DDEC6,
-#     finds the net charge from the carbon atoms and finally returns them as:
-#     {net charge, benzene_PBE0}
-#
-#     These charges can then be output to a graph."""
-#
-#     from operator import itemgetter
-#
-#     molecules = ['/benzene', '/methane', '/ethane', '/acetone', '/methanol']
-#     charges_list = []
-#
-#     for root, dirs, files in os.walk('./TheoryTests'):
-#         for file in files:
-#             for i in range(len(molecules)):
-#                 if molecules[i] in root:
-#                     if file.startswith('DDEC6_even_tempered_net'):
-#                         name = file
-#                         # print(root + '/' + name)
-#                         with open(root + '/' + name, 'r') as charge_file:
-#                             net_charge = 0
-#                             lines = charge_file.readlines()
-#                             for count, line in enumerate(lines):
-#                                 if line[0:2] == 'C ':
-#                                     net_charge += float(line.split()[4])
-#                             # Find average charge
-#                             #         net_charge /= (count + 1)
-#                         charges_list.append([molecules[i][1:], root.split('_')[-2], round(net_charge, 4)])
-#                         # Sort list by molecule
-#                         charges_list = sorted(charges_list, key=itemgetter(0))
-#                         # Sort list by functional
-#                         charges_list = sorted(charges_list, key=itemgetter(1))
-#
-#     return np.array(charges_list)
-#
-#
-# def plot_charges(charges=gather_charges()):
-#
-#     import numpy as np
-#     import matplotlib.pyplot as plt
-#
-#     N = 5
-#     ind = np.arange(N)  # The x locations for the groups
-#     width = 0.18  # The width of the bars
-#
-#     fig = plt.figure()
-#     ax = fig.add_subplot(111)
-#
-#     # Segregate data according to molecule and functional
-#     charges = [float(charge[2]) for charge in charges]
-#     B3LYP = charges[0:5]
-#     BB1K = charges[5:10]
-#     PBE = charges[10:15]
-#     wB97X_D = charges[15:20]
-#
-#     # Set group separation
-#     rects1 = ax.bar(ind, B3LYP, width)
-#     rects2 = ax.bar(ind + width, BB1K, width)
-#     rects3 = ax.bar(ind + width * 2, PBE, width)
-#     rects4 = ax.bar(ind + width * 3, wB97X_D, width)
-#
-#     plt.title('Net Charges Across Carbon Atoms')
-#     ax.set_ylabel('Net Charges')
-#     ax.set_xticks(ind + width)
-#     ax.set_xticklabels(('Acetone', 'benzene', 'ethane', 'methane', 'methanol'))
-#     ax.legend((rects1[0], rects2[0], rects3[0], rects4[0]), ('B3LYP', 'BB1K', 'PBE', 'wB97X-D'))
-#
-#     ax.yaxis.grid(which="both", linewidth=0.7)
-#
-#     plt.show()
-
-
-# print(gather_charges())
-# print(plot_charges())
-
 defaults_dict = {'charge': 0, 'multiplicity': 1,
                  'bonds engine': 'psi4', 'charges engine': 'chargemol',
                  'ddec version': 6, 'geometric': True, 'solvent': None,
@@ -162,51 +78,7 @@ defaults_dict = {'charge': 0, 'multiplicity': 1,
         # print('comparing modes to g09')
         # mode_check(g09_B3LYP_modes, mol)
 
-# mol = Ligand('3HA.pdb')
-# print(mol)
-#
-# OpenFF(mol)
-#
-# print('writing parameters')
-# mol.write_parameters()
 
-# now test that the new xml file can be used in a calculation
-# from simtk.openmm.app import *
-# from simtk.openmm import *
-# from simtk.unit import *
-#
-#
-# print('run the molecule')
-#
-# pdb = PDBFile('3HA.pdb')
-# modeller = Modeller(pdb.topology, pdb.positions)
-# forcefield = ForceField('3HA.xml')
-# system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff,  constraints=None)
-# integrator = LangevinIntegrator(
-#         300*kelvin, 5 / picosecond,  0.0005 * picoseconds)
-# simulation = Simulation(modeller.topology, system, integrator)
-# simulation.context.setPositions(modeller.positions)
-# #simulation = Minimize(simulation,100)
-# #simulation.reporters.append(app.PDBReporter('gas_output.pdb', 1000))
-# #simulation.reporters.append(app.StateDataReporter('gas.txt', 1000, step=True, temperature=True, potentialEnergy=True, density=True,totalSteps=10000, totalEnergy=True))
-# #simulation.step(6000000)
-# state = simulation.context.getState(getEnergy=True)
-# print(state.getPotentialEnergy())
-#
-# print('Loading Molecule')
-# ethane = Ligand('ethane.pdb')
-# ethane.pickle(state='bonds')
-# print('pickled bonds')
-# ethane.pickle(state='charges')
-# print('pickled charges')
-# ethane.pickle(state='torsions')
-# print('pickled torsions')
-#
-# from helpers import unpickle
-#
-# states = unpickle('.ethane_states')
-# for mol in states:
-#     print(states[mol])
 def main():
 
     from QUBEKit.helpers import Configure
@@ -217,6 +89,7 @@ def main():
     from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
     from shutil import  copy
 
+
     defaults_dict = {'charge': 0,
                               'multiplicity': 1,
                               'config': 'default_config'}
@@ -226,29 +99,28 @@ def main():
     config_dict = [defaults_dict, qm, fitting, descriptions]
     print('loading molecule')
     scan = (1,2)
-    mol = Ligand('ethane.pdb')
+    chdir('complex_test')
+    mol = Ligand('MOL.pdb')
     print('paramiterising')
     # OpenFF(mol)
-    # XML(mol)
-    AnteChamber(mol)
-    mol.write_parameters()
-    copy('ethane.xml', 'test.xml')
+    XML(mol)
+    # AnteChamber(mol)
+    # mol.write_parameters()
+    # copy('complex.xml', 'test.xml')
     print('loading engine')
     QMengine = PSI4(mol, config_dict)
     print('loading scanner')
     scanner = TorsionScan(mol, QMengine)
-    print('getting energys')
-    scan = (1,2)
-    copy('ethane.pdb', f'SCAN_{scan}')
-    copy('ethane.xml', f'SCAN_{scan}')
-    chdir(f'SCAN_{scan}')
+    print('scanning')
+    #scanner.start_scan()
+    print('getting energies')
+    copy('MOL.pdb', 'SCAN_4_5/QM')
+    copy('MOL.xml', 'SCAN_4_5/QM')
+    chdir('SCAN_4_5/QM')
     scanner.get_energy(mol.scan_order[0])
-    opt = TorsionOptimiser(mol, QMengine, config_dict, opls=False)
+    opt = TorsionOptimiser(mol, QMengine, config_dict, opt_method='BFGS', opls=True, refinement_method='SP', vn_bounds=50)
     opt.run()
     print(mol.PeriodicTorsionForce)
-
-
-
 
 if __name__ == '__main__':
     main()

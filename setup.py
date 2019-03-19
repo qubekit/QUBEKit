@@ -13,7 +13,8 @@ setup(name='qubekit',
       entry_points={'console_scripts': ['QUBEKit = QUBEKit.run:main',
                                         'qubekit = QUBEKit.run:main',
                                         'QUBEKit-josh = QUBEKit.tests_josh:main',
-                                        'QUBEKit-chris = QUBEKit.tests_chris:main']})
+                                        'QUBEKit-chris = QUBEKit.tests_chris:main',
+                                        'QUBEKit-pro = QUBEKit.protien_run:main']})
 
 print('Finding home directory to store QUBEKit config files')
 home = str(Path.home())
