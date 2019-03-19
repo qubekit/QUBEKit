@@ -3,6 +3,7 @@
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. (Done for file extraction.)
 #       Maybe add path checking for Chargemol?
+# TODO Convert to subprocess.run()
 
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
@@ -45,8 +46,8 @@ class PSI4(Engines):
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, qm=False, mm=False, optimise=False, hessian=False, density=False, energy=False, threads=False,
-                       fchk=False, run=True):
+    def generate_input(self, qm=False, mm=False, optimise=False, hessian=False, density=False, energy=False,
+                       threads=False, fchk=False, run=True):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
 
         if qm:
@@ -134,7 +135,7 @@ class PSI4(Engines):
             lines = file.readlines()
 
             for count, line in enumerate(lines):
-                if '## Hessian' in line:
+                if '## Hessian' in line or '## New Matrix (Symmetry' in line:
                     # Set the start of the hessian to the row of the first value.
                     hess_start = count + 5
                     break
@@ -277,10 +278,8 @@ class PSI4(Engines):
 
         if qm:
             molecule = self.molecule.qm_optimised
-
         elif mm:
             molecule = self.molecule.mm_optimised
-
         else:
             molecule = self.molecule.molecule
 

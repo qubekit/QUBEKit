@@ -4,10 +4,10 @@ from QUBEKit.engines import PSI4, Gaussian, Chargemol
 from QUBEKit.ligand import Ligand
 # from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.lennard_jones import LennardJones as LJ
-from QUBEKit.modseminario import ModSeminario
+from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_progress, pretty_print, Configure
 from QUBEKit.decorators import exception_logger_decorator
-from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
+# from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
 # from QUBEKit import smiles
 from QUBEKit.ligand import Protein
 
@@ -184,16 +184,16 @@ config_dict = [defaults_dict, qm, fitting, descriptions]
 
 def main():
 
-    aa = Protein('aceleunme.pdb')
-
-    # Rather than using the parametrisation classes:
-    aa.atom_types()
-    aa.residues()
-    aa.construct_xml_dicts()
-
-    XML(aa, input_file='qube.xml')
-
-    aa.write_parameters()
+    # aa = Protein('aceleunme.pdb')
+    #
+    # # Rather than using the parametrisation classes:
+    # aa.atom_types()
+    # aa.residues()
+    # aa.construct_xml_dicts()
+    #
+    # XML(aa, input_file='qube.xml')
+    #
+    # aa.write_parameters()
 
     # aa.harmonic_bond_force()
     # aa.harmonic_angle_force()
@@ -203,6 +203,8 @@ def main():
     # Need a ONETEP file to gather LJ params
     # lj = LJ(aa, config_dict)
     # aa.NonbondedForce = lj.calculate_non_bonded_force()
+
+    pass
 
 
 if __name__ == '__main__':

@@ -131,12 +131,6 @@ class Parametrisation:
         for val in self.molecule.PeriodicTorsionForce.values():
             val.sort(key=lambda x: x[0])
 
-        print(self.molecule.AtomTypes, end='\n\n\n')
-        print(self.molecule.HarmonicBondForce, end='\n\n\n')
-        print(self.molecule.HarmonicAngleForce, end='\n\n\n')
-        print(self.molecule.PeriodicTorsionForce, end='\n\n\n')
-        print(self.molecule.NonbondedForce, end='\n\n\n')
-
     def symmetrise(self):
         """
         Search the xml and generate a dictionary based on the calculated Lennard-Jones parameters.

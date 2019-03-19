@@ -15,14 +15,12 @@ class TestProteins(unittest.TestCase):
         self.molecule.construct_xml_dicts()
 
         # Check all atoms are found in pdb file
-        assert(len(self.molecule.molecule) == 31)
+        self.assertEqual(len(self.molecule.molecule), 31)
 
         # Check that each bond has an associated HarmonicBondForce
         self.assertEqual(sorted(self.molecule.bonds), sorted(self.molecule.HarmonicBondForce))
 
         # Check for angles and torsions too
-        #
-        #
 
 
 if __name__ == '__main__':

@@ -12,19 +12,24 @@ build:
   script: python setup.py install
 
 requirements:
-  host:
+  build:
+    - setuptools
     - numpy
-    - pip
-    - python
+    - python >=3.6
+    - matplotlib
+    - networkx
+    - rdkit
+    - openforcefield
+    - openeye-toolkits
+    - psi4
   run:
     - numpy
     - python >=3.6
     - matplotlib
+    - networkx
     - rdkit
     - openforcefield
-    - openeye
-    - networkx
-    - unittest
+    - openeye-toolkits
     - psi4
 
 about:
