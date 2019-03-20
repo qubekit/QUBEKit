@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 from csv import DictReader, writer, QUOTE_MINIMAL
 from os import walk, listdir, path, system
 from collections import OrderedDict

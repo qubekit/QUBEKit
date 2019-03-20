@@ -21,23 +21,31 @@ from itertools import groupby, chain
 class Molecule:
     """Base class for ligands and proteins."""
 
-    def __init__(self, filename, smilesstring=None, combination='opls'):
+    def __init__(self, filename, smiles_string=None, combination='opls'):
         """
+        # Namings
         filename                str; Full filename e.g. methane.pdb
         name                    str; Molecule name e.g. methane
         smiles                  str; equal to the smiles_string if one is provided
 
+        # Structure
         topology                Graph class object. Contains connection information for molecule
         molecule                List of lists; Inner list is the atom type followed by its coords
                                 e.g. [['C', -0.022, 0.003, 0.017], ['H', -0.669, 0.889, -0.101], ...]
         angles                  List of tuples; Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
         dihedrals
+        improper_torsions
         rotatable
         atom_names
         bond_lengths
         dih_phis
         angle_values
+        symm_hs                 Dict of lists of lists; shows which groups of Hs can be symmetrised
+                                {'methyl': [[1, 3, 4], [17, 18, 19]], 'amine': []}
+        mm_optimised
+        qm_optimised
 
+        # XML Info
         xml_tree
         AtomTypes               dict of lists; basic non-symmetrised atoms types for each atom in the molecule
                                 e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
@@ -47,6 +55,7 @@ class Molecule:
         PeriodicTorsionForce
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
 
+        # QUBEKit Internals
         log_file                str; Full log file name used by the run file in special run cases
         state                   str; Describes the stage the analysis is in for pickling and unpickling
         """
@@ -61,12 +70,13 @@ class Molecule:
         self.molecule = None
         self.angles = None
         self.dihedrals = None
-        self.improper_torsions = None
+        self.impropers = []
         self.rotatable = None
         self.atom_names = None
         self.bond_lengths = None
         self.dih_phis = None
         self.angle_values = None
+        self.symm_hs = None
         self.mm_optimised = None
         self.qm_optimised = None
 
@@ -173,19 +183,48 @@ class Molecule:
         else:
             self.molecule = molecule
 
-        return self
+    def write_pdb(self, qm=False, mm=False, name=None):
+        """
+        Take the current molecule and topology and write a pdb file for the molecule.
+        Only for small molecules, not standard residues. No size limit.
+        """
+
+        if qm:
+            molecule = self.qm_optimised
+        elif mm:
+            molecule = self.mm_optimised
+        else:
+            molecule = self.molecule
+
+        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
+
+            # Write out the atomic xyz coordinates
+            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
+            pdb_file.write(f'COMPND    {self.name:<20}\n')
+            for i, atom in enumerate(molecule):
+                pdb_file.write(
+                    f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+
+            # Now add the connection terms
+            for node in self.topology.nodes:
+                bonded = sorted(list(neighbors(self.topology, node)))
+                # if len(bonded) > 2:
+                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+
+            pdb_file.write('END\n')
 
     def find_impropers(self):
-        """Take the topology graph and find all of the improper torsions in the molecule these are atoms with 3
-        bonds. """
+        """
+        Take the topology graph and find all of the improper torsions in the molecule;
+        these are atoms with 3 bonds.
+        """
 
-        self.improper_torsions = []
+        self.impropers = []
         for node in self.topology.nodes:
             near = sorted(list(neighbors(self.topology, node)))
-            # if the atom has 3 bonds it could be an imporper
+            # if the atom has 3 bonds it could be an improper
             if len(near) == 3:
-                self.improper_torsions.append((node, near[0], near[1], near[2]))
-        # print(self.improper_torsions)
+                self.impropers.append((node, near[0], near[1], near[2]))
 
     def find_angles(self):
         """
@@ -224,8 +263,7 @@ class Molecule:
         for edge in self.topology.edges:
             atom1 = array(molecule[int(edge[0]) - 1][1:])
             atom2 = array(molecule[int(edge[1]) - 1][1:])
-            bond_dist = linalg.norm(atom2 - atom1)
-            self.bond_lengths[edge] = bond_dist
+            self.bond_lengths[edge] = linalg.norm(atom2 - atom1)
 
     def find_dihedrals(self):
         """
@@ -324,36 +362,6 @@ class Molecule:
             b1, b2 = x1 - x2, x3 - x2
             cosine_angle = dot(b1, b2) / (linalg.norm(b1) * linalg.norm(b2))
             self.angle_values[angle] = degrees(arccos(cosine_angle))
-
-    def write_pdb(self, qm=False, mm=False, name=None):
-        """
-        Take the current molecule and topology and write a pdb file for the molecule.
-        Only for small molecules, not standard residues. No size limit.
-        """
-
-        if qm:
-            molecule = self.qm_optimised
-        elif mm:
-            molecule = self.mm_optimised
-        else:
-            molecule = self.molecule
-
-        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
-
-            # Write out the atomic xyz coordinates
-            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
-            pdb_file.write(f'COMPND    {self.name:<20}\n')
-            for i, atom in enumerate(molecule):
-                pdb_file.write(
-                    f'HETATM{i+1:>5}{self.atom_names[i]:>4}  UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
-
-            # Now add the connection terms
-            for node in self.topology.nodes:
-                bonded = sorted(list(neighbors(self.topology, node)))
-                # if len(bonded) > 2:
-                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
-
-            pdb_file.write('END\n')
 
     def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
@@ -509,35 +517,54 @@ class Molecule:
             for val in mols.values():
                 dump(val, pickle_jar)
 
+    def symmetrise_from_top(self):
+        """
+        Based on the Molecule self.topology, symmetrise the methyl/amine Hydrogens.
+        If there's a carbon, does it have 3 hydrogens? -> symmetrise
+        If there's a Nitrogen, does it have 2 hydrogens? -> symmetrise
+        """
+
+        methyl_hs = []
+        amine_hs = []
+        for pos, atom_coords in enumerate(self.molecule):
+            if atom_coords[0] == 'C' or atom_coords[0] == 'N':
+
+                hs = []
+                for atom in self.topology.neighbors(pos + 1):
+                    if len(list(self.topology.neighbors(atom))) == 1:
+                        hs.append(atom)
+                if atom_coords[0] == 'C' and len(hs) == 3:
+                    methyl_hs.append(hs)
+                if atom_coords[0] == 'N' and len(hs) == 2:
+                    amine_hs.append(hs)
+
+        self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs}
 
 
 class Ligand(Molecule):
 
-    def __init__(self, filename, smiles_string=None, combination='opls'):
+    def __init__(self, filename, smiles_string=None):
         """
         scan_order
-        mm_optimised
-        qm_optimised
         parameter_engine
         hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
         modes
-        QM_scan_energy
-        MM_scan_energy
+
+        qm_scan_energy
+        mm_scan_energy
         descriptors
-        symmetry_types          list; symmetrised atom types
         """
 
-        super().__init__(filename, smiles_string, combination)
+        super().__init__(filename, smiles_string)
 
         self.scan_order = None
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
 
-        self.QM_scan_energy = {}
-        self.MM_scan_energy = {}
+        self.qm_scan_energy = {}
+        self.mm_scan_energy = {}
         self.descriptors = {}
-        self.symmetry_types = []
 
         self.read_pdb()
         self.find_angles()
@@ -562,21 +589,28 @@ class Ligand(Molecule):
             self.qm_optimised = opt_molecule
 
         except FileNotFoundError:
-            raise FileNotFoundError('''Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n
-                                    Please ensure PSI4 is installed properly and can be called with the command: psi4\n
-                                    Alternatively, geometric may not be installed properly.\n
-                                    Please ensure it is and can be called with the command: geometric-optimize\n
-                                    Installation instructions can be found on the respective github pages and 
-                                    elsewhere online, see README for more details.''')
+            raise FileNotFoundError(
+                'Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n'
+                'Please ensure PSI4 is installed properly and can be called with the command: psi4\n'
+                'Alternatively, geometric may not be installed properly.\n'
+                'Please ensure it is and can be called with the command: geometric-optimize\n'
+                'Installation instructions can be found on the respective github pages and '
+                'elsewhere online, see README for more details.\n')
 
-class Protein(Ligand):
+
+class Protein(Molecule):
     """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
-    def __init__(self, filename, smilesstring=None, combination='opls'):
-        super().__init__(filename, smilesstring, combination)
+    def __init__(self, filename, smilesstring=None):
+        super().__init__(filename, smilesstring)
+
+        self.residues = None
 
     def read_pdb(self, qm=False, mm=False):
-        """Read the pdb file which proberly does not have the right conections so we need to find them using QUBE.xml"""           
+        """
+        Read the pdb file which probably does not have the right connections,
+        so we need to find them using QUBE.xml
+        """
 
         with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
@@ -617,7 +651,7 @@ class Protein(Ligand):
         if len(self.topology.edges) == 0:
             print('No connections found!')
 
-        # now we need to remove all of the duplicates
+        # Remove duplicates
         self.residues = [res for res, group in groupby(self.residues)]
 
         # Uncomment the following lines to draw the graph network generated from the pdb.
@@ -631,9 +665,7 @@ class Protein(Ligand):
         else:
             self.molecule = protein
 
-        return self
-
-    def write_pdb(self, name=None):
+    def write_pdb(self, qm=False, mm=False, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
 
         molecule = self.molecule
@@ -656,13 +688,14 @@ class Protein(Ligand):
             pdb_file.write('END\n')
 
     def update(self):
-        """After the protein has been passed to the parameterisation class we get back the bond info
-        use this to update all missing terms."""
+        """
+        After the protein has been passed to the parametrisation class we get back the bond info
+        use this to update all missing terms.
+        """
 
         # using the new harmonic bond force dict we can add the bond edges to the topology graph
         for key in self.HarmonicBondForce.keys():
             self.topology.add_edge(key[0] + 1, key[1] + 1)
-
 
         self.find_angles()
         self.find_dihedrals()
@@ -673,7 +706,7 @@ class Protein(Ligand):
         self.find_impropers()
                               
                                
-class Protein_2(Molecule):
+class Protein2(Molecule):
     """
     Class to handle proteins as chains of amino acids.
     Dicts are used to provide any standard parameters;
@@ -682,13 +715,13 @@ class Protein_2(Molecule):
 
     def __init__(self, filename):
         """
-        order                   list of str; list of the residues in the protein, in order.
-        bonds                   list of tuples of two ints; describes each bond in the molecule where the ints are the atom indices.
+        order                   list of str; list of the residues in the protein, in order
+        bonds                   list of tuples of two ints; list of bonds in the molecule, the ints are the atom indices
 
-        bonds_dict              dict, key=str, val=list of tuples; key=residue name: val=list of the bond connections which are tuples
+        bonds_dict              dict, key=str, val=list of tuples; key=residue name: val=list of the bond connections
                                 e.g. {'leu': [(0, 1), (1, 2), ...], ...}
-        externals               dict, key=str, val=tuple, int or None; Similar to bonds_dict except this is only for the external bonds.
-                                Some keys will have two external bonds, caps only have one, and others (e.g. ions) don't have any.
+        externals               dict, key=str, val=tuple or int; Similar to bonds_dict except for the external bonds
+                                Some keys will have two external bonds, caps only have one
 
         n_atoms                 dict; key=str, val=int; key=residue name: val=number of atoms in that residue.
 
@@ -1016,9 +1049,10 @@ class Protein_2(Molecule):
         
         all_residues = []
 
-        for line in lines:
-            if 'ATOM' in line or 'HETATM' in line:
-                all_residues.append(line.split()[3].lower())
+        with open(self.filename, 'r') as pdb:
+            for line in pdb:
+                if 'ATOM' in line or 'HETATM' in line:
+                    all_residues.append(line.split()[3].lower())
 
         self.order = [res for res, group in groupby(all_residues)]
 
@@ -1122,4 +1156,3 @@ class Protein_2(Molecule):
 
         external_bond = (external_atom, self.externals[end] + atom_count)
         self.HarmonicBondForce[external_bond] = self.ext_bond_constant                       
-                               

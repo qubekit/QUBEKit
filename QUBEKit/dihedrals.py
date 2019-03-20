@@ -30,17 +30,18 @@ class TorsionScan:
     for each selected dihedral.
     """
 
-    def __init__(self, molecule, qm_engine, config_dict, mm_engine='openmm', native_opt=False, verbose=False):
+    def __init__(self, molecule, config_dict, qm_engine, mm_engine='openmm', native_opt=False, verbose=False):
 
         # TODO Keep track of log file path in __init__ then change it when moving through scan folders.
 
-        self.qm_engine = qm_engine
         self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
+        self.qm_engine = qm_engine
         self.mm_engine = mm_engine
-        self.constraints = None
-        self.grid_space = self.fitting['increment']
         self.native_opt = native_opt
         self.verbose = verbose
+
+        self.constraints = None
+        self.grid_space = self.fitting['increment']
         self.scan_mol = molecule
         self.cmd = {}
         self.find_scan_order()
@@ -141,7 +142,7 @@ class TorsionScan:
                 if 'Energy ' in line:
                     scan_energy.append(float(line.split()[3]))
 
-            self.scan_mol.QM_scan_energy[scan] = array(scan_energy)
+            self.scan_mol.qm_scan_energy[scan] = array(scan_energy)
 
             return self.scan_mol
 
@@ -185,7 +186,7 @@ class TorsionOptimiser:
         self.method = self.methods[opt_method]
         self.error_tol = error_tol
         self.x_tol = x_tol
-        self.energy_dict = molecule.QM_scan_energy
+        self.energy_dict = molecule.qm_scan_energy
         self.use_Force = use_force
         self.mm_energy = []
         self.initial_energy = []

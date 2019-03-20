@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 from QUBEKit.ligand import Protein
-from QUBEKit.parametrisation import XML_Protein
+from QUBEKit.parametrisation import XMLProtein
 from QUBEKit.lennard_jones import LennardJones
+
 from sys import argv
 
 
@@ -18,7 +19,7 @@ def main():
         if cmd == '--setup':
             pdb_file = commands[count + 1]
             print(pdb_file)
-            print('starting protein prep, reading pdb file....')
+            print('starting protein prep, reading pdb file...')
             protein = Protein(pdb_file)
             print(f'{len(protein.residues)} residues found!')
             protein.write_xyz(name='protein')
@@ -32,7 +33,7 @@ def main():
             protein = Protein(pdb_file)
 
             # now we want to add the connections and parametrise the protein
-            XML_Protein(protein)
+            XMLProtein(protein)
             # print(protein.HarmonicBondForce)
             # this updates the bonded info that is now in the object
 
@@ -47,9 +48,6 @@ def main():
             protein.write_pdb(name='QUBE_pro')
             protein.write_parameters(name='QUBE_pro', protein=True)
             print('reading file and adding connections')
-
-
-
 
 
 if __name__ == '__main__':

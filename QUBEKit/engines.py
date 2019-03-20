@@ -5,7 +5,6 @@
 #       Maybe add path checking for Chargemol?
 # TODO Convert to subprocess.run()
 
-
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
@@ -31,7 +30,7 @@ class Engines:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
 
-#@for_all_methods(timer_logger)
+@for_all_methods(timer_logger)
 class PSI4(Engines):
     """
     Writes and executes input files for psi4.

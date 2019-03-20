@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 from QUBEKit.engines import PSI4, Gaussian, Chargemol
-from QUBEKit.ligand import Ligand
+from QUBEKit.ligand import Ligand, Protein, Protein2
 # from QUBEKit.dihedrals import TorsionScan
 from QUBEKit.lennard_jones import LennardJones as LJ
 from QUBEKit.mod_seminario import ModSeminario
@@ -9,7 +9,6 @@ from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, pretty_p
 from QUBEKit.decorators import exception_logger_decorator
 # from QUBEKit.parametrisation import Parametrisation, OpenFF, AnteChamber, XML
 # from QUBEKit import smiles
-from QUBEKit.ligand import Protein
 
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
@@ -204,7 +203,30 @@ def main():
     # lj = LJ(aa, config_dict)
     # aa.NonbondedForce = lj.calculate_non_bonded_force()
 
-    pass
+    with open('new.pdb', 'w+') as new, open('input.pdb', 'r') as old:
+
+        lines = old.readlines()
+
+        new.write(lines[0])
+
+        for line in lines[1:-2]:
+            line_items = line.split()
+            line_items[1] = int(line_items[1]) + 6
+
+            line_items = ' '.join(str(item) for item in line_items)
+
+            new.write(f'{line_items}\n')
+
+        new.write(lines[-2])
+        new.write(lines[-1])
+
+    mol = Protein2('aceleunme.pdb')
+
+    print(mol.molecule)
+
+    mol.symmetrise_from_top()
+
+    print(mol.symm_hs)
 
 
 if __name__ == '__main__':

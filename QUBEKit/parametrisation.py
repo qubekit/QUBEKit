@@ -1,4 +1,7 @@
+#!/usr/bin/env python
+
 from QUBEKit.decorators import for_all_methods, timer_logger
+from QUBEKit.helpers import append_to_log
 
 from tempfile import TemporaryDirectory
 from shutil import copy
@@ -136,28 +139,23 @@ class Parametrisation:
         for key in self.molecule.PeriodicTorsionForce.keys():
             self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
 
-
         # now we need to tag the proper and improper torsions and reorder them so the first atom is the central
-        improper_torsions = OrderedDict()
-        for improper in self.molecule.improper_torsions:
-            print(improper)
+        impropers = OrderedDict()
+        for improper in self.molecule.impropers:
             for key in self.molecule.PeriodicTorsionForce:
                 # for each improper find the corresponding torsion parameters and save
                 if sorted(key) == sorted(tuple([x - 1 for x in improper])):
                     # if they match tag the dihedral
-                    print(f'imporper found {sorted(key)}')
                     self.molecule.PeriodicTorsionForce[key].append('Improper')
                     # replace the key with the strict improper order first atom is center
-                    improper_torsions[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
+                    impropers[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
-        # now we should remake the torsion store in the ligand
+        # Remake the torsion store in the ligand
         self.molecule.PeriodicTorsionForce = OrderedDict((v, k) for v, k in torsions.items() if k[-1] != 'Improper')
-        # now we need to add the impropers at the end of the torsion object
-        for key in improper_torsions.keys():
-            self.molecule.PeriodicTorsionForce[key] = improper_torsions[key]
-
-
+        # Add the impropers at the end of the torsion object
+        for key in impropers.keys():
+            self.molecule.PeriodicTorsionForce[key] = impropers[key]
 
     def get_gaff_types(self, file=None):
         """Convert the pdb file into a mol2 antechamber file and get the gaff atom types."""
@@ -183,67 +181,19 @@ class Parametrisation:
 
         # now get the gaff atom types
         with open(file, 'r') as mol_in:
-            ATOMS = False
-            BONDS = False
+            atoms = False
             for line in mol_in.readlines():
                 if '@<TRIPOS>ATOM' in line:
-                    ATOMS = True
+                    atoms = True
                     continue
                 elif '@<TRIPOS>BOND' in line:
-                    ATOMS = False
-                    BONDS = True
+                    atoms = False
                     continue
-                if ATOMS:
+                if atoms:
                     self.gaff_types[line.split()[1]] = str(line.split()[5])
-        print(self.gaff_types)
 
-    def symmetrise(self):
-        """
-        Search the xml and generate a dictionary based on the calculated Lennard-Jones parameters.
-        Each Lennard-Jones parameter value will be assigned as a dictionary key.
-        The values are then whichever atoms have that Lennard-Jones parameter.
-        For example, for methane:
-            self.molecule.symmetry_types = {0.4577296: [0], 0.0656887: [1, 2, 3, 4]}
-        Here there is one Carbon atom with a particular L-J parameter: 0.4577296.
-        This Carbon atom is the zeroth atom in the list; the list being self.molecule.molecule.
-        Then there are four Hydrogen atoms, each with the same L-J parameter: 0.0656887;
-        their positions in self.molecule.molecule are 1, 2, 3, 4.
-        """
-
-        with open('serialised.xml', 'r') as xml_file:
-
-            lines = xml_file.readlines()
-
-            # Find where the sigma values are kept
-            for count, line in enumerate(lines):
-                if 'sig=' in line:
-                    start_pos = count
-                    break
-            else:
-                raise EOFError('Cannot find epsilon values in xml file.')
-
-            # Identify the range of the lines to be read based on the number of atoms in the molecule
-            end_pos = start_pos + len(self.molecule.molecule)
-
-            # Extract the sigma values which will be used as keys
-            eps_list = [float(lines[i].split('"')[1]) for i in range(start_pos, end_pos)]
-
-        eps_dict = {}
-
-        for a_type in range(len(eps_list)):
-
-            # If a sigma value exists as a key, extend that key's list with the atom's index
-            if eps_list[a_type] in eps_dict:
-                eps_dict[eps_list[a_type]] += [a_type]
-            # Otherwise, create a new key with the [atom index] as the value
-            else:
-                eps_dict[eps_list[a_type]] = [a_type]
-
-        # Convert dictionary to list of lists where each inner list is the values from the eps_dict
-        groups = [val for val in eps_dict.values()]
-
-        # Set the variable in the ligand class object
-        self.molecule.symmetry_types = groups
+        message = f'GAFF types: {self.gaff_types}'
+        append_to_log(self.molecule.log_file, message, msg_type='minor')
 
 
 @for_all_methods(timer_logger)
@@ -258,7 +208,6 @@ class XML(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
@@ -282,7 +231,7 @@ class XML(Parametrisation):
 
 
 @for_all_methods(timer_logger)
-class XML_Protein(Parametrisation):
+class XMLProtein(Parametrisation):
     """Read in the parameters for a protein from the QUBEKit_general XML file and store them into the protein."""
 
     def __init__(self, protein, input_file='QUBE_general_pi.xml', fftype='CM1A/OPLS'):
@@ -387,25 +336,22 @@ class XML_Protein(Parametrisation):
             self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
 
         # now we need to tag the proper and improper torsions and reorder them so the first atom is the central
-        improper_torsions = OrderedDict()
-        for improper in self.molecule.improper_torsions:
-            # print(improper)
+        impropers = OrderedDict()
+        for improper in self.molecule.impropers:
             for key in self.molecule.PeriodicTorsionForce:
                 # for each improper find the corresponding torsion parameters and save
                 if sorted(key) == sorted(tuple([x - 1 for x in improper])):
                     # if they match tag the dihedral
-                    # print(f'imporper found {sorted(key)}')
                     self.molecule.PeriodicTorsionForce[key].append('Improper')
                     # replace the key with the strict improper order first atom is center
-                    improper_torsions[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
+                    impropers[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
         # now we should remake the torsion store in the ligand
         self.molecule.PeriodicTorsionForce = OrderedDict((v, k) for v, k in torsions.items() if k[-1] != 'Improper')
         # now we need to add the impropers at the end of the torsion object
-        for key in improper_torsions.keys():
-            self.molecule.PeriodicTorsionForce[key] = improper_torsions[key]
-
+        for key in impropers.keys():
+            self.molecule.PeriodicTorsionForce[key] = impropers[key]
 
 
 @for_all_methods(timer_logger)
@@ -425,7 +371,6 @@ class AnteChamber(Parametrisation):
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Serialise the amber style files into an openmm object."""
@@ -527,7 +472,6 @@ class OpenFF(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
@@ -569,7 +513,6 @@ class BOSS(Parametrisation):
         self.BOSS_cmd()
         self.gather_parameters()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
-        self.symmetrise()
 
     def BOSS_cmd(self):
         """

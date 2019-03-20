@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
@@ -34,9 +33,9 @@ class Main:
 
     def __init__(self):
 
-        self.start_up_msg = ('''
-            If QUBEKit ever breaks or you would like to view timings and loads of other info, view the log file\n
-            Our documentation (README.md) also contains help on handling the various commands for QUBEKit''')
+        self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, '
+                             'view the log file.\n Our documentation (README.md) '
+                             'also contains help on handling the various commands for QUBEKit\n')
 
         # Configs:
         self.defaults_dict = {'charge': 0,
@@ -59,16 +58,17 @@ class Main:
                                   ('torsions', self.torsions),
                                   ('finalise', self.finalise)])
 
+        self.log_file = None
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian}
-        self.parse_commands()
+        self.file, self.commands = self.parse_commands()
 
         # Find which config is being used and store arguments accordingly
         if self.defaults_dict['config'] == 'default_config':
             if not Configure.check_master():
                 # Press any key to continue
-                input('''You must set up a master config to use QUBEKit and change the chargemol path; 
-                      press enter to edit master config. 
-                      You are free to change it later, with whichever editor you prefer.''')
+                input('You must set up a master config to use QUBEKit and change the chargemol path; '
+                      'press enter to edit master config. \n'
+                      'You are free to change it later, with whichever editor you prefer.')
                 Configure.ini_writer('master_config.ini')
                 Configure.ini_edit('master_config.ini')
 
@@ -141,10 +141,10 @@ class Main:
 
             # Setup configs for all future runs
             if cmd == '-setup':
-                choice = input('''You can now edit config files using QUBEKit, choose an option to continue:\n
-                               1) Edit a config file\n
-                               2) Create a new master template\n
-                               3) Make a normal config file\n>''')
+                choice = input('You can now edit config files using QUBEKit, choose an option to continue:\n'
+                               '1) Edit a config file\n'
+                               '2) Create a new master template\n'
+                               '3) Make a normal config file>\n')
 
                 if int(choice) == 1:
                     name = input('Enter the name of the config file to edit\n>')
@@ -202,9 +202,9 @@ class Main:
                 self.configs['qm']['basis'] = str(self.commands[count + 1])
 
         if self.commands:
-            print(f'''\nThese are the commands you gave: {self.commands} \n
-                  These are the current defaults: {self.defaults_dict} \n
-                  Please note, some values may not be used depending on what kind of analysis is being done.''')
+            print(f'\nThese are the commands you gave: {self.commands}\n' 
+                  f'These are the current defaults: {self.defaults_dict} \n\n'
+                  'Please note, some values may not be used depending on what kind of analysis is being done.\n')
 
         # Check if a bulk analysis is being done.
         for count, cmd in enumerate(self.commands):
@@ -230,7 +230,7 @@ class Main:
 
                     print(f'Currently analysing: {name}')
 
-                    # Set the start + end points to what is given in the csv. See the -restart / -end section below
+                    # Set the start and end points to what is given in the csv. See the -restart / -end section below
                     # for further details and better documentation.
                     start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'rdkit_optimise'
                     end_point = bulk_data[name]['end']
@@ -304,6 +304,8 @@ class Main:
                     files = [file for file in listdir('.') if path.isfile(file)]
                     self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
 
+                    return self.file, self.commands
+
         # Finally, check if a single analysis is being done and if so, is it using a pdb or smiles.
         for count, cmd in enumerate(self.commands):
 
@@ -317,12 +319,13 @@ class Main:
                 self.file = cmd
 
             print(self.start_up_msg)
+            return self.file, self.commands
 
         else:
-            sys_exit('''You did not ask QUBEKit to perform any kind of analysis, so it has stopped.\n
-                     See the documentation (README) for details of acceptable commands with examples.\n
-                     Try QUBEKit -sm C for an analysis of methane based on its smiles string.\n
-                     Or, if you have not set up any configs yet, try QUBEKit -setup''')
+            sys_exit('\nYou did not ask QUBEKit to perform any kind of analysis, so it has stopped.\n'
+                     'See the documentation (README) for details of acceptable commands with examples.\n'
+                     'Try QUBEKit -sm C for an analysis of methane based on its smiles string.\n'
+                     'Or, if you have not set up any configs yet, try QUBEKit -setup')
 
     def continue_log(self):
         """
