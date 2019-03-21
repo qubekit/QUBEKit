@@ -18,8 +18,6 @@ from os import chdir, mkdir, system
 from shutil import rmtree
 
 import matplotlib.pyplot as plt
-
-
 # import seaborn as sns
 
 
