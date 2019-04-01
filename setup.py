@@ -36,14 +36,11 @@ setup(name='qubekit',
       ],
       python_requires='~=3.5',
       install_requires=[
-          'geomeTRIC',
-          'openmm',
+          'matplotlib',
           'networkx',
-          'rdkit',
-          'seaborn',
-          'simtk',
-          'torsiondrive',
-          'numpy'])
+          'numpy',
+          'scipy',
+      ])
 
 print('Finding home directory to store QUBEKit config files')
 home = str(Path.home())
