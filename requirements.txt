@@ -1,8 +1,1 @@
-geomeTRIC
-openmm
-networkx
-rdkit
-seaborn
-simtk
-torsiondrive
-numpy
+python >= 3.6
