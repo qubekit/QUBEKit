@@ -342,6 +342,7 @@ class Main:
             log_file.write(f'The commands given were: {self.commands}\n\n')
 
             # TODO Add logic to reprint commands with *s after changed defaults.
+            #   Could possibly be done using the pickle file? Are the configs stored in an usable / accessible form?
             # Writes the config dictionaries to the log file.
             log_file.write('The defaults being used are:\n')
             for dic in self.all_configs:
@@ -384,8 +385,8 @@ class Main:
 
             # Writes the config dictionaries to the log file.
             log_file.write('The defaults being used are:\n')
-            for dic in self.all_configs:
-                for key, var in dic.items():
+            for config in self.all_configs:
+                for key, var in config.items():
                     log_file.write(f'{key}: {var}\n')
                 log_file.write('\n')
 

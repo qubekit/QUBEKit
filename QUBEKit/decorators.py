@@ -41,17 +41,14 @@ def timer_logger(orig_func):
 
         # Find all files in current directory; isolate the QUBEKit log file.
         files = [f for f in listdir('.') if path.isfile(f)]
-        # TODO Test try except add narrow down exception.
         try:
             file_name = [file for file in files if file.startswith('QUBEKit_log')][0]
-        except:
+        except IndexError:
             file_name = 'temp_QUBE_log'
 
         with open(file_name, 'a+') as log_file:
             log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
             log_file.write(f'Docstring for {orig_func.__qualname__}:\n     {orig_func.__doc__}\n\n')
-
-        result = orig_func(*args, **kwargs)
 
         time_taken = time() - t1
 
@@ -68,7 +65,7 @@ def timer_logger(orig_func):
             # Add some separation space between function / method logs.
             log_file.write(f'{"-" * 50}\n\n')
 
-        return result
+        return orig_func(*args, **kwargs)
     return wrapper
 
 

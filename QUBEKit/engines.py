@@ -10,6 +10,11 @@ from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import call as sub_call
 from numpy import array, zeros
+from numpy import append as np_append
+from scipy.spatial import ConvexHull
+import matplotlib.pyplot as plt
+# Pycharm claims this import is unused; ignore it!
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class Engines:
@@ -503,3 +508,20 @@ class ONETEP(Engines):
     def generate_input(self, run=True):
 
         pass
+
+    def calculate_hull(self):
+
+        coords = array([atom[1:] for atom in self.molecule.molecule])
+
+        hull = ConvexHull(coords)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        ax.plot(coords.T[0], coords.T[1], coords.T[2], 'ko')
+
+        for simplex in hull.simplices:
+            simplex = np_append(simplex, simplex[0])
+            ax.plot(coords[simplex, 0], coords[simplex, 1], coords[simplex, 2], color='lightseagreen')
+
+        plt.show()
