@@ -1,0 +1,11 @@
+name: qubekit
+channels:
+  - conda-forge
+  - omnia
+  - openeye
+  - psi4
+  - rdkit
+dependencies:
+  - python=3
+  - numpy
+  - scipy

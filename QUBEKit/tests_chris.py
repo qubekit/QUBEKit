@@ -15,17 +15,3 @@ defaults_dict = {'charge': 0, 'multiplicity': 1, 'config': 'default_config'}
 
 qm, fitting, descriptions = Configure.load_config(defaults_dict['config'])
 config_dict = [defaults_dict, qm, fitting, descriptions]
-
-
-def main():
-
-    mol = Ligand('methane.pdb')
-
-    onetep = ONETEP(mol, config_dict)
-
-    onetep.calculate_hull()
-
-
-if __name__ == '__main__':
-
-    main()
