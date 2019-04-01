@@ -13,19 +13,11 @@ build:
 
 requirements:
   build:
-    - matplotlib
-    - networkx
-    - numpy
     - python >=3.6
-    - scipy
     - setuptools
 
   run:
-    - numpy
-    - scipy
     - python >=3.6
-    - matplotlib
-    - networkx
 
 about:
   home: https://github.com/jthorton/QUBEKitdev
