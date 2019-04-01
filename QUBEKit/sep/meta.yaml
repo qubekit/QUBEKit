@@ -13,30 +13,19 @@ build:
 
 requirements:
   build:
-    - setuptools
-    - numpy
-    - scipy
-    - python >=3.6
     - matplotlib
     - networkx
-    - rdkit::rdkit
-    - omnia::openforcefield
-    - openeye::openeye-toolkits
-    - psi4::psi4
-    - conda-forge::geomeTRIC
-    - conda-forge::rdkit
+    - numpy
+    - python >=3.6
+    - scipy
+    - setuptools
+
   run:
     - numpy
     - scipy
     - python >=3.6
     - matplotlib
     - networkx
-    - rdkit::rdkit
-    - omnia::openforcefield
-    - openeye::openeye-toolkits
-    - psi4::psi4
-    - conda-forge::geomeTRIC
-    - conda-forge::rdkit
 
 about:
   home: https://github.com/jthorton/QUBEKitdev
