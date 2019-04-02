@@ -4,6 +4,8 @@ from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.helpers import check_net_charge
 
 from os.path import exists
+from collections import OrderedDict
+from numpy import array, cross, dot, sqrt, reshape
 
 
 @for_all_methods(timer_logger)
@@ -97,13 +99,19 @@ class LennardJones:
         All vals are float except atom number (int) and atom type (str).
         """
 
-        # First file contains atom number, type and xyz coords:
-        with open('ddec.xyz', 'r') as file:
-            lines = file.readlines()
+        # # First file contains atom number, type and xyz coords:
+        # with open('ddec.xyz', 'r') as file:
+        #     lines = file.readlines()
+        #
+        # for pos, line in enumerate(lines[2:]):
+        #     atom, *coords = line.split()
+        #     self.ddec_data.append([pos, atom] + [float(coord) for coord in coords])
 
-        for pos, line in enumerate(lines[2:]):
-            atom, *coords = line.split()
-            self.ddec_data.append([pos, atom] + [float(coord) for coord in coords])
+        # We know this from the molecule object self.molecule try to get the info from there
+        for pos, atom in enumerate(self.molecule.molecule['input']):
+            self.ddec_data.append([pos + 1] + [atom[i] for i in range(4)])
+
+
 
         # Second file contains the rest (charges, dipoles and volumes):
         with open('ddec.onetep', 'r') as file:
@@ -202,7 +210,7 @@ class LennardJones:
         # Create dictionary which stores the atom number and its type:
         # atoms = {1: 'C', 2: 'C', 3: 'H', 4: 'H', ...}
         # (+1 because topology indices count from 1, not 0)
-        positions = {self.molecule.molecule.index(atom) + 1: atom[0] for atom in self.molecule.molecule}
+        positions = {self.molecule.molecule['input'].index(atom) + 1: atom[0] for atom in self.molecule.molecule['input']}
 
         # Loop through pairs in topology
         # Create new pair list with atom types and positions using the dictionary:
@@ -218,6 +226,7 @@ class LennardJones:
             if 'O' in pair[0] or 'N' in pair[0] or 'S' in pair[0]:
                 if 'H' in pair[1]:
                     polars.append(pair)
+
             if 'O' in pair[1] or 'N' in pair[1] or 'S' in pair[1]:
                 if 'H' in pair[0]:
                     polars.append(pair)
@@ -230,11 +239,11 @@ class LennardJones:
             for pair in polars:
                 if 'H' in pair[0] or 'H' in pair[1]:
                     if 'H' in pair[0]:
-                        polar_h_pos = int(pair[0][0]) - 1
-                        polar_son_pos = int(pair[1][0]) - 1
+                        polar_h_pos = int(pair[0][:-1]) - 1
+                        polar_son_pos = int(pair[1][:-1]) - 1
                     else:
-                        polar_h_pos = int(pair[1][0]) - 1
-                        polar_son_pos = int(pair[0][0]) - 1
+                        polar_h_pos = int(pair[1][:-1]) - 1
+                        polar_son_pos = int(pair[0][:-1]) - 1
 
                     # Calculate the new b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
                     self.ddec_data[polar_son_pos][-2] += self.ddec_data[polar_h_pos][-2]
@@ -259,6 +268,99 @@ class LennardJones:
                 epsilon *= self.epsilon_conversion
 
             self.non_bonded_force[pos] = [str(atom[5]), self.non_bonded_force[pos][1], str(epsilon)]
+
+    def apply_symmetrisation(self):
+        """Using the atoms picked out to be symmetrised apply the symmetry to the charge sigma and epsilon values"""
+
+        # get the values to be symmetrised
+        for sym_set in self.molecule.symm_hs.values():
+            charges, sigmas, epsilons = [], [], []
+            for atom_set in sym_set:
+                for atom in atom_set:
+                    charges.append(float(self.non_bonded_force[atom - 1][0]))
+                    sigmas.append(float(self.non_bonded_force[atom - 1][1]))
+                    epsilons.append(float(self.non_bonded_force[atom - 1][2]))
+                # calculate the average values to be used in symmetry
+                charge, sigma, epsilon = sum(charges) / len(charges), sum(sigmas) / len(sigmas), sum(epsilons) / len(epsilons)
+
+                # now loop through the atoms again and store the new values
+                for atom in atom_set:
+                    self.non_bonded_force[atom - 1] = [str(charge), str(sigma), str(epsilon)]
+
+    def extract_extra_sites(self):
+        """
+        1) Gather the extra sties from the XYZ find parent and 2 reference atoms
+        2) calculate the local coords site
+        3) save the charge
+        4) return back to the molecule
+        (users have the option to use sites or no sites this way)
+        """
+
+        # weighting arrays for the virtual sites should not be changed
+        w1o, w2o, w3o = 1.0, 0.0, 0.0  # SUM SHOULD BE 1
+        w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
+        w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
+
+        sites = OrderedDict()
+        with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
+            lines = xyz_sites.readlines()
+
+        sites_no = 0
+        for i, line in enumerate(lines[2:]):
+            # get the current element
+            element = str(line.split()[0])
+
+            if element != 'X':
+                # search the following entries for sites connected to this atom
+                for pos_site in lines[i + 3:]:
+                    if str(pos_site.split()[0]) != 'X':
+                        # if there are no sites break and start the next loop
+                        break
+                    else:
+                        # get the virtual site coords
+                        v_pos = array([float(pos_site.split()[x]) for x in range(1, 4)])
+                        # get parent index number for the topology network
+                        parent = i + 1 - sites_no
+                        # get the two closest atoms to the parent
+                        closet_atoms = list(self.molecule.topology.neighbors(parent))
+                        if len(closet_atoms) < 2:
+                            # find another atom if we only have one
+                            # dont want to get the parent as a close atom
+                            closet_atoms.append(list(self.molecule.topology.neighbors(closet_atoms[0]))[-1])
+
+                        # Get the xyz coordinates of the refernece atoms
+                        parent_pos = array(self.molecule.molecule['qm'][parent - 1][1:])
+                        close_a = array(self.molecule.molecule['qm'][closet_atoms[0] - 1][1:])
+                        close_b = array(self.molecule.molecule['qm'][closet_atoms[1] - 1][1:])
+
+                        # work out the local coordinates site using rules from the OpenMM guide
+                        orig = w1o * parent_pos + w2o * close_a + close_b * w3o
+                        AB = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
+                        AC = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
+                        # Get the axis unit vectors
+                        Zdir = cross(AB, AC)
+                        Zdir = Zdir / sqrt(dot(Zdir, Zdir.reshape(3, 1)))
+                        Xdir = AB / sqrt(dot(AB, AB.reshape(3, 1)))
+                        Ydir = cross(Zdir, Xdir)
+                        # Get the local coordinates positions
+                        p1 = dot((v_pos - orig), Xdir.reshape(3, 1))
+                        p2 = dot((v_pos - orig), Ydir.reshape(3, 1))
+                        p3 = dot((v_pos - orig), Zdir.reshape(3, 1))
+
+                        charge = float(pos_site.split()[4])
+
+                        # store the site info [(parent top no, a, b), (p1, p2, p3), charge]]
+                        sites[sites_no] = [(parent - 1, closet_atoms[0] - 1, closet_atoms[1] - 1), (p1 / 10, p2 / 10, p3 / 10), charge]
+                        sites_no += 1
+
+        self.molecule.sites = sites
+
+        # get the parent non bonded values
+        for value in sites.values():
+            charge, sigma, eps = self.non_bonded_force[value[0][0]]
+            # now change just the charge the first entry
+            charge = float(charge) - value[2]
+            self.non_bonded_force[value[0][0]] = [str(charge), sigma, eps]
 
     def calculate_non_bonded_force(self):
         """
@@ -286,6 +388,12 @@ class LennardJones:
 
         # Tweak for polar Hydrogens
         self.correct_polar_hydrogens()
+
+        # Tweak the charge sigma and epsilon for symmetry
+        self.apply_symmetrisation()
+
+        # Find extra site positions in local coords if present and tweak the charges of the parent
+        self.extract_extra_sites()
 
         return self.non_bonded_force
 

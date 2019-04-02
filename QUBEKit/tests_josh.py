@@ -85,6 +85,7 @@ def main():
     from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
     from QUBEKit.ligand import Ligand
     from QUBEKit.engines import PSI4
+    from QUBEKit.mod_seminario import ModSeminario
     from os import chdir
     from QUBEKit.parametrisation import OpenFF, XML, AnteChamber
     from shutil import  copy
@@ -98,12 +99,11 @@ def main():
 
     config_dict = [defaults_dict, qm, fitting, descriptions]
     print('loading molecule')
-    scan = (1,2)
-    chdir('complex_test')
-    mol = Ligand('MOL.pdb')
+    chdir('captain')
+    mol = Ligand('captain.pdb')
     print('paramiterising')
     # OpenFF(mol)
-    XML(mol)
+    XML(mol, input_file='boss.xml')
     # AnteChamber(mol)
     # mol.write_parameters()
     # copy('complex.xml', 'test.xml')
@@ -112,18 +112,80 @@ def main():
     print('loading scanner')
     scanner = TorsionScan(mol, qm_engine)
     print('scanning')
-    #scanner.start_scan()
+    # scanner.start_scan()
     print('getting energies')
-    copy('MOL.pdb', 'SCAN_4_5/QM')
-    copy('MOL.xml', 'SCAN_4_5/QM')
-    chdir('SCAN_4_5/QM')
+    chdir('SCAN_17_19/QM_torsiondrive')
     scanner.get_energy(mol.scan_order[0])
-    opt = TorsionOptimiser(mol, QMengine, config_dict, opt_method='BFGS', opls=True, refinement_method='SP', vn_bounds=50)
-    opt.run()
+    chdir('../../')
+    opt = TorsionOptimiser(mol, QMengine, config_dict, opt_method='BFGS', opls=True, refinement_method='SP', vn_bounds=20)
+    opt.opt_test()
     print(mol.PeriodicTorsionForce)
 
+def main_2():
+    from QUBEKit.helpers import Configure
+    from QUBEKit.ligand import Ligand
+    from QUBEKit.parametrisation import XML, AnteChamber
+    from os import chdir
+
+    defaults_dict = {'charge': 0,
+                     'multiplicity': 1,
+                     'config': 'default_config'}
+    print('loading configs')
+    qm, fitting, descriptions = Configure.load_config(defaults_dict['config'])
+
+    config_dict = [defaults_dict, qm, fitting, descriptions]
+    print('loading molecule')
+    chdir('dynamics_test')
+    mol = Ligand('G1_4f.pdb')
+    #mol.read_pdb()
+
+    # AnteChamber(mol)
+    # mol.update()
+    # mol.write_pdb('G1_4a_qube')
+    XML(mol, mol2_file='G1_4f.mol2')
+    # mol.write_pdb(name='test_qube')
+    mol.write_parameters(name='qube_4F')
+
+    print('done')
+
+
+def main_sites():
+    from QUBEKit.helpers import Configure
+    from QUBEKit.ligand import Ligand
+    from QUBEKit.lennard_jones import  LennardJones
+    from QUBEKit.parametrisation import XML, AnteChamber
+    from os import chdir
+
+    defaults_dict = {'charge': 0,
+                     'multiplicity': 1,
+                     'config': 'default_config'}
+    print('loading configs')
+    qm, fitting, descriptions = Configure.load_config(defaults_dict['config'])
+    qm['charges_engine'] = 'onetep'
+
+    config_dict = [defaults_dict, qm, fitting, descriptions]
+    print('loading molecule')
+    chdir('sites_test_2')
+    mol = Ligand('MOL.pdb')
+    print(mol.symm_hs)
+    print(mol.rotatable)
+    # mol.read_xyz(name='ddec', input_type='qm')
+    # mol.read_pdb()
+
+    # AnteChamber(mol)
+    # mol.update()
+    # mol.write_pdb('G1_4a_qube')
+    # XML(mol)
+    # # mol.write_pdb(name='test_qube')
+    # lj = LennardJones(mol, config_dict)
+    # mol.NonbondedForce = lj.calculate_non_bonded_force()
+    # mol.write_parameters(name='v_site_test')
+
+
+    print('done')
+
 if __name__ == '__main__':
-    main()
+    main_sites()
 
 
 

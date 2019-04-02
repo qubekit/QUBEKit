@@ -3,16 +3,16 @@
 from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.engines import PSI4, Chargemol, Gaussian
+from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP
 from QUBEKit.ligand import Ligand
-from QUBEKit.dihedrals import TorsionScan
+from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
 from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress, pretty_print, Configure, unpickle
 from QUBEKit.decorators import exception_logger_decorator
 
 from sys import argv as cmdline
 from sys import exit as sys_exit
-from os import mkdir, chdir, path, listdir, walk
+from os import mkdir, chdir, path, listdir, walk, getcwd
 from shutil import copy
 from collections import OrderedDict
 from functools import partial
@@ -55,11 +55,13 @@ class Main:
                                   ('density', self.density),
                                   ('charges', self.charges),
                                   ('lennard_jones', self.lennard_jones),
-                                  ('torsions', self.torsions),
+                                  ('torsion_scan', self.torsion_scan),
+                                  ('torsion_optimisation', self.torsion_optimisation),
                                   ('finalise', self.finalise)])
 
         self.log_file = None
-        self.engine_dict = {'psi4': PSI4, 'g09': Gaussian}
+        self.log_path = None
+        self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
         self.file, self.commands = self.parse_commands()
 
         # Find which config is being used and store arguments accordingly
@@ -144,10 +146,11 @@ class Main:
                 choice = input('You can now edit config files using QUBEKit, choose an option to continue:\n'
                                '1) Edit a config file\n'
                                '2) Create a new master template\n'
-                               '3) Make a normal config file>\n')
+                               '3) Make a normal config file\n>')
 
                 if int(choice) == 1:
-                    name = input('Enter the name of the config file to edit\n>')
+                    inis = Configure.show_ini()
+                    name = input(f'Enter the name of the config file to edit\n{"".join(f"{ini}    " for ini in inis)}\n>')
                     Configure.ini_edit(name)
 
                 elif int(choice) == 2:
@@ -392,6 +395,8 @@ class Main:
 
             log_file.write('\n')
 
+        self.log_path = path.abspath(self.log_file)
+
     def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg=''):
         """
         Firstly, check if the stage start_key is in self.order; this tells you if the stage should be called or not.
@@ -409,12 +414,23 @@ class Main:
 
             mol = unpickle(f'.{self.file[:-4]}_states')[start_key]
 
+            self.log_file = mol.log_path
+
             if begin_log_msg:
                 print(f'{begin_log_msg}...', end=' ')
 
+            # move into folder
+            home = getcwd()
+            try:
+                mkdir(f'{start_key}')
+            except FileExistsError:
+                pass
+            finally:
+                chdir(f'{start_key}')
             self.order[start_key](mol)
             self.order.pop(start_key, None)
 
+            chdir(home)
             # Begin looping through self.order, but return after the first iteration.
             for key in self.order:
                 next_key = key
@@ -430,16 +446,20 @@ class Main:
     def rdkit_optimise(molecule):
         """Optimise the molecule coordinates using rdkit. Purely used to speed up bonds engine convergence."""
 
+        copy(f'../{molecule.filename}', f'{molecule.filename}')
         molecule.filename, molecule.descriptors = smiles_mm_optimise(molecule.filename)
 
         # Initialise the molecule's pdb with its optimised form.
-        molecule.read_pdb(mm=True)
+        molecule.read_pdb(input_type='mm')
+
+        copy(f'{molecule.filename}', f'../{molecule.filename}')
 
         return molecule
 
     def parametrise(self, molecule):
         """Perform initial molecule parametrisation using OpenFF, Antechamber or XML."""
 
+        copy(f'../{molecule.filename}', f'{molecule.filename}')
         # Parametrisation options:
         param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
         param_dict[self.fitting['parameter_engine']](molecule)
@@ -456,12 +476,12 @@ class Main:
         if self.qm['geometric']:
 
             # Calc geometric-related gradient and geometry
-            qm_engine.geo_gradient(mm=True)
-            molecule.read_xyz()
+            qm_engine.geo_gradient(input_type='mm')
+            molecule.read_xyz(input_type='qm')
 
         else:
-            qm_engine.generate_input(mm=True, optimise=True)
-            molecule.qm_optimised = qm_engine.optimised_structure()
+            qm_engine.generate_input(input_type='mm', optimise=True)
+            molecule.molecule['qm'] = qm_engine.optimised_structure()
 
         append_to_log(self.log_file, f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
 
@@ -473,10 +493,10 @@ class Main:
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
 
         # Write input file for bonds engine
-        qm_engine.generate_input(qm=True, hessian=True)
+        qm_engine.generate_input(input_type='qm', hessian=True)
 
         # Calc bond lengths from molecule topology
-        molecule.get_bond_lengths(qm=True)
+        molecule.get_bond_lengths(input_type='qm')
 
         # Extract Hessian
         molecule.hessian = qm_engine.hessian()
@@ -499,25 +519,30 @@ class Main:
     def density(self, molecule):
         """Perform density calculation with the qm engine."""
 
-        g09 = Gaussian(molecule, self.all_configs)
-        g09.generate_input(qm=True, density=True, solvent=self.qm['solvent'])
+        qm_engine = self.engine_dict[self.qm['density_engine']](molecule, self.all_configs)
+        qm_engine.generate_input(input_type='qm', density=True, solvent=self.qm['solvent'])
 
-        append_to_log(self.log_file, 'Gaussian analysis complete')
+        if self.qm['density_engine'] == 'g09':
+            append_to_log(self.log_file, 'Gaussian analysis complete')
+        else:
+            append_to_log(self.log_file, 'ONETEP file made')
 
         return molecule
 
     def charges(self, molecule):
         """Perform DDEC calculation with Chargemol."""
 
+        # TODO skip if onetep
         c_mol = Chargemol(molecule, self.all_configs)
         c_mol.generate_input()
+
 
         append_to_log(self.log_file, f'Chargemol analysis with DDEC{self.qm["ddec_version"]} complete')
 
         return molecule
 
     def lennard_jones(self, molecule):
-        """Calculate Lennard-Jones parameters."""
+        """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
         lj = LennardJones(molecule, self.all_configs)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
@@ -526,14 +551,26 @@ class Main:
 
         return molecule
 
-    def torsions(self, molecule):
+    def torsion_scan(self, molecule):
         """Perform torsion scan."""
 
-        # scan = TorsionScan(molecule, PSI4, self.all_configs)
-        # sub_call(f'{scan.cmd}', shell=True)
-        # scan.start_scan()
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
+        scan = TorsionScan(molecule, qm_engine, self.all_configs)
+        scan.start_scan()
 
         append_to_log(self.log_file, 'Torsion scans complete')
+
+        return molecule
+
+    def torsion_optimisation(self, molecule):
+        """Perform torsion optimisation"""
+
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
+        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS', opls=True, refinement_method='SP',
+                               vn_bounds=20)
+        opt.run()
+
+        append_to_log(self.log_file, 'Torsion optimisations complete')
 
         return molecule
 
@@ -560,7 +597,8 @@ class Main:
         if 'rdkit_optimise' in [key for key in self.order]:
             # Initialise ligand object fully before pickling it
             molecule = Ligand(self.file)
-            molecule.log_file = self.log_file
+            molecule.log_file = self.log_path
+            # molecule.log_path = self.log_path
             molecule.pickle(state='rdkit_optimise')
 
         # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
@@ -574,7 +612,8 @@ class Main:
         self.stage_wrapper('density', 'Performing density calculation with Gaussian09', 'Density calculation complete')
         self.stage_wrapper('charges', f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated')
         self.stage_wrapper('lennard_jones', 'Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated')
-        self.stage_wrapper('torsions')
+        self.stage_wrapper('torsion_scan', 'Performing QM constrained optimisation with torsiondrive', 'Torsiondrive finished QM results saved')
+        self.stage_wrapper('torsion_optimisation', 'Performing torsion optimisation', 'Torsion optimisation complete')
 
         # This step is always performed
         self.stage_wrapper('finalise', 'Finalising analysis', 'Molecule analysis complete!')
