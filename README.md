@@ -24,8 +24,8 @@
 
 ## What is QUBEKit?
 
-[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python 3.6 based force field derivation toolkit for Linux operating systems.
-It aims to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
+[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python 3.5+ based force field derivation toolkit for Linux operating systems.
+Our aims are to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
 QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
 QUBEKit aims to use as few parameters as possible while also being highly customisable.
 
@@ -44,17 +44,19 @@ We welcome any suggestions for additions or changes.
 
 ## Installation
 
-To install, it is recommended to git clone the QUBEKit folder into a home directory and run the setup.py script: 
+To install, it is recommended to conda *([help](https://github.com/jthorton/QUBEKitdev#requirements))* 
+or pip install QUBEKit with either of the following commands: 
 
-    git clone git@github.com:cole-group/QuBeKit.git
-    cd <path to QUBEKit setup.py script>
-    python setup.py install
+    conda install -c cringrose qubekit
+    pip install qubekit
 
 ### Requirements
 
 * [Anaconda3](https://www.anaconda.com/download/)
 
-Download Anaconda from the above link and install with the linux command ```./Anaconda3<version>.sh```
+Download Anaconda from the above link and install with the linux command:
+
+    ./Anaconda3<version>.sh
 
 *You may need to use ```chmod +x Anaconda3<version>.sh``` to make it executable.*
 
@@ -96,13 +98,16 @@ These packages are on different conda channels, hence needing the extra argument
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda will deal with versions and conflicts in your environment.
 Generally, conda packages will have the conda install command on their website or github.
-For the software not available through Anaconda, either git clone them and install:
+For the software not available through Anaconda, or if Anaconda is having trouble resolving conflicts*, either git clone them and install:
 
     git clone http://<git_address_here>
     cd <location of cloned package>
     python setup.py install
 
 or follow the described steps in the respective documentation.
+
+**In particular, torsiondrive and geomeTRIC have caused issues with conda environments.
+These are usually fixed by simply installing from the github.*
 
 You should now be able to use QUBEKit straight away from the command line or as an imported Python module.
 
