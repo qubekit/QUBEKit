@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors
-from rdkit.Chem.rdForceFieldHelpers import MMFFGetMoleculeForceField, MMFFGetMoleculeProperties, MMFFOptimizeMolecule
+from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule
 
 
 def smiles_to_pdb(smiles_string, name=None):

@@ -32,23 +32,24 @@ class Configure:
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4 and GeomeTRIC so far
         'iterations': '100',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
-        'charges_engine': 'chargemol',  # Engine used for charges calculations
+        'density_engine': 'g09',        # Engine used to calculate the electron density
+        'charges_engine': 'chargemol',  # Engine used for charge partitioning
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
     }
 
     fitting = {
-        'dih_start': '0',               # Starting angle of dihedral scan
+        'dih_start': '-165',            # Starting angle of dihedral scan
         'increment': '15',              # Angle increase increment
-        'num_scan': '25',               # Number of optimisations around the dihedral angle
+        'dih_end': '180',               # The last dihedral angle in the scan
         't_weight': 'infinity',         # Weighting temperature that can be changed to better fit complicated surfaces
         'new_dih_num': '501',           # Parameter number for the new dihedral to be fit
         'q_file': 'results.dat',        # If the results are collected with QUBEKit this is always true
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array
         'parameter_engine': 'openff',   # Method used for initial parametrisation
-        'l_pen': '0.5',                 # The regularisation penalty
+        'l_pen': '0.0',                 # The regularisation penalty
     }
 
     descriptions = {
@@ -65,13 +66,14 @@ class Configure:
         'convergence': ';Criterion used during optimisations; works using psi4 and geometric so far',
         'iterations': ';Max number of optimisation iterations',
         'bonds_engine': ';Engine used for bonds calculations',
-        'charges_engine': ';Engine used for charges calculations',
+        'density_engine': ';Engine used to calculate the electron density',
+        'charges_engine': ';Engine used for charge partitioning',
         'ddec_version': ';DDEC version used by chargemol, 6 recommended but 3 is also available',
         'geometric': ';Use geometric for optimised structure (if False, will just use PSI4)',
         'solvent': ';Use a solvent in the psi4/gaussian09 input',
         'dih_start': ';Starting angle of dihedral scan',
         'increment': ';Angle increase increment',
-        'num_scan': ';Number of optimisations around the dihedral angle',
+        'dih_end': ';The last dihedral angle in the scan',
         't_weight': ';Weighting temperature that can be changed to better fit complicated surfaces',
         'l_pen': ';The regularisation penalty',
         'new_dih_num': ';Parameter number for the new dihedral to be fit',
@@ -155,6 +157,14 @@ class Configure:
         descriptions = config.__dict__['_sections']['DESCRIPTIONS']
 
         return qm, fitting, descriptions
+
+    @staticmethod
+    def show_ini():
+        """Show all of the ini file options in the config folder."""
+
+        inis = listdir(Configure.config_folder)
+
+        return inis
 
     @staticmethod
     def check_master():

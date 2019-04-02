@@ -54,7 +54,7 @@ class Parametrisation:
     NonbondedForce : dictionary of charge, sigma and epsilon stored under the original atom ordering.
     """
 
-    def __init__(self, molecule, input_file=None, fftype=None):
+    def __init__(self, molecule, input_file=None, fftype=None, mol2_file=None):
 
         self.molecule = molecule
         self.input_file = input_file
@@ -72,10 +72,9 @@ class Parametrisation:
 
         # Try to gather the AtomTypes first
         for i, atom in enumerate(self.molecule.atom_names):
-            self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i),
-                                          str(self.molecule.molecule[i][0]) + str(800 + i), self.gaff_types[atom]]
-            # self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i),
-            #                               str(self.molecule.molecule[i][0]) + str(800 + i)]
+            self.molecule.AtomTypes[i] = [atom, 'QUBE_' + str(800 + i),
+                                          str(self.molecule.molecule['input'][i][0]) + str(800 + i),
+                                          self.gaff_types[atom]]
 
         input_xml_file = 'serialised.xml'
         in_root = parse_tree(input_xml_file).getroot()
@@ -125,27 +124,24 @@ class Parametrisation:
 
         # Now we need to fill in all blank phases of the Torsions
         for key in self.molecule.PeriodicTorsionForce.keys():
-            Vns = ['1', '2', '3', '4']
+            vns = ['1', '2', '3', '4']
             if len(self.molecule.PeriodicTorsionForce[key]) < 4:
                 # now need to add the missing terms from the torsion force
                 for force in self.molecule.PeriodicTorsionForce[key]:
-                    Vns.remove(force[0])
-                for i in Vns:
+                    vns.remove(force[0])
+                for i in vns:
                     self.molecule.PeriodicTorsionForce[key].append([i, '0', phases[int(i) - 1]])
         # sort by periodicity using lambda function
         for key in self.molecule.PeriodicTorsionForce.keys():
             self.molecule.PeriodicTorsionForce[key].sort(key=lambda x: x[0])
 
-
         # now we need to tag the proper and improper torsions and reorder them so the first atom is the central
         improper_torsions = OrderedDict()
         for improper in self.molecule.improper_torsions:
-            print(improper)
             for key in self.molecule.PeriodicTorsionForce:
                 # for each improper find the corresponding torsion parameters and save
                 if sorted(key) == sorted(tuple([x - 1 for x in improper])):
                     # if they match tag the dihedral
-                    print(f'imporper found {sorted(key)}')
                     self.molecule.PeriodicTorsionForce[key].append('Improper')
                     # replace the key with the strict improper order first atom is center
                     improper_torsions[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
@@ -157,10 +153,9 @@ class Parametrisation:
         for key in improper_torsions.keys():
             self.molecule.PeriodicTorsionForce[key] = improper_torsions[key]
 
-
-
     def get_gaff_types(self, file=None):
-        """Convert the pdb file into a mol2 antechamber file and get the gaff atom types."""
+        """Convert the pdb file into a mol2 antechamber file and get the gaff atom types
+        and gaff bonds if there were """
 
         # call Antechamber to convert if we don't have the mol2 file
         if file is None:
@@ -181,21 +176,47 @@ class Parametrisation:
                 copy('out.mol2', mol2)
                 chdir(cwd)
 
-        # now get the gaff atom types
+        # now get the gaff atom types and bonds found incase we don't have this info
+        gaff_bonds = {}
         with open(file, 'r') as mol_in:
-            ATOMS = False
-            BONDS = False
+            atoms = False
+            bonds = False
             for line in mol_in.readlines():
                 if '@<TRIPOS>ATOM' in line:
-                    ATOMS = True
+                    atoms = True
                     continue
                 elif '@<TRIPOS>BOND' in line:
-                    ATOMS = False
-                    BONDS = True
+                    atoms = False
+                    bonds = True
                     continue
-                if ATOMS:
-                    self.gaff_types[line.split()[1]] = str(line.split()[5])
-        print(self.gaff_types)
+                elif '@<TRIPOS>SUBSTRUCTURE' in line:
+                    bonds = False
+                    continue
+                if atoms:
+                    self.gaff_types[self.molecule.atom_names[int(line.split()[0]) - 1]] = str(line.split()[5])
+                if bonds:
+                    try:
+                        gaff_bonds[int(line.split()[1])].append(int(line.split()[2]))
+                    except KeyError:
+                        gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
+
+        # now check if the molecule already has bonds if not apply these bonds
+        if len(list(self.molecule.topology.edges)) == 0:
+            # add the bonds to the molecule
+            for key, value in gaff_bonds.items():
+                for node in value:
+                    self.molecule.topology.add_edge(key, node)
+
+            # now that we have added the bonds call the update method on the molecule
+            self.molecule.update()
+
+            # warning this rewrites the pdb file and re
+            # now we want to write a new pdb with the connection information
+            self.molecule.write_pdb(input_type='input', name=f'{self.molecule.name}_qube')
+            self.molecule.filename = f'{self.molecule.name}_qube.pdb'
+            print(f'Molecule connections updated new pdb file made and used: {self.molecule.name}_qube.pdb')
+            # now update the input file name for the xml
+            self.input_file = f'{self.molecule.name}.xml'
 
     def symmetrise(self):
         """
@@ -223,7 +244,7 @@ class Parametrisation:
                 raise EOFError('Cannot find epsilon values in xml file.')
 
             # Identify the range of the lines to be read based on the number of atoms in the molecule
-            end_pos = start_pos + len(self.molecule.molecule)
+            end_pos = start_pos + len(self.molecule.molecule['input'])
 
             # Extract the sigma values which will be used as keys
             eps_list = [float(lines[i].split('"')[1]) for i in range(start_pos, end_pos)]
@@ -250,11 +271,11 @@ class Parametrisation:
 class XML(Parametrisation):
     """Read in the parameters for a molecule from an XML file and store them into the molecule."""
 
-    def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
+    def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS', mol2_file=None):
 
-        super().__init__(molecule, input_file, fftype)
+        super().__init__(molecule, input_file, fftype, mol2_file)
 
-        self.get_gaff_types()
+        self.get_gaff_types(mol2_file)
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
@@ -320,8 +341,8 @@ class XML_Protein(Parametrisation):
 
         # Try to gather the AtomTypes first
         for i, atom in enumerate(self.molecule.atom_names):
-            self.molecule.AtomTypes[i] = [atom, 'opls_' + str(800 + i),
-                                          str(self.molecule.molecule[i][0]) + str(800 + i)]
+            self.molecule.AtomTypes[i] = [atom, 'QUBE_' + str(i),
+                                          str(self.molecule.molecule['input'][i][0]) + str(i)]
 
         input_xml_file = 'serialised.xml'
         in_root = parse_tree(input_xml_file).getroot()
@@ -375,12 +396,12 @@ class XML_Protein(Parametrisation):
 
         # Now we need to fill in all blank phases of the Torsions
         for key in self.molecule.PeriodicTorsionForce.keys():
-            Vns = ['1', '2', '3', '4']
+            vns = ['1', '2', '3', '4']
             if len(self.molecule.PeriodicTorsionForce[key]) < 4:
                 # now need to add the missing terms from the torsion force
                 for force in self.molecule.PeriodicTorsionForce[key]:
-                    Vns.remove(force[0])
-                for i in Vns:
+                    vns.remove(force[0])
+                for i in vns:
                     self.molecule.PeriodicTorsionForce[key].append([i, '0', phases[int(i) - 1]])
         # sort by periodicity using lambda function
         for key in self.molecule.PeriodicTorsionForce.keys():
@@ -407,7 +428,6 @@ class XML_Protein(Parametrisation):
             self.molecule.PeriodicTorsionForce[key] = improper_torsions[key]
 
 
-
 @for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
     """
@@ -415,9 +435,9 @@ class AnteChamber(Parametrisation):
     then build and export the xml tree object.
     """
 
-    def __init__(self, molecule, input_file=None, fftype='gaff'):
+    def __init__(self, molecule, input_file=None, fftype='gaff', mol2_file=None):
 
-        super().__init__(molecule, input_file, fftype)
+        super().__init__(molecule, input_file, fftype, mol2_file)
 
         self.antechamber_cmd()
         self.serialise_system()
@@ -514,16 +534,16 @@ class AnteChamber(Parametrisation):
 
 
 @for_all_methods(timer_logger)
-# TODO is this method viable if we lo   se all atom info ?
 class OpenFF(Parametrisation):
     """
     This class uses the openFF in openeye to parametrise the molecule using frost.
     A serialised XML is then stored in the parameter dictionaries.
     """
 
-    def __init__(self, molecule, input_file=None, fftype='frost'):
-        super().__init__(molecule, input_file, fftype)
+    def __init__(self, molecule, input_file=None, fftype='frost', mol2_file=None):
+        super().__init__(molecule, input_file, fftype, mol2_file)
 
+        self.get_gaff_types(mol2_file)
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
