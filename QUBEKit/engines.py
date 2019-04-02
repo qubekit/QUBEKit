@@ -4,6 +4,7 @@
 # TODO Add better error handling for missing info. (Done for file extraction.)
 #       Maybe add path checking for Chargemol?
 # TODO Convert to subprocess.run()
+# TODO use QCEngine to run PSI4, geometric and torsion drive QM commands.
 
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
@@ -46,16 +47,11 @@ class PSI4(Engines):
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, qm=False, mm=False, optimise=False, hessian=False, density=False, energy=False,
+    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
                        threads=False, fchk=False, run=True):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
 
-        if qm:
-            molecule = self.molecule.qm_optimised
-        elif mm:
-            molecule = self.molecule.mm_optimised
-        else:
-            molecule = self.molecule.molecule
+        molecule = self.molecule.molecule[input_type]
 
         setters = ''
         tasks = ''
@@ -121,6 +117,10 @@ class PSI4(Engines):
         if run:
             sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
+    # TODO change to one general file parser that gathers any info it can find
+    # puts into the engine object propper API?
+    # file parser is called after execution
+    # this avoids opening and closing the file multiple times if you want a lot of info?
     def hessian(self):
         """
         Parses the Hessian from the output.dat file (from psi4) into a numpy array.
@@ -185,7 +185,8 @@ class PSI4(Engines):
             return hess_matrix
 
     def optimised_structure(self):
-        """Parses the final optimised structure from the output.dat file (from psi4) to a numpy array."""
+        """Parses the final optimised structure from the output.dat file (from psi4) to a numpy array.
+        Also returns the energy of the optimized structure."""
 
         # Run through the file and find all lines containing '==> Geometry', add these lines to a list.
         # Reverse the list
@@ -203,6 +204,13 @@ class PSI4(Engines):
                 if "==> Geometry" in line:
                     geo_pos_list.append(count)
 
+                elif "**** Optimization is complete!" in line:
+                    opt_pos = count
+                    opt_steps = int(line.split()[5])
+
+            # now get the final opt_energy
+            opt_energy = float(lines[opt_pos + opt_steps + 7].split()[1])
+
             # Set the start as the last instance of '==> Geometry'.
             start_of_vals = geo_pos_list[-1] + 9
 
@@ -217,7 +225,7 @@ class PSI4(Engines):
 
                 opt_struct.append(struct_row)
 
-        return opt_struct
+        return opt_struct, opt_energy
 
     @staticmethod
     def get_energy():
@@ -270,18 +278,13 @@ class PSI4(Engines):
 
             return array(all_modes)
 
-    def geo_gradient(self, qm=False, mm=False, threads=False, run=True):
+    def geo_gradient(self, input_type='input', threads=False, run=True):
         """
         Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
         """
 
-        if qm:
-            molecule = self.molecule.qm_optimised
-        elif mm:
-            molecule = self.molecule.mm_optimised
-        else:
-            molecule = self.molecule.molecule
+        molecule = self.molecule.molecule[input_type]
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
@@ -360,15 +363,10 @@ class Gaussian(Engines):
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, qm=False, mm=False, optimize=False, hessian=False, density=False, solvent=False, run=True):
+    def generate_input(self, input_type='input', optimize=False, hessian=False, density=False, solvent=False, run=True):
         """Generates the relevant job file for Gaussian, then executes this job file."""
 
-        if qm:
-            molecule = self.molecule.qm_optimised
-        elif mm:
-            molecule = self.molecule.mm_optimised
-        else:
-            molecule = self.molecule.molecule
+        molecule = self.molecule.molecule[input_type]
 
         with open(f'gj_{self.molecule.name}', 'w+') as input_file:
 
@@ -501,6 +499,11 @@ class ONETEP(Engines):
 
         super().__init__(molecule, config_dict)
 
-    def generate_input(self, run=True):
+    def generate_input(self, input_type='input', density=False, solvent=False):
+        """Onetep takes a xyz input file."""
 
-        pass
+        if density:
+            self.molecule.write_xyz(input_type=input_type)
+
+        # should we make a onetep run file? this is quite specific?
+        print('Run this file in ONETEP.')
