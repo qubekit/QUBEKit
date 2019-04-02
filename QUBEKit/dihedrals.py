@@ -143,7 +143,7 @@ class TorsionScan:
                 if 'Energy ' in line:
                     scan_energy.append(float(line.split()[3]))
 
-            self.scan_mol.QM_scan_energy[scan] = array(scan_energy)
+            self.scan_mol.qm_scan_energy[scan] = array(scan_energy)
 
     def start_scan(self):
         """Makes a folder and writes a new a dihedral input file for each scan and runs the scan."""
@@ -210,7 +210,7 @@ class TorsionOptimiser:
 
         # TorsionOptimiser starting parameters
         # QM scan energies {(scan): [array of qm energies]}
-        self.energy_dict = molecule.QM_scan_energy
+        self.energy_dict = molecule.qm_scan_energy
         # numpy array of the current mm energies
         self.mm_energy = None
         # numpy array of the fitting iteration initial parameter energies

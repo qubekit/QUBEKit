@@ -8,8 +8,8 @@ def smiles_to_pdb(smiles_string, name=None):
     """Converts smiles strings to pdb and mol files."""
     # Originally written by: venkatakrishnan, rewritten and extended by: Chris Ringrose
 
-    if 'H' in str(smiles_string):
-        raise Exception('Smiles string contains hydrogen atoms; try again.')
+    if 'H' in smiles_string:
+        raise SyntaxError('Smiles string contains hydrogen atoms; try again.')
 
     print('Creating pdb file from smiles string.')
 
@@ -36,7 +36,7 @@ def smiles_mm_optimise(pdb_file):
 
     mol = MolFromPDBFile(pdb_file, removeHs=False)
     AllChem.EmbedMolecule(mol)
-    # Use rdkit Descriptors to extract properties and store in Descriptors dictionary
+    # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
     descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(mol),
                    'H-bond donors': Descriptors.NumHDonors(mol),
                    'H-bond acceptors': Descriptors.NumHAcceptors(mol),

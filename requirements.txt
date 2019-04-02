@@ -1,11 +1,1 @@
-matplotlib
-numpy
-scipy
-pymol
-geomeTRIC
-openmm
-networkx
-rdkit
-seaborn
-simtk
-torsiondrive
+python >= 3.6

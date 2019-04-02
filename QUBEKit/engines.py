@@ -12,6 +12,11 @@ from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import call as sub_call
 from numpy import array, zeros
+from numpy import append as np_append
+from scipy.spatial import ConvexHull
+import matplotlib.pyplot as plt
+# Pycharm claims this import is unused; ignore it!
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class Engines:
@@ -32,7 +37,7 @@ class Engines:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
 
-#@for_all_methods(timer_logger)
+@for_all_methods(timer_logger)
 class PSI4(Engines):
     """
     Writes and executes input files for psi4.
@@ -507,3 +512,20 @@ class ONETEP(Engines):
 
         # should we make a onetep run file? this is quite specific?
         print('Run this file in ONETEP.')
+
+    def calculate_hull(self):
+
+        coords = array([atom[1:] for atom in self.molecule.molecule])
+
+        hull = ConvexHull(coords)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        ax.plot(coords.T[0], coords.T[1], coords.T[2], 'ko')
+
+        for simplex in hull.simplices:
+            simplex = np_append(simplex, simplex[0])
+            ax.plot(coords[simplex, 0], coords[simplex, 1], coords[simplex, 2], color='lightseagreen')
+
+        plt.show()

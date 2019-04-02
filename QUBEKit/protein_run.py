@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from QUBEKit.ligand import Protein
-from QUBEKit.parametrisation import XML_Protein
+from QUBEKit.parametrisation import XMLProtein
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.proteinTools import qube_general, pdb_reformat, get_water
 from os import remove
@@ -24,7 +24,7 @@ def main():
         if cmd == '--setup':
             pdb_file = commands[count + 1]
             print(pdb_file)
-            print('starting protein prep, reading pdb file....')
+            print('starting protein prep, reading pdb file...')
             protein = Protein(pdb_file)
             print(f'{len(protein.Residues)} residues found!')
             # TODO find the magic numbers for the box for onetep
@@ -35,17 +35,19 @@ def main():
         # and write a new pdb file with all of the atoms renamed and residues
         elif cmd == '--build':
             pdb_file = commands[count + 1]
+            print(pdb_file)
             protein = Protein(pdb_file)
             # print the qube general FF to use in the parameterization
             qube_general()
             # now we want to add the connections and parametrise the protein
-            XML_Protein(protein)
+            XMLProtein(protein)
+            # print(protein.HarmonicBondForce)
+            # this updates the bonded info that is now in the object
 
             # finally we need the non-bonded parameters from onetep
             # fake configs as this will always be true
-            #charge = input('Enter the system charge\n>')
+
             configs = [{'charge': 0}, {'charges_engine': 'onetep'}, {}, {}]
-            # symetry and non bonded check
             lj = LennardJones(protein, config_dict=configs)
             protein.NonbondedForce = lj.calculate_non_bonded_force()
             # now we write out the final parameters

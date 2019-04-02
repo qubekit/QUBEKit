@@ -1,4 +1,7 @@
+#!/usr/bin/env python
+
 from QUBEKit.decorators import for_all_methods, timer_logger
+from QUBEKit.helpers import append_to_log
 
 from tempfile import TemporaryDirectory
 from shutil import copy
@@ -147,7 +150,7 @@ class Parametrisation:
                     improper_torsions[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
-        # now we should remake the torsion store in the ligand
+        # Remake the torsion store in the ligand
         self.molecule.PeriodicTorsionForce = OrderedDict((v, k) for v, k in torsions.items() if k[-1] != 'Improper')
         # now we need to add the impropers at the end of the torsion object
         for key in improper_torsions.keys():
@@ -200,6 +203,8 @@ class Parametrisation:
                     except KeyError:
                         gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
 
+        message = f'GAFF types: {self.gaff_types}'
+        append_to_log(self.molecule.log_file, message, msg_type='minor')
         # now check if the molecule already has bonds if not apply these bonds
         if len(list(self.molecule.topology.edges)) == 0:
             # add the bonds to the molecule
@@ -303,7 +308,7 @@ class XML(Parametrisation):
 
 
 @for_all_methods(timer_logger)
-class XML_Protein(Parametrisation):
+class XMLProtein(Parametrisation):
     """Read in the parameters for a protein from the QUBEKit_general XML file and store them into the protein."""
 
     def __init__(self, protein, input_file='QUBE_general_pi.xml', fftype='CM1A/OPLS'):

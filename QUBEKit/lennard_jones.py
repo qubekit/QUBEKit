@@ -53,7 +53,7 @@ class LennardJones:
             raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
 
         if not exists(net_charge_file_name):
-            raise FileNotFoundError('Cannot find the DDEC output file.\nThis could be indicative of several issues.\n'
+            raise FileNotFoundError('\nCannot find the DDEC output file.\nThis could be indicative of several issues.\n'
                                     'Please check Chargemol is installed in the correct location and that the configs'
                                     ' point to that location.')
 
@@ -396,3 +396,8 @@ class LennardJones:
         self.extract_extra_sites()
 
         return self.non_bonded_force
+
+    def apply_symmetrisation(self):
+        """"""
+
+        pass

@@ -3,6 +3,7 @@
 # TODO
 #   Clean up qm/mm=True/False with a nice dict
 #   Add remaining xml methods for Protein class
+
 from numpy import array, linalg, dot, degrees, cross, arctan2, arccos
 from networkx import neighbors, Graph, has_path, draw
 from matplotlib import pyplot as plt
@@ -20,12 +21,14 @@ from itertools import groupby, chain
 class Molecule:
     """Base class for ligands and proteins."""
 
-    def __init__(self, filename, smilesstring=None, combination='opls'):
+    def __init__(self, filename, smiles_string=None, combination='opls'):
         """
+        # Namings
         filename                str; Full filename e.g. methane.pdb
         name                    str; Molecule name e.g. methane
         smiles                  str; equal to the smiles_string if one is provided
 
+        # Structure
         topology                Graph class object. Contains connection information for molecule
         molecule                List of lists; Inner list is the atom type followed by its coords
                                 e.g. [['C', -0.022, 0.003, 0.017], ['H', -0.669, 0.889, -0.101], ...]
@@ -41,6 +44,7 @@ class Molecule:
         angle_values             Dictionary of the angle values measured in the molecule object stored under the
                                 angle tuple e.g. {(2, 1, 3): 107.2268} (degrees)
 
+        # XML Info
         xml_tree                An XML class object containing the force field values
         AtomTypes               dict of lists; basic non-symmetrised atoms types for each atom in the molecule
                                 e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
@@ -59,6 +63,7 @@ class Molecule:
                                 e.g. {(3, 1, 2, 6): [[1, 0.6, 0 ] [2, 0, 3.141592653589793] .... Improper]}
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
 
+        # QUBEKit Internals
         sites                   OrderedDict of virtual site parameters {0: [(top nos parent, a .b), (p1, p2, p3), charge]}
 
         log_file                str; Full log file name used by the run file in special run cases
@@ -68,7 +73,7 @@ class Molecule:
         # Namings
         self.filename = filename
         self.name = filename[:-4]
-        self.smiles = smilesstring
+        self.smiles = smiles_string
 
         # Structure
         self.molecule = {'qm': None, 'mm': None, 'input': None}
@@ -188,13 +193,15 @@ class Molecule:
         self.molecule[input_type] = molecule
 
     def find_impropers(self):
-        """Take the topology graph and find all of the improper torsions in the molecule these are atoms with 3
-        bonds. """
+        """
+        Take the topology graph and find all of the improper torsions in the molecule;
+        these are atoms with 3 bonds.
+        """
 
         self.improper_torsions = []
         for node in self.topology.nodes:
             near = sorted(list(neighbors(self.topology, node)))
-            # if the atom has 3 bonds it could be an imporper
+            # if the atom has 3 bonds it could be an improper
             if len(near) == 3:
                 self.improper_torsions.append((node, near[0], near[1], near[2]))
         # print(self.improper_torsions)
@@ -231,8 +238,7 @@ class Molecule:
         for edge in self.topology.edges:
             atom1 = array(molecule[int(edge[0]) - 1][1:])
             atom2 = array(molecule[int(edge[1]) - 1][1:])
-            bond_dist = linalg.norm(atom2 - atom1)
-            self.bond_lengths[edge] = bond_dist
+            self.bond_lengths[edge] = linalg.norm(atom2 - atom1)
 
     def find_dihedrals(self):
         """
@@ -579,7 +585,7 @@ class Molecule:
 
 class Ligand(Molecule):
 
-    def __init__(self, filename, smilesstring=None, combination='opls'):
+    def __init__(self, filename, smiles_string=None, combination='opls'):
         """
         scan_order              A list of the dihedral cores to be scaned in the scan order
         mm_optimised            List of lists; Inner list is the atom type followed by its coords for mm optimised
@@ -593,14 +599,14 @@ class Ligand(Molecule):
         symmetry_types          list; symmetrised atom types
         """
 
-        super().__init__(filename, smilesstring, combination)
+        super().__init__(filename, smiles_string, combination)
 
         self.scan_order = None
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
 
-        self.QM_scan_energy = {}
+        self.qm_scan_energy = {}
         self.descriptors = {}
         self.symmetry_types = []
 
@@ -628,12 +634,13 @@ class Ligand(Molecule):
             self.molecule[input_type] = opt_molecule
 
         except FileNotFoundError:
-            raise FileNotFoundError('''Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n
-                                    Please ensure PSI4 is installed properly and can be called with the command: psi4\n
-                                    Alternatively, geometric may not be installed properly.\n
-                                    Please ensure it is and can be called with the command: geometric-optimize\n
-                                    Installation instructions can be found on the respective github pages and 
-                                    elsewhere online, see README for more details.''')
+            raise FileNotFoundError(
+                'Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n'
+                'Please ensure PSI4 is installed properly and can be called with the command: psi4\n'
+                'Alternatively, geometric may not be installed properly.\n'
+                'Please ensure it is and can be called with the command: geometric-optimize\n'
+                'Installation instructions can be found on the respective github pages and '
+                'elsewhere online, see README for more details.\n')
 
 
 class Protein(Molecule):
@@ -646,7 +653,10 @@ class Protein(Molecule):
         self.pdb_names = None
 
     def read_pdb(self, input_type='input'):
-        """Read the pdb file which probably does not have the right conections so we need to find them using QUBE.xml"""
+        """
+        Read the pdb file which probably does not have the right connections,
+        so we need to find them using QUBE.xml
+        """
 
         with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
@@ -698,8 +708,8 @@ class Protein(Molecule):
         if len(self.topology.edges) == 0:
             print('No connections found!')
 
-        # now we need to remove all of the duplicates
-        self.Residues = [res for res, group in groupby(self.residues)]
+        # Remove duplicates
+        self.residues = [res for res, group in groupby(self.residues)]
 
         # Uncomment the following lines to draw the graph network generated from the pdb.
         # draw(topology, with_labels=True, font_weight='bold')
@@ -734,7 +744,7 @@ class Protein(Molecule):
             pdb_file.write('END\n')
 
                                
-class Protein_2(Molecule):
+class Protein2(Molecule):
     """
     Class to handle proteins as chains of amino acids.
     Dicts are used to provide any standard parameters;
@@ -743,13 +753,13 @@ class Protein_2(Molecule):
 
     def __init__(self, filename):
         """
-        order                   list of str; list of the residues in the protein, in order.
-        bonds                   list of tuples of two ints; describes each bond in the molecule where the ints are the atom indices.
+        order                   list of str; list of the residues in the protein, in order
+        bonds                   list of tuples of two ints; list of bonds in the molecule, the ints are the atom indices
 
-        bonds_dict              dict, key=str, val=list of tuples; key=residue name: val=list of the bond connections which are tuples
+        bonds_dict              dict, key=str, val=list of tuples; key=residue name: val=list of the bond connections
                                 e.g. {'leu': [(0, 1), (1, 2), ...], ...}
-        externals               dict, key=str, val=tuple, int or None; Similar to bonds_dict except this is only for the external bonds.
-                                Some keys will have two external bonds, caps only have one, and others (e.g. ions) don't have any.
+        externals               dict, key=str, val=tuple or int; Similar to bonds_dict except for the external bonds
+                                Some keys will have two external bonds, caps only have one
 
         n_atoms                 dict; key=str, val=int; key=residue name: val=number of atoms in that residue.
 
@@ -1078,11 +1088,9 @@ class Protein_2(Molecule):
         all_residues = []
 
         with open(self.filename, 'r') as pdb:
-            lines = pdb.readlines()
-
-        for line in lines:
-            if 'ATOM' in line or 'HETATM' in line:
-                all_residues.append(line.split()[3].lower())
+            for line in pdb:
+                if 'ATOM' in line or 'HETATM' in line:
+                    all_residues.append(line.split()[3].lower())
 
         self.order = [res for res, group in groupby(all_residues)]
 
@@ -1186,4 +1194,3 @@ class Protein_2(Molecule):
 
         external_bond = (external_atom, self.externals[end] + atom_count)
         self.HarmonicBondForce[external_bond] = self.ext_bond_constant                       
-                               
