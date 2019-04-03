@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-# TODO
-#   Clean up qm/mm=True/False with a nice dict
-#   Add remaining xml methods for Protein class
+# TODO Add remaining xml methods for Protein class
 
 from numpy import array, linalg, dot, degrees, cross, arctan2, arccos
 from networkx import neighbors, Graph, has_path, draw
@@ -326,31 +324,6 @@ class Molecule:
             cosine_angle = dot(b1, b2) / (linalg.norm(b1) * linalg.norm(b2))
             self.angle_values[angle] = degrees(arccos(cosine_angle))
 
-    def write_pdb(self, input_type='input', name=None):
-        """
-        Take the current molecule and topology and write a pdb file for the molecule.
-        Only for small molecules, not standard residues. No size limit.
-        """
-
-        molecule = self.molecule[input_type]
-
-        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
-
-            # Write out the atomic xyz coordinates
-            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
-            pdb_file.write(f'COMPND    {self.name:<20}\n')
-            for i, atom in enumerate(molecule):
-                pdb_file.write(
-                    f'HETATM{i+1:>5} {self.atom_names[i]:>4} UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
-
-            # Now add the connection terms
-            for node in self.topology.nodes:
-                bonded = sorted(list(neighbors(self.topology, node)))
-                # if len(bonded) > 2:
-                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
-
-            pdb_file.write('END\n')
-
     def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
@@ -637,6 +610,31 @@ class Ligand(Molecule):
                 'Please ensure it is and can be called with the command: geometric-optimize\n'
                 'Installation instructions can be found on the respective github pages and '
                 'elsewhere online, see README for more details.\n')
+
+    def write_pdb(self, input_type='input', name=None):
+        """
+        Take the current molecule and topology and write a pdb file for the molecule.
+        Only for small molecules, not standard residues. No size limit.
+        """
+
+        molecule = self.molecule[input_type]
+
+        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
+
+            # Write out the atomic xyz coordinates
+            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
+            pdb_file.write(f'COMPND    {self.name:<20}\n')
+            for i, atom in enumerate(molecule):
+                pdb_file.write(
+                    f'HETATM{i+1:>5} {self.atom_names[i]:>4} UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+
+            # Now add the connection terms
+            for node in self.topology.nodes:
+                bonded = sorted(list(neighbors(self.topology, node)))
+                # if len(bonded) > 2:
+                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+
+            pdb_file.write('END\n')
 
 
 class Protein(Molecule):

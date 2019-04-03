@@ -42,8 +42,6 @@ def smiles_mm_optimise(pdb_file):
                    'H-bond acceptors': Descriptors.NumHAcceptors(mol),
                    'Molecular weight': Descriptors.MolWt(mol),
                    'LogP': Descriptors.MolLogP(mol)}
-    # mol_properties = MMFFGetMoleculeProperties(mol)
-    # ff = MMFFGetMoleculeForceField(mol, mol_properties)
     MMFFOptimizeMolecule(mol)
 
     AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')

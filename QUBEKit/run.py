@@ -274,7 +274,7 @@ class Main:
                     self.execute()
                     chdir('../')
 
-                sys_exit('Finished bulk run. Use the command -progress to view which stages have completed.')
+                sys_exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
 
         # Check if an analysis is being done with restart / end arguments
         for count, cmd in enumerate(self.commands):

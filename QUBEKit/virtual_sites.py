@@ -19,7 +19,7 @@ class VSiteTester:
 
         # Load the initial coords into the system and initialise
         pdb = app.PDBFile(self.pdb)
-        forcefield = app.ForceField(f'{self.xml}')
+        forcefield = app.ForceField(self.xml)
         modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
         # now we need to check if there are extra sites and add them to the system
         print(list(modeller.topology.bonds()))

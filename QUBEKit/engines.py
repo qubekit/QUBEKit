@@ -123,7 +123,7 @@ class PSI4(Engines):
             sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     # TODO change to one general file parser that gathers any info it can find
-    # puts into the engine object propper API?
+    # puts into the engine object proper API?
     # file parser is called after execution
     # this avoids opening and closing the file multiple times if you want a lot of info?
     def hessian(self):
@@ -323,8 +323,7 @@ class Chargemol(Engines):
         """
 
         if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
-            append_to_log(log_file=self.molecule.log_file,
-                          message='Invalid or unsupported DDEC version given, running with default version 6.',
+            append_to_log(message='Invalid or unsupported DDEC version given, running with default version 6.',
                           msg_type='warning')
             self.qm['ddec_version'] = 6
 
