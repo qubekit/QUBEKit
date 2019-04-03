@@ -66,7 +66,6 @@ class Molecule:
         # QUBEKit Internals
         sites                   OrderedDict of virtual site parameters {0: [(top nos parent, a .b), (p1, p2, p3), charge]}
 
-        log_file                str; Full log file name used by the run file in special run cases
         state                   str; Describes the stage the analysis is in for pickling and unpickling
         """
 
@@ -103,8 +102,6 @@ class Molecule:
         self.sites = None
 
         # QUBEKit internals
-        self.log_file = None
-        self.log_path = None
         self.state = None
 
         # Atomic weight dict
@@ -608,7 +605,6 @@ class Ligand(Molecule):
 
         self.qm_scan_energy = {}
         self.descriptors = {}
-        self.symmetry_types = []
 
         self.read_pdb()
         self.find_angles()

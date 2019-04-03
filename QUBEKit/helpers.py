@@ -281,7 +281,7 @@ def generate_config_csv(csv_name):
     return
 
 
-def append_to_log(log_file, message, msg_type='major'):
+def append_to_log(message, msg_type='major'):
     """
     Appends a message to the log file in a specific format.
     Used for significant stages in the program such as when G09 has finished.
@@ -289,7 +289,7 @@ def append_to_log(log_file, message, msg_type='major'):
 
     # Check if the message is a blank string to avoid adding blank lines and separators
     if message:
-        with open(str(log_file), 'a+') as file:
+        with open('../QUBEKit_log.txt', 'a+') as file:
             if msg_type == 'major':
                 file.write(f'~~~~~~~~{message.upper()}~~~~~~~~')
             elif msg_type == 'warning':
@@ -320,14 +320,23 @@ def pretty_progress():
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
     for root, dirs, files in walk('.', topdown=True):
-        if 'QUBEKit' in root and '.tmp' not in root:
-            log_files.append(f'{root}/QUBEKit_log_{root[10:]}')
+        for file in files:
+            if 'QUBEKit_log.txt' in file:
+                log_files.append(path.abspath(f'{root}/{file}'))
+
+    print(log_files)
 
     # Open all log files sequentially
     info = OrderedDict()
     for file in log_files:
-        # Name is in the format 'moleculename_logname'
-        name = file.split('_')[1] + '_' + file.split('_')[-1]
+        with open(file, 'r') as log_file:
+            for line in log_file:
+                if 'Analysing:' in line:
+                    name = line.split()[1]
+                    break
+            else:
+                print(file)
+                raise EOFError('Cannot locate molecule name in file.')
 
         # Create ordered dictionary based on the log file info
         info[name] = OrderedDict()
@@ -371,22 +380,17 @@ def pretty_print(molecule, to_file=False, finished=True):
                   * On completion
     Print to terminal: * On call
                        * On completion
-
     """
 
-    pre_string = f'\nOn {"completion" if finished else "exception"}, the ligand objects are:'
+    pre_string = f'\n\nOn {"completion" if finished else "exception"}, the ligand objects are:'
 
     # Print to log file rather than to terminal
     if to_file:
 
-        # Find log file name
-        files = [file for file in listdir('.') if path.isfile(file)]
-        try:
-            qube_log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
-        except:
-            qube_log_file = 'temp_QUBE_log'
+        # On exception, the location of the log file is back one directory
+        dir_loc = '' if finished else '../'
 
-        with open(qube_log_file, 'a+') as log_file:
+        with open(f'{dir_loc}QUBEKit_log.txt', 'a+') as log_file:
             log_file.write(f'{pre_string.upper()}\n\n{molecule.__str__()}')
 
     # Print to terminal
