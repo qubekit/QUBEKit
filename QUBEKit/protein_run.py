@@ -73,14 +73,5 @@ def main():
             pdb_reformat(refernece, target)
             print('Done output made: QUBE_traj.pdb')
 
-
-            # TODO write a back conversion function for the protein class
-
-
-
-
-
-
-
 if __name__ == '__main__':
     main()
