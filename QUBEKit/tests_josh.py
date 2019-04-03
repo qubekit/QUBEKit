@@ -117,7 +117,7 @@ def main():
     chdir('SCAN_17_19/QM_torsiondrive')
     scanner.get_energy(mol.scan_order[0])
     chdir('../../')
-    opt = TorsionOptimiser(mol, QMengine, config_dict, opt_method='BFGS', opls=True, refinement_method='SP', vn_bounds=20)
+    opt = TorsionOptimiser(mol, qm_engine, config_dict, opt_method='BFGS', opls=True, refinement_method='SP', vn_bounds=20)
     opt.opt_test()
     print(mol.PeriodicTorsionForce)
 
@@ -185,7 +185,7 @@ def main_sites():
     print('done')
 
 if __name__ == '__main__':
-    main_sites()
+    main()
 
 
 
