@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 
-
 from time import time
 from datetime import datetime
 from functools import wraps
-from os import listdir, path
 from logging import getLogger, Formatter, FileHandler, INFO
 
 from QUBEKit.helpers import pretty_print, unpickle

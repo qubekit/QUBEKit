@@ -179,12 +179,14 @@ class Parametrisation:
                 copy('out.mol2', mol2)
                 chdir(cwd)
 
-        # now get the gaff atom types and bonds found incase we don't have this info
+        # Get the gaff atom types and bonds in case we don't have this info
         gaff_bonds = {}
         with open(file, 'r') as mol_in:
             atoms = False
             bonds = False
             for line in mol_in.readlines():
+
+                # TODO Surely this can be simplified?!
                 if '@<TRIPOS>ATOM' in line:
                     atoms = True
                     continue
@@ -206,7 +208,7 @@ class Parametrisation:
         message = f'GAFF types: {self.gaff_types}'
         append_to_log(message, msg_type='minor')
         # now check if the molecule already has bonds if not apply these bonds
-        if len(list(self.molecule.topology.edges)) == 0:
+        if not list(self.molecule.topology.edges):
             # add the bonds to the molecule
             for key, value in gaff_bonds.items():
                 for node in value:

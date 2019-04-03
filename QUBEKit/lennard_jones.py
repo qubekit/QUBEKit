@@ -5,7 +5,7 @@ from QUBEKit.helpers import check_net_charge
 
 from os.path import exists
 from collections import OrderedDict
-from numpy import array, cross, dot, sqrt, reshape
+from numpy import array, cross, dot, sqrt
 
 
 @for_all_methods(timer_logger)
@@ -99,19 +99,9 @@ class LennardJones:
         All vals are float except atom number (int) and atom type (str).
         """
 
-        # # First file contains atom number, type and xyz coords:
-        # with open('ddec.xyz', 'r') as file:
-        #     lines = file.readlines()
-        #
-        # for pos, line in enumerate(lines[2:]):
-        #     atom, *coords = line.split()
-        #     self.ddec_data.append([pos, atom] + [float(coord) for coord in coords])
-
         # We know this from the molecule object self.molecule try to get the info from there
         for pos, atom in enumerate(self.molecule.molecule['input']):
             self.ddec_data.append([pos + 1] + [atom[i] for i in range(4)])
-
-
 
         # Second file contains the rest (charges, dipoles and volumes):
         with open('ddec.onetep', 'r') as file:
@@ -289,7 +279,7 @@ class LennardJones:
 
     def extract_extra_sites(self):
         """
-        1) Gather the extra sties from the XYZ find parent and 2 reference atoms
+        1) Gather the extra sites from the XYZ find parent and 2 reference atoms
         2) calculate the local coords site
         3) save the charge
         4) return back to the molecule
@@ -328,24 +318,24 @@ class LennardJones:
                             # dont want to get the parent as a close atom
                             closet_atoms.append(list(self.molecule.topology.neighbors(closet_atoms[0]))[-1])
 
-                        # Get the xyz coordinates of the refernece atoms
+                        # Get the xyz coordinates of the reference atoms
                         parent_pos = array(self.molecule.molecule['qm'][parent - 1][1:])
                         close_a = array(self.molecule.molecule['qm'][closet_atoms[0] - 1][1:])
                         close_b = array(self.molecule.molecule['qm'][closet_atoms[1] - 1][1:])
 
                         # work out the local coordinates site using rules from the OpenMM guide
                         orig = w1o * parent_pos + w2o * close_a + close_b * w3o
-                        AB = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
-                        AC = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
+                        ab = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
+                        ac = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
                         # Get the axis unit vectors
-                        Zdir = cross(AB, AC)
-                        Zdir = Zdir / sqrt(dot(Zdir, Zdir.reshape(3, 1)))
-                        Xdir = AB / sqrt(dot(AB, AB.reshape(3, 1)))
-                        Ydir = cross(Zdir, Xdir)
+                        z_dir = cross(ab, ac)
+                        z_dir = z_dir / sqrt(dot(z_dir, z_dir.reshape(3, 1)))
+                        x_dir = ab / sqrt(dot(ab, ab.reshape(3, 1)))
+                        y_dir = cross(z_dir, x_dir)
                         # Get the local coordinates positions
-                        p1 = dot((v_pos - orig), Xdir.reshape(3, 1))
-                        p2 = dot((v_pos - orig), Ydir.reshape(3, 1))
-                        p3 = dot((v_pos - orig), Zdir.reshape(3, 1))
+                        p1 = dot((v_pos - orig), x_dir.reshape(3, 1))
+                        p2 = dot((v_pos - orig), y_dir.reshape(3, 1))
+                        p3 = dot((v_pos - orig), z_dir.reshape(3, 1))
 
                         charge = float(pos_site.split()[4])
 
@@ -358,7 +348,7 @@ class LennardJones:
         # get the parent non bonded values
         for value in sites.values():
             charge, sigma, eps = self.non_bonded_force[value[0][0]]
-            # now change just the charge the first entry
+            # Change the charge on the first entry
             charge = float(charge) - value[2]
             self.non_bonded_force[value[0][0]] = [str(charge), sigma, eps]
 

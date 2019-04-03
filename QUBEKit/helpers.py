@@ -324,8 +324,6 @@ def pretty_progress():
             if 'QUBEKit_log.txt' in file:
                 log_files.append(path.abspath(f'{root}/{file}'))
 
-    print(log_files)
-
     # Open all log files sequentially
     info = OrderedDict()
     for file in log_files:
@@ -335,7 +333,6 @@ def pretty_progress():
                     name = line.split()[1]
                     break
             else:
-                print(file)
                 raise EOFError('Cannot locate molecule name in file.')
 
         # Create ordered dictionary based on the log file info
@@ -386,11 +383,7 @@ def pretty_print(molecule, to_file=False, finished=True):
 
     # Print to log file rather than to terminal
     if to_file:
-
-        # On exception, the location of the log file is back one directory
-        dir_loc = '' if finished else '../'
-
-        with open(f'{dir_loc}QUBEKit_log.txt', 'a+') as log_file:
+        with open(f'../QUBEKit_log.txt', 'a+') as log_file:
             log_file.write(f'{pre_string.upper()}\n\n{molecule.__str__()}')
 
     # Print to terminal
