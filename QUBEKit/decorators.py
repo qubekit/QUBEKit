@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 
-
 from time import time
 from datetime import datetime
 from functools import wraps
-from os import listdir, path
 from logging import getLogger, Formatter, FileHandler, INFO
 
 from QUBEKit.helpers import pretty_print, unpickle
@@ -39,28 +37,22 @@ def timer_logger(orig_func):
         start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         t1 = time()
 
-        # Find all files in current directory; isolate the QUBEKit log file.
-        files = [f for f in listdir('.') if path.isfile(f)]
-        try:
-            file_name = [file for file in files if file.startswith('QUBEKit_log')][0]
-        except IndexError:
-            file_name = 'temp_QUBE_log'
+        log_file_path = '../QUBEKit_log.txt'
 
-        with open(file_name, 'a+') as log_file:
+        with open(log_file_path, 'a+') as log_file:
             log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
             log_file.write(f'Docstring for {orig_func.__qualname__}:\n     {orig_func.__doc__}\n\n')
 
-        time_taken = time() - t1
+            time_taken = time() - t1
 
-        mins, secs = divmod(time_taken, 60)
-        hours, mins = divmod(mins, 60)
+            mins, secs = divmod(time_taken, 60)
+            hours, mins = divmod(mins, 60)
 
-        secs, remain = str(float(secs)).split('.')
+            secs, remain = str(float(secs)).split('.')
 
-        time_taken = f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}'
-        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            time_taken = f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}'
+            end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        with open(file_name, 'a+') as log_file:
             log_file.write(f'{orig_func.__qualname__} finished in {time_taken} at {end_time}.\n\n')
             # Add some separation space between function / method logs.
             log_file.write(f'{"-" * 50}\n\n')
@@ -96,10 +88,7 @@ def exception_logger():
     logger = getLogger('Exception Logger')
     logger.setLevel(INFO)
 
-    # Find the log file and set it to be handled.
-    files = [file for file in listdir('.') if path.isfile(file)]
-    log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
-    file_handler = FileHandler(log_file)
+    file_handler = FileHandler('QUBEKit_log.txt')
 
     # Format the log message
     fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -108,7 +97,7 @@ def exception_logger():
 
     logger.addHandler(file_handler)
 
-    return logger, log_file
+    return logger
 
 
 def exception_logger_decorator(func):
@@ -121,7 +110,7 @@ def exception_logger_decorator(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        logger, log_file = exception_logger()
+        logger = exception_logger()
 
         # Run as normal
         try:
@@ -132,21 +121,25 @@ def exception_logger_decorator(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
-            with open(log_file, 'r') as log:
+            with open('../QUBEKit_log.txt', 'r') as log:
 
-                # Run through log file backwards to quickly find proper pickle point
+                # Run through log file backwards to find proper pickle point
                 lines = list(reversed(log.readlines()))
 
+                mol_name, pickle_point = None, None
                 for pos, line in enumerate(lines):
-                    if ' stage_wrapper' in line:
+                    if 'Analysing:' in line:
+                        mol_name = line.split()[1]
+
+                    elif ' stage_wrapper' in line:
                         # The stage_wrapper always wraps the method which is the name of the pickle point.
                         pickle_point = lines[pos - 2].split()[-1]
 
-                        # Extract the mol name from the log file name
-                        mol_name = log_file.split('_')[2]
+                if mol_name is None and pickle_point is None:
+                    raise EOFError('Cannot locate molecule name or completion stage in file.')
 
-                        mol = unpickle(f'.{mol_name}_states')[pickle_point]
-                        pretty_print(mol, to_file=True, finished=False)
+                mol = unpickle(f'.{mol_name}_states')[pickle_point]
+                pretty_print(mol, to_file=True, finished=False)
 
             # Re-raises the exception
             raise

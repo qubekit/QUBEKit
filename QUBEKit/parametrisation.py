@@ -179,12 +179,14 @@ class Parametrisation:
                 copy('out.mol2', mol2)
                 chdir(cwd)
 
-        # now get the gaff atom types and bonds found incase we don't have this info
+        # Get the gaff atom types and bonds in case we don't have this info
         gaff_bonds = {}
         with open(file, 'r') as mol_in:
             atoms = False
             bonds = False
             for line in mol_in.readlines():
+
+                # TODO Surely this can be simplified?!
                 if '@<TRIPOS>ATOM' in line:
                     atoms = True
                     continue
@@ -204,9 +206,9 @@ class Parametrisation:
                         gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
 
         message = f'GAFF types: {self.gaff_types}'
-        append_to_log(self.molecule.log_file, message, msg_type='minor')
+        append_to_log(message, msg_type='minor')
         # now check if the molecule already has bonds if not apply these bonds
-        if len(list(self.molecule.topology.edges)) == 0:
+        if not list(self.molecule.topology.edges):
             # add the bonds to the molecule
             for key, value in gaff_bonds.items():
                 for node in value:
@@ -223,54 +225,6 @@ class Parametrisation:
             # now update the input file name for the xml
             self.input_file = f'{self.molecule.name}.xml'
 
-    def symmetrise(self):
-        """
-        Search the xml and generate a dictionary based on the calculated Lennard-Jones parameters.
-        Each Lennard-Jones parameter value will be assigned as a dictionary key.
-        The values are then whichever atoms have that Lennard-Jones parameter.
-        For example, for methane:
-            self.molecule.symmetry_types = {0.4577296: [0], 0.0656887: [1, 2, 3, 4]}
-        Here there is one Carbon atom with a particular L-J parameter: 0.4577296.
-        This Carbon atom is the zeroth atom in the list; the list being self.molecule.molecule.
-        Then there are four Hydrogen atoms, each with the same L-J parameter: 0.0656887;
-        their positions in self.molecule.molecule are 1, 2, 3, 4.
-        """
-
-        with open('serialised.xml', 'r') as xml_file:
-
-            lines = xml_file.readlines()
-
-            # Find where the sigma values are kept
-            for count, line in enumerate(lines):
-                if 'sig=' in line:
-                    start_pos = count
-                    break
-            else:
-                raise EOFError('Cannot find epsilon values in xml file.')
-
-            # Identify the range of the lines to be read based on the number of atoms in the molecule
-            end_pos = start_pos + len(self.molecule.molecule['input'])
-
-            # Extract the sigma values which will be used as keys
-            eps_list = [float(lines[i].split('"')[1]) for i in range(start_pos, end_pos)]
-
-        eps_dict = {}
-
-        for a_type in range(len(eps_list)):
-
-            # If a sigma value exists as a key, extend that key's list with the atom's index
-            if eps_list[a_type] in eps_dict:
-                eps_dict[eps_list[a_type]] += [a_type]
-            # Otherwise, create a new key with the [atom index] as the value
-            else:
-                eps_dict[eps_list[a_type]] = [a_type]
-
-        # Convert dictionary to list of lists where each inner list is the values from the eps_dict
-        groups = [val for val in eps_dict.values()]
-
-        # Set the variable in the ligand class object
-        self.molecule.symmetry_types = groups
-
 
 @for_all_methods(timer_logger)
 class XML(Parametrisation):
@@ -284,7 +238,6 @@ class XML(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
@@ -450,7 +403,6 @@ class AnteChamber(Parametrisation):
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Serialise the amber style files into an openmm object."""
@@ -552,7 +504,6 @@ class OpenFF(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
@@ -594,7 +545,6 @@ class BOSS(Parametrisation):
         self.BOSS_cmd()
         self.gather_parameters()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
-        self.symmetrise()
 
     def BOSS_cmd(self):
         """
