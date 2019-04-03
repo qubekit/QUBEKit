@@ -393,11 +393,7 @@ class LennardJones:
         self.apply_symmetrisation()
 
         # Find extra site positions in local coords if present and tweak the charges of the parent
-        self.extract_extra_sites()
+        if self.qm['charges_engine'] == 'onetep':
+            self.extract_extra_sites()
 
         return self.non_bonded_force
-
-    def apply_symmetrisation(self):
-        """"""
-
-        pass

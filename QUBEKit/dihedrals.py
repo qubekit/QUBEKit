@@ -316,7 +316,8 @@ class TorsionOptimiser:
         """Initialise the OpenMM system we will use to evaluate the energies."""
 
         # Load the initial coords into the system and initialise
-        pdb = app.PDBFile(self.molecule.filename)
+        self.molecule.write_pdb(input_type='input', name=self.molecule.name)
+        pdb = app.PDBFile(f'{self.molecule.name}.pdb')
         forcefield = app.ForceField(f'{self.molecule.name}.xml')
         modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
         self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
