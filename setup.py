@@ -23,7 +23,7 @@ setup(
             'qubekit = QUBEKit.run:main',
             'QUBEKit-josh = QUBEKit.tests_josh:main',
             'QUBEKit-chris = QUBEKit.tests_chris:main',
-            'QUBEKit-pro = QUBEKit.protien_run:main'
+            'QUBEKit-pro = QUBEKit.protein_run:main'
         ]
     },
     version='2.0.0',

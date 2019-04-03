@@ -646,11 +646,10 @@ class Ligand(Molecule):
 class Protein(Molecule):
     """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
-    def __init__(self, filename, combination='opls', water='tip3p'):
+    def __init__(self, filename, combination='opls'):
         super().__init__(filename, combination)
-        self.water = water
-        self.read_pdb()
         self.pdb_names = None
+        self.read_pdb()
 
     def read_pdb(self, input_type='input'):
         """
@@ -691,7 +690,7 @@ class Protein(Molecule):
                 self.pdb_names.append(str(line.split()[2]))
 
                 # also get the residue order from the pdb file so we can rewrite the file
-                self.residues.append(str(line.split()[3]))
+                self.Residues.append(str(line.split()[3]))
 
                 # Also add the atom number as the node in the graph
                 self.topology.add_node(atom_count)
@@ -709,7 +708,7 @@ class Protein(Molecule):
             print('No connections found!')
 
         # Remove duplicates
-        self.residues = [res for res, group in groupby(self.residues)]
+        self.residues = [res for res, group in groupby(self.Residues)]
 
         # Uncomment the following lines to draw the graph network generated from the pdb.
         # draw(topology, with_labels=True, font_weight='bold')

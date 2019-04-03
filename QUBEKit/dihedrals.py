@@ -168,7 +168,7 @@ class TorsionScan:
             chdir(self.home)
 
 
-# @for_all_methods(timer_logger)
+@for_all_methods(timer_logger)
 class TorsionOptimiser:
     """Torsion optimiser class used to optimise dihedral parameters with a range of methods
 

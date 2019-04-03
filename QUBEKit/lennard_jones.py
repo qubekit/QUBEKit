@@ -396,8 +396,3 @@ class LennardJones:
         self.extract_extra_sites()
 
         return self.non_bonded_force
-
-    def apply_symmetrisation(self):
-        """"""
-
-        pass
