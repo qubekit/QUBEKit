@@ -152,8 +152,8 @@ class ModSeminario:
         molecule coordinates.
         """
 
-        coords = [atom[j + 1] for atom in self.molecule.qm_optimised for j in range(3)]
-        size_mol = len(self.molecule.qm_optimised)
+        coords = [atom[j + 1] for atom in self.molecule.molecule['qm'] for j in range(3)]
+        size_mol = len(self.molecule.molecule['qm'])
         coords = reshape(coords, (size_mol, 3))
         hessian = self.molecule.hessian
 

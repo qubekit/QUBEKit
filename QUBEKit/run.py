@@ -12,7 +12,7 @@ from QUBEKit.decorators import exception_logger_decorator
 
 from sys import argv as cmdline
 from sys import exit as sys_exit
-from os import mkdir, chdir, path, listdir, walk, getcwd
+from os import mkdir, chdir, path, listdir, walk, getcwd, system
 from shutil import copy
 from collections import OrderedDict
 from functools import partial
@@ -498,19 +498,17 @@ class Main:
         # Calc bond lengths from molecule topology
         molecule.get_bond_lengths(input_type='qm')
 
-        # Extract Hessian
+        # Extract Hessian and modes
         molecule.hessian = qm_engine.hessian()
+        molecule.modes = qm_engine.all_modes()
 
         return molecule
 
     def mod_sem(self, molecule):
         """Modified Seminario for bonds and angles."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-
         mod_sem = ModSeminario(molecule, self.all_configs)
         mod_sem.modified_seminario_method()
-        molecule.modes = qm_engine.all_modes()
 
         append_to_log(self.log_file, 'Modified Seminario method complete')
 
@@ -532,10 +530,10 @@ class Main:
     def charges(self, molecule):
         """Perform DDEC calculation with Chargemol."""
 
+        copy(f'../density/{molecule.name}.wfx', f'{molecule.name}.wfx')
         # TODO skip if onetep
         c_mol = Chargemol(molecule, self.all_configs)
         c_mol.generate_input()
-
 
         append_to_log(self.log_file, f'Chargemol analysis with DDEC{self.qm["ddec_version"]} complete')
 
@@ -544,6 +542,7 @@ class Main:
     def lennard_jones(self, molecule):
         """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
+        system('cp ../charges/DDEC* .')
         lj = LennardJones(molecule, self.all_configs)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 

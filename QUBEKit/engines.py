@@ -132,7 +132,7 @@ class PSI4(Engines):
         Molecule is a numpy array of size N x N.
         """
 
-        hess_size = 3 * len(self.molecule.molecule)
+        hess_size = 3 * len(self.molecule.molecule['input'])
 
         # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
@@ -221,7 +221,7 @@ class PSI4(Engines):
 
             opt_struct = []
 
-            for row in range(len(self.molecule.molecule)):
+            for row in range(len(self.molecule.molecule['input'])):
 
                 # Append the first 4 columns of each row, converting to float as necessary.
                 struct_row = [lines[start_of_vals + row].split()[0]]
@@ -270,7 +270,7 @@ class PSI4(Engines):
                 raise EOFError('Cannot locate modes in output.dat file.')
 
             # Barring the first (and sometimes last) line, dat file has 6 values per row.
-            end_of_vals = start_of_vals + (3 * len(self.molecule.molecule)) // 6
+            end_of_vals = start_of_vals + (3 * len(self.molecule.molecule['input'])) // 6
 
             structures = lines[start_of_vals][24:].replace("'", "").split()
             structures = structures[6:]
@@ -435,7 +435,7 @@ class Gaussian(Engines):
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
                 hessian_list.extend([float(num) * 0.529 for num in line.strip('\n').split()])
 
-        hess_size = 3 * len(self.molecule.molecule)
+        hess_size = 3 * len(self.molecule.molecule['input'])
 
         hessian = zeros((hess_size, hess_size))
 
@@ -465,14 +465,14 @@ class Gaussian(Engines):
 
             start_pos = opt_coords_pos[-1]
 
-            num_atoms = len(self.molecule.molecule)
+            num_atoms = len(self.molecule.molecule['input'])
 
             opt_struct = []
 
             for pos, line in enumerate(lines[start_pos: start_pos + num_atoms]):
 
                 vals = line.split()[-3:]
-                vals = [self.molecule.molecule[pos][0]] + [float(i) for i in vals]
+                vals = [self.molecule.molecule['input'][pos][0]] + [float(i) for i in vals]
                 opt_struct.append(vals)
 
         return opt_struct
@@ -515,7 +515,7 @@ class ONETEP(Engines):
 
     def calculate_hull(self):
 
-        coords = array([atom[1:] for atom in self.molecule.molecule])
+        coords = array([atom[1:] for atom in self.molecule.molecule['input']])
 
         hull = ConvexHull(coords)
 
