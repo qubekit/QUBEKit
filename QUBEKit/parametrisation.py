@@ -204,7 +204,7 @@ class Parametrisation:
                         gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
 
         message = f'GAFF types: {self.gaff_types}'
-        append_to_log(self.molecule.log_file, message, msg_type='minor')
+        append_to_log(message, msg_type='minor')
         # now check if the molecule already has bonds if not apply these bonds
         if len(list(self.molecule.topology.edges)) == 0:
             # add the bonds to the molecule
@@ -236,7 +236,6 @@ class XML(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
@@ -402,7 +401,6 @@ class AnteChamber(Parametrisation):
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Serialise the amber style files into an openmm object."""
@@ -504,7 +502,6 @@ class OpenFF(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
-        self.symmetrise()
 
     def serialise_system(self):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
@@ -546,7 +543,6 @@ class BOSS(Parametrisation):
         self.BOSS_cmd()
         self.gather_parameters()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
-        self.symmetrise()
 
     def BOSS_cmd(self):
         """

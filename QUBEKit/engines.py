@@ -71,16 +71,16 @@ class PSI4(Engines):
             input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.qm['basis']}\n")
 
             if energy:
-                append_to_log(self.molecule.log_file, 'Writing psi4 energy calculation input')
+                append_to_log('Writing psi4 energy calculation input')
                 tasks += f"\nenergy  = energy('{self.qm['theory']}')"
 
             if optimise:
-                append_to_log(self.molecule.log_file, 'Writing PSI4 optimisation input', 'minor')
+                append_to_log('Writing PSI4 optimisation input', 'minor')
                 setters += f" g_convergence {self.qm['convergence']}\n GEOM_MAXITER {self.qm['iterations']}\n"
                 tasks += f"\noptimize('{self.qm['theory'].lower()}')"
 
             if hessian:
-                append_to_log(self.molecule.log_file, 'Writing PSI4 Hessian matrix calculation input', 'minor')
+                append_to_log('Writing PSI4 Hessian matrix calculation input', 'minor')
                 setters += ' hessian_write on\n'
 
                 tasks += f"\nenergy, wfn = frequency('{self.qm['theory'].lower()}', return_wfn=True)"
@@ -88,7 +88,7 @@ class PSI4(Engines):
                 tasks += '\nwfn.hessian().print_out()\n\n'
 
             if density:
-                append_to_log(self.molecule.log_file, 'Writing PSI4 density calculation input', 'minor')
+                append_to_log('Writing PSI4 density calculation input', 'minor')
                 setters += " cubeprop_tasks ['density']\n"
 
                 overage = get_overage(self.molecule.name)
@@ -97,7 +97,7 @@ class PSI4(Engines):
                 tasks += f"grad, wfn = gradient('{self.qm['theory'].lower()}', return_wfn=True)\ncubeprop(wfn)"
 
             if fchk:
-                append_to_log(self.molecule.log_file, 'Writing PSI4 input file to generate fchk file')
+                append_to_log('Writing PSI4 input file to generate fchk file')
                 tasks += f"\ngrad, wfn = gradient('{self.qm['theory'].lower()}', return_wfn=True)"
                 tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
                 tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
@@ -480,9 +480,9 @@ class Gaussian(Engines):
     def all_modes(self):
         """Extract the frequencies from the Gaussian log file."""
 
-        with open(f'gj_{self.molecule.name}.log', 'r') as log_file:
+        with open(f'gj_{self.molecule.name}.log', 'r') as gj_log_file:
 
-            lines = log_file.readlines()
+            lines = gj_log_file.readlines()
             freqs = []
 
             # Stores indices of rows which will be used

@@ -59,8 +59,7 @@ class Main:
                                   ('torsion_optimisation', self.torsion_optimisation),
                                   ('finalise', self.finalise)])
 
-        self.log_file = None
-        self.log_path = None
+        self.log_file = 'QUBEKit_log.txt'
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
         self.file, self.commands = self.parse_commands()
 
@@ -231,7 +230,7 @@ class Main:
 
                 for name in names:
 
-                    print(f'Currently analysing: {name}')
+                    print(f'Currently analysing: {name}\n')
 
                     # Set the start and end points to what is given in the csv. See the -restart / -end section below
                     # for further details and better documentation.
@@ -336,9 +335,6 @@ class Main:
         rather than creating a new one.
         """
 
-        files = [file for file in listdir('.') if path.isfile(file)]
-        self.log_file = [file for file in files if file.startswith('QUBEKit_log')][0]
-
         with open(self.log_file, 'a+') as log_file:
 
             log_file.write(f'\n\nContinuing log file from previous execution: {datetime.now()}\n\n')
@@ -377,9 +373,6 @@ class Main:
         copy(abspath, f'{dir_string}/{self.file}')
         chdir(dir_string)
 
-        # Create log file in working directory, format: 'QUBEKit_log_molecule name_yyyy_mm_dd_log_string'.
-        self.log_file = f'QUBEKit_log_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
-
         with open(self.log_file, 'w+') as log_file:
 
             log_file.write(f'Beginning log file: {datetime.now()}\n\n')
@@ -394,8 +387,6 @@ class Main:
                 log_file.write('\n')
 
             log_file.write('\n')
-
-        self.log_path = path.abspath(self.log_file)
 
     def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg=''):
         """
@@ -413,8 +404,6 @@ class Main:
         if start_key in [key for key in self.order]:
 
             mol = unpickle(f'.{self.file[:-4]}_states')[start_key]
-
-            self.log_file = mol.log_path
 
             if begin_log_msg:
                 print(f'{begin_log_msg}...', end=' ')
@@ -464,7 +453,7 @@ class Main:
         param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
         param_dict[self.fitting['parameter_engine']](molecule)
 
-        append_to_log(self.log_file, f'Parametrised molecule with {self.fitting["parameter_engine"]}')
+        append_to_log(f'Parametrised molecule with {self.fitting["parameter_engine"]}')
 
         return molecule
 
@@ -483,7 +472,7 @@ class Main:
             qm_engine.generate_input(input_type='mm', optimise=True)
             molecule.molecule['qm'] = qm_engine.optimised_structure()
 
-        append_to_log(self.log_file, f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
+        append_to_log(f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
 
         return molecule
 
@@ -510,7 +499,7 @@ class Main:
         mod_sem = ModSeminario(molecule, self.all_configs)
         mod_sem.modified_seminario_method()
 
-        append_to_log(self.log_file, 'Modified Seminario method complete')
+        append_to_log('Modified Seminario method complete')
 
         return molecule
 
@@ -521,9 +510,9 @@ class Main:
         qm_engine.generate_input(input_type='qm', density=True, solvent=self.qm['solvent'])
 
         if self.qm['density_engine'] == 'g09':
-            append_to_log(self.log_file, 'Gaussian analysis complete')
+            append_to_log('Gaussian analysis complete')
         else:
-            append_to_log(self.log_file, 'ONETEP file made')
+            append_to_log('ONETEP file made')
 
         return molecule
 
@@ -535,7 +524,7 @@ class Main:
         c_mol = Chargemol(molecule, self.all_configs)
         c_mol.generate_input()
 
-        append_to_log(self.log_file, f'Chargemol analysis with DDEC{self.qm["ddec_version"]} complete')
+        append_to_log(f'Chargemol analysis with DDEC{self.qm["ddec_version"]} complete')
 
         return molecule
 
@@ -546,7 +535,7 @@ class Main:
         lj = LennardJones(molecule, self.all_configs)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
-        append_to_log(self.log_file, 'Lennard-Jones parameters calculated')
+        append_to_log('Lennard-Jones parameters calculated')
 
         return molecule
 
@@ -557,7 +546,7 @@ class Main:
         scan = TorsionScan(molecule, qm_engine, self.all_configs)
         scan.start_scan()
 
-        append_to_log(self.log_file, 'Torsion scans complete')
+        append_to_log('Torsion scans complete')
 
         return molecule
 
@@ -569,7 +558,7 @@ class Main:
                                vn_bounds=20)
         opt.run()
 
-        append_to_log(self.log_file, 'Torsion optimisations complete')
+        append_to_log('Torsion optimisations complete')
 
         return molecule
 
@@ -596,8 +585,6 @@ class Main:
         if 'rdkit_optimise' in [key for key in self.order]:
             # Initialise ligand object fully before pickling it
             molecule = Ligand(self.file)
-            molecule.log_file = self.log_path
-            # molecule.log_path = self.log_path
             molecule.pickle(state='rdkit_optimise')
 
         # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
