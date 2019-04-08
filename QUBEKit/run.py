@@ -19,8 +19,8 @@ from collections import OrderedDict
 from functools import partial
 from datetime import datetime
 
-# Changes default print behaviour for this file.
-print = partial(print, flush=True)
+# To avoid calling flush=True in every print statement.
+printf = partial(print, flush=True)
 
 
 class Main:
@@ -32,11 +32,13 @@ class Main:
     """
 
     def __init__(self):
-        self.file = None
-        self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, '
-                             'view the log file.\n Our documentation (README.md) '
-                             'also contains help on handling the various commands for QUBEKit\n')
 
+        self.file = None
+        self.log_file = 'QUBEKit_log.txt'
+
+        self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, '
+                             'view the log file.\nOur documentation (README.md) '
+                             'also contains help on handling the various commands for QUBEKit\n')
 
         # Call order of the analysing methods.
         # Slices of this dict are taken when changing the start and end points of analyses.
@@ -65,9 +67,7 @@ class Main:
                               'multiplicity': self.args.multiplicity,
                               'config': self.args.config_file}
 
-        self.configs = {'qm': {},
-                        'fitting': {},
-                        'descriptions': {}}
+        self.configs = {'qm': {}, 'fitting': {}, 'descriptions': {}}
 
         # Find which config is being used and store arguments accordingly
         if self.args.config_file == 'default_config':
@@ -76,6 +76,7 @@ class Main:
                 input('You must set up a master config to use QUBEKit and change the chargemol path; '
                       'press enter to edit master config. \n'
                       'You are free to change it later, with whichever editor you prefer.')
+
                 Configure.ini_writer('master_config.ini')
                 Configure.ini_edit('master_config.ini')
 
@@ -86,15 +87,18 @@ class Main:
 
         self.continue_log() if self.args.restart is not None else self.create_log()
         # Starting a single run so print the message
-        print(self.start_up_msg)
-        self.execute_new()
+        printf(self.start_up_msg)
+
+        self.execute()
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def check_options(self):
-        """Read through the command line and handle options which affect the main execute
-        like restart or start a bulk run."""
+        """
+        Read through the command line and handle options which affect the main execute
+        like restart or start a bulk run.
+        """
 
         # Run the bulk command and exit the code on completion
         if self.args.bulk_run:
@@ -120,15 +124,9 @@ class Main:
         # Redefine self.order to only contain the key, val pairs from stages
         self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
 
-        # If we restart we should have a pickle file with the object in it.
-        # if '-restart' in cmd:
-        #     # Set the file name based on the directory:
-        #     files = [file for file in listdir('.') if path.isfile(file)]
-        #     self.file = \
-        #         [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
-
     def config_update(self):
         """Update the config setting using the argparse options from the command line."""
+
         for key, value in vars(self.args).items():
             if value is not None:
                 if key in self.qm:
@@ -147,7 +145,7 @@ class Main:
             - First: exit on the -progress, -setup
             - Second: look for bulk commands
             - Third: look for -restart and -end commands
-            - Four: look for smiles codes and input files
+            - Fourth: look for smiles codes and input files
 
         This ordering ensures that the program will always:
             - Terminate immediately if necessary;
@@ -159,24 +157,23 @@ class Main:
         After all commands have been parsed and appropriately used, either:
             - Commands are returned, along with the relevant file name
             - The program exits
-            - return None
         """
-        # action classes
+
+        # Action classes
         class SetupAction(argparse.Action):
             """The setup action class that is called when setup is found in the command line."""
 
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when setup is called."""
-                choice = input('You can now edit config files using QUBEKit, choose an option to continue:\n'
-                               '1) Edit a config file\n'
-                               '2) Create a new master template\n'
-                               '3) Make a normal config file\n>')
+                choice = int(input('You can now edit config files using QUBEKit, choose an option to continue:\n'
+                                   '1) Edit a config file\n'
+                                   '2) Create a new master template\n'
+                                   '3) Make a normal config file\n>'))
 
                 if choice == 1:
                     inis = Configure.show_ini()
-                    name = input(
-                        f'Enter the name or number of the config file to edit\n'
-                        f'{"".join(f"{inis.index(ini)}:{ini}    " for ini in inis)}\n>')
+                    name = input(f'Enter the name or number of the config file to edit\n'
+                                 f'{"".join(f"{inis.index(ini)}:{ini}    " for ini in inis)}\n>')
                     # make sure name is right
                     if name in inis:
                         Configure.ini_edit(name)
@@ -197,8 +194,7 @@ class Main:
 
                 sys_exit()
 
-
-        class CsvAction(argparse.Action):
+        class CSVAction(argparse.Action):
             """The csv creation class run when the csv option is used."""
 
             def __call__(self, pars, namespace, values, option_string=None):
@@ -257,10 +253,10 @@ We welcome any suggestions for additions or changes.''')
                             help='Enter the basis set you would like to use.')
         parser.add_argument('-restart', '--restart', choices=['parametrise', 'mm_optimise', 'qm_optimise', 'hessian',
                                                               'mod_sem', 'density', 'charges', 'lennard_jones',
-                                                              'torsion_scan', 'torsion_optimisation'],
+                                                              'torsion_scan', 'torsion_optimise'],
                             help='Enter the restart point of a QUBEKit job.')
         parser.add_argument('-end', '-end', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem', 'density',
-                                                     'charges', 'lennard_jones', 'torsion_scan', 'torsion_optimisation',
+                                                     'charges', 'lennard_jones', 'torsion_scan', 'torsion_optimise',
                                                      'finalise'], help='Enter the end point of the QUBEKit job.')
         parser.add_argument('-progress', '--progress', nargs='?', const=True,
                             help='Get the current progress of a QUBEKit single or bulk job.', action=ProgressAction)
@@ -278,17 +274,18 @@ We welcome any suggestions for additions or changes.''')
                                  'a molecule file with the same name.')
         groupa.add_argument('-csv', '--csv_filename',
                             help='Enter the name of the csv file you would like to create for bulk runs.',
-                            action=CsvAction)
+                            action=CSVAction)
         groupa.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
 
         return parser.parse_args()
 
     def bulk_execute(self):
         """Run a bulk QUBEKit job in serial mode."""
+
         # TODO look at worker queues to maximise resource usage
 
         csv_file = self.args.bulk_run
-        print(self.start_up_msg)
+        printf(self.start_up_msg)
 
         bulk_data = get_mol_data_from_csv(csv_file)
 
@@ -299,8 +296,7 @@ We welcome any suggestions for additions or changes.''')
         temp = self.order
 
         for name in names:
-
-            print(f'Currently analysing: {name}\n')
+            printf(f'Currently analysing: {name}\n')
 
             # Set the start and end points to what is given in the csv. See the -restart / -end section below
             # for further details and better documentation.
@@ -342,7 +338,7 @@ We welcome any suggestions for additions or changes.''')
 
                 self.continue_log()
 
-            self.execute_new()
+            self.execute()
             chdir('../')
 
         sys_exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
@@ -356,7 +352,7 @@ We welcome any suggestions for additions or changes.''')
         with open(self.log_file, 'a+') as log_file:
 
             log_file.write(f'\n\nContinuing log file from previous execution: {datetime.now()}\n\n')
-            log_file.write(f'The commands given were: {f"{key}: {value}" for key, value in vars(self.args).items() if value is not None}\n\n')
+            log_file.write(str(f'The commands given were: {key}: {val}\n\n' for key, val in vars(self.args).items() if val is not None))
 
             # TODO Add logic to reprint commands with *s after changed defaults.
             #   Could possibly be done using the pickle file? Are the configs stored in an usable / accessible form?
@@ -366,7 +362,6 @@ We welcome any suggestions for additions or changes.''')
                 for key, var in dic.items():
                     log_file.write(f'{key}: {var}\n')
                 log_file.write('\n')
-
             log_file.write('\n')
 
     def create_log(self):
@@ -394,7 +389,7 @@ We welcome any suggestions for additions or changes.''')
         with open(self.log_file, 'w+') as log_file:
 
             log_file.write(f'Beginning log file: {datetime.now()}\n\n')
-            log_file.write(f'The commands given were: {f"{key}: {value}" for key, value in vars(self.args).items() if value is not None}\n\n')
+            log_file.write(str(f'The commands given were: {key}: {val}\n\n' for key, val in vars(self.args).items() if val is not None))
             log_file.write(f'Analysing: {self.file[:-4]}\n\n')
 
             # Writes the config dictionaries to the log file.
@@ -424,7 +419,7 @@ We welcome any suggestions for additions or changes.''')
         mol = unpickle(f'.{self.file[:-4]}_states')[start_key]
 
         if begin_log_msg:
-            print(f'{begin_log_msg}...', end=' ')
+            printf(f'{begin_log_msg}...', end=' ')
 
         # move into folder
         home = getcwd()
@@ -441,9 +436,9 @@ We welcome any suggestions for additions or changes.''')
         for key in self.order:
             next_key = key
             if fin_log_msg:
-                print(fin_log_msg)
+                printf(fin_log_msg)
 
-            #mol.pickle(state=self.order[next_key].__name__)
+            # mol.pickle(state=self.order[next_key].__name__)
             mol.pickle(state=next_key)
             return next_key
 
@@ -468,7 +463,8 @@ We welcome any suggestions for additions or changes.''')
         return molecule
 
     def mm_optimise(self, molecule):
-        """Use a mm force field to get the initial optimisation of a molecule
+        """
+        Use a mm force field to get the initial optimisation of a molecule
 
         options
         ---------
@@ -488,7 +484,7 @@ We welcome any suggestions for additions or changes.''')
             molecule.read_xyz(input_type='mm')
 
         else:
-            # run a rdkit optimisation with the right FF
+            # run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = smiles_mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
 
@@ -554,7 +550,6 @@ We welcome any suggestions for additions or changes.''')
             # If we use onetep we have to stop after this step
             append_to_log('ONETEP file made')
 
-
             # Now we have to edit the order to end here.
             self.order = OrderedDict([('density', self.density), ('charges', self.skip), ('lennard_jones', self.skip),
                                       ('torsion_scan', self.torsion_scan), ('pause', self.pause)])
@@ -599,8 +594,8 @@ We welcome any suggestions for additions or changes.''')
         """Perform torsion optimisation"""
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS', combination=self.args.combination,
-                               refinement_method=self.args.refinement_method,
+        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS',
+                               combination=self.args.combination, refinement_method=self.args.refinement_method,
                                vn_bounds=self.args.tor_limit)
         opt.run()
 
@@ -641,11 +636,10 @@ We welcome any suggestions for additions or changes.''')
         Pause the analysis when using onetep so we can comeback into the work flow but do not edit the pickling process
         """
 
-        print('QUBEKit stopping at onetep step!\n To continue please move the ddec.onetep file and xyz file to the '
-              'density folder and use -restart lennard_jones to continue.')
+        printf('QUBEKit stopping at onetep step!\n To continue please move the ddec.onetep file and xyz file to the '
+               'density folder and use -restart lennard_jones to continue.')
 
         sys_exit()
-
 
     @exception_logger_decorator
     def execute(self):
@@ -663,63 +657,24 @@ We welcome any suggestions for additions or changes.''')
         # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
         # Longer messages should be written inside the key stages' functions using helpers.append_to_log().
         # See PSI4 class in engines for an example of where this is used.
-        self.stage_wrapper('parametrise', 'Parametrising molecule', 'Molecule parametrised')
-        self.stage_wrapper('mm_optimise', 'Partially optimising with MM', 'Optimisation complete')
-        self.stage_wrapper('qm_optimise', 'Optimising molecule, view .xyz file for progress', 'Molecule optimised')
-        self.stage_wrapper('hessian', 'Calculating Hessian matrix')
-        self.stage_wrapper('mod_sem', 'Calculating bonds and angles with modified Seminario method',
-                           'Bonds and angles calculated')
-        self.stage_wrapper('density', f'Performing density calculation with {self.args.density_engine}',
-                           'Density calculation complete')
-        self.stage_wrapper('charges', f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}',
-                           'Charges calculated')
-        self.stage_wrapper('lennard_jones', 'Performing Lennard-Jones calculation',
-                           'Lennard-Jones parameters calculated')
-        self.stage_wrapper('torsion_scan', 'Performing QM constrained optimisation with torsiondrive',
-                           'Torsiondrive finished QM results saved')
-        self.stage_wrapper('torsion_optimisation', 'Performing torsion optimisation', 'Torsion optimisation complete')
-
-        # This step is always performed
-        self.stage_wrapper('finalise', 'Finalising analysis', 'Molecule analysis complete!')
-
-        # This step is only performed if we need to use onetep hence we have to pause the flow
-        self.stage_wrapper('pause', 'Analysis stopping', 'Analysis paused!')
-
-    @exception_logger_decorator
-    def execute_new(self):
-        """
-        Calls all the relevant classes and methods for the full QM calculation in the correct order.
-        Exceptions are added to log (if raised).
-        """
-
-        # Check if starting from the beginning; if so:
-        if 'parametrise' in [key for key in self.order]:
-            # Initialise ligand object fully before pickling it
-            molecule = Ligand(self.file, combination=self.args.combination)
-            molecule.pickle(state='parametrise')
-
-        # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
-        # Longer messages should be written inside the key stages' functions using helpers.append_to_log().
-        # See PSI4 class in engines for an example of where this is used.
 
         # The stage keys and messages
-        stage_dict = {'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
-                      'mm_optimise': ['Partially optimising with MM', 'Optimisation complete'],
-                      'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimised'],
-                      'hessian': ['Calculating Hessian matrix', 'Matrix calculated'],
-                      'mod_sem': ['Calculating bonds and angles with modified Seminario method',
-                                  'Bonds and angles calculated'],
-                      'density': [f'Performing density calculation with {self.qm["density_engine"]}',
-                                  'Density calculation complete'],
-                      'charges': [f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}',
-                                  'Charges calculated'],
-                      'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
-                      'torsion_scan': ['Performing QM constrained optimisation with torsiondrive',
-                                       'Torsiondrive finished QM results saved'],
-                      'torsion_optimisation': ['Performing torsion optimisation', 'Torsion optimisation complete'],
-                      'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
-                      'pause': ['Analysis stopping', 'Analysis paused!'],
-                      'skip': ['Skipping section', 'Section skipped']}
+        stage_dict = {
+            'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
+            'mm_optimise': ['Partially optimising with MM', 'Optimisation complete'],
+            'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimised'],
+            'hessian': ['Calculating Hessian matrix', 'Matrix calculated'],
+            'mod_sem': ['Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated'],
+            'density': [f'Performing density calculation with {self.qm["density_engine"]}',
+                        'Density calculation complete'],
+            'charges': [f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated'],
+            'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
+            'torsion_scan': ['Performing QM constrained optimisation with torsiondrive',
+                             'Torsiondrive finished QM results saved'],
+            'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
+            'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
+            'pause': ['Analysis stopping', 'Analysis paused!'],
+            'skip': ['Skipping section', 'Section skipped']}
 
         # do the first stage in the order
         key = list(self.order.keys())[0]
@@ -731,8 +686,6 @@ We welcome any suggestions for additions or changes.''')
 
             if next_key == 'pause':
                 self.pause()
-
-
 
 
 def main():

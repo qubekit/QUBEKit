@@ -106,10 +106,10 @@ class TorsionScan:
         # TODO need to add PSI4 redundant mode selector
 
         if self.native_opt:
-            self.qm_engine.generate_input(optimise=True, threads=True)
+            self.qm_engine.generate_input(optimise=True)
 
         else:
-            self.qm_engine.geo_gradient(run=False, threads=True)
+            self.qm_engine.geo_gradient(run=False)
 
     def torsion_cmd(self):
         """Generates a command string to run torsiondrive based on the input commands for QM and MM."""
@@ -1183,7 +1183,8 @@ class TorsionOptimiser:
                     positions = self.get_coords(engine='torsiondrive')
             elif engine == 'geometric':
                 self.make_constraints()
-                sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --openmm openmm.pdb constraints.txt', shell=True, stdout=log)
+                sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --openmm openmm.pdb constraints.txt',
+                        shell=True, stdout=log)
                 positions = self.get_coords(engine='geometric')
             else:
                 raise NotImplementedError
