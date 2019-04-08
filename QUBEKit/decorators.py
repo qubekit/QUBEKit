@@ -4,6 +4,7 @@ from time import time
 from datetime import datetime
 from functools import wraps
 from logging import getLogger, Formatter, FileHandler, INFO
+from os import listdir
 
 from QUBEKit.helpers import pretty_print, unpickle
 
@@ -121,7 +122,12 @@ def exception_logger_decorator(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
-            with open('../QUBEKit_log.txt', 'r') as log:
+            if 'QUBEKit_log.txt' in listdir('.'):
+                log_file = 'QUBEKit_log.txt'
+            else:
+                log_file = '../QUBEKit_log.txt'
+
+            with open(log_file, 'r') as log:
 
                 # Run through log file backwards to find proper pickle point
                 lines = list(reversed(log.readlines()))

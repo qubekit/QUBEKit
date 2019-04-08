@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 # TODO Add remaining xml methods for Protein class
+# TODO allow reading of different input files on instancing (mol2, xyz, ....)
+# new method read_input this should decided what file reader should be used
 
 from numpy import array, linalg, dot, degrees, cross, arctan2, arccos
 from networkx import neighbors, Graph, has_path
@@ -633,8 +635,8 @@ class Ligand(Molecule):
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(neighbors(self.topology, node)))
-                # if len(bonded) > 2:
-                pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+                if len(bonded) > 1:
+                    pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')
 
@@ -713,7 +715,7 @@ class Protein(Molecule):
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
 
-        molecule = self.molecule
+        molecule = self.molecule['input']
 
         with open(f'{name if name else self.name}.pdb', 'w+') as pdb_file:
 
@@ -729,7 +731,7 @@ class Protein(Molecule):
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(neighbors(self.topology, node)))
-                if len(bonded) > 2:
+                if len(bonded) > 1:
                     pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')

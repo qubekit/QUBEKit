@@ -402,7 +402,7 @@ class Gaussian(Engines):
 
             if solvent:
                 # Adds the epsilon and cavity params
-                input_file.write('\n2.0 0.0004')
+                input_file.write('\n4.0 0.0004')
 
             if density:
                 # Specify the creation of the wavefunction file

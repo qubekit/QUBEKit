@@ -1,6 +1,6 @@
 # QUBEKit - QUantum BEspoke force field toolKit
 
-**Newcastle University Cole Group.**
+**Newcastle University UK Cole Group.**
 
 ## Table of Contents
 
