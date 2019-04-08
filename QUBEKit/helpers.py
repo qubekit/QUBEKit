@@ -28,7 +28,7 @@ class Configure:
         'vib_scaling': '0.991',         # Associated scaling to the theory
         'threads': '6',                 # Number of processors used in Gaussian09; affects the bonds and dihedral scans
         'memory': '2',                  # Amount of memory (in GB); specified in the Gaussian09 scripts
-        'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and Gaussian09
+        'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
         'iterations': '100',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
         'density_engine': 'g09',        # Engine used to calculate the electron density
@@ -44,7 +44,7 @@ class Configure:
         'dih_end': '180',               # The last dihedral angle in the scan
         't_weight': 'infinity',         # Weighting temperature that can be changed to better fit complicated surfaces
         'opt_method': 'BFGS',           # The type of scipy optimiser to use
-        'refinement_method': 'SP',       # The type of QUBE refinement that should be done SP: single point energies
+        'refinement_method': 'SP',      # The type of QUBE refinement that should be done SP: single point energies
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array
         'parameter_engine': 'openff',   # Method used for initial parametrisation
@@ -80,7 +80,7 @@ class Configure:
         'tor_limit': ';Torsion Vn limit to speed up fitting',
         'div_index': ';Fitting starting index in the division array',
         'parameter_engine': ';Method used for initial parametrisation',
-        'chargemol': ';Location of the chargemol program directory',
+        'chargemol': ';Location of the chargemol program directory (do not end with a "/")',
         'log': ';Default string for the working directories and logs'
     }
 
@@ -91,14 +91,12 @@ class Configure:
         if config_file == 'default_config':
 
             # Check if the user has made a new master file to use
-            if not Configure.check_master():
+            if Configure.check_master():
+                qm, fitting, descriptions = Configure.ini_parser(f'{Configure.config_folder + Configure.master_file}')
 
+            else:
                 # If there is no master then assign the default config
                 qm, fitting, descriptions = Configure.qm, Configure.fitting, Configure.descriptions
-
-            # else load the master file
-            else:
-                qm, fitting, descriptions = Configure.ini_parser(f'{Configure.config_folder + Configure.master_file}')
 
         else:
             # Load in the ini file given
@@ -257,7 +255,6 @@ def get_mol_data_from_csv(csv_name):
         # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
         # ---> {'methane': {'charge': 0, ...}, ...}
         for val in final.values():
-
             del val['name']
 
         return final
@@ -391,6 +388,7 @@ def pretty_print(molecule, to_file=False, finished=True):
         print(pre_string)
         # Custom __str__ method; see its documentation for details.
         print(molecule.__str__(trunc=True))
+        print('')
 
 
 def set_dict_val(file_name, search_term):
@@ -403,7 +401,7 @@ def set_dict_val(file_name, search_term):
     return False
 
 
-def unpickle(pickle_jar):
+def unpickle():
     """
     Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of ligands
     indexed by their progress.
@@ -413,7 +411,7 @@ def unpickle(pickle_jar):
 
     # unpickle the pickle jar
     # try to load a pickle file make sure to get all objects
-    with open(pickle_jar, 'rb') as jar:
+    with open('.QUBEKit_states', 'rb') as jar:
         while True:
             try:
                 mol = load(jar)

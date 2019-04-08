@@ -367,7 +367,7 @@ class Gaussian(Engines):
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, input_type='input', optimize=False, hessian=False, density=False, solvent=False, run=True):
+    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, solvent=False, run=True):
         """Generates the relevant job file for Gaussian, then executes this job file."""
 
         molecule = self.molecule.molecule[input_type]
@@ -379,7 +379,7 @@ class Gaussian(Engines):
             commands = f'# {self.qm["theory"]}/{self.qm["basis"]} SCF=XQC '
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
-            if optimize:
+            if optimise:
                 commands += 'opt '
 
             if hessian:
