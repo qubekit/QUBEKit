@@ -37,6 +37,7 @@ class Main:
                              'view the log file.\n Our documentation (README.md) '
                              'also contains help on handling the various commands for QUBEKit\n')
 
+
         # Call order of the analysing methods.
         # Slices of this dict are taken when changing the start and end points of analyses.
         self.order = OrderedDict([('parametrise', self.parametrise),
@@ -48,10 +49,9 @@ class Main:
                                   ('charges', self.charges),
                                   ('lennard_jones', self.lennard_jones),
                                   ('torsion_scan', self.torsion_scan),
-                                  ('torsion_optimisation', self.torsion_optimisation),
+                                  ('torsion_optimise', self.torsion_optimise),
                                   ('finalise', self.finalise)])
 
-        self.log_file = 'QUBEKit_log.txt'
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
 
         # Argparse will only return if we are doing a QUBEKit run bulk or normal
@@ -172,7 +172,7 @@ class Main:
                                '2) Create a new master template\n'
                                '3) Make a normal config file\n>')
 
-                if int(choice) == 1:
+                if choice == 1:
                     inis = Configure.show_ini()
                     name = input(
                         f'Enter the name or number of the config file to edit\n'
@@ -183,11 +183,11 @@ class Main:
                     else:
                         Configure.ini_edit(inis[int(name)])
 
-                elif int(choice) == 2:
+                elif choice == 2:
                     Configure.ini_writer('master_config.ini')
                     Configure.ini_edit('master_config.ini')
 
-                elif int(choice) == 3:
+                elif choice == 3:
                     name = input('Enter the name of the config file to create\n>')
                     Configure.ini_writer(name)
                     Configure.ini_edit(name)
@@ -196,6 +196,7 @@ class Main:
                     raise KeyError('Invalid selection; please choose from 1, 2 or 3.')
 
                 sys_exit()
+
 
         class CsvAction(argparse.Action):
             """The csv creation class run when the csv option is used."""
@@ -553,6 +554,7 @@ We welcome any suggestions for additions or changes.''')
             # If we use onetep we have to stop after this step
             append_to_log('ONETEP file made')
 
+
             # Now we have to edit the order to end here.
             self.order = OrderedDict([('density', self.density), ('charges', self.skip), ('lennard_jones', self.skip),
                                       ('torsion_scan', self.torsion_scan), ('pause', self.pause)])
@@ -593,7 +595,7 @@ We welcome any suggestions for additions or changes.''')
 
         return molecule
 
-    def torsion_optimisation(self, molecule):
+    def torsion_optimise(self, molecule):
         """Perform torsion optimisation"""
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)

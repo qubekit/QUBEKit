@@ -3,19 +3,17 @@
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. (Done for file extraction.)
 #       Maybe add path checking for Chargemol?
-# TODO Convert to subprocess.run()
 # TODO use QCEngine to run PSI4, geometric and torsion drive QM commands.
 
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-from subprocess import call as sub_call
+from subprocess import run as sub_run
 from numpy import array, zeros
 from numpy import append as np_append
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
-# Pycharm claims this import is unused; ignore it!
 from mpl_toolkits.mplot3d import Axes3D
 
 
@@ -112,7 +110,7 @@ class PSI4(Engines):
 
             setters += '}\n'
 
-            # TODO Always use threads? sub_call below currently ignores True/False argument input anyway.
+            # TODO Always use threads? sub_run below currently ignores True/False argument input anyway.
             if threads:
                 setters += f'set_num_threads({self.qm["threads"]})\n'
 
@@ -120,12 +118,12 @@ class PSI4(Engines):
             input_file.write(tasks)
 
         if run:
-            sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
+            sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     # TODO change to one general file parser that gathers any info it can find
-    # puts into the engine object proper API?
-    # file parser is called after execution
-    # this avoids opening and closing the file multiple times if you want a lot of info?
+    #   puts into the engine object proper API?
+    #   file parser is called after execution
+    #   this avoids opening and closing the file multiple times if you want a lot of info?
     def hessian(self):
         """
         Parses the Hessian from the output.dat file (from psi4) into a numpy array.
@@ -212,6 +210,9 @@ class PSI4(Engines):
                 elif "**** Optimization is complete!" in line:
                     opt_pos = count
                     opt_steps = int(line.split()[5])
+
+            if not (opt_pos and opt_steps):
+                raise EOFError('According to the output.dat file, optimisation has not completed.')
 
             # now get the final opt_energy
             opt_energy = float(lines[opt_pos + opt_steps + 7].split()[1])
@@ -305,7 +306,7 @@ class PSI4(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_call(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
+                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
                          shell=True, stdout=log)
 
 
@@ -344,12 +345,12 @@ class Chargemol(Engines):
 
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
-        # sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
-        # sub_call('mv Dt.cube total_density.cube', shell=True)
+        # sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
+        # sub_run('mv Dt.cube total_density.cube', shell=True)
 
         if run:
             control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
-            sub_call(f'{self.descriptions["chargemol"]}/{control_path}', shell=True)
+            sub_run(f'{self.descriptions["chargemol"]}/{control_path}', shell=True)
 
 
 @for_all_methods(timer_logger)
@@ -411,7 +412,7 @@ class Gaussian(Engines):
             input_file.write('\n\n')
 
         if run:
-            sub_call(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log', shell=True)
+            sub_run(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log', shell=True)
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
@@ -504,7 +505,7 @@ class ONETEP(Engines):
         super().__init__(molecule, config_dict)
 
     def generate_input(self, input_type='input', density=False, solvent=False):
-        """Onetep takes a xyz input file."""
+        """ONETEP takes a xyz input file."""
 
         if density:
             self.molecule.write_xyz(input_type=input_type)
@@ -519,7 +520,7 @@ class ONETEP(Engines):
         hull = ConvexHull(coords)
 
         fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot(111, projection=Axes3D.name)
 
         ax.plot(coords.T[0], coords.T[1], coords.T[2], 'ko')
 

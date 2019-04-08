@@ -8,7 +8,7 @@ from simtk import unit
 from numpy import array, zeros, sqrt, sum, exp, round, append
 from scipy.optimize import minimize
 
-from subprocess import call as sub_call
+from subprocess import run as sub_run
 from collections import OrderedDict
 from copy import deepcopy
 from os import chdir, mkdir, system, getcwd
@@ -78,7 +78,6 @@ class TorsionScan:
             rotatable = list(self.scan_mol.rotatable)
             print('Please select the central bonds round which you wish to scan in the order to be scanned')
             print('Torsion number   Central-Bond   Representative Dihedral')
-            # TODO Padding
             for i, bond in enumerate(rotatable):
                 print(f'  {i + 1}                    {bond[0]}-{bond[1]}             '
                       f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][0] - 1]}-'
@@ -152,9 +151,9 @@ class TorsionScan:
         # TODO QCArchive/Fractal search don't do a calc that has been done!
 
         # TODO
-        # if the molecule has multiple scans to do they should all start at the same time as this is slow
-        # We must also make sure that we don't exceed the core limit when we do this!
-        # e.g. user gives 6 cores for QM and we run two drives that takes 12 cores!
+        #   if the molecule has multiple scans to do they should all start at the same time as this is slow
+        #   We must also make sure that we don't exceed the core limit when we do this!
+        #   e.g. user gives 6 cores for QM and we run two drives that takes 12 cores!
 
         for scan in self.scan_mol.scan_order:
             mkdir(f'SCAN_{scan[0]}_{scan[1]}')
@@ -164,7 +163,7 @@ class TorsionScan:
 
             # now make the scan input files
             self.qm_scan_input(scan)
-            sub_call(self.cmd, shell=True)
+            sub_run(self.cmd, shell=True)
             self.get_energy(scan)
             chdir(self.home)
 
@@ -954,7 +953,8 @@ class TorsionOptimiser:
         """
 
         import __main__
-        __main__.pymol_argv = ['pymol', '-qc']  # Quiet and no GUI
+        # Quiet and no GUI
+        __main__.pymol_argv = ['pymol', '-qc']
 
         from pymol import cmd as py_cmd
         from pymol import finish_launching
@@ -963,7 +963,7 @@ class TorsionOptimiser:
         py_cmd.load(mm_coords, object='MM_scan')
         py_cmd.load(qm_coords, object='QM_scan')
         rmsd = py_cmd.align('MM_scan', 'QM_scan')[0]
-        # now remove the objects from the pymol instance
+        # Remove the objects from the pymol instance
         py_cmd.delete('MM_scan')
         py_cmd.delete('QM_scan')
 
@@ -987,8 +987,6 @@ class TorsionOptimiser:
 
         print(f'Running SciPy {self.method} optimiser ... ')
 
-        # Does not work in dictionary for some reason
-        # TODO Try .get() ?
         if self.method == 'Nelder-Mead':
             res = minimize(self.objective, self.param_vector, method='Nelder-Mead',
                            options={'xtol': self.x_tol, 'ftol': self.error_tol, 'disp': True})
@@ -1008,7 +1006,7 @@ class TorsionOptimiser:
         # return the final fitting error and final param vector after the optimisation
         return res.fun, res.x
 
-    def use_forcebalance(self):
+    def call_force_balance(self):
         """Call force balance to do the single point energy matching."""
 
         pass
@@ -1185,7 +1183,7 @@ class TorsionOptimiser:
                     positions = self.get_coords(engine='torsiondrive')
             elif engine == 'geometric':
                 self.make_constraints()
-                sub_call('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --openmm openmm.pdb constraints.txt', shell=True, stdout=log)
+                sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --openmm openmm.pdb constraints.txt', shell=True, stdout=log)
                 positions = self.get_coords(engine='geometric')
             else:
                 raise NotImplementedError

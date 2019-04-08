@@ -17,12 +17,12 @@ def smiles_to_pdb(smiles_string, name=None):
     if not name:
         name = input('Please enter a name for the molecule:\n>')
     m.SetProp('_Name', name)
-    mH = AllChem.AddHs(m)
-    AllChem.EmbedMolecule(mH, AllChem.ETKDG())
-    AllChem.SanitizeMol(mH)
+    m_h = AllChem.AddHs(m)
+    AllChem.EmbedMolecule(m_h, AllChem.ETKDG())
+    AllChem.SanitizeMol(m_h)
 
-    print(AllChem.MolToMolBlock(mH), file=open(f'{name}.mol', 'w+'))
-    AllChem.MolToPDBFile(mH, f'{name}.pdb')
+    print(AllChem.MolToMolBlock(m_h), file=open(f'{name}.mol', 'w+'))
+    AllChem.MolToPDBFile(m_h, f'{name}.pdb')
     print(f'Smiles string {smiles_string} converted to PDB and mol files.')
 
     return f'{name}.pdb'

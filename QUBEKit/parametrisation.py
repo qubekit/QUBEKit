@@ -6,7 +6,7 @@ from QUBEKit.helpers import append_to_log
 from tempfile import TemporaryDirectory
 from shutil import copy
 from os import getcwd, chdir, path
-from subprocess import call as sub_call
+from subprocess import run as sub_run
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -175,12 +175,13 @@ class Parametrisation:
 
                 # call antechamber
                 with open('Antechamber.log', 'w+') as log:
-                    sub_call(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at '
+                    sub_run(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at '
                              f'{fftype} -c bcc', shell=True, stdout=log)
 
                 # Ensure command worked
                 if not path.exists('out.mol2'):
                     raise FileNotFoundError('out.mol2 not found antechamber failed!')
+
 
                 # now copy the file back from the folder
                 copy('out.mol2', mol2)
@@ -212,24 +213,23 @@ class Parametrisation:
                     except KeyError:
                         gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
 
-        message = f'GAFF types: {self.gaff_types}'
-        append_to_log(message, msg_type='minor')
-        # now check if the molecule already has bonds if not apply these bonds
+        append_to_log(f'GAFF types: {self.gaff_types}', msg_type='minor')
+
+        # Check if the molecule already has bonds; if not apply these bonds
         if not list(self.molecule.topology.edges):
             # add the bonds to the molecule
             for key, value in gaff_bonds.items():
                 for node in value:
                     self.molecule.topology.add_edge(key, node)
 
-            # now that we have added the bonds call the update method on the molecule
             self.molecule.update()
 
-            # warning this rewrites the pdb file and re
-            # now we want to write a new pdb with the connection information
+            # Warning this rewrites the pdb file and re
+            # Write a new pdb with the connection information
             self.molecule.write_pdb(input_type='input', name=f'{self.molecule.name}_qube')
             self.molecule.filename = f'{self.molecule.name}_qube.pdb'
             print(f'Molecule connections updated new pdb file made and used: {self.molecule.name}_qube.pdb')
-            # now update the input file name for the xml
+            # Update the input file name for the xml
             self.input_file = f'{self.molecule.name}.xml'
 
 
@@ -440,9 +440,10 @@ class AnteChamber(Parametrisation):
             chdir(temp)
             copy(mol2, 'out.mol2')
 
+
             # Run parmchk
             with open('Antechamber.log', 'a') as log:
-                sub_call(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}", shell=True, stdout=log)
+                sub_run(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}", shell=True, stdout=log)
 
             # Ensure command worked
             if not path.exists('out.frcmod'):
@@ -472,7 +473,7 @@ class AnteChamber(Parametrisation):
 
             # Now run tleap
             with open('Antechamber.log', 'a') as log:
-                sub_call('tleap -f tleap_commands', shell=True, stdout=log)
+                sub_run('tleap -f tleap_commands', shell=True, stdout=log)
 
             # Check results present
             if not path.exists('out.prmtop') or not path.exists('out.inpcrd'):
