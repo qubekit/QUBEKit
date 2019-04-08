@@ -38,12 +38,8 @@ class Main:
                              'also contains help on handling the various commands for QUBEKit\n')
 
         # Configs:
-        self.defaults_dict = {'charge': 0,
-                              'multiplicity': 1,
-                              'config': 'default_config'}
-        self.configs = {'qm': {},
-                        'fitting': {},
-                        'descriptions': {}}
+        self.defaults_dict = {'charge': 0, 'multiplicity': 1, 'config': 'default_config'}
+        self.configs = {'qm': {}, 'fitting': {}, 'descriptions': {}}
 
         # Call order of the analysing methods.
         # Slices of this dict are taken when changing the start and end points of analyses.
@@ -56,11 +52,12 @@ class Main:
                                   ('charges', self.charges),
                                   ('lennard_jones', self.lennard_jones),
                                   ('torsion_scan', self.torsion_scan),
-                                  ('torsion_optimisation', self.torsion_optimisation),
+                                  ('torsion_optimise', self.torsion_optimise),
                                   ('finalise', self.finalise)])
 
-        self.log_file = 'QUBEKit_log.txt'
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
+
+        self.log_file = 'QUBEKit_log.txt'
         self.file, self.commands = self.parse_commands()
 
         # Find which config is being used and store arguments accordingly
@@ -123,7 +120,7 @@ class Main:
             - return None
         """
 
-        self.commands = cmdline[1:]
+        self.commands = [item.lower() for item in cmdline[1:]]
 
         # Check for csv generation, progress displaying or config setup first. These will halt the entire program.
         # Then check for config changes; multiple configs can be changed at once.
@@ -142,21 +139,21 @@ class Main:
 
             # Setup configs for all future runs
             if cmd == '-setup':
-                choice = input('You can now edit config files using QUBEKit, choose an option to continue:\n'
-                               '1) Edit a config file\n'
-                               '2) Create a new master template\n'
-                               '3) Make a normal config file\n>')
+                choice = int(input('You can now edit config files using QUBEKit, choose an option to continue:\n'
+                                   '1) Edit a config file\n'
+                                   '2) Create a new master template\n'
+                                   '3) Make a normal config file\n>'))
 
-                if int(choice) == 1:
+                if choice == 1:
                     inis = Configure.show_ini()
                     name = input(f'Enter the name of the config file to edit\n{"".join(f"{ini}    " for ini in inis)}\n>')
                     Configure.ini_edit(name)
 
-                elif int(choice) == 2:
+                elif choice == 2:
                     Configure.ini_writer('master_config.ini')
                     Configure.ini_edit('master_config.ini')
 
-                elif int(choice) == 3:
+                elif choice == 3:
                     name = input('Enter the name of the config file to create\n>')
                     Configure.ini_writer(name)
                     Configure.ini_edit(name)
@@ -176,7 +173,7 @@ class Main:
                 self.configs['qm']['ddec_version'] = int(self.commands[count + 1])
 
             if cmd == '-geo':
-                self.configs['qm']['geometric'] = False if self.commands[count + 1].lower() == 'false' else True
+                self.configs['qm']['geometric'] = False if self.commands[count + 1] == 'false' else True
 
             if cmd == '-bonds':
                 self.configs['qm']['bonds_engine'] = str(self.commands[count + 1])
@@ -188,7 +185,7 @@ class Main:
                 self.configs['descriptions']['log'] = str(self.commands[count + 1])
 
             if cmd == '-solvent':
-                self.configs['qm']['solvent'] = False if self.commands[count + 1].lower() == 'false' else True
+                self.configs['qm']['solvent'] = False if self.commands[count + 1] == 'false' else True
 
             if cmd == '-param':
                 self.configs['fitting']['parameter_engine'] = str(self.commands[count + 1])
@@ -509,10 +506,7 @@ class Main:
         qm_engine = self.engine_dict[self.qm['density_engine']](molecule, self.all_configs)
         qm_engine.generate_input(input_type='qm', density=True, solvent=self.qm['solvent'])
 
-        if self.qm['density_engine'] == 'g09':
-            append_to_log('Gaussian analysis complete')
-        else:
-            append_to_log('ONETEP file made')
+        append_to_log('Gaussian analysis complete' if self.qm['density_engine'] == 'g09' else 'ONETEP file made')
 
         return molecule
 
@@ -550,12 +544,12 @@ class Main:
 
         return molecule
 
-    def torsion_optimisation(self, molecule):
+    def torsion_optimise(self, molecule):
         """Perform torsion optimisation"""
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS', opls=True, refinement_method='SP',
-                               vn_bounds=20)
+        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS', opls=True,
+                               refinement_method='SP', vn_bounds=20)
         opt.run()
 
         append_to_log('Torsion optimisations complete')
@@ -599,7 +593,7 @@ class Main:
         self.stage_wrapper('charges', f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated')
         self.stage_wrapper('lennard_jones', 'Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated')
         self.stage_wrapper('torsion_scan', 'Performing QM constrained optimisation with torsiondrive', 'Torsiondrive finished QM results saved')
-        self.stage_wrapper('torsion_optimisation', 'Performing torsion optimisation', 'Torsion optimisation complete')
+        self.stage_wrapper('torsion_optimise', 'Performing torsion optimisation', 'Torsion optimisation complete')
 
         # This step is always performed
         self.stage_wrapper('finalise', 'Finalising analysis', 'Molecule analysis complete!')
