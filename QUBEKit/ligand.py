@@ -3,8 +3,7 @@
 # TODO Add remaining xml methods for Protein class
 
 from numpy import array, linalg, dot, degrees, cross, arctan2, arccos
-from networkx import neighbors, Graph, has_path, draw
-from matplotlib import pyplot as plt
+from networkx import neighbors, Graph, has_path
 
 from xml.etree.ElementTree import tostring, Element, SubElement, ElementTree
 from xml.dom.minidom import parseString
@@ -73,7 +72,7 @@ class Molecule:
         self.smiles = smiles_string
 
         # Structure
-        self.molecule = {'qm': None, 'mm': None, 'input': None}
+        self.molecule = {'qm': [], 'mm': [], 'input': []}
         self.topology = None
         self.angles = None
         self.dihedrals = None
@@ -179,10 +178,6 @@ class Molecule:
                 for i in range(2, len(line.split())):
                     if int(line.split()[i]) != 0:
                         self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
-
-        # Uncomment for a graph of the molecule
-        # draw(self.topology, with_labels=True, font_weight='bold')
-        # plt.show()
 
         # put the object back into the correct place
         self.molecule[input_type] = molecule
@@ -710,10 +705,6 @@ class Protein(Molecule):
 
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
-
-        # Uncomment the following lines to draw the graph network generated from the pdb.
-        # draw(topology, with_labels=True, font_weight='bold')
-        # plt.show()
 
         self.molecule[input_type] = protein
 

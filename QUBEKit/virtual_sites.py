@@ -89,9 +89,8 @@ class VSiteTester:
             lorentz.addExclusion(p1, p2)
             if eps._value != 0.0:
                 sig14 = sqrt(l_j_set[p1][0] * l_j_set[p2][0])
-                # TODO eps14 not used
                 eps14 = sqrt(l_j_set[p1][1] * l_j_set[p2][1])
-                nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
+                nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps14)
             # # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
             # # Old method which needs updating
             # if excep_pairs:
