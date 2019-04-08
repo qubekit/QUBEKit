@@ -51,7 +51,7 @@ class PSI4(Engines):
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
-                       threads=False, fchk=False, run=True):
+                       fchk=False, run=True):
         """Converts to psi4 input format to be run in psi4 without using geometric"""
 
         molecule = self.molecule.molecule[input_type]
@@ -110,8 +110,7 @@ class PSI4(Engines):
 
             setters += '}\n'
 
-            # TODO Always use threads? sub_run below currently ignores True/False argument input anyway.
-            if threads:
+            if not run:
                 setters += f'set_num_threads({self.qm["threads"]})\n'
 
             input_file.write(setters)
