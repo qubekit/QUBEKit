@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 
-from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise
+from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise, rdkit_descriptors
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
-from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress, pretty_print, Configure, unpickle
+from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress, pretty_print, \
+    Configure, unpickle
 from QUBEKit.decorators import exception_logger_decorator
 
-from sys import argv as cmdline
+import argparse
 from sys import exit as sys_exit
 from os import mkdir, chdir, path, listdir, walk, getcwd, system
 from shutil import copy
 from collections import OrderedDict
 from functools import partial
 from datetime import datetime
-
 
 # Changes default print behaviour for this file.
 print = partial(print, flush=True)
@@ -32,23 +32,15 @@ class Main:
     """
 
     def __init__(self):
-
+        self.file = None
         self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, '
                              'view the log file.\n Our documentation (README.md) '
                              'also contains help on handling the various commands for QUBEKit\n')
 
-        # Configs:
-        self.defaults_dict = {'charge': 0,
-                              'multiplicity': 1,
-                              'config': 'default_config'}
-        self.configs = {'qm': {},
-                        'fitting': {},
-                        'descriptions': {}}
-
         # Call order of the analysing methods.
         # Slices of this dict are taken when changing the start and end points of analyses.
-        self.order = OrderedDict([('rdkit_optimise', self.rdkit_optimise),
-                                  ('parametrise', self.parametrise),
+        self.order = OrderedDict([('parametrise', self.parametrise),
+                                  ('mm_optimise', self.mm_optimise),
                                   ('qm_optimise', self.qm_optimise),
                                   ('hessian', self.hessian),
                                   ('mod_sem', self.mod_sem),
@@ -61,10 +53,24 @@ class Main:
 
         self.log_file = 'QUBEKit_log.txt'
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
-        self.file, self.commands = self.parse_commands()
+
+        # Argparse will only return if we are doing a QUBEKit run bulk or normal
+        self.args = self.parse_commands()
+
+        # Look through the command line options and apply bulk and restart settings
+        self.check_options()
+
+        # Configs:
+        self.defaults_dict = {'charge': self.args.charge,
+                              'multiplicity': self.args.multiplicity,
+                              'config': self.args.config_file}
+
+        self.configs = {'qm': {},
+                        'fitting': {},
+                        'descriptions': {}}
 
         # Find which config is being used and store arguments accordingly
-        if self.defaults_dict['config'] == 'default_config':
+        if self.args.config_file == 'default_config':
             if not Configure.check_master():
                 # Press any key to continue
                 input('You must set up a master config to use QUBEKit and change the chargemol path; '
@@ -75,40 +81,73 @@ class Main:
 
         self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
         self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
-
+        # Update the configs with any command line options
         self.config_update()
-        self.continue_log() if '-restart' in self.commands else self.create_log()
-        self.execute()
+
+        self.continue_log() if self.args.restart is not None else self.create_log()
+        # Starting a single run so print the message
+        print(self.start_up_msg)
+        self.execute_new()
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
+    def check_options(self):
+        """Read through the command line and handle options which affect the main execute
+        like restart or start a bulk run."""
+
+        # Run the bulk command and exit the code on completion
+        if self.args.bulk_run:
+            self.bulk_execute()
+
+        # If not bulk must be main single run
+        self.file = self.args.input
+        # Check the end points for a normal run
+        start_point = self.args.restart if self.args.restart is not None else 'parametrise'
+        end_point = self.args.end if self.args.end is not None else 'finalise'
+
+        # Create list of all keys
+        stages = [key for key in self.order]
+
+        # This ensures that the run is start_point to end_point inclusive rather than exclusive.
+        # e.g. -restart parametrise charges goes from parametrise to charges while doing the charges step.
+        extra = 1 if end_point != 'finalise' else 0
+
+        # Cut out the keys before the start_point and after the end_point
+        # Add finalise back in if it's removed (finalise should always be called).
+        stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
+
+        # Redefine self.order to only contain the key, val pairs from stages
+        self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
+
+        # If we restart we should have a pickle file with the object in it.
+        # if '-restart' in cmd:
+        #     # Set the file name based on the directory:
+        #     files = [file for file in listdir('.') if path.isfile(file)]
+        #     self.file = \
+        #         [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
+
     def config_update(self):
-        """Update the config settings with the command line ones from parse_commands()."""
+        """Update the config setting using the argparse options from the command line."""
+        for key, value in vars(self.args).items():
+            if value is not None:
+                if key in self.qm:
+                    self.qm[key] = value
+                elif key in self.fitting:
+                    self.fitting[key] = value
+                elif key in self.descriptions:
+                    self.descriptions[key] = value
 
-        for key in self.configs:
-            for sub in self.configs[key]:
-                if sub in self.qm:
-                    self.qm[sub] = self.configs[key][sub]
-                elif sub in self.fitting:
-                    self.fitting[sub] = self.configs[key][sub]
-                elif sub in self.descriptions:
-                    self.descriptions[sub] = self.configs[key][sub]
-
-    def parse_commands(self):
+    @staticmethod
+    def parse_commands():
         """
-        Parses commands from the terminal.
+        Parses commands from the terminal using argparse.
 
-        This method has four main blocks, each defined by an enumerate loop which loops over the commands.
-        In the first block:
-            - First, the program will search for commands which terminate the program such as -progress, -setup.
-            - Then, it will search for, and change, config settings such as -c, -ddec.
-        In the second block:
-            - Search for, and execute bulk commands
-        In the third block:
-            - Search for, and execute -restart and -end commands
-        In the fourth and final block:
-            - Search for, and execute -sm commands or plain old named .pdb files.
+        The method then ensures the correct methods are called in a logical order.
+            - First: exit on the -progress, -setup
+            - Second: look for bulk commands
+            - Third: look for -restart and -end commands
+            - Four: look for smiles codes and input files
 
         This ordering ensures that the program will always:
             - Terminate immediately if necessary;
@@ -122,26 +161,12 @@ class Main:
             - The program exits
             - return None
         """
+        # action classes
+        class SetupAction(argparse.Action):
+            """The setup action class that is called when setup is found in the command line."""
 
-        self.commands = cmdline[1:]
-
-        # Check for csv generation, progress displaying or config setup first. These will halt the entire program.
-        # Then check for config changes; multiple configs can be changed at once.
-        for count, cmd in enumerate(self.commands):
-
-            # csv creation
-            if cmd == '-csv':
-                csv_name = self.commands[count + 1]
-                generate_config_csv(csv_name)
-                sys_exit()
-
-            # Display progress of all folders in current directory.
-            if cmd == '-progress':
-                pretty_progress()
-                sys_exit()
-
-            # Setup configs for all future runs
-            if cmd == '-setup':
+            def __call__(self, pars, namespace, values, option_string=None):
+                """This function is executed when setup is called."""
                 choice = input('You can now edit config files using QUBEKit, choose an option to continue:\n'
                                '1) Edit a config file\n'
                                '2) Create a new master template\n'
@@ -149,8 +174,14 @@ class Main:
 
                 if int(choice) == 1:
                     inis = Configure.show_ini()
-                    name = input(f'Enter the name of the config file to edit\n{"".join(f"{ini}    " for ini in inis)}\n>')
-                    Configure.ini_edit(name)
+                    name = input(
+                        f'Enter the name or number of the config file to edit\n'
+                        f'{"".join(f"{inis.index(ini)}:{ini}    " for ini in inis)}\n>')
+                    # make sure name is right
+                    if name in inis:
+                        Configure.ini_edit(name)
+                    else:
+                        Configure.ini_edit(inis[int(name)])
 
                 elif int(choice) == 2:
                     Configure.ini_writer('master_config.ini')
@@ -166,168 +197,154 @@ class Main:
 
                 sys_exit()
 
-            if cmd == '-c':
-                self.defaults_dict['charge'] = int(self.commands[count + 1])
+        class CsvAction(argparse.Action):
+            """The csv creation class run when the csv option is used."""
 
-            if cmd == '-m':
-                self.defaults_dict['multiplicity'] = int(self.commands[count + 1])
+            def __call__(self, pars, namespace, values, option_string=None):
+                """This function is executed when csv is called."""
+                generate_config_csv(values)
+                sys_exit()
 
-            if cmd == '-ddec':
-                self.configs['qm']['ddec_version'] = int(self.commands[count + 1])
+        class ProgressAction(argparse.Action):
+            """Run the pretty progress function to get the progress of all running jobs."""
 
-            if cmd == '-geo':
-                self.configs['qm']['geometric'] = False if self.commands[count + 1].lower() == 'false' else True
+            def __call__(self, pars, namespace, values, option_string=None):
+                """This function is executed when progress is called."""
+                pretty_progress()
+                sys_exit()
 
-            if cmd == '-bonds':
-                self.configs['qm']['bonds_engine'] = str(self.commands[count + 1])
+        parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
+                                              description="""QUBEKit is a Python 3.5+ based force field derivation toolkit for Linux operating systems.
+Our aims are to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
+QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
+QUBEKit aims to use as few parameters as possible while also being highly customisable.""", epilog='''QUBEKit should currently be considered a work in progress.
+While it is stable we are constantly working to improve the code and broaden its compatibility. 
+We use lots of software written by many different people;
+if reporting a bug please (to the best of your ability) make sure it is a bug with QUBEKit and not with a dependency.
+We welcome any suggestions for additions or changes.''')
 
-            if cmd == '-charges':
-                self.configs['qm']['charges_engine'] = str(self.commands[count + 1])
+        # Add all of the command line options in the arg parser
+        parser.add_argument('-c', '--charge', default=0, type=int, help='Enter the charge of the molecule, default 0.')
+        parser.add_argument('-m', '--multiplicity', default=1, type=int, help='Enter the multiplicity of the '
+                                                                              'molecule, default 1.')
+        parser.add_argument('-ddec', '--ddec_version', choices=[3, 6], type=int,
+                            help='Enter the ddec version for charge partitioning, does not effect ONETEP partitioning.')
+        parser.add_argument('-geo', '--geometric', choices=[True, False], type=bool,
+                            help='Turn on geometric to use this during the qm optimisations, recomended.')
+        parser.add_argument('-bonds', '--bonds_engine', choices=['psi4', 'g09'],
+                            help='Choose the QM code to calculate the bonded terms.')
+        parser.add_argument('-charges', '--charges_engine', choices=['onetep', 'chargemol'],
+                            help='Choose the method to do the charge partioning.')
+        parser.add_argument('-density', '--density_engine', choices=['onetep', 'g09', 'psi4'],
+                            help='Enter the name of the QM code to calculate the electron density of the molecule.')
+        parser.add_argument('-solvent', '--solvent',
+                            help='Enter the dielectric constant or the name of the solvent you wish to use.')
+        # maybe separate into known solvents and IPCM constants?
+        parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
+                            help='Enter the convergence criteria for the optimisation.')
+        parser.add_argument('-param', '--parameter_engine', choices=['xml', 'gaff', 'gaff2', 'openff'],
+                            help='Enter the method of where we should get the intial molecule parameters from, '
+                                 'if xml make sure the xml has the same name as the pdb file.')
+        parser.add_argument('-mm', '--mm_opt_method', default='openmm', choices=['openmm', 'rdkit_mff', 'rdkit_uff'],
+                            help='Enter the mm optimisation method for pre qm omptimisation.')
+        parser.add_argument('-config', '--config_file', default='default_config', choices=Configure.show_ini(),
+                            help='Enter the name of the configuration file you wish to use for this run from the list '
+                                 'available, defaults to master.')
+        parser.add_argument('-theory', '--theory',
+                            help='Enter the name of the qm theory you would like to use.')
+        parser.add_argument('-basis', '--basis',
+                            help='Enter the basis set you would like to use.')
+        parser.add_argument('-restart', '--restart', choices=['parametrise', 'mm_optimise', 'qm_optimise', 'hessian',
+                                                              'mod_sem', 'density', 'charges', 'lennard_jones',
+                                                              'torsion_scan', 'torsion_optimisation'],
+                            help='Enter the restart point of a QUBEKit job.')
+        parser.add_argument('-end', '-end', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem', 'density',
+                                                     'charges', 'lennard_jones', 'torsion_scan', 'torsion_optimisation',
+                                                     'finalise'], help='Enter the end point of the QUBEKit job.')
+        parser.add_argument('-progress', '--progress', nargs='?', const=True,
+                            help='Get the current progress of a QUBEKit single or bulk job.', action=ProgressAction)
+        parser.add_argument('-combination', '--combination', default='opls', choices=['opls', 'amber'],
+                            help='Enter the combination rules that should be used.')
 
-            if cmd == '-log':
-                self.configs['descriptions']['log'] = str(self.commands[count + 1])
+        # Add mutually exclusive groups to stop wrong combinations of options,
+        # e.g. setup should not be ran with another command
+        groupa = parser.add_mutually_exclusive_group()
+        groupa.add_argument('-setup', '--setup_config', nargs='?', const=True,
+                            help='Setup a new configuration or edit an existing one.', action=SetupAction)
+        groupa.add_argument('-sm', '--smiles', help='Enter the smiles string of a molecule as a starting point.')
+        groupa.add_argument('-bulk', '--bulk_run',
+                            help='Enter the name of the csv file to run as bulk, bulk will use smiles unless it finds '
+                                 'a molecule file with the same name.')
+        groupa.add_argument('-csv', '--csv_filename',
+                            help='Enter the name of the csv file you would like to create for bulk runs.',
+                            action=CsvAction)
+        groupa.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
 
-            if cmd == '-solvent':
-                self.configs['qm']['solvent'] = False if self.commands[count + 1].lower() == 'false' else True
+        return parser.parse_args()
 
-            if cmd == '-param':
-                self.configs['fitting']['parameter_engine'] = str(self.commands[count + 1])
+    def bulk_execute(self):
+        """Run a bulk QUBEKit job in serial mode."""
+        # TODO look at worker queues to maximise resource usage
 
-            # Unlike '-setup', this just changes the config file used for this particular run.
-            if cmd == '-config':
-                self.defaults_dict['config'] = str(self.commands[count + 1])
+        csv_file = self.args.bulk_run
+        print(self.start_up_msg)
 
-            if cmd == '-func':
-                self.configs['qm']['theory'] = str(self.commands[count + 1])
+        bulk_data = get_mol_data_from_csv(csv_file)
 
-            if cmd == '-basis':
-                self.configs['qm']['basis'] = str(self.commands[count + 1])
+        # Run full analysis for each smiles string or pdb in the .csv file.
+        names = list(bulk_data.keys())
+        # Store a copy of self.order which will not be mutated.
+        # This allows self.order to be built up after each run.
+        temp = self.order
 
-        if self.commands:
-            print(f'\nThese are the commands you gave: {self.commands}\n' 
-                  f'These are the current defaults: {self.defaults_dict} \n\n'
-                  'Please note, some values may not be used depending on what kind of analysis is being done.\n')
+        for name in names:
 
-        # Check if a bulk analysis is being done.
-        for count, cmd in enumerate(self.commands):
+            print(f'Currently analysing: {name}\n')
 
-            # Controls high throughput.
-            # Basically just runs the same functions but forces certain defaults.
-            # '-bulk example.csv' will run analysis for all smile strings in the example.csv file, otherwise it'll use the pdbs it finds
-            # with the correct name.
-            if cmd == '-bulk':
+            # Set the start and end points to what is given in the csv. See the -restart / -end section below
+            # for further details and better documentation.
+            start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'parametrise'
+            end_point = bulk_data[name]['end']
+            stages = [key for key in temp]
+            extra = 1 if end_point != 'finalise' else 0
+            stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
+            self.order = OrderedDict(pair for pair in temp.items() if pair[0] in set(stages))
 
-                csv_file = self.commands[count + 1]
-                print(self.start_up_msg)
+            # Configs
+            self.defaults_dict = bulk_data[name]
+            self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
+            self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
 
-                bulk_data = get_mol_data_from_csv(csv_file)
+            # If starting from the beginning, create log and pdb file then execute as normal for each run
+            if start_point == 'parametrise':
 
-                # Run full analysis for each smiles string or pdb in the .csv file.
-                names = list(bulk_data.keys())
-                # Store a copy of self.order which will not be mutated.
-                # This allows self.order to be built up after each run.
-                temp = self.order
+                if bulk_data[name]['smiles string'] is not None:
+                    smile_string = bulk_data[name]['smiles string']
+                    self.file = smiles_to_pdb(smile_string, name)
 
-                for name in names:
-
-                    print(f'Currently analysing: {name}\n')
-
-                    # Set the start and end points to what is given in the csv. See the -restart / -end section below
-                    # for further details and better documentation.
-                    start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'rdkit_optimise'
-                    end_point = bulk_data[name]['end']
-                    stages = [key for key in temp]
-                    extra = 1 if end_point != 'finalise' else 0
-                    stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
-                    self.order = OrderedDict(pair for pair in temp.items() if pair[0] in set(stages))
-
-                    # Configs
-                    self.defaults_dict = bulk_data[name]
-                    self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
-                    self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
-
-                    # If starting from the beginning, create log and pdb file then execute as normal for each run
-                    if start_point == 'rdkit_optimise':
-
-                        if bulk_data[name]['smiles string'] is not None:
-                            smile_string = bulk_data[name]['smiles string']
-                            self.file = smiles_to_pdb(smile_string, name)
-
-                        else:
-                            self.file = f'{name}.pdb'
-
-                        self.create_log()
-
-                    # If starting from the middle somewhere, FIND (not create) the folder, and log and pdb files, then execute
-                    else:
-                        for root, dirs, files in walk('.', topdown=True):
-                            for dir_name in dirs:
-                                if dir_name.startswith(f'QUBEKit_{name}'):
-                                    chdir(dir_name)
-
-                        # These are the files in the active directory, search for the pdb.
-                        files = [file for file in listdir('.') if path.isfile(file)]
-                        self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
-
-                        self.continue_log()
-
-                    self.execute()
-                    chdir('../')
-
-                sys_exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
-
-        # Check if an analysis is being done with restart / end arguments
-        for count, cmd in enumerate(self.commands):
-
-            if '-restart' in cmd or '-end' in cmd:
-                if '-restart' in cmd:
-                    start_point = self.commands[count + 1]
-                    end_point = self.commands[count + 2]
                 else:
-                    start_point = 'rdkit_optimise'
-                    end_point = self.commands[count + 1]
+                    self.file = f'{name}.pdb'
 
-                # Create list of all keys
-                stages = [key for key in self.order]
+                self.create_log()
 
-                # This ensures that the run is start_point to end_point inclusive rather than exclusive.
-                # e.g. -restart parametrise charges goes from parametrise to charges while doing the charges step.
-                extra = 1 if end_point != 'finalise' else 0
+            # If starting from the middle somewhere, FIND (not create) the folder, and log and pdb files, then execute
+            else:
+                for root, dirs, files in walk('.', topdown=True):
+                    for dir_name in dirs:
+                        if dir_name.startswith(f'QUBEKit_{name}'):
+                            chdir(dir_name)
 
-                # Cut out the keys before the start_point and after the end_point
-                # Add finalise back in if it's removed (finalise should always be called).
-                stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
+                # These are the files in the active directory, search for the pdb.
+                files = [file for file in listdir('.') if path.isfile(file)]
+                self.file = \
+                    [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
 
-                # Redefine self.order to only contain the key, val pairs from stages
-                self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
+                self.continue_log()
 
-                if '-restart' in cmd:
-                    # Set the file name based on the directory:
-                    files = [file for file in listdir('.') if path.isfile(file)]
-                    self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
+            self.execute_new()
+            chdir('../')
 
-                    return self.file, self.commands
-
-        # Finally, check if a single analysis is being done and if so, is it using a pdb or smiles.
-        for count, cmd in enumerate(self.commands):
-
-            if '-sm' in cmd:
-                # Generate pdb from smiles string.
-                self.file = smiles_to_pdb(self.commands[count + 1])
-                self.defaults_dict['smiles string'] = self.commands[count + 1]
-
-            # If a pdb is given instead, use that.
-            elif 'pdb' in cmd:
-                self.file = cmd
-
-            print(self.start_up_msg)
-            return self.file, self.commands
-
-        else:
-            sys_exit('\nYou did not ask QUBEKit to perform any kind of analysis, so it has stopped.\n'
-                     'See the documentation (README) for details of acceptable commands with examples.\n'
-                     'Try QUBEKit -sm C for an analysis of methane based on its smiles string.\n'
-                     'Or, if you have not set up any configs yet, try QUBEKit -setup')
+        sys_exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
 
     def continue_log(self):
         """
@@ -338,7 +355,7 @@ class Main:
         with open(self.log_file, 'a+') as log_file:
 
             log_file.write(f'\n\nContinuing log file from previous execution: {datetime.now()}\n\n')
-            log_file.write(f'The commands given were: {self.commands}\n\n')
+            log_file.write(f'The commands given were: {f"{key}: {value}" for key, value in vars(self.args).items() if value is not None}\n\n')
 
             # TODO Add logic to reprint commands with *s after changed defaults.
             #   Could possibly be done using the pickle file? Are the configs stored in an usable / accessible form?
@@ -376,7 +393,7 @@ class Main:
         with open(self.log_file, 'w+') as log_file:
 
             log_file.write(f'Beginning log file: {datetime.now()}\n\n')
-            log_file.write(f'The commands given were: {self.commands}\n\n')
+            log_file.write(f'The commands given were: {f"{key}: {value}" for key, value in vars(self.args).items() if value is not None}\n\n')
             log_file.write(f'Analysing: {self.file[:-4]}\n\n')
 
             # Writes the config dictionaries to the log file.
@@ -401,59 +418,80 @@ class Main:
             - Pickle the ligand object again with the next_key marker as its stage
         """
 
-        if start_key in [key for key in self.order]:
+        # if start_key in [key for key in self.order]:
 
-            mol = unpickle(f'.{self.file[:-4]}_states')[start_key]
+        mol = unpickle(f'.{self.file[:-4]}_states')[start_key]
 
-            if begin_log_msg:
-                print(f'{begin_log_msg}...', end=' ')
+        if begin_log_msg:
+            print(f'{begin_log_msg}...', end=' ')
 
-            # move into folder
-            home = getcwd()
-            try:
-                mkdir(f'{start_key}')
-            except FileExistsError:
-                pass
-            finally:
-                chdir(f'{start_key}')
-            self.order[start_key](mol)
-            self.order.pop(start_key, None)
+        # move into folder
+        home = getcwd()
+        try:
+            mkdir(f'{start_key}')
+        except FileExistsError:
+            pass
+        finally:
+            chdir(f'{start_key}')
+        self.order[start_key](mol)
+        self.order.pop(start_key, None)
+        chdir(home)
+        # Begin looping through self.order, but return after the first iteration.
+        for key in self.order:
+            next_key = key
+            if fin_log_msg:
+                print(fin_log_msg)
 
-            chdir(home)
-            # Begin looping through self.order, but return after the first iteration.
-            for key in self.order:
-                next_key = key
-
-                if fin_log_msg:
-                    print(fin_log_msg)
-
-                mol.pickle(state=self.order[next_key].__name__)
-
-                return
-
-    @staticmethod
-    def rdkit_optimise(molecule):
-        """Optimise the molecule coordinates using rdkit. Purely used to speed up bonds engine convergence."""
-
-        copy(f'../{molecule.filename}', f'{molecule.filename}')
-        molecule.filename, molecule.descriptors = smiles_mm_optimise(molecule.filename)
-
-        # Initialise the molecule's pdb with its optimised form.
-        molecule.read_pdb(input_type='mm')
-
-        copy(f'{molecule.filename}', f'../{molecule.filename}')
-
-        return molecule
+            #mol.pickle(state=self.order[next_key].__name__)
+            mol.pickle(state=next_key)
+            return next_key
 
     def parametrise(self, molecule):
         """Perform initial molecule parametrisation using OpenFF, Antechamber or XML."""
 
+        # First copy the pdb and any other files into the folder
         copy(f'../{molecule.filename}', f'{molecule.filename}')
+
         # Parametrisation options:
         param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
+
+        # If we are using xml we have to move it
+        if self.fitting['parameter_engine'] == 'xml':
+            copy(f'../../{molecule.name}.xml', f'{molecule.name}.xml')
+
+        # Perform the parametrisation
         param_dict[self.fitting['parameter_engine']](molecule)
 
         append_to_log(f'Parametrised molecule with {self.fitting["parameter_engine"]}')
+
+        return molecule
+
+    def mm_optimise(self, molecule):
+        """Use a mm force field to get the initial optimisation of a molecule
+
+        options
+        ---------
+        RDKit MFF or UFF force fields can have strange effects on the geometry of molecules
+
+        Geometric/ OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
+        """
+
+        # Check which method we want then do the optimisation
+        if self.args.mm_opt_method == 'openmm':
+            # make the inputs
+            molecule.write_pdb(name='openmm', input_type='input')
+            molecule.write_parameters(name='input')
+            # run geometric
+            system('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --openmm openmm.pdb > log.txt')
+            # get the optimised structure store under mm
+            molecule.read_xyz(input_type='mm')
+
+        else:
+            # run a rdkit optimisation with the right FF
+            rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
+            molecule.filename = smiles_mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
+
+        append_to_log(f'Optimised the molecule with {self.args.mm_opt_method}')
 
         return molecule
 
@@ -512,15 +550,20 @@ class Main:
         if self.qm['density_engine'] == 'g09':
             append_to_log('Gaussian analysis complete')
         else:
+            # If we use onetep we have to stop after this step
             append_to_log('ONETEP file made')
+
+            # Now we have to edit the order to end here.
+            self.order = OrderedDict([('density', self.density), ('charges', self.skip), ('lennard_jones', self.skip),
+                                      ('torsion_scan', self.torsion_scan), ('pause', self.pause)])
 
         return molecule
 
     def charges(self, molecule):
         """Perform DDEC calculation with Chargemol."""
 
+        # TODO add option to use chargemol on onetep cube files.
         copy(f'../density/{molecule.name}.wfx', f'{molecule.name}.wfx')
-        # TODO skip if onetep
         c_mol = Chargemol(molecule, self.all_configs)
         c_mol.generate_input()
 
@@ -554,8 +597,9 @@ class Main:
         """Perform torsion optimisation"""
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS', opls=True, refinement_method='SP',
-                               vn_bounds=20)
+        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS', combination=self.args.combination,
+                               refinement_method=self.args.refinement_method,
+                               vn_bounds=self.args.tor_limit)
         opt.run()
 
         append_to_log('Torsion optimisations complete')
@@ -564,15 +608,42 @@ class Main:
 
     @staticmethod
     def finalise(molecule):
-        """Make the xml and print the ligand object to terminal (in abbreviated form) and to the log file."""
+        """Make the xml and pdb file print the ligand object to terminal (in abbreviated form) and to the log file
+        after getting the rdkit descriptors.
+        """
 
+        # write the pdb file and xml file to the folder
+        molecule.write_pdb()
         molecule.write_parameters()
+
+        # get the molecule descriptors from rdkit
+        molecule.descriptors = rdkit_descriptors(molecule.filename)
 
         # Print ligand objects to log file and terminal
         pretty_print(molecule, to_file=True)
         pretty_print(molecule)
 
         return molecule
+
+    @staticmethod
+    def skip(molecule):
+        """
+        A blank method that does nothing to that stage but adds the pickle points to not break the flow
+        """
+
+        return molecule
+
+    @staticmethod
+    def pause():
+        """
+        Pause the analysis when using onetep so we can comeback into the work flow but do not edit the pickling process
+        """
+
+        print('QUBEKit stopping at onetep step!\n To continue please move the ddec.onetep file and xyz file to the '
+              'density folder and use -restart lennard_jones to continue.')
+
+        sys_exit()
+
 
     @exception_logger_decorator
     def execute(self):
@@ -582,27 +653,84 @@ class Main:
         """
 
         # Check if starting from the beginning; if so:
-        if 'rdkit_optimise' in [key for key in self.order]:
+        if 'parametrise' in [key for key in self.order]:
             # Initialise ligand object fully before pickling it
-            molecule = Ligand(self.file)
-            molecule.pickle(state='rdkit_optimise')
+            molecule = Ligand(self.file, combination=self.args.combination)
+            molecule.pickle(state='parametrise')
 
         # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
         # Longer messages should be written inside the key stages' functions using helpers.append_to_log().
         # See PSI4 class in engines for an example of where this is used.
-        self.stage_wrapper('rdkit_optimise', 'Partially optimising with rdkit', 'Optimisation complete')
         self.stage_wrapper('parametrise', 'Parametrising molecule', 'Molecule parametrised')
+        self.stage_wrapper('mm_optimise', 'Partially optimising with MM', 'Optimisation complete')
         self.stage_wrapper('qm_optimise', 'Optimising molecule, view .xyz file for progress', 'Molecule optimised')
-        self.stage_wrapper('hessian', f'Calculating Hessian matrix')
-        self.stage_wrapper('mod_sem', 'Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated')
-        self.stage_wrapper('density', 'Performing density calculation with Gaussian09', 'Density calculation complete')
-        self.stage_wrapper('charges', f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated')
-        self.stage_wrapper('lennard_jones', 'Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated')
-        self.stage_wrapper('torsion_scan', 'Performing QM constrained optimisation with torsiondrive', 'Torsiondrive finished QM results saved')
+        self.stage_wrapper('hessian', 'Calculating Hessian matrix')
+        self.stage_wrapper('mod_sem', 'Calculating bonds and angles with modified Seminario method',
+                           'Bonds and angles calculated')
+        self.stage_wrapper('density', f'Performing density calculation with {self.args.density_engine}',
+                           'Density calculation complete')
+        self.stage_wrapper('charges', f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}',
+                           'Charges calculated')
+        self.stage_wrapper('lennard_jones', 'Performing Lennard-Jones calculation',
+                           'Lennard-Jones parameters calculated')
+        self.stage_wrapper('torsion_scan', 'Performing QM constrained optimisation with torsiondrive',
+                           'Torsiondrive finished QM results saved')
         self.stage_wrapper('torsion_optimisation', 'Performing torsion optimisation', 'Torsion optimisation complete')
 
         # This step is always performed
         self.stage_wrapper('finalise', 'Finalising analysis', 'Molecule analysis complete!')
+
+        # This step is only performed if we need to use onetep hence we have to pause the flow
+        self.stage_wrapper('pause', 'Analysis stopping', 'Analysis paused!')
+
+    @exception_logger_decorator
+    def execute_new(self):
+        """
+        Calls all the relevant classes and methods for the full QM calculation in the correct order.
+        Exceptions are added to log (if raised).
+        """
+
+        # Check if starting from the beginning; if so:
+        if 'parametrise' in [key for key in self.order]:
+            # Initialise ligand object fully before pickling it
+            molecule = Ligand(self.file, combination=self.args.combination)
+            molecule.pickle(state='parametrise')
+
+        # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
+        # Longer messages should be written inside the key stages' functions using helpers.append_to_log().
+        # See PSI4 class in engines for an example of where this is used.
+
+        # The stage keys and messages
+        stage_dict = {'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
+                      'mm_optimise': ['Partially optimising with MM', 'Optimisation complete'],
+                      'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimised'],
+                      'hessian': ['Calculating Hessian matrix', 'Matrix calculated'],
+                      'mod_sem': ['Calculating bonds and angles with modified Seminario method',
+                                  'Bonds and angles calculated'],
+                      'density': [f'Performing density calculation with {self.qm["density_engine"]}',
+                                  'Density calculation complete'],
+                      'charges': [f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}',
+                                  'Charges calculated'],
+                      'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
+                      'torsion_scan': ['Performing QM constrained optimisation with torsiondrive',
+                                       'Torsiondrive finished QM results saved'],
+                      'torsion_optimisation': ['Performing torsion optimisation', 'Torsion optimisation complete'],
+                      'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
+                      'pause': ['Analysis stopping', 'Analysis paused!'],
+                      'skip': ['Skipping section', 'Section skipped']}
+
+        # do the first stage in the order
+        key = list(self.order.keys())[0]
+        next_key = self.stage_wrapper(key, stage_dict[key][0], stage_dict[key][1])
+
+        # cannot use for loop as we mute the dictionary during the loop
+        while True:
+            next_key = self.stage_wrapper(next_key, stage_dict[next_key][0], stage_dict[next_key][1])
+
+            if next_key == 'pause':
+                self.pause()
+
+
 
 
 def main():

@@ -156,24 +156,31 @@ class Parametrisation:
         for key in improper_torsions.keys():
             self.molecule.PeriodicTorsionForce[key] = improper_torsions[key]
 
-    def get_gaff_types(self, file=None):
+    def get_gaff_types(self, fftype='gaff', file=None):
         """Convert the pdb file into a mol2 antechamber file and get the gaff atom types
         and gaff bonds if there were """
 
         # call Antechamber to convert if we don't have the mol2 file
         if file is None:
             cwd = getcwd()
+
             # do this in a temp directory as it produces a lot of files
             pdb = path.abspath(self.molecule.filename)
             mol2 = path.abspath(f'{self.molecule.name}.mol2')
             file = mol2
+
             with TemporaryDirectory() as temp:
                 chdir(temp)
                 copy(pdb, 'in.pdb')
+
                 # call antechamber
                 with open('Antechamber.log', 'w+') as log:
                     sub_call(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at '
-                             f'{self.fftype} -c bcc', shell=True, stdout=log)
+                             f'{fftype} -c bcc', shell=True, stdout=log)
+
+                # Ensure command worked
+                if not path.exists('out.mol2'):
+                    raise FileNotFoundError('out.mol2 not found antechamber failed!')
 
                 # now copy the file back from the folder
                 copy('out.mol2', mol2)
@@ -234,7 +241,7 @@ class XML(Parametrisation):
 
         super().__init__(molecule, input_file, fftype, mol2_file)
 
-        self.get_gaff_types(mol2_file)
+        self.get_gaff_types(fftype='gaff', file=mol2_file)
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
@@ -425,22 +432,13 @@ class AnteChamber(Parametrisation):
         inpcrd_file = path.abspath(f'{self.molecule.name}.inpcrd')
         ant_log = path.abspath('Antechamber.log')
 
+        # Call Antechamber
+        self.get_gaff_types(fftype=self.fftype)
+
         # Work in temp directory due to the amount of files made by antechamber
         with TemporaryDirectory() as temp:
             chdir(temp)
-            copy(input_file, 'in.pdb')
-
-            # Call Antechamber
-            with open('Antechamber.log', 'w+') as log:
-                sub_call(f'antechamber -i {input_file} -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc',
-                         shell=True, stdout=log)
-
-            # Ensure command worked
-            if not path.exists('out.mol2'):
-                raise FileNotFoundError('out.mol2 not found antechamber failed!')
-
-            # now get the gaff atom types
-            self.get_gaff_types(file='out.mol2')
+            copy(mol2, 'out.mol2')
 
             # Run parmchk
             with open('Antechamber.log', 'a') as log:

@@ -177,7 +177,7 @@ class TorsionOptimiser:
     inputs
     ---------
     weight_mm:              Weight the low energy parts of the surface (not sure if it works)
-    opls:                   Use the opls combination rule
+    combination:            Which combination rules are to be used
     use_force:              Match the forces as well as the energies (not avaiable yet)
     step_size:              The scipy displacement step size
     minimum error_tol:      The scipy error tol
@@ -188,14 +188,14 @@ class TorsionOptimiser:
     vn_bounds:              The absolute upper limit on Vn parameters (moving past this has a heavy penalty)
     """
 
-    def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, opls=True, use_force=False, step_size=0.02,
+    def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, combination='opls', use_force=False, step_size=0.02,
                  error_tol=1e-5, x_tol=1e-5, opt_method='BFGS', refinement_method='Steep', vn_bounds=20):
 
         # configurations
         self.qm, self.fitting, self.descriptions = config_dict[1:]
         self.l_pen = self.fitting['l_pen']
         self.t_weight = self.fitting['t_weight']
-        self.opls = opls
+        self.combination = combination
         self.weight_mm = weight_mm
         self.step_size = step_size
         self.methods = {'NM': 'Nelder-Mead', 'BFGS': 'BFGS', None: None}
@@ -324,7 +324,7 @@ class TorsionOptimiser:
         modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
         self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
-        if self.opls:
+        if self.combination == 'opls':
             self.opls_lj()
 
         temperature = 298.15 * unit.kelvin

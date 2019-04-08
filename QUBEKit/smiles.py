@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors
-from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule
+from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 
 
 def smiles_to_pdb(smiles_string, name=None):
@@ -28,22 +28,36 @@ def smiles_to_pdb(smiles_string, name=None):
     return f'{name}.pdb'
 
 
-def smiles_mm_optimise(pdb_file):
+def smiles_mm_optimise(pdb_file, ff='MMF'):
     """
     Perform rough preliminary optimisation to speed up later optimisations
     and extract some extra information about the molecule.
     """
 
+    force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
+
     mol = MolFromPDBFile(pdb_file, removeHs=False)
-    AllChem.EmbedMolecule(mol)
+
+    force_fields[ff](mol)
+
+    AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
+
+    return f'{pdb_file[:-4]}_rdkit_optimised.pdb'
+
+
+def rdkit_descriptors(pdb_file):
+    """
+    Use RDKit Descriptors to extract properties and store in Descriptors dictionary
+    :param pdb_file: The molecule input file
+    :return: descriptors dictionary
+    """
+
+    mol = MolFromPDBFile(pdb_file, removeHs=False)
     # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
     descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(mol),
                    'H-bond donors': Descriptors.NumHDonors(mol),
                    'H-bond acceptors': Descriptors.NumHAcceptors(mol),
                    'Molecular weight': Descriptors.MolWt(mol),
                    'LogP': Descriptors.MolLogP(mol)}
-    MMFFOptimizeMolecule(mol)
 
-    AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
-
-    return f'{pdb_file[:-4]}_rdkit_optimised.pdb', descriptors
+    return descriptors

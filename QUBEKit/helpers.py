@@ -28,7 +28,7 @@ class Configure:
         'vib_scaling': '0.991',         # Associated scaling to the theory
         'threads': '6',                 # Number of processors used in Gaussian09; affects the bonds and dihedral scans
         'memory': '2',                  # Amount of memory (in GB); specified in the Gaussian09 scripts
-        'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4 and GeomeTRIC so far
+        'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and Gaussian09
         'iterations': '100',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
         'density_engine': 'g09',        # Engine used to calculate the electron density
@@ -43,8 +43,8 @@ class Configure:
         'increment': '15',              # Angle increase increment
         'dih_end': '180',               # The last dihedral angle in the scan
         't_weight': 'infinity',         # Weighting temperature that can be changed to better fit complicated surfaces
-        'new_dih_num': '501',           # Parameter number for the new dihedral to be fit
-        'q_file': 'results.dat',        # If the results are collected with QUBEKit this is always true
+        'opt_method': 'BFGS',           # The type of scipy optimiser to use
+        'refinement_method': 'SP',       # The type of QUBE refinement that should be done SP: single point energies
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array
         'parameter_engine': 'openff',   # Method used for initial parametrisation
@@ -75,8 +75,8 @@ class Configure:
         'dih_end': ';The last dihedral angle in the scan',
         't_weight': ';Weighting temperature that can be changed to better fit complicated surfaces',
         'l_pen': ';The regularisation penalty',
-        'new_dih_num': ';Parameter number for the new dihedral to be fit',
-        'q_file': ';If the results are collected with QUBEKit this is always true',
+        'opt_method': ';The type of scipy optimiser to use',
+        'refinement_method': ';The type of QUBE refinement that should be done SP: single point energies',
         'tor_limit': ';Torsion Vn limit to speed up fitting',
         'div_index': ';Fitting starting index in the division array',
         'parameter_engine': ';Method used for initial parametrisation',
@@ -110,7 +110,7 @@ class Configure:
 
         # Now cast the numbers
         clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
-                      'increment', 'num_scan', 'new_dih_num', 'tor_limit', 'div_index']
+                      'increment', 'dih_end', 'tor_limit', 'div_index']
 
         for key in clean_ints:
 
