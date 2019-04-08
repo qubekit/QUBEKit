@@ -24,7 +24,7 @@
 
 ## What is QUBEKit?
 
-[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python 3.5+ based force field derivation toolkit for Linux operating systems.
+[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python 3.6+ based force field derivation toolkit for Linux operating systems.
 Our aims are to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
 QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
 QUBEKit aims to use as few parameters as possible while also being highly customisable.
@@ -151,19 +151,21 @@ Single-word commands are taken in any order, assuming they are given, while tupl
 
 Files to be analysed must be written with their file extension (.pdb) attached or they will not be recognised commands.
 All commands should be given in lower case with two main exceptions;
-you may use whatever case you like for the name of files (e.g. `DMSO.pdb`) or the name of the log files (e.g. `Run013`).
+you may use whatever case you like for the name of files (e.g. `-i DMSO.pdb`) or the name of the directory (e.g. `-log Run013`).
 
 ### QUBEKit Commands: Some Examples
 
 Running a full analysis on molecule.pdb with a non-default charge of 1, the default charge engine (Chargemol) and with GeomeTRIC off:
 Note, ordering does not matter as long as tuples commands (`-c` `1`) are together.
+
+`-i` is for the file input type, `-c` denotes the charge and `-geo` is for (en/dis)abling geomeTRIC.
     
-    QUBEKit molecule.pdb -c 1 -geo false
-    QUBEKit -c 1 -geo false molecule.pdb
+    QUBEKit -i molecule.pdb -c 1 -geo false
+    QUBEKit -c 1 -geo false -i molecule.pdb
 
 Running a full analysis with a non-default bonds engine: Gaussian09 (g09):
 
-    QUBEKit molecule.pdb -bonds g09
+    QUBEKit -i molecule.pdb -bonds g09
 
 The program will tell the user which defaults are being used, and which commands were given.
 Errors will be raised for any invalid commands and the program will not run.
@@ -180,7 +182,7 @@ See [QUBEKit Commands: Custom Start and End Points (single molecule)](https://gi
 
 Each time QUBEKit runs, a new working directory containing a log file will be created.
 The name of the directory will contain the run number provided via the terminal command `-log` 
-(or the default run number in the configs if none is provided).
+(or the default run number in the configs if a ```-log``` command is not provided).
 This log file will store which methods were called, how long they took, and any docstring for them (if it exists).
 The log file will also contain information regarding the config options used, as well as the commands given and much more.
 The log file updates in real time and contains far more information than is printed to the terminal during a run.
@@ -252,9 +254,10 @@ It is therefore recommended to manually edit the config files rather than doing,
     QUBEKit -bulk example.csv -log run42 -ddec 3 -solvent true
     
 Be aware that the names of the pdb files are used as keys to find the configs.
-So, each pdb being analysed should have a corresponding row in the csv file with the correct name.
+So, each pdb being analysed should have a corresponding row in the csv file with the correct name
+(not relevant if using smiles strings).
 
-For example (csv row order does not matter, and you do not need to include smiles strings when a pdb is provided):
+For example (csv row order does not matter, and you do not need to include smiles strings when a pdb is provided; column order *does* matter):
 
     <location>/:
         benzene.pdb
@@ -270,7 +273,7 @@ For example (csv row order does not matter, and you do not need to include smile
 ### QUBEKit Commands: Custom Start and End Points (single molecule)
 
 QUBEKit also has the ability to run partial analyses, or redo certain parts of an analysis.
-For single molecule analysis, this is achieved with the `-end` and `-restart` commands. 
+For a single molecule analysis, this is achieved with the `-end` and `-restart` commands. 
 
 `-end` specifies the final stage for an analysis, where `finalise` is the default. The stages are:
 
@@ -291,32 +294,38 @@ The molecule can then be optimised with respect to these parameters.
 This stage also prints the final information to the log file and a truncated version to the terminal.
 
 In a normal run, all of these functions are called sequentially,
-but with -end and -restart you are free to run *from* any step *to* any step inclusively.
+but with `-end` and `-restart` you are free to run *from* any step *to* any step inclusively.
 
 When using `-end`, simply specify the end-point in the proceeding command,
-when using `-restart`, specify the start-point, then the end-point as space separated commands.
+when using `-restart`, specify the start-point in the proceeding command.
+The end-point (if not finalise) can then be specified with the `-end` command.
+
 When using these commands, all other config-changing commands can be used in the same ways as before. For example:
 
-    QUBEKit methanol.pdb -end charges
-    QUBEKit -sm CC -restart qm_optimise density
-    QUBEKit benzene.pdb -log BEN001 -end charges -geo false 
-    QUBEKit ethanol.pdb -restart hessian torsions -ddec 3
+    QUBEKit -i methanol.pdb -end charges
+    QUBEKit -restart qm_optimise -end density
+    QUBEKit -i benzene.pdb -log BEN001 -end charges -geo false 
+    QUBEKit -restart hessian -ddec 3
     
-If specifying a different end-point, a new directory and log file will be created within wherever the command is run from.
+If using `-end` but not `-restart`, a new directory and log file will be created within wherever the command is run from.
+Just like a normal analysis.
 
-Because changing the start-point requires files and other information from previous executions, this can only be run from
-*inside* a directory with those files present.
+However, using `-restart` requires files and other information from previous executions.
+Therefore, `-restart` can only be run from *inside* a directory with those files present.
+You do not need to use the `-i` command when restarting, QUBEKit will detect the pdb file for you.
 
 To illustrate this point, a possible use case would be to perform a full calculation on the molecule ethane,
 then recalculate using a different (set of) default value(s):
 
-    QUBEKit ethane.pdb -log ETH001
+    QUBEKit -i ethane.pdb -log ETH001
     ...
     cd QUBEKit_ethane_2019_01_01_ETH001
-    QUBEKit ethane.pdb -restart density charges -ddec 3
+    QUBEKit -restart density -end charges -ddec 3
     
 Here, the calculation was performed with the default DDEC version 6, then rerun with version 3 instead, skipping over the early stages which would be unchanged.
 It is recommended to copy (**not cut**) the directory containing the files because some of them will be overwritten when restarting.
+
+Note that because `-restart` was used, it was not necessary to specify the pdb file name with `-i`.
 
 ### QUBEKit Commands: Custom Start and End Points (multiple molecules)
 
@@ -359,12 +368,12 @@ QUBEKit will then find the log files in those directories and display a table of
 
 You cannot run multiple kinds of analysis at once. For example:
 
-    QUBEKit -bulk example.csv methane.pdb -bonds g09
+    QUBEKit -bulk example.csv -i methane.pdb -bonds g09
     
 is not a valid command. These should be performed separately:
 
     QUBEKit -bulk example.csv
-    QUBEKit methane.pdb -bonds g09
+    QUBEKit -i methane.pdb -bonds g09
     
 Be wary of running QUBEKit concurrently through different terminal windows.
 The programs QUBEKit calls often just try to use however much RAM is assigned in the config files;
@@ -375,7 +384,7 @@ this means they may try to take more than is available, leading to a crash.
 
 **Complete analysis of single molecule from its pdb file using only defaults:**
 
-    QUBEKit molecule.pdb
+    QUBEKit -i molecule.pdb
 
 Optional commands:
 
@@ -406,7 +415,7 @@ Optional commands:
 
 **Analyse benzene from its pdb file until the charges are calculated; use DDEC3:**
 
-    QUBEKit benzene.pdb -end charges -ddec 3 -log BENZ_DDEC3
+    QUBEKit -i benzene.pdb -end charges -ddec 3 -log BENZ_DDEC3
     
 **Redo that analysis but use DDEC6 instead:**
 
@@ -424,7 +433,7 @@ Rerun the analysis with the DDEC version changed.
 This time we can restart just before the charges are calculated to save time.
 Here we're restarting from density and finishing on charges:
 
-    QUBEKit -restart density charges -ddec 6
+    QUBEKit -restart density -end charges -ddec 6
 
 **Analyse methanol from its smiles string both with and without a solvent:**
 
@@ -435,7 +444,7 @@ Here we're restarting from density and finishing on charges:
     cp -r QUBEKit_methanol_2019_01_01_Methanol_Solvent QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
     cd QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
 
-    QUBEKit -solvent false -restart density finalise
+    QUBEKit -solvent false -restart density
     
 **Calculate the density for methane, ethane and propane using their pdbs:**
 
@@ -459,7 +468,7 @@ Note, you can add more commands to the execution but it is recommended that chan
 
 **Running the same analysis but using the smiles strings instead; this time do a complete analysis:**
 
-Generate a blank csv:
+Generate a blank csv with the name `simple_alkanes`:
 
     QUBEKit -csv simple_alkanes.csv
 

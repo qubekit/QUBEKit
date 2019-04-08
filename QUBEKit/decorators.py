@@ -144,7 +144,7 @@ def exception_logger_decorator(func):
                 if mol_name is None and pickle_point is None:
                     raise EOFError('Cannot locate molecule name or completion stage in file.')
 
-                mol = unpickle(f'.{mol_name}_states')[pickle_point]
+                mol = unpickle()[pickle_point]
                 pretty_print(mol, to_file=True, finished=False)
 
             # Re-raises the exception

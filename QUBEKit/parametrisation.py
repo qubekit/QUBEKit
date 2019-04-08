@@ -375,12 +375,10 @@ class XMLProtein(Parametrisation):
         # now we need to tag the proper and improper torsions and reorder them so the first atom is the central
         improper_torsions = OrderedDict()
         for improper in self.molecule.improper_torsions:
-            # print(improper)
             for key in self.molecule.PeriodicTorsionForce:
                 # for each improper find the corresponding torsion parameters and save
                 if sorted(key) == sorted(tuple([x - 1 for x in improper])):
                     # if they match tag the dihedral
-                    # print(f'imporper found {sorted(key)}')
                     self.molecule.PeriodicTorsionForce[key].append('Improper')
                     # replace the key with the strict improper order first atom is center
                     improper_torsions[tuple([x - 1 for x in improper])] = self.molecule.PeriodicTorsionForce[key]
