@@ -73,5 +73,6 @@ def main():
             pdb_reformat(refernece, target)
             print('Done output made: QUBE_traj.pdb')
 
+
 if __name__ == '__main__':
     main()

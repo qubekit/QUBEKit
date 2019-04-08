@@ -125,9 +125,9 @@ folder in your main home directory; now you need to create a master template.
 To do this use the command `QUBEKit -setup` where you will then be presented with some options:
 
     You can now edit config files using QUBEKit, chose an option to continue:
-    1)Edit a config file
-    2)Create a new master template
-    3)Make a normal config file
+    1) Edit a config file
+    2) Create a new master template
+    3) Make a normal config file
 
 Choose option two to set up a new template which will be used every time you run QUBEKit 
 (unless you supply the name of another ini file in the configs folder).

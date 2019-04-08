@@ -6,7 +6,7 @@ from QUBEKit.helpers import append_to_log
 from tempfile import TemporaryDirectory
 from shutil import copy
 from os import getcwd, chdir, path
-from subprocess import call as sub_call
+from subprocess import run as sub_run
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -172,8 +172,8 @@ class Parametrisation:
                 copy(pdb, 'in.pdb')
                 # call antechamber
                 with open('Antechamber.log', 'w+') as log:
-                    sub_call(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at '
-                             f'{self.fftype} -c bcc', shell=True, stdout=log)
+                    sub_run(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc',
+                            shell=True, stdout=log)
 
                 # now copy the file back from the folder
                 copy('out.mol2', mol2)
@@ -431,8 +431,8 @@ class AnteChamber(Parametrisation):
 
             # Call Antechamber
             with open('Antechamber.log', 'w+') as log:
-                sub_call(f'antechamber -i {input_file} -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc',
-                         shell=True, stdout=log)
+                sub_run(f'antechamber -i {input_file} -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc',
+                        shell=True, stdout=log)
 
             # Ensure command worked
             if not path.exists('out.mol2'):
@@ -443,7 +443,7 @@ class AnteChamber(Parametrisation):
 
             # Run parmchk
             with open('Antechamber.log', 'a') as log:
-                sub_call(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}", shell=True, stdout=log)
+                sub_run(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}", shell=True, stdout=log)
 
             # Ensure command worked
             if not path.exists('out.frcmod'):
@@ -473,7 +473,7 @@ class AnteChamber(Parametrisation):
 
             # Now run tleap
             with open('Antechamber.log', 'a') as log:
-                sub_call('tleap -f tleap_commands', shell=True, stdout=log)
+                sub_run('tleap -f tleap_commands', shell=True, stdout=log)
 
             # Check results present
             if not path.exists('out.prmtop') or not path.exists('out.inpcrd'):
