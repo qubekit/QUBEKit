@@ -123,9 +123,9 @@ class PSI4(Engines):
             sub_call(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
 
     # TODO change to one general file parser that gathers any info it can find
-    # puts into the engine object proper API?
-    # file parser is called after execution
-    # this avoids opening and closing the file multiple times if you want a lot of info?
+    #   puts into the engine object proper API?
+    #   file parser is called after execution
+    #   this avoids opening and closing the file multiple times if you want a lot of info?
     def hessian(self):
         """
         Parses the Hessian from the output.dat file (from psi4) into a numpy array.

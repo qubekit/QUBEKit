@@ -205,24 +205,23 @@ class Parametrisation:
                     except KeyError:
                         gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
 
-        message = f'GAFF types: {self.gaff_types}'
-        append_to_log(message, msg_type='minor')
-        # now check if the molecule already has bonds if not apply these bonds
+        append_to_log(f'GAFF types: {self.gaff_types}', msg_type='minor')
+
+        # Check if the molecule already has bonds; if not apply these bonds
         if not list(self.molecule.topology.edges):
             # add the bonds to the molecule
             for key, value in gaff_bonds.items():
                 for node in value:
                     self.molecule.topology.add_edge(key, node)
 
-            # now that we have added the bonds call the update method on the molecule
             self.molecule.update()
 
-            # warning this rewrites the pdb file and re
-            # now we want to write a new pdb with the connection information
+            # Warning this rewrites the pdb file and re
+            # Write a new pdb with the connection information
             self.molecule.write_pdb(input_type='input', name=f'{self.molecule.name}_qube')
             self.molecule.filename = f'{self.molecule.name}_qube.pdb'
             print(f'Molecule connections updated new pdb file made and used: {self.molecule.name}_qube.pdb')
-            # now update the input file name for the xml
+            # Update the input file name for the xml
             self.input_file = f'{self.molecule.name}.xml'
 
 

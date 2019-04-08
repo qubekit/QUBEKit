@@ -179,7 +179,8 @@ See [QUBEKit Commands: Custom Start and End Points (single molecule)](https://gi
 ### QUBEKit Commands: Logging
 
 Each time QUBEKit runs, a new working directory containing a log file will be created.
-The name of the directory will contain the run number provided via the terminal command `-log` (or the default run number in the configs if none is provided).
+The name of the directory will contain the run number provided via the terminal command `-log` 
+(or the default run number in the configs if none is provided).
 This log file will store which methods were called, how long they took, and any docstring for them (if it exists).
 The log file will also contain information regarding the config options used, as well as the commands given and much more.
 The log file updates in real time and contains far more information than is printed to the terminal during a run.
@@ -190,10 +191,6 @@ Many errors have custom exceptions to help if, for example, a module has not bee
 The format for the name of the active directory is:
 
     QUBEKit_moleculename_YYYY_MM_DD_runnumber
-    
-The format for the log file (which is inside this directory) is similar:
-
-    QUBEKit_log_moleculename_YYYY_MM_DD_runnumber
 
 If using QUBEKit multiple times per day with the same molecule, it is therefore necessary to update the 'run number'.
 Not updating the run number when analysing the same molecule on the same day will prevent the program from running.
@@ -287,8 +284,9 @@ This step also loads in the molecule and extracts key information like the atoms
 * **charges** - The charges are partitioned and calculated using Chargemol and DDEC3 or 6.
 * **lennard_jones** - The charges are extracted ready for producing an XML.
 The Lennard-Jones parameters are also calculated and stored.
-* **torsions** - Using the molecule's geometry, a torsion scan is performed.
+* **torsion_scan** - Using the molecule's geometry, a torsion scan is performed.
 The molecule can then be optimised with respect to these parameters.
+* **torsion_optimise** - The optimisation step for the torsional analysis.
 * **finalise** - This step (which is always performed, regardless of end-point) produces an XML for the molecule.
 This stage also prints the final information to the log file and a truncated version to the terminal.
 
@@ -325,7 +323,8 @@ It is recommended to copy (**not cut**) the directory containing the files becau
 When using custom start and/or end points with bulk commands, the stages are written to the csv file, rather than the terminal.
 If no start point is specified, a new working directory and log file will be created.
 Otherwise, QUBEKit will find the correct directory and log file based on the log string and molecule name.
-This means the **log string cannot be changed when restarting a bulk run**.
+This means the **log string cannot be changed when restarting a bulk run**. 
+There will however be a clear marker in the log file, indicating when an analysis was restarted.
 
 Using a similar example as above, two molecules are analysed with DDEC6, then restarted for analysis with DDEC3:
 

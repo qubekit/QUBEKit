@@ -13,7 +13,6 @@ class LennardJones:
 
     def __init__(self, molecule, config_dict):
 
-        # Ligand class object
         self.molecule = molecule
         self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
 
@@ -118,7 +117,7 @@ class LennardJones:
             if 'DDEC Radial' in line:
                 vol_pos = pos + 4
 
-        if not charge_pos and vol_pos:
+        if not (charge_pos and vol_pos):
             raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
             
         charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
@@ -260,7 +259,7 @@ class LennardJones:
             self.non_bonded_force[pos] = [str(atom[5]), self.non_bonded_force[pos][1], str(epsilon)]
 
     def apply_symmetrisation(self):
-        """Using the atoms picked out to be symmetrised apply the symmetry to the charge sigma and epsilon values"""
+        """Using the atoms picked out to be symmetrised apply the symmetry to the charge, sigma and epsilon values"""
 
         # get the values to be symmetrised
         for sym_set in self.molecule.symm_hs.values():
@@ -291,10 +290,10 @@ class LennardJones:
         w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
         w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
 
-        sites = OrderedDict()
         with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
             lines = xyz_sites.readlines()
 
+        sites = OrderedDict()
         sites_no = 0
         for i, line in enumerate(lines[2:]):
             # get the current element
@@ -368,7 +367,7 @@ class LennardJones:
             self.extract_params_onetep()
 
         else:
-            raise KeyError('Invalid Charges engine provided, cannot extract charges.')
+            raise KeyError('Invalid charges engine provided, cannot extract charges.')
 
         # Calculate initial a_is and b_is
         self.append_ais_bis()
@@ -379,7 +378,7 @@ class LennardJones:
         # Tweak for polar Hydrogens
         self.correct_polar_hydrogens()
 
-        # Tweak the charge sigma and epsilon for symmetry
+        # Tweak the charge, sigma and epsilon for symmetry
         self.apply_symmetrisation()
 
         # Find extra site positions in local coords if present and tweak the charges of the parent

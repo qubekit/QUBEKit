@@ -352,16 +352,19 @@ class Molecule:
         HarmonicBondForce = SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = SubElement(root, "HarmonicAngleForce")
         PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
-        # now we need to asign the combination rule
+
+        # Assign the combination rule
         c14 = l14 = '0.5'
         if self.combination == 'amber':
             c14 = '0.83333'
+
         NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14})
 
         for key, val in self.AtomTypes.items():
-            SubElement(AtomTypes, "Type", attrib={'name': val[1], 'class': val[2],
-                                                  'element': self.molecule['input'][key][0],
-                                                  'mass': str(self.element_dict[self.molecule['input'][key][0].upper()])})
+            SubElement(AtomTypes, "Type", attrib={
+                'name': val[1], 'class': val[2],
+                'element': self.molecule['input'][key][0],
+                'mass': str(self.element_dict[self.molecule['input'][key][0].upper()])})
 
             SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
 
@@ -369,16 +372,18 @@ class Molecule:
         for key, val in self.HarmonicBondForce.items():
             SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
 
-            SubElement(HarmonicBondForce, "Bond", attrib={'class1': self.AtomTypes[key[0]][2],
-                                                          'class2': self.AtomTypes[key[1]][2],
-                                                          'length': val[0], 'k': val[1]})
+            SubElement(HarmonicBondForce, "Bond", attrib={
+                'class1': self.AtomTypes[key[0]][2],
+                'class2': self.AtomTypes[key[1]][2],
+                'length': val[0], 'k': val[1]})
 
         # Add the angles
         for key, val in self.HarmonicAngleForce.items():
-            SubElement(HarmonicAngleForce, "Angle", attrib={'class1': self.AtomTypes[key[0]][2],
-                                                            'class2': self.AtomTypes[key[1]][2],
-                                                            'class3': self.AtomTypes[key[2]][2],
-                                                            'angle': val[0], 'k': val[1]})
+            SubElement(HarmonicAngleForce, "Angle", attrib={
+                'class1': self.AtomTypes[key[0]][2],
+                'class2': self.AtomTypes[key[1]][2],
+                'class3': self.AtomTypes[key[2]][2],
+                'angle': val[0], 'k': val[1]})
 
         # add the proper and improper torsion terms
         for key in self.PeriodicTorsionForce.keys():
@@ -386,28 +391,29 @@ class Molecule:
                 tor_type = 'Improper'
             else:
                 tor_type = 'Proper'
-            SubElement(PeriodicTorsionForce, tor_type,
-                       attrib={'class1': self.AtomTypes[key[0]][2],
-                               'class2': self.AtomTypes[key[1]][2],
-                               'class3': self.AtomTypes[key[2]][2],
-                               'class4': self.AtomTypes[key[3]][2],
-                               'k1': self.PeriodicTorsionForce[key][0][1],
-                               'k2': self.PeriodicTorsionForce[key][1][1],
-                               'k3': self.PeriodicTorsionForce[key][2][1],
-                               'k4': self.PeriodicTorsionForce[key][3][1],
-                               'periodicity1': '1', 'periodicity2': '2',
-                               'periodicity3': '3', 'periodicity4': '4',
-                               'phase1': self.PeriodicTorsionForce[key][0][2],
-                               'phase2': self.PeriodicTorsionForce[key][1][2],
-                               'phase3': self.PeriodicTorsionForce[key][2][2],
-                               'phase4': self.PeriodicTorsionForce[key][3][2]})
+            SubElement(PeriodicTorsionForce, tor_type, attrib={
+                'class1': self.AtomTypes[key[0]][2],
+                'class2': self.AtomTypes[key[1]][2],
+                'class3': self.AtomTypes[key[2]][2],
+                'class4': self.AtomTypes[key[3]][2],
+                'k1': self.PeriodicTorsionForce[key][0][1],
+                'k2': self.PeriodicTorsionForce[key][1][1],
+                'k3': self.PeriodicTorsionForce[key][2][1],
+                'k4': self.PeriodicTorsionForce[key][3][1],
+                'periodicity1': '1', 'periodicity2': '2',
+                'periodicity3': '3', 'periodicity4': '4',
+                'phase1': self.PeriodicTorsionForce[key][0][2],
+                'phase2': self.PeriodicTorsionForce[key][1][2],
+                'phase3': self.PeriodicTorsionForce[key][2][2],
+                'phase4': self.PeriodicTorsionForce[key][3][2]})
 
         # add the non-bonded parameters
         for key in self.NonbondedForce.keys():
-            SubElement(NonbondedForce, "Atom", attrib={'type': self.AtomTypes[key][1],
-                                                       'charge': self.NonbondedForce[key][0],
-                                                       'sigma': self.NonbondedForce[key][1],
-                                                       'epsilon': self.NonbondedForce[key][2]})
+            SubElement(NonbondedForce, "Atom", attrib={
+                'type': self.AtomTypes[key][1],
+                'charge': self.NonbondedForce[key][0],
+                'sigma': self.NonbondedForce[key][1],
+                'epsilon': self.NonbondedForce[key][2]})
 
         # Add all of the virtual site info if present
         if self.sites:
@@ -419,18 +425,21 @@ class Molecule:
                 SubElement(Residue, "Atom", attrib={'name': f'X{key + 1}', 'type': f'v-site{key + 1}'})
 
                 # Add the local coords site info
-                SubElement(Residue, "VirtualSite",
-                           attrib={'type': 'localCoords', 'index': str(key + len(self.atom_names)),
-                                   'atom1': str(val[0][0]), 'atom2': str(val[0][1]), 'atom3': str(val[0][2]),
-                                   'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0', 'wx1': '-1.0', 'wx2': '1.0',
-                                   'wx3': '0.0',
-                                   'wy1': '-1.0', 'wy2': '0.0', 'wy3': '1.0', 'p1': f'{float(val[1][0]):.4f}',
-                                   'p2': f'{float(val[1][1]):.4f}',
-                                   'p3': f'{float(val[1][2]):.4f}'})
+                SubElement(Residue, "VirtualSite", attrib={
+                    'type': 'localCoords', 'index': str(key + len(self.atom_names)),
+                    'atom1': str(val[0][0]), 'atom2': str(val[0][1]), 'atom3': str(val[0][2]),
+                    'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0', 'wx1': '-1.0', 'wx2': '1.0',
+                    'wx3': '0.0',
+                    'wy1': '-1.0', 'wy2': '0.0', 'wy3': '1.0', 'p1': f'{float(val[1][0]):.4f}',
+                    'p2': f'{float(val[1][1]):.4f}',
+                    'p3': f'{float(val[1][2]):.4f}'})
 
                 # Add the nonbonded info
-                SubElement(NonbondedForce, "Atom", attrib={'type': f'v-site{key + 1}', 'charge': f'{val[2]}',
-                                                           'sigma': '1.000000', 'epsilon': '0.000000'})
+                SubElement(NonbondedForce, "Atom", attrib={
+                    'type': f'v-site{key + 1}',
+                    'charge': f'{val[2]}',
+                    'sigma': '1.000000',
+                    'epsilon': '0.000000'})
 
         # Store the tree back into the molecule
         self.xml_tree = ElementTree(root)
@@ -438,24 +447,22 @@ class Molecule:
     def write_xyz(self, input_type='input', name=None):
         """Write a general xyz file. QM and MM decide where it will be written from in the ligand class."""
 
-        molecule = self.molecule[input_type]
-
         with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
 
-            xyz_file.write(f'{len(molecule)}\n')
+            xyz_file.write(f'{len(self.molecule[input_type])}\n')
             xyz_file.write('xyz file generated with QUBEKit\n')
 
-            for atom in molecule:
+            for atom in self.molecule[input_type]:
                 # Format with spacing
                 xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
 
-    def write_gromacs_file(self):
+    def write_gromacs_file(self, input_type='input'):
         """To a gromacs file, write and format the necessary variables."""
 
         with open(f'{self.name}.gro', 'w+') as gro_file:
             gro_file.write(f'NEW {self.name.upper()} GRO FILE\n')
-            gro_file.write(f'{len(self.molecule):>5}\n')
-            for pos, atom in enumerate(self.molecule, 1):
+            gro_file.write(f'{len(self.molecule[input_type]):>5}\n')
+            for pos, atom in enumerate(self.molecule[input_type], 1):
                 # 'mol number''mol name'  'atom name'   'atom count'   'x coord'   'y coord'   'z coord'
                 # 1WATER  OW1    1   0.126   1.624   1.679
                 gro_file.write(f'    1{self.name.upper()}  {atom[0]}{pos}   {pos}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
