@@ -1,9 +1,9 @@
-# A set of useful tools for the setup and simulation of systems using the QUBE FF.
+from numpy import sqrt
+import simtk.openmm as mm
+
+
 def apply_opls_combo(system, switching_distance=None):
     """Apply the opls combination rules to a OpenMM system and return the new system."""
-
-    from numpy import sqrt
-    import simtk.openmm as mm
 
     # Get the system information from the openmm system
     forces = {system.getForce(index).__class__.__name__: system.getForce(index) for index in

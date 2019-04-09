@@ -5,7 +5,6 @@
 #       Maybe add path checking for Chargemol?
 # TODO use QCEngine to run PSI4, geometric and torsion drive QM commands.
 
-
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
@@ -15,6 +14,8 @@ from numpy import append as np_append
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import qcengine as qcng
+import qcelemental as qcel
 
 
 class Engines:
@@ -528,3 +529,57 @@ class ONETEP(Engines):
             ax.plot(coords[simplex, 0], coords[simplex, 1], coords[simplex, 2], color='lightseagreen')
 
         plt.show()
+
+
+class QCEngine(Engines):
+
+    def __init__(self, molecule, config_dict):
+
+        super().__init__(molecule, config_dict)
+
+    def generate_qschema(self, input_type='input'):
+
+        mol_data = f'{self.charge} {self.multiplicity}\n'
+
+        for coord in self.molecule.molecule[input_type]:
+            for item in coord:
+                mol_data += f'{item} '
+            mol_data += '\n'
+
+        mol = qcel.models.Molecule.from_data(mol_data)
+
+        return mol
+
+    def call_qcengine(self, engine, driver, input_type):
+
+        mol = self.generate_qschema(input_type=input_type)
+
+        # task = {
+        #     "schema_name": "qcschema_input",
+        #     "schema_version": 1,
+        #     "molecule": self.generate_qschema(input_type=input_type),
+        #     "driver": driver,
+        #     "model": {"method": self.qm['theory'], "basis": self.qm['basis']},
+        #     "keywords": {"scf_type": "df"},
+        #     "return_output": False
+        # }
+
+        if engine == 'psi4':
+            task = qcel.models.ResultInput(
+                molecule=mol,
+                driver=driver,
+                model={'method': self.qm['theory'], 'basis': self.qm['basis']},
+                keywords={'scf_type': 'df'}
+            )
+
+            return qcng.compute(task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
+
+        else:
+            task = qcel.models.ResultInput(
+                molecule=mol,
+                driver=driver,
+                model={'method': 'UFF', 'basis': None},
+                keywords={"coordsys": "tric", "maxiter": 100, "program": "rdkit"}
+            )
+
+            return qcng.compute_procedure(task, 'geometric')

@@ -3,16 +3,19 @@
 from QUBEKit.ligand import Protein
 from QUBEKit.parametrisation import XMLProtein
 from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.proteinTools import qube_general, pdb_reformat, get_water
+from QUBEKit.protein_tools import qube_general, pdb_reformat, get_water
+
 from os import remove
 import argparse
 
 
 def main():
-    """This script is used to prepare proteins with the QUBE FF
+    """
+    This script is used to prepare proteins with the QUBE FF
     1) prepare the protein for onetep using --setup which prints an xyz of the system
     2) after the onetep calculation bring back the ddec.onetep file and parametrise the system with --build
-     this must be the same pdb used in setup as the atom order must be retained."""
+    this must be the same pdb used in setup as the atom order must be retained.
+    """
 
     # Setup the action classes
     class SetupAction(argparse.Action):
@@ -22,10 +25,10 @@ def main():
             """This function is executed when setup is called."""
 
             print('starting protein prep, reading pdb file...')
-            pro = Protein(values)
+            protein = Protein(values)
             print(f'{len(protein.Residues)} residues found!')
             # TODO find the magic numbers for the box for onetep
-            pro.write_xyz(name='protein')
+            protein.write_xyz(name='protein')
             print(f'protein.xyz file made for ONETEP\n Run this file')
             exit()
 
@@ -36,7 +39,7 @@ def main():
             """This function is executed when build is called."""
 
             pro = Protein(values)
-            # print the qube general FF to use in the parameterization
+            # print the QUBE general FF to use in the parametrisation
             qube_general()
             # now we want to add the connections and parametrise the protein
             XMLProtein(pro)
@@ -45,7 +48,7 @@ def main():
             # finally we need the non-bonded parameters from onetep
             # fake configs as this will always be true
             # TODO should we also have the ability to get DDEC6 charges from the cube file?
-            configs = [{'charge': 0}, {'charges_engine': 'onetep', 'density_engine': 'onetep' }, {}, {}]
+            configs = [{'charge': 0}, {'charges_engine': 'onetep', 'density_engine': 'onetep'}, {}, {}]
             lj = LennardJones(pro, config_dict=configs)
             pro.NonbondedForce = lj.calculate_non_bonded_force()
 
@@ -100,7 +103,6 @@ def main():
                         help='Enter the reference followed by the qube traj file you want to re format.')
 
     parser.parse_args()
-
 
 
 if __name__ == '__main__':

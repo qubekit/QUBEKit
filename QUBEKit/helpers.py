@@ -222,7 +222,7 @@ class Configure:
         return
 
 
-def get_mol_data_from_csv(csv_name):
+def mol_data_from_csv(csv_name):
     """
     Scan the csv file to find the row with the desired molecule data.
     Returns a dictionary of dictionaries in the form:
@@ -260,7 +260,7 @@ def get_mol_data_from_csv(csv_name):
         return final
 
 
-def generate_config_csv(csv_name):
+def generate_bulk_csv(csv_name):
     """
     Generates a csv with name "csv_name" with minimal information inside.
     Contains only headers and a row of defaults.
