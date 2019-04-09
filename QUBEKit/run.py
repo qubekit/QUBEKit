@@ -7,9 +7,9 @@ from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
-from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress, pretty_print, \
+from QUBEKit.decorators import exception_logger
+from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
     Configure, unpickle
-from QUBEKit.decorators import exception_logger_decorator
 
 import argparse
 from sys import exit as sys_exit
@@ -111,6 +111,8 @@ class Main:
             self.file = self.args.input
         # Check the end points for a normal run
         start_point = self.args.restart if self.args.restart is not None else 'parametrise'
+        skip_list = self.args.skip if self.args.skip is not None else []
+        printf(skip_list)
         end_point = self.args.end if self.args.end is not None else 'finalise'
 
         # Create list of all keys
@@ -126,6 +128,12 @@ class Main:
 
         # Redefine self.order to only contain the key, val pairs from stages
         self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
+
+        for pair in self.order.items():
+            if pair[0] in skip_list:
+                self.order[pair[0]] = self.skip
+            else:
+                self.order[pair[0]] = pair[1]
 
     def config_update(self):
         """Update the config setting using the argparse options from the command line."""
@@ -204,7 +212,7 @@ class Main:
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when csv is called."""
 
-                generate_config_csv(values)
+                generate_bulk_csv(values)
                 sys_exit()
 
         class ProgressAction(argparse.Action):
@@ -268,6 +276,10 @@ We welcome any suggestions for additions or changes.""")
                             help='Get the current progress of a QUBEKit single or bulk job.', action=ProgressAction)
         parser.add_argument('-combination', '--combination', default='opls', choices=['opls', 'amber'],
                             help='Enter the combination rules that should be used.')
+        parser.add_argument('-skip', '--skip', nargs='+', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem',
+                                                                   'density', 'charges', 'lennard_jones',
+                                                                   'torsion_scan', 'torsion_optimise', 'finalise'],
+                            help='Option to skip certain stages of the execution.')
 
         # Add mutually exclusive groups to stop wrong combinations of options,
         # e.g. setup should not be ran with another command
@@ -293,7 +305,7 @@ We welcome any suggestions for additions or changes.""")
         csv_file = self.args.bulk_run
         printf(self.start_up_msg)
 
-        bulk_data = get_mol_data_from_csv(csv_file)
+        bulk_data = mol_data_from_csv(csv_file)
 
         # Run full analysis for each smiles string or pdb in the .csv file.
         names = list(bulk_data.keys())
@@ -480,9 +492,9 @@ We welcome any suggestions for additions or changes.""")
         if self.args.mm_opt_method == 'openmm':
             # Make the inputs
             molecule.write_pdb(name='openmm', input_type='input')
-            molecule.write_parameters(name='input')
+            molecule.write_parameters(name='state')
             # Run geometric
-            system('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --openmm openmm.pdb > log.txt')
+            system('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml > log.xt')
             # Get the optimised structure store under mm
             molecule.read_xyz(input_type='mm')
 
@@ -646,7 +658,7 @@ We welcome any suggestions for additions or changes.""")
 
         sys_exit()
 
-    @exception_logger_decorator
+    @exception_logger
     def execute(self):
         """
         Calls all the relevant classes and methods for the full QM calculation in the correct order.

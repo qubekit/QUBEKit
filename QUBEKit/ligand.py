@@ -492,7 +492,7 @@ class Molecule:
             for val in mols.values():
                 dump(val, pickle_jar)
 
-    def symmetrise_from_top(self):
+    def symmetrise_from_topo(self):
         """
         Based on the Molecule self.topology, symmetrise the methyl/amine Hydrogens.
         If there's a carbon, does it have 3 hydrogens? -> symmetrise
@@ -550,7 +550,7 @@ class Molecule:
         self.get_angle_values(input_type=input_type)
         self.find_impropers()
         # this creates the dictionary of terms that should be symmetrise
-        self.symmetrise_from_top()
+        self.symmetrise_from_topo()
 
 
 class Ligand(Molecule):
@@ -586,7 +586,7 @@ class Ligand(Molecule):
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
-        self.symmetrise_from_top()
+        self.symmetrise_from_topo()
 
     def read_xyz(self, name=None, input_type='input'):
         """Read an xyz file to store the molecule structure."""
@@ -642,6 +642,7 @@ class Protein(Molecule):
 
     def __init__(self, filename, combination='opls'):
         super().__init__(filename, combination)
+
         self.pdb_names = None
         self.read_pdb()
         self.residues = None
