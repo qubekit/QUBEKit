@@ -505,7 +505,7 @@ class Molecule:
         amine_hs = []
         methyl_amine_nitride_cores = []
         for pos, atom_coords in enumerate(self.molecule['input']):
-            if atom_coords[0] == 'C' or atom_coords[0] == 'N':
+            if atom_coords[0] == 'C' or atom_coords[0] == 'N': 
 
                 hs = []
                 for atom in self.topology.neighbors(pos + 1):
