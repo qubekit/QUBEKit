@@ -118,7 +118,8 @@ class PSI4(Engines):
             input_file.write(tasks)
 
         if run:
-            sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
+            with open('log.txt', 'w+') as log:
+                sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True, stdout=log, stderr=log)
 
     # TODO change to one general file parser that gathers any info it can find
     #   puts into the engine object proper API?
@@ -307,7 +308,7 @@ class PSI4(Engines):
         if run:
             with open('log.txt', 'w+') as log:
                 sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
-                        shell=True, stdout=log)
+                        shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -349,8 +350,9 @@ class Chargemol(Engines):
         # sub_run('mv Dt.cube total_density.cube', shell=True)
 
         if run:
-            control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
-            sub_run(f'{self.descriptions["chargemol"]}/{control_path}', shell=True)
+            with open('log.txt', 'w+') as log:
+                control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
+                sub_run(f'{self.descriptions["chargemol"]}/{control_path}', shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -412,7 +414,8 @@ class Gaussian(Engines):
             input_file.write('\n\n')
 
         if run:
-            sub_run(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log', shell=True)
+            with open('log.txt', 'w+') as log:
+                sub_run(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log', shell=True, stdout=log, stderr=log)
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""

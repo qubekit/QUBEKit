@@ -184,8 +184,48 @@ def main_sites():
 
     print('done')
 
+def main_qc():
+    """Testing geometric with the qcengine."""
+
+    import qcengine
+    import qcelemental
+    from QUBEKit.ligand import Ligand
+
+    mol = Ligand('ethane.pdb')
+
+    mol_data = '0 1\n'
+    for coord in mol.molecule['input']:
+        for atom in coord:
+            mol_data += f'{atom}  '
+        mol_data += '\n'
+
+    molecule = qcelemental.models.Molecule.from_data(mol_data)
+    print(molecule)
+
+    # now make the task
+
+    geometric_task = {
+        "schema_name": "qcschema_optimization_input",
+        "schema_version": 1,
+        "keywords": {
+            "coordsys": "tric",
+            "maxiter": 100,
+            "program": "rdkit"
+        },
+        "input_specification": {
+            "schema_name": "qcschema_input",
+            "schema_version": 1,
+            "driver": "gradient",
+            "model": {"method": "scf", "basis": '6-31g'},
+            "keywords": {},
+        },
+        "initial_molecule": molecule,
+    }
+    ret = qcengine.compute_procedure(geometric_task, "geometric")
+    print(ret.energies)
+
 if __name__ == '__main__':
-    main()
+    main_qc()
 
 
 
