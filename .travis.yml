@@ -1,2 +1,12 @@
 language: python
-rvm: 3.6
+python:
+- '3.6'
+- '3.7'
+branches:
+  only:
+  - master
+deploy:
+  provider: pypi
+  user: CRingrose
+  password:
+    secure: Aidjq4nxZKI1x/1XttewehYa8h9Zisy4bX/ZPLIRSSX2asZP3YuFqDsBLE3mzlFSAXNvZBrlhzZNrAq8EQdYR92KQ/W5p+w+MzQ/zD3AvNg2HMmkT2+ZsDtexhkcilZqXKTAPqUvL0Ny6Nx427WPsin4xbyHZWmUd17iCZaI45mlQ0/LSOkYGb/poe1HiO70HLg4KEZNKxBQ7jgEoVCZg8YSf57Sg0fkCELbHCHhKUFAKbtV4QJquM0y1SXs4HYHwHfnVsVESnmkZOKazWI6KixHN806VzbGdwjv0WufERmtwpFKqW6bfQJru1Stzu2mIHyEpE4yN1LFoEDDaM/rMTy6JUuLTnhnDxMy6cA1crjODUp8qChAgZosweMrQgDKcVT2m1imyMJVaiWs76VaMIiPW4L8+dQ3yF7mxnkj2LjGwAh1RoKm2ogQpOG2o0E/U9O5cuesPaRRhpy0pPf/jOBfHzbM31Qdl50DasPeODXSs5HJ34NAB9/Nkwew8qKM2B9TxyrYO7fO41fOz3vbf2XKiGzdiKa8Sxv4qzRZCmqgMd2JEF02JuKV/FumC14sFl2KbJhWM+HO9wr+66HGNKUO2epiYCmkGox1NH5aU6/j3fpY10rRQ/ngGjtiFNeH6ByCIY4wJ3m3vO9xywnSD6ICh5WVe0Qi+37Jtgr4mf4=

@@ -554,6 +554,7 @@ class QCEngine(Engines):
 
         mol = self.generate_qschema(input_type=input_type)
 
+        # OLD or NEW? Method for getting qcengine to work. May be removed later
         # task = {
         #     "schema_name": "qcschema_input",
         #     "schema_version": 1,
@@ -574,7 +575,7 @@ class QCEngine(Engines):
 
             return qcng.compute(task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
 
-        else:
+        elif engine == 'geo':
             task = {
                 "schema_name": "qcschema_optimization_input",
                 "schema_version": 1,
@@ -590,7 +591,10 @@ class QCEngine(Engines):
                     "model": {'method': self.qm['theory'], 'basis': self.qm['basis']},
                     "keywords": {},
                 },
-                "initial_molecule": qcng.get_molecule("water"),
+                "initial_molecule": mol,
             }
 
             return qcng.compute_procedure(task, 'geometric')
+
+        else:
+            raise KeyError('Invalid engine type provided. Please use "geo" or "psi4".')
