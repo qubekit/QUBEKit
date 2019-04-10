@@ -45,7 +45,7 @@ install:
   - python setup.py install
 
 script:
-  tests.ligand_tests.py
+  tests/ligand_tests.py
 
 notifications:
   email: false
