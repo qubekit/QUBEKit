@@ -31,7 +31,7 @@ class Configure:
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
         'iterations': '100',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
-        'density_engine': 'g09',        # Engine used to calculate the electron density
+        'density_engine': 'onetep',        # Engine used to calculate the electron density
         'charges_engine': 'chargemol',  # Engine used for charge partitioning
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
@@ -122,17 +122,18 @@ class Configure:
         qm['vib_scaling'] = float(qm['vib_scaling'])
 
         # Now cast the bools
-        if qm['geometric'].lower() == 'true':
-            qm['geometric'] = True
+        if not bool(qm['geometric']):
+            if qm['geometric'].lower() == 'true':
+                qm['geometric'] = True
 
-        else:
-            qm['geometric'] = False
+            else:
+                qm['geometric'] = False
 
-        if qm['solvent'].lower() == 'true':
-            qm['solvent'] = True
+            if qm['solvent'].lower() == 'true':
+                qm['solvent'] = True
 
-        else:
-            qm['solvent'] = False
+            else:
+                qm['solvent'] = False
 
         # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
@@ -263,8 +264,13 @@ def mol_data_from_csv(csv_name):
 def generate_bulk_csv(csv_name):
     """
     Generates a csv with name "csv_name" with minimal information inside.
-    Contains only headers and a row of defaults.
+    Contains only headers and a row of defaults and populates all of the name fileds where available.
     """
+
+    files = []
+    for file in listdir("."):
+        if file.endswith('.pdb'):
+            files.append(file)
 
     if csv_name[-4:] != '.csv':
         raise TypeError('Invalid or unspecified file type. File must be .csv')
@@ -273,6 +279,8 @@ def generate_bulk_csv(csv_name):
 
         file_writer = writer(csv_file, delimiter=',', quotechar='|', quoting=QUOTE_MINIMAL)
         file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles string', 'torsion order', 'start', 'end'])
+        for file in files:
+            file_writer.writerow([file, 0, 1, ])
 
     print(f'{csv_name} generated.')
     return

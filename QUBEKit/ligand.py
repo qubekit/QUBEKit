@@ -505,7 +505,7 @@ class Molecule:
         amine_hs = []
         methyl_amine_nitride_cores = []
         for pos, atom_coords in enumerate(self.molecule['input']):
-            if atom_coords[0] == 'C' or atom_coords[0] == 'N':
+            if atom_coords[0] == 'C' or atom_coords[0] == 'N': 
 
                 hs = []
                 for atom in self.topology.neighbors(pos + 1):
@@ -526,11 +526,16 @@ class Molecule:
 
         # now modify the rotatable list to remove methyl and amine/ nitrile torsions
         # these are already well represented in most FF's
+        remove_list = []
         if self.rotatable:
             rotatable = self.rotatable
             for key in rotatable:
                 if key[0] in methyl_amine_nitride_cores or key[1] in methyl_amine_nitride_cores:
-                    rotatable.remove(key)
+                    remove_list.append(key)
+
+            # now remove the keys
+            for torsion in remove_list:
+                rotatable.remove(torsion)
 
             self.rotatable = rotatable
 
