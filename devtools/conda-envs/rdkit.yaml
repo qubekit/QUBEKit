@@ -1,6 +1,5 @@
 name: test
 channels:
-  - devtools-forge
   - rdkit
 dependencies:
   - rdkit
