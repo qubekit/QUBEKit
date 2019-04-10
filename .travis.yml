@@ -41,8 +41,8 @@ install:
       echo "ERROR: No match for PROG ($PROG)."
       exit 1
     fi
-    - conda activate test
-    - python setup.py install
+  - conda activate test
+  - python setup.py install
 
 script:
   tests.ligand_tests.py
