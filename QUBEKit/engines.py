@@ -5,7 +5,6 @@
 #       Maybe add path checking for Chargemol?
 # TODO use QCEngine to run PSI4, geometric and torsion drive QM commands.
 
-
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
@@ -15,6 +14,8 @@ from numpy import append as np_append
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import qcengine as qcng
+import qcelemental as qcel
 
 
 class Engines:
@@ -305,8 +306,8 @@ class PSI4(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]} '
-                        f'--maxiter {self.qm["iterations"]}', shell=True, stdout=log)
+                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
+                        shell=True, stdout=log)
 
 
 @for_all_methods(timer_logger)
@@ -367,7 +368,7 @@ class Gaussian(Engines):
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
-    def generate_input(self, input_type='input', optimize=False, hessian=False, density=False, solvent=False, run=True):
+    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, solvent=False, run=True):
         """Generates the relevant job file for Gaussian, then executes this job file."""
 
         molecule = self.molecule.molecule[input_type]
@@ -379,7 +380,7 @@ class Gaussian(Engines):
             commands = f'# {self.qm["theory"]}/{self.qm["basis"]} SCF=XQC '
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
-            if optimize:
+            if optimise:
                 commands += 'opt '
 
             if hessian:
@@ -528,3 +529,68 @@ class ONETEP(Engines):
             ax.plot(coords[simplex, 0], coords[simplex, 1], coords[simplex, 2], color='lightseagreen')
 
         plt.show()
+
+
+class QCEngine(Engines):
+
+    def __init__(self, molecule, config_dict):
+
+        super().__init__(molecule, config_dict)
+
+    def generate_qschema(self, input_type='input'):
+
+        mol_data = f'{self.charge} {self.multiplicity}\n'
+
+        for coord in self.molecule.molecule[input_type]:
+            for item in coord:
+                mol_data += f'{item} '
+            mol_data += '\n'
+
+        mol = qcel.models.Molecule.from_data(mol_data)
+
+        return mol
+
+    def call_qcengine(self, engine, driver, input_type):
+
+        mol = self.generate_qschema(input_type=input_type)
+
+        # task = {
+        #     "schema_name": "qcschema_input",
+        #     "schema_version": 1,
+        #     "molecule": self.generate_qschema(input_type=input_type),
+        #     "driver": driver,
+        #     "model": {"method": self.qm['theory'], "basis": self.qm['basis']},
+        #     "keywords": {"scf_type": "df"},
+        #     "return_output": False
+        # }
+
+        if engine == 'psi4':
+            task = qcel.models.ResultInput(
+                molecule=mol,
+                driver=driver,
+                model={'method': self.qm['theory'], 'basis': self.qm['basis']},
+                keywords={'scf_type': 'df'}
+            )
+
+            return qcng.compute(task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
+
+        else:
+            task = {
+                "schema_name": "qcschema_optimization_input",
+                "schema_version": 1,
+                "keywords": {
+                    "coordsys": "tric",
+                    "maxiter": 100,
+                    "program": "psi4"
+                },
+                "input_specification": {
+                    "schema_name": "qcschema_input",
+                    "schema_version": 1,
+                    "driver": 'gradient',
+                    "model": {'method': self.qm['theory'], 'basis': self.qm['basis']},
+                    "keywords": {},
+                },
+                "initial_molecule": qcng.get_molecule("water"),
+            }
+
+            return qcng.compute_procedure(task, 'geometric')

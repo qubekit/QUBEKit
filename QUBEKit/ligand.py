@@ -90,7 +90,6 @@ class Molecule:
         # XML Info
         self.xml_tree = None
         self.AtomTypes = {}
-        self.residues = None
         self.Residues = None
         self.extra_sites = None
         self.HarmonicBondForce = {}
@@ -196,7 +195,6 @@ class Molecule:
             # if the atom has 3 bonds it could be an improper
             if len(near) == 3:
                 self.improper_torsions.append((node, near[0], near[1], near[2]))
-        # print(self.improper_torsions)
 
     def find_angles(self):
         """
@@ -351,9 +349,8 @@ class Molecule:
         PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
 
         # Assign the combination rule
-        c14 = l14 = '0.5'
-        if self.combination == 'amber':
-            c14 = '0.83333'
+        l14 = '0.5'
+        c14 = '0.83333' if self.combination == 'amber' else '0.5'
 
         NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14})
 
@@ -418,16 +415,16 @@ class Molecule:
             for key, val in self.sites.items():
                 SubElement(AtomTypes, "Type", attrib={'name': f'v-site{key + 1}', 'class': f'X{key + 1}', 'mass': '0'})
 
-                # Add the Atom info
+                # Add the atom info
                 SubElement(Residue, "Atom", attrib={'name': f'X{key + 1}', 'type': f'v-site{key + 1}'})
 
                 # Add the local coords site info
                 SubElement(Residue, "VirtualSite", attrib={
                     'type': 'localCoords', 'index': str(key + len(self.atom_names)),
                     'atom1': str(val[0][0]), 'atom2': str(val[0][1]), 'atom3': str(val[0][2]),
-                    'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0', 'wx1': '-1.0', 'wx2': '1.0',
-                    'wx3': '0.0',
-                    'wy1': '-1.0', 'wy2': '0.0', 'wy3': '1.0', 'p1': f'{float(val[1][0]):.4f}',
+                    'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0', 'wx1': '-1.0', 'wx2': '1.0', 'wx3': '0.0',
+                    'wy1': '-1.0', 'wy2': '0.0', 'wy3': '1.0',
+                    'p1': f'{float(val[1][0]):.4f}',
                     'p2': f'{float(val[1][1]):.4f}',
                     'p3': f'{float(val[1][2]):.4f}'})
 
@@ -450,7 +447,6 @@ class Molecule:
             xyz_file.write('xyz file generated with QUBEKit\n')
 
             for atom in self.molecule[input_type]:
-                # Format with spacing
                 xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
 
     def write_gromacs_file(self, input_type='input'):
@@ -475,7 +471,7 @@ class Molecule:
         # First check if the pickle file exists
         try:
             # Try to load a hidden pickle file; make sure to get all objects
-            with open(f'.{self.name}_states', 'rb') as pickle_jar:
+            with open(f'.QUBEKit_states', 'rb') as pickle_jar:
                 while True:
                     try:
                         mol = load(pickle_jar)
@@ -490,13 +486,13 @@ class Molecule:
         mols[self.state] = self
 
         # Open the pickle jar which will always be the ligand object's name
-        with open(f'.{self.name}_states', 'wb') as pickle_jar:
+        with open(f'.QUBEKit_states', 'wb') as pickle_jar:
             # If there were other molecules of the same state in the jar: overwrite them
 
             for val in mols.values():
                 dump(val, pickle_jar)
 
-    def symmetrise_from_top(self):
+    def symmetrise_from_topo(self):
         """
         Based on the Molecule self.topology, symmetrise the methyl/amine Hydrogens.
         If there's a carbon, does it have 3 hydrogens? -> symmetrise
@@ -559,7 +555,7 @@ class Molecule:
         self.get_angle_values(input_type=input_type)
         self.find_impropers()
         # this creates the dictionary of terms that should be symmetrise
-        self.symmetrise_from_top()
+        self.symmetrise_from_topo()
 
 
 class Ligand(Molecule):
@@ -595,7 +591,7 @@ class Ligand(Molecule):
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
-        self.symmetrise_from_top()
+        self.symmetrise_from_topo()
 
     def read_xyz(self, name=None, input_type='input'):
         """Read an xyz file to store the molecule structure."""
@@ -651,8 +647,10 @@ class Protein(Molecule):
 
     def __init__(self, filename, combination='opls'):
         super().__init__(filename, combination)
+
         self.pdb_names = None
         self.read_pdb()
+        self.residues = None
 
     def read_pdb(self, input_type='input'):
         """
@@ -714,8 +712,6 @@ class Protein(Molecule):
         self.residues = [res for res, group in groupby(self.Residues)]
 
         self.molecule[input_type] = protein
-
-        return self
 
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""

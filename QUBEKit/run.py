@@ -7,9 +7,9 @@ from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
-from QUBEKit.helpers import get_mol_data_from_csv, generate_config_csv, append_to_log, pretty_progress, pretty_print, \
+from QUBEKit.decorators import exception_logger
+from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
     Configure, unpickle
-from QUBEKit.decorators import exception_logger_decorator
 
 import argparse
 from sys import exit as sys_exit
@@ -105,9 +105,14 @@ class Main:
             self.bulk_execute()
 
         # If not bulk must be main single run
-        self.file = self.args.input
+        if self.args.restart:
+            self.file = getcwd().split('/')[-1]
+        else:
+            self.file = self.args.input
         # Check the end points for a normal run
         start_point = self.args.restart if self.args.restart is not None else 'parametrise'
+        skip_list = self.args.skip if self.args.skip is not None else []
+        printf(skip_list)
         end_point = self.args.end if self.args.end is not None else 'finalise'
 
         # Create list of all keys
@@ -123,6 +128,12 @@ class Main:
 
         # Redefine self.order to only contain the key, val pairs from stages
         self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
+
+        for pair in self.order.items():
+            if pair[0] in skip_list:
+                self.order[pair[0]] = self.skip
+            else:
+                self.order[pair[0]] = pair[1]
 
     def config_update(self):
         """Update the config setting using the argparse options from the command line."""
@@ -165,6 +176,7 @@ class Main:
 
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when setup is called."""
+
                 choice = int(input('You can now edit config files using QUBEKit, choose an option to continue:\n'
                                    '1) Edit a config file\n'
                                    '2) Create a new master template\n'
@@ -199,7 +211,8 @@ class Main:
 
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when csv is called."""
-                generate_config_csv(values)
+
+                generate_bulk_csv(values)
                 sys_exit()
 
         class ProgressAction(argparse.Action):
@@ -207,18 +220,19 @@ class Main:
 
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when progress is called."""
+
                 pretty_progress()
                 sys_exit()
 
         parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
-                                              description="""QUBEKit is a Python 3.5+ based force field derivation toolkit for Linux operating systems.
+                                              description="""QUBEKit is a Python 3.6+ based force field derivation toolkit for Linux operating systems.
 Our aims are to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
 QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
-QUBEKit aims to use as few parameters as possible while also being highly customisable.""", epilog='''QUBEKit should currently be considered a work in progress.
+QUBEKit aims to use as few parameters as possible while also being highly customisable.""", epilog="""QUBEKit should currently be considered a work in progress.
 While it is stable we are constantly working to improve the code and broaden its compatibility. 
 We use lots of software written by many different people;
 if reporting a bug please (to the best of your ability) make sure it is a bug with QUBEKit and not with a dependency.
-We welcome any suggestions for additions or changes.''')
+We welcome any suggestions for additions or changes.""")
 
         # Add all of the command line options in the arg parser
         parser.add_argument('-c', '--charge', default=0, type=int, help='Enter the charge of the molecule, default 0.')
@@ -227,7 +241,7 @@ We welcome any suggestions for additions or changes.''')
         parser.add_argument('-ddec', '--ddec_version', choices=[3, 6], type=int,
                             help='Enter the ddec version for charge partitioning, does not effect ONETEP partitioning.')
         parser.add_argument('-geo', '--geometric', choices=[True, False], type=bool,
-                            help='Turn on geometric to use this during the qm optimisations, recomended.')
+                            help='Turn on geometric to use this during the qm optimisations, recommended.')
         parser.add_argument('-bonds', '--bonds_engine', choices=['psi4', 'g09'],
                             help='Choose the QM code to calculate the bonded terms.')
         parser.add_argument('-charges', '--charges_engine', choices=['onetep', 'chargemol'],
@@ -240,10 +254,10 @@ We welcome any suggestions for additions or changes.''')
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
                             help='Enter the convergence criteria for the optimisation.')
         parser.add_argument('-param', '--parameter_engine', choices=['xml', 'gaff', 'gaff2', 'openff'],
-                            help='Enter the method of where we should get the intial molecule parameters from, '
+                            help='Enter the method of where we should get the initial molecule parameters from, '
                                  'if xml make sure the xml has the same name as the pdb file.')
         parser.add_argument('-mm', '--mm_opt_method', default='openmm', choices=['openmm', 'rdkit_mff', 'rdkit_uff'],
-                            help='Enter the mm optimisation method for pre qm omptimisation.')
+                            help='Enter the mm optimisation method for pre qm optimisation.')
         parser.add_argument('-config', '--config_file', default='default_config', choices=Configure.show_ini(),
                             help='Enter the name of the configuration file you wish to use for this run from the list '
                                  'available, defaults to master.')
@@ -262,20 +276,24 @@ We welcome any suggestions for additions or changes.''')
                             help='Get the current progress of a QUBEKit single or bulk job.', action=ProgressAction)
         parser.add_argument('-combination', '--combination', default='opls', choices=['opls', 'amber'],
                             help='Enter the combination rules that should be used.')
+        parser.add_argument('-skip', '--skip', nargs='+', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem',
+                                                                   'density', 'charges', 'lennard_jones',
+                                                                   'torsion_scan', 'torsion_optimise', 'finalise'],
+                            help='Option to skip certain stages of the execution.')
 
         # Add mutually exclusive groups to stop wrong combinations of options,
         # e.g. setup should not be ran with another command
-        groupa = parser.add_mutually_exclusive_group()
-        groupa.add_argument('-setup', '--setup_config', nargs='?', const=True,
+        groups = parser.add_mutually_exclusive_group()
+        groups.add_argument('-setup', '--setup_config', nargs='?', const=True,
                             help='Setup a new configuration or edit an existing one.', action=SetupAction)
-        groupa.add_argument('-sm', '--smiles', help='Enter the smiles string of a molecule as a starting point.')
-        groupa.add_argument('-bulk', '--bulk_run',
+        groups.add_argument('-sm', '--smiles', help='Enter the smiles string of a molecule as a starting point.')
+        groups.add_argument('-bulk', '--bulk_run',
                             help='Enter the name of the csv file to run as bulk, bulk will use smiles unless it finds '
                                  'a molecule file with the same name.')
-        groupa.add_argument('-csv', '--csv_filename',
+        groups.add_argument('-csv', '--csv_filename',
                             help='Enter the name of the csv file you would like to create for bulk runs.',
                             action=CSVAction)
-        groupa.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
+        groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
 
         return parser.parse_args()
 
@@ -287,7 +305,7 @@ We welcome any suggestions for additions or changes.''')
         csv_file = self.args.bulk_run
         printf(self.start_up_msg)
 
-        bulk_data = get_mol_data_from_csv(csv_file)
+        bulk_data = mol_data_from_csv(csv_file)
 
         # Run full analysis for each smiles string or pdb in the .csv file.
         names = list(bulk_data.keys())
@@ -296,7 +314,7 @@ We welcome any suggestions for additions or changes.''')
         temp = self.order
 
         for name in names:
-            printf(f'Currently analysing: {name}\n')
+            printf(f'\nAnalysing: {name}\n')
 
             # Set the start and end points to what is given in the csv. See the -restart / -end section below
             # for further details and better documentation.
@@ -334,8 +352,7 @@ We welcome any suggestions for additions or changes.''')
 
                 # These are the files in the active directory, search for the pdb.
                 files = [file for file in listdir('.') if path.isfile(file)]
-                self.file = \
-                    [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
+                self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
 
                 self.continue_log()
 
@@ -400,7 +417,6 @@ We welcome any suggestions for additions or changes.''')
                 for key, var in config.items():
                     log_file.write(f'{key}: {var}\n')
                 log_file.write('\n')
-
             log_file.write('\n')
 
     def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg='', torsion_options=None):
@@ -416,7 +432,7 @@ We welcome any suggestions for additions or changes.''')
             - Pickle the ligand object again with the next_key marker as its stage
         """
 
-        mol = unpickle(f'.{self.file[:-4]}_states')[start_key]
+        mol = unpickle()[start_key]
 
         # if we have an torsion options dictionary pass it to the molecule
         if torsion_options is not None:
@@ -433,9 +449,11 @@ We welcome any suggestions for additions or changes.''')
             pass
         finally:
             chdir(f'{start_key}')
+
         self.order[start_key](mol)
         self.order.pop(start_key, None)
         chdir(home)
+
         # Begin looping through self.order, but return after the first iteration.
         for key in self.order:
             next_key = key
@@ -478,16 +496,16 @@ We welcome any suggestions for additions or changes.''')
 
         # Check which method we want then do the optimisation
         if self.args.mm_opt_method == 'openmm':
-            # make the inputs
+            # Make the inputs
             molecule.write_pdb(name='openmm', input_type='input')
-            molecule.write_parameters(name='input')
-            # run geometric
-            system('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --openmm openmm.pdb > log.txt')
-            # get the optimised structure store under mm
+            molecule.write_parameters(name='state')
+            # Run geometric
+            system('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml > log.xt')
+            # Get the optimised structure store under mm
             molecule.read_xyz(input_type='mm')
 
         else:
-            # run an rdkit optimisation with the right FF
+            # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = smiles_mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
 
@@ -502,7 +520,7 @@ We welcome any suggestions for additions or changes.''')
 
         if self.qm['geometric']:
 
-            # Calc geometric-related gradient and geometry
+            # Calculate geometric-related gradient and geometry
             qm_engine.geo_gradient(input_type='mm')
             molecule.read_xyz(input_type='qm')
 
@@ -528,6 +546,8 @@ We welcome any suggestions for additions or changes.''')
         # Extract Hessian and modes
         molecule.hessian = qm_engine.hessian()
         molecule.modes = qm_engine.all_modes()
+
+        append_to_log(f'Hessian calculated using {self.qm["bonds_engine"]}')
 
         return molecule
 
@@ -598,8 +618,8 @@ We welcome any suggestions for additions or changes.''')
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
         opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS',
-                               combination=self.args.combination, refinement_method=self.args.refinement_method,
-                               vn_bounds=self.args.tor_limit)
+                               combination=self.args.combination, refinement_method=self.fitting['refinement_method'],
+                               vn_bounds=self.fitting['tor_limit'])
         opt.run()
 
         append_to_log('Torsion optimisations complete')
@@ -693,19 +713,19 @@ We welcome any suggestions for additions or changes.''')
         # The stage keys and messages
         stage_dict = {
             'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
-            'mm_optimise': ['Partially optimising with MM', 'Optimisation complete'],
-            'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimised'],
-            'hessian': ['Calculating Hessian matrix', 'Matrix calculated'],
+            'mm_optimise': ['Partially optimising with MM', 'Partial optimisation complete'],
+            'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimisation complete'],
+            'hessian': ['Calculating Hessian matrix', 'Hessian matrix calculated and confirmed to be symmetric'],
             'mod_sem': ['Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated'],
             'density': [f'Performing density calculation with {self.qm["density_engine"]}',
                         'Density calculation complete'],
             'charges': [f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated'],
             'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
-            'torsion_scan': ['Performing QM constrained optimisation with torsiondrive',
+            'torsion_scan': ['Performing QM constrained optimisation with Torsiondrive',
                              'Torsiondrive finished QM results saved'],
             'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
             'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
-            'pause': ['Analysis stopping', 'Analysis paused!'],
+            'pause': ['Pausing analysis', 'Analysis paused!'],
             'skip': ['Skipping section', 'Section skipped']}
 
         # do the first stage in the order
@@ -714,7 +734,10 @@ We welcome any suggestions for additions or changes.''')
 
         # cannot use for loop as we mute the dictionary during the loop
         while True:
-            next_key = self.stage_wrapper(next_key, stage_dict[next_key][0], stage_dict[next_key][1])
+            if next_key is None:
+                break
+            else:
+                next_key = self.stage_wrapper(next_key, stage_dict[next_key][0], stage_dict[next_key][1])
 
             if next_key == 'pause':
                 self.pause()

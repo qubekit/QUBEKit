@@ -346,8 +346,6 @@ class TorsionOptimiser:
             if torsion not in self.index_dict:
                 self.index_dict[torsion] = i
 
-        # print(self.index_dict)
-
         # Now, reset all periodic torsion terms back to their initial values
         for pos, key in enumerate(self.torsion_store):
             try:
@@ -412,7 +410,6 @@ class TorsionOptimiser:
         # calculate the objective
 
         # Adjust the mm energy to make it relative to the minimum structure
-        # print(f'minimim mm energy: {self.mm_minimum}')
         mm_energy = self.mm_energy - min(self.mm_energy)
         error = (mm_energy - self.qm_energy) ** 2
 
@@ -431,7 +428,6 @@ class TorsionOptimiser:
         bounds_pen = sum(1 for vn in x if abs(vn) >= self.abs_bounds)
 
         total_error += move_pen + bounds_pen
-        # print(f'total error: {total_error}\n move pen:{move_pen}\n bounds_pen:{bounds_pen}')
         return total_error
 
     def steep_objective(self, x):
@@ -439,7 +435,6 @@ class TorsionOptimiser:
 
         # Update the parameter vector into tor_types
         self.update_tor_vec(x)
-        # print(x)
 
         # Update the torsions
         self.update_torsions()
@@ -469,8 +464,6 @@ class TorsionOptimiser:
         # Calculate the penalty
         pen = self.l_pen * sum((x - self.starting_params) ** 2)
         total_error += pen
-
-        # print(total_error)
 
         return total_error
 
@@ -519,7 +512,6 @@ class TorsionOptimiser:
 
             # Keep a copy of the energy before adjusting in case another loop is needed
             self.energy_store_qm = deepcopy(append(self.energy_store_qm, self.qm_energy))
-            # print(self.energy_store_qm)
 
             # Normalise the qm energy again using the qm reference energy
             self.qm_normalise()
@@ -548,7 +540,6 @@ class TorsionOptimiser:
 
                 # optimise using the scipy method for the new structures with a penatly to remain close to the old
                 fitting_error, opt_parameters = self.scipy_optimiser()
-                # print(f'The current error: {fitting_error}\n opt parameters: {opt_parameters}')
 
                 # update the parameters in the fitting vector and the molecule for the MM scans
                 self.update_tor_vec(opt_parameters)
@@ -576,8 +567,6 @@ class TorsionOptimiser:
                 chdir('../')
                 break
 
-        # print(objective)
-        # print(f'The error converged after {iteration} iterations.')
         # find the minimum total error index in list
         min_error = min(objective['total'])
         min_index = objective['total'].index(min_error)
@@ -595,7 +584,7 @@ class TorsionOptimiser:
         # first get back the original qm energies as well
         self.qm_energy = self.energy_store_qm[:24]
         self.qm_normalise()
-        energy_error = self.objective(final_parameters)
+        # energy_error = self.objective(final_parameters)
 
         # get the starting energies back to the initial values before fitting
         self.initial_energy = self.starting_energy
@@ -603,7 +592,6 @@ class TorsionOptimiser:
         self.plot_results(name='Stage2_Single_point_fit')
 
         self.convergence_plot('final_converge', objective)
-        # print(f'final error {energy_error}')
 
         return final_error, final_parameters
 
@@ -717,7 +705,6 @@ class TorsionOptimiser:
 
             # Start the main optimiser loop and get the final error and parameters back
             error, opt_parameters = self.scipy_optimiser()
-            # print(f'The current error: {error}\n opt parameters: {opt_parameters}')
             self.param_vector = opt_parameters
 
             # Push the new parameters back to the molecule parameter dictionary
@@ -849,7 +836,6 @@ class TorsionOptimiser:
                 self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', '3.141592653589793'],
                                                            ['3', '1', '0'], ['4', '1', '3.141592653589793']]
 
-        # print(self.molecule.PeriodicTorsionForce)
         # Write out the new xml file which is read into the OpenMM system
         self.molecule.write_parameters()
 
@@ -865,7 +851,6 @@ class TorsionOptimiser:
         # Get a list of which dihedrals parameters are to be varied
         # Convert to be indexed from 0
         to_fit = [(tor[0] - 1, tor[1] - 1, tor[2] - 1, tor[3] - 1) for tor in list(self.molecule.dihedrals[self.scan])]
-        # print(to_fit)
 
         # Check which ones have the same parameters and how many torsion vectors we need
         self.tor_types = OrderedDict()
@@ -1021,9 +1006,6 @@ class TorsionOptimiser:
         for val in self.tor_types.values():
             for j, dihedral in enumerate(val[0]):
                 for v_n in range(4):
-                    # print the torsion we are replacing and the new torsion
-                    # print(torsion_force.getTorsionParameters(v_n + val[2][j]))
-                    # print(f'{tuple(dihedral[i] for i in range(4))}')
                     torsion_force.setTorsionParameters(index=v_n + val[2][j],
                                                        particle1=dihedral[0], particle2=dihedral[1],
                                                        particle3=dihedral[2], particle4=dihedral[3],

@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
+from QUBEKit.helpers import pretty_print, unpickle
+
 from time import time
 from datetime import datetime
 from functools import wraps
 from logging import getLogger, Formatter, FileHandler, INFO
 from os import listdir
-
-from QUBEKit.helpers import pretty_print, unpickle
 
 
 def timer_func(orig_func):
@@ -80,7 +80,7 @@ def for_all_methods(decorator):
     return decorate
 
 
-def exception_logger():
+def logger_format():
     """
     Creates logging object to be returned. Contains proper formatting and locations for logging exceptions.
     This isn't a decorator itself but is only used by exception_logger_decorator so it makes sense for it to be here.
@@ -101,7 +101,7 @@ def exception_logger():
     return logger
 
 
-def exception_logger_decorator(func):
+def exception_logger(func):
     """
     Decorator which logs exceptions to QUBEKit_log file if one occurs.
     Do not apply this decorator to a function / method unless a log file exists in the working dir.
@@ -111,7 +111,7 @@ def exception_logger_decorator(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        logger = exception_logger()
+        logger = logger_format()
 
         # Run as normal
         try:
@@ -132,7 +132,7 @@ def exception_logger_decorator(func):
                 # Run through log file backwards to find proper pickle point
                 lines = list(reversed(log.readlines()))
 
-                mol_name, pickle_point = None, None
+                mol_name, pickle_point = False, False
                 for pos, line in enumerate(lines):
                     if 'Analysing:' in line:
                         mol_name = line.split()[1]
@@ -141,10 +141,10 @@ def exception_logger_decorator(func):
                         # The stage_wrapper always wraps the method which is the name of the pickle point.
                         pickle_point = lines[pos - 2].split()[-1]
 
-                if mol_name is None and pickle_point is None:
+                if not (mol_name and pickle_point):
                     raise EOFError('Cannot locate molecule name or completion stage in file.')
 
-                mol = unpickle(f'.{mol_name}_states')[pickle_point]
+                mol = unpickle()[pickle_point]
                 pretty_print(mol, to_file=True, finished=False)
 
             # Re-raises the exception
