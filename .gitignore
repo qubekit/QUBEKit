@@ -4,7 +4,7 @@ qubekit.egg-info
 .pytest_cache
 .idea
 *.pdb
-!/tests/*
+!/tests/*.pdb
 *.mol
 *.z
 *.csv
