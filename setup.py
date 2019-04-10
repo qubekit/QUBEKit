@@ -21,8 +21,6 @@ setup(
         'console_scripts': [
             'QUBEKit = QUBEKit.run:main',
             'qubekit = QUBEKit.run:main',
-            'QUBEKit-josh = QUBEKit.tests_josh:main',
-            'QUBEKit-chris = QUBEKit.tests_chris:main',
             'QUBEKit-pro = QUBEKit.protein_run:main'
         ]
     },
@@ -32,11 +30,10 @@ setup(
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
         'Topic :: Scientific/Engineering :: Chemistry',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
     ],
-    python_requires='~=3.5'
+    python_requires='~=3.6'
 )
 
 print('Finding home directory to store QUBEKit config files')

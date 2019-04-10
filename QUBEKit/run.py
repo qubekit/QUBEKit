@@ -12,8 +12,9 @@ from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log,
     Configure, unpickle
 
 import argparse
+from subprocess import run
 from sys import exit as sys_exit
-from os import mkdir, chdir, path, listdir, walk, getcwd, system
+from os import mkdir, chdir, path, listdir, walk, getcwd
 from shutil import copy
 from collections import OrderedDict
 from functools import partial
@@ -500,7 +501,8 @@ We welcome any suggestions for additions or changes.""")
             molecule.write_pdb(name='openmm', input_type='input')
             molecule.write_parameters(name='state')
             # Run geometric
-            system('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml > log.xt')
+            with open('log.txt', 'w+') as log:
+                run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml', shell=True, stdout=log, stderr=log)
             # Get the optimised structure store under mm
             molecule.read_xyz(input_type='mm')
 
@@ -684,7 +686,7 @@ We welcome any suggestions for additions or changes.""")
 
         return molecule
 
-    @exception_logger_decorator
+    @exception_logger
     def execute(self, torsion_options=None):
         """
         Calls all the relevant classes and methods for the full QM calculation in the correct order.

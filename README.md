@@ -2,6 +2,7 @@
 
 **Newcastle University UK Cole Group.**
 
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/qubekit/QUBEKit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/qubekit/QUBEKit/context:python)
 ## Table of Contents
 
 * [What is QUBEKit?](https://github.com/jthorton/QUBEKitdev#what-is-qubekit)
