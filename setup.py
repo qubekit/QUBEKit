@@ -21,7 +21,8 @@ setup(
         'py-cpuinfo',
         'psutil',
         'qcengine',
-        'pydantic>=0.20.0'
+        'pydantic>=0.20.0',
+        'networkx',
     ],
     author=['Joshua Thomas Horton', 'Chris Ringrose'],
     entry_points={
