@@ -20,10 +20,12 @@ bash $MINICONDA -b -p $MINICONDA_HOME
 
 # Configure miniconda
 export PIP_ARGS="-U"
-export PATH=$MINICONDA_HOME/bin:$PATH
+
+echo ". $MINICONDA_HOME/etc/profile.d/conda.sh" >> ~/.bashrc  # Source the profile.d file
+echo "conda activate" >> ~/.bashrc  # Activate conda
+source ~/.bashrc # source file to get new commands
 
 conda config --add channels conda-forge
-
 conda config --set always_yes yes
 conda install conda conda-build jinja2 anaconda-client
 conda update --quiet --all
