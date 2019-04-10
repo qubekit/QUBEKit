@@ -14,15 +14,20 @@ setup(
     description='Quantum mechanical bespoke force field parameter generation',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/jthorton/QUBEKitdev',
+    url='https://github.com/qubekit/QUBEKitdev',
     packages=find_packages(),
+    install_requires=[
+        'pyyaml',
+        'py-cpuinfo',
+        'psutil',
+        'qcengine',
+        'pydantic>=0.20.0'
+    ],
     author=['Joshua Thomas Horton', 'Chris Ringrose'],
     entry_points={
         'console_scripts': [
             'QUBEKit = QUBEKit.run:main',
             'qubekit = QUBEKit.run:main',
-            'QUBEKit-josh = QUBEKit.tests_josh:main',
-            'QUBEKit-chris = QUBEKit.tests_chris:main',
             'QUBEKit-pro = QUBEKit.protein_run:main'
         ]
     },

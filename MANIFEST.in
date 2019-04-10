@@ -1,5 +1,10 @@
+recursive-include QUBEKit *.py
+
 # Include the README and style guide
 include *.md
 
 # Include the license
 include LICENSE.txt
+
+include MANIFEST.in
+include setup.py

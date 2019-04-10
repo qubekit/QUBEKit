@@ -1,0 +1,14 @@
+name: test
+channels:
+  - devtools-forge
+  - rdkit
+dependencies:
+  - rdkit
+
+    # Core
+  - python
+  - pyyaml
+  - py-cpuinfo
+  - psutil
+  - qcelemental >=0.3.0
+  - pydantic >=0.20.0

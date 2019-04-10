@@ -1,0 +1,13 @@
+name: test
+channels:
+  - devtools-forge
+  - omnia
+dependencies:
+    # OpenMM test depends
+  - openmm
+
+    # QUBEKit base depends
+  - numpy
+  - networkx
+  - matplotlib
+  - scipy
