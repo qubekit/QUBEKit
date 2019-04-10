@@ -307,7 +307,7 @@ class PSI4(Engines):
         if run:
             with open('log.txt', 'w+') as log:
                 sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
-                         shell=True, stdout=log)
+                        shell=True, stdout=log)
 
 
 @for_all_methods(timer_logger)
@@ -575,11 +575,22 @@ class QCEngine(Engines):
             return qcng.compute(task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
 
         else:
-            task = qcel.models.ResultInput(
-                molecule=mol,
-                driver=driver,
-                model={'method': 'UFF', 'basis': None},
-                keywords={"coordsys": "tric", "maxiter": 100, "program": "rdkit"}
-            )
+            task = {
+                "schema_name": "qcschema_optimization_input",
+                "schema_version": 1,
+                "keywords": {
+                    "coordsys": "tric",
+                    "maxiter": 100,
+                    "program": "psi4"
+                },
+                "input_specification": {
+                    "schema_name": "qcschema_input",
+                    "schema_version": 1,
+                    "driver": 'gradient',
+                    "model": {'method': self.qm['theory'], 'basis': self.qm['basis']},
+                    "keywords": {},
+                },
+                "initial_molecule": qcng.get_molecule("water"),
+            }
 
             return qcng.compute_procedure(task, 'geometric')

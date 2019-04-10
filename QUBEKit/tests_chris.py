@@ -33,4 +33,11 @@ config_dict = [defaults_dict, qm, fitting, descriptions]
 mol = Ligand('methane.pdb')
 qcengine = QCEngine(mol, config_dict)
 
-print(qcengine.call_qcengine('psi4', 'properties', 'input').return_result)
+ret = qcengine.call_qcengine('psi4', 'hessian', 'input')
+
+
+# print(ret.energies)
+# print(ret.trajectory)
+# print(ret.final_molecule)
+
+print(ret.frequencies)
