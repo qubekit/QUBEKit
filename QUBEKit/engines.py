@@ -541,6 +541,10 @@ class QCEngine(Engines):
         super().__init__(molecule, config_dict)
 
     def generate_qschema(self, input_type='input'):
+        """
+        Using the molecule object, generate a QCEngine schema. This can then
+        be fed into the various QCEngine procedures.
+        """
 
         mol_data = f'{self.charge} {self.multiplicity}\n'
 
@@ -554,6 +558,10 @@ class QCEngine(Engines):
         return mol
 
     def call_qcengine(self, engine, driver, input_type):
+        """
+        Using the created schema, run a particular engine, specifying the driver (job type).
+        e.g. engine: geo, driver: energies
+        """
 
         mol = self.generate_qschema(input_type=input_type)
 

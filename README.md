@@ -5,22 +5,22 @@
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/qubekit/QUBEKit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/qubekit/QUBEKit/context:python)
 ## Table of Contents
 
-* [What is QUBEKit?](https://github.com/jthorton/QUBEKitdev#what-is-qubekit)
-    * [Development](https://github.com/jthorton/QUBEKitdev#in-development)
-* [Installation](https://github.com/jthorton/QUBEKitdev#installation)
-    * [Requirements](https://github.com/jthorton/QUBEKitdev#requirements)
-* [Help](https://github.com/jthorton/QUBEKitdev#help)
-    * [Before You Start: Config Files](https://github.com/jthorton/QUBEKitdev#before-you-start-config-files)
-    * [QUBEKit Commands](https://github.com/jthorton/QUBEKitdev#qubekit-commands-running-jobs)
-        * [Running Jobs](https://github.com/jthorton/QUBEKitdev#qubekit-commands-running-jobs)
-        * [Some Examples](https://github.com/jthorton/QUBEKitdev#qubekit-commands-some-examples)
-        * [Logging](https://github.com/jthorton/QUBEKitdev#qubekit-commands-some-examples)
-        * [High Throughput](https://github.com/jthorton/QUBEKitdev#qubekit-commands-high-throughput)
-        * [Custom Start and End Points](https://github.com/jthorton/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule)
-            * [Single Molecules](https://github.com/jthorton/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule)
-            * [Multiple Molecules](https://github.com/jthorton/QUBEKitdev#qubekit-commands-custom-start-and-end-points-multiple-molecules)
-        * [Other Commands and Information](https://github.com/jthorton/QUBEKitdev#qubekit-commands-other-commands-and-information)
-* [Cook Book](https://github.com/jthorton/QUBEKitdev#cook-book)
+* [What is QUBEKit?](https://github.com/qubekit/QUBEKitdev#what-is-qubekit)
+    * [Development](https://github.com/qubekit/QUBEKitdev#in-development)
+* [Installation](https://github.com/qubekit/QUBEKitdev#installation)
+    * [Requirements](https://github.com/qubekit/QUBEKitdev#requirements)
+* [Help](https://github.com/qubekit/QUBEKitdev#help)
+    * [Before You Start: Config Files](https://github.com/qubekit/QUBEKitdev#before-you-start-config-files)
+    * [QUBEKit Commands](https://github.com/qubekit/QUBEKitdev#qubekit-commands-running-jobs)
+        * [Running Jobs](https://github.com/qubekit/QUBEKitdev#qubekit-commands-running-jobs)
+        * [Some Examples](https://github.com/qubekit/QUBEKitdev#qubekit-commands-some-examples)
+        * [Logging](https://github.com/qubekit/QUBEKitdev#qubekit-commands-some-examples)
+        * [High Throughput](https://github.com/qubekit/QUBEKitdev#qubekit-commands-high-throughput)
+        * [Custom Start and End Points](https://github.com/qubekit/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule)
+            * [Single Molecules](https://github.com/qubekit/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule)
+            * [Multiple Molecules](https://github.com/qubekit/QUBEKitdev#qubekit-commands-custom-start-and-end-points-multiple-molecules)
+        * [Other Commands and Information](https://github.com/qubekit/QUBEKitdev#qubekit-commands-other-commands-and-information)
+* [Cook Book](https://github.com/qubekit/QUBEKitdev#cook-book)
 
 
 ## What is QUBEKit?
@@ -45,7 +45,7 @@ We welcome any suggestions for additions or changes.
 
 ## Installation
 
-To install, it is recommended to conda *([help](https://github.com/jthorton/QUBEKitdev#requirements))* 
+To install, it is recommended to conda *([help](https://github.com/qubekit/QUBEKitdev#requirements))* 
 or pip install QUBEKit with either of the following commands: 
 
     conda install -c cringrose qubekit
@@ -71,7 +71,7 @@ If you don't plan on performing these sorts of calculations then it is not neces
 * [Chargemol](https://sourceforge.net/projects/ddec/files/)
 
 Chargemol can be downloaded and installed from a zip file in the above link. 
-Be sure to add the path to configs once you've generated them *([explanation](https://github.com/jthorton/QUBEKitdev#before-you-start-config-files))*.
+Be sure to add the path to configs once you've generated them *([explanation](https://github.com/qubekit/QUBEKitdev#before-you-start-config-files))*.
 
 Many packages come pre-installed with Anaconda, however there are some which require further installation.
 These packages are on different conda channels, hence needing the extra arguments.
@@ -177,7 +177,7 @@ Try running QUBEKit with the command:
 
 This will generate a methane pdb file (and mol file) using its smiles string: `C`,
 then QUBEKit will analyse it until the hessian is calculated.
-See [QUBEKit Commands: Custom Start and End Points (single molecule)](https://github.com/jthorton/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule) below for more details on `-end`.
+See [QUBEKit Commands: Custom Start and End Points (single molecule)](https://github.com/qubekit/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule) below for more details on `-end`.
 
 ### QUBEKit Commands: Logging
 
