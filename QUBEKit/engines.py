@@ -305,8 +305,8 @@ class PSI4(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
-                         shell=True, stdout=log)
+                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]} '
+                        f'--maxiter {self.qm["iterations"]}', shell=True, stdout=log)
 
 
 @for_all_methods(timer_logger)

@@ -302,6 +302,7 @@ We welcome any suggestions for additions or changes.''')
             # for further details and better documentation.
             start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'parametrise'
             end_point = bulk_data[name]['end']
+            torsion_options = bulk_data[name]['torsion order']
             stages = [key for key in temp]
             extra = 1 if end_point != 'finalise' else 0
             stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
@@ -320,7 +321,7 @@ We welcome any suggestions for additions or changes.''')
                     self.file = smiles_to_pdb(smile_string, name)
 
                 else:
-                    self.file = f'{name}.pdb'
+                    self.file = name
 
                 self.create_log()
 
@@ -338,7 +339,8 @@ We welcome any suggestions for additions or changes.''')
 
                 self.continue_log()
 
-            self.execute()
+            # if we have a torsion order add it here
+            self.execute(torsion_options)
             chdir('../')
 
         sys_exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
@@ -401,7 +403,7 @@ We welcome any suggestions for additions or changes.''')
 
             log_file.write('\n')
 
-    def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg=''):
+    def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg='', torsion_options=None):
         """
         Firstly, check if the stage start_key is in self.order; this tells you if the stage should be called or not.
         If it isn't in self.order:
@@ -414,9 +416,11 @@ We welcome any suggestions for additions or changes.''')
             - Pickle the ligand object again with the next_key marker as its stage
         """
 
-        # if start_key in [key for key in self.order]:
-
         mol = unpickle(f'.{self.file[:-4]}_states')[start_key]
+
+        # if we have an torsion options dictionary pass it to the molecule
+        if torsion_options is not None:
+            mol = self.store_torsions(mol, torsion_options)
 
         if begin_log_msg:
             printf(f'{begin_log_msg}...', end=' ')
@@ -438,7 +442,6 @@ We welcome any suggestions for additions or changes.''')
             if fin_log_msg:
                 printf(fin_log_msg)
 
-            # mol.pickle(state=self.order[next_key].__name__)
             mol.pickle(state=next_key)
             return next_key
 
@@ -639,19 +642,48 @@ We welcome any suggestions for additions or changes.''')
         printf('QUBEKit stopping at onetep step!\n To continue please move the ddec.onetep file and xyz file to the '
                'density folder and use -restart lennard_jones to continue.')
 
-        sys_exit()
+        return
+
+    @staticmethod
+    def store_torsions(molecule, torsions_list):
+        """Take the molecule object and the list of torsions and convert them to rotatable centers and put them in the
+        scan order object."""
+
+        if torsions_list is not None:
+            scan_order =[]
+            for torsion in torsions_list:
+                # turn the torsion into a tuple
+                tor = tuple(atom for atom in torsion.split('-'))
+                # convert the string names to the index names and get the core indexed from 1 to match the topology network
+                core = (molecule.atom_names.index(tor[1]) + 1, molecule.atom_names.index(tor[2]) + 1)
+                if core in molecule.rotatable:
+                    scan_order.append(core)
+                elif reversed(core) in molecule.rotatable:
+                    scan_order.append(reversed(core))
+            molecule.scan_order = scan_order
+
+        return molecule
 
     @exception_logger_decorator
-    def execute(self):
+    def execute(self, torsion_options=None):
         """
         Calls all the relevant classes and methods for the full QM calculation in the correct order.
         Exceptions are added to log (if raised).
+        Will also add the extra options dictionary to the molecule.
         """
+
+        # split the torsion list
+        if torsion_options is not None:
+            torsion_options = torsion_options.split(',')
 
         # Check if starting from the beginning; if so:
         if 'parametrise' in [key for key in self.order]:
             # Initialise ligand object fully before pickling it
             molecule = Ligand(self.file, combination=self.args.combination)
+
+            # If there are extra options add them to the molecule
+            if torsion_options is not None:
+                molecule = self.store_torsions(molecule, torsion_options)
             molecule.pickle(state='parametrise')
 
         # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
@@ -678,7 +710,7 @@ We welcome any suggestions for additions or changes.''')
 
         # do the first stage in the order
         key = list(self.order.keys())[0]
-        next_key = self.stage_wrapper(key, stage_dict[key][0], stage_dict[key][1])
+        next_key = self.stage_wrapper(key, stage_dict[key][0], stage_dict[key][1], torsion_options)
 
         # cannot use for loop as we mute the dictionary during the loop
         while True:
@@ -686,6 +718,7 @@ We welcome any suggestions for additions or changes.''')
 
             if next_key == 'pause':
                 self.pause()
+                break
 
 
 def main():

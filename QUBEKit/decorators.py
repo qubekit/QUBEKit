@@ -122,7 +122,7 @@ def exception_logger_decorator(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
-            if 'QUBEKit_log.txt' in listdir('.'):
+            if 'QUBEKit_log.txt' in listdir("."):
                 log_file = 'QUBEKit_log.txt'
             else:
                 log_file = '../QUBEKit_log.txt'
