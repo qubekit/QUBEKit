@@ -438,8 +438,11 @@ We welcome any suggestions for additions or changes.""")
         if torsion_options is not None:
             mol = self.store_torsions(mol, torsion_options)
 
-        if begin_log_msg:
-            printf(f'{begin_log_msg}...', end=' ')
+        if self.order[start_key] == self.skip:
+            printf(f'Skipping stage: {start_key}')
+        else:
+            if begin_log_msg:
+                printf(f'{begin_log_msg}...', end=' ')
 
         # move into folder
         home = getcwd()
@@ -457,7 +460,7 @@ We welcome any suggestions for additions or changes.""")
         # Begin looping through self.order, but return after the first iteration.
         for key in self.order:
             next_key = key
-            if fin_log_msg:
+            if fin_log_msg and (self.order[start_key] != self.skip):
                 printf(fin_log_msg)
 
             mol.pickle(state=next_key)
@@ -656,7 +659,8 @@ We welcome any suggestions for additions or changes.""")
     @staticmethod
     def pause():
         """
-        Pause the analysis when using onetep so we can comeback into the work flow but do not edit the pickling process
+        Pause the analysis when using ONETEP so we can come back into the workflow
+        without breaking the pickling process.
         """
 
         printf('QUBEKit stopping at onetep step!\n To continue please move the ddec.onetep file and xyz file to the '
@@ -666,25 +670,29 @@ We welcome any suggestions for additions or changes.""")
 
     @staticmethod
     def store_torsions(molecule, torsions_list):
-        """Take the molecule object and the list of torsions and convert them to rotatable centers and put them in the
-        scan order object."""
+        """
+        Take the molecule object and the list of torsions and convert them to rotatable centres. Then, put them in the
+        scan order object.
+        """
 
         if torsions_list is not None:
-            scan_order =[]
+
+            scan_order = []
             for torsion in torsions_list:
-                # turn the torsion into a tuple
                 tor = tuple(atom for atom in torsion.split('-'))
-                # convert the string names to the index names and get the core indexed from 1 to match the topology network
+                # convert the string names to the index names and get the core indexed from 1 to match the topology
                 core = (molecule.atom_names.index(tor[1]) + 1, molecule.atom_names.index(tor[2]) + 1)
+
                 if core in molecule.rotatable:
                     scan_order.append(core)
                 elif reversed(core) in molecule.rotatable:
                     scan_order.append(reversed(core))
+
             molecule.scan_order = scan_order
 
         return molecule
 
-    @exception_logger_decorator
+    @exception_logger
     def execute(self, torsion_options=None):
         """
         Calls all the relevant classes and methods for the full QM calculation in the correct order.
@@ -721,8 +729,8 @@ We welcome any suggestions for additions or changes.""")
                         'Density calculation complete'],
             'charges': [f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated'],
             'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
-            'torsion_scan': ['Performing QM constrained optimisation with Torsiondrive',
-                             'Torsiondrive finished QM results saved'],
+            'torsion_scan': ['Performing QM-constrained optimisation with Torsiondrive',
+                             'Torsiondrive finished and QM results saved'],
             'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
             'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
             'pause': ['Pausing analysis', 'Analysis paused!'],
