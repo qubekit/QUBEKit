@@ -20,12 +20,12 @@ requirements:
     - scipy
 
 about:
-  home: https://github.com/jthorton/QUBEKitdev
+  home: https://github.com/qubekit/QUBEKitdev
   license: MIT
   license_family: MIT
   license_file: LICENSE.txt
   summary: Quantum mechanical bespoke force field derivation toolkit
-  doc_url: https://github.com/jthorton/QUBEKitdev
+  doc_url: https://github.com/qubekit/QUBEKitdev
 
 extra:
   recipe-maintainers:

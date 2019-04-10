@@ -1,7 +1,7 @@
 name: test
 channels:
-  - devtools-forge
   - omnia
+  - conda-forge
 dependencies:
     # OpenMM test depends
   - openmm

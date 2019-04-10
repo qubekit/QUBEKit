@@ -2,6 +2,7 @@ name: test
 channels:
   - psi4
   - conda-forge
+  - omnia
 dependencies:
   - psi4=1.3
   - dftd3
