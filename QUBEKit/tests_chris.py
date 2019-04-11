@@ -10,14 +10,22 @@ qm, fitting, descriptions = Configure.load_config(defaults_dict['config'])
 config_dict = [defaults_dict, qm, fitting, descriptions]
 
 
-mol = Ligand('methane.pdb')
-qcengine = QCEngine(mol, config_dict)
-
-ret = qcengine.call_qcengine('geo', 'gradient', 'input')
-
-# Working keys for a geometric test
+# mol = Ligand('methane.pdb')
+# qcengine = QCEngine(mol, config_dict)
+#
+# ret = qcengine.call_qcengine('geo', 'gradient', 'input')
+#
+# # Working keys for a geometric test
+# # print(ret.energies)
+# # print(ret.trajectory)
+# # print(ret.final_molecule)
+#
 # print(ret.energies)
-# print(ret.trajectory)
-# print(ret.final_molecule)
 
-print(ret.energies)
+
+a = {1: 2, 3: 4}
+
+if 2 in a:
+    print('yes')
+
+print(list(a))
