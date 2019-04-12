@@ -86,8 +86,8 @@ def main():
     # Set up the argument parser
     parser = argparse.ArgumentParser(prog='QUBEKit-pro', formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description='QUBEKit-pro is an extension to QUBEKit that allows the preparation'
-                                                 'of amber prepared proteins with the QUBE force field and creates force'
-                                                 ' field xml files for OpenMM simulation.')
+                                                 'of amber prepared proteins with the QUBE forcefield and creates force'
+                                                 'field xml files for OpenMM simulation.')
     parser.add_argument('-setup', '--setup', action=SetupAction,
                         help='Enter the name of the amber prepared protein file to convert to xyz for onetep.')
 
