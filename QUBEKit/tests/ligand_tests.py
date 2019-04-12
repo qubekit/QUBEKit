@@ -1,24 +1,9 @@
 from QUBEKit.ligand import Ligand
+from QUBEKit.tests.test_structures import acetone
+
+from os import system
 
 import unittest
-
-
-acetone = """COMPND    acetone
-HETATM    1  C1  UNL     1       1.273  -0.213  -0.092  1.00  0.00           C  
-HETATM    2  C2  UNL     1      -0.006   0.543  -0.142  1.00  0.00           C  
-HETATM    3  O1  UNL     1       0.076   1.721  -0.474  1.00  0.00           O  
-HETATM    4  C3  UNL     1      -1.283  -0.126   0.197  1.00  0.00           C  
-HETATM    5  H1  UNL     1       1.797   0.136   0.840  1.00  0.00           H  
-HETATM    6  H2  UNL     1       1.845   0.072  -1.000  1.00  0.00           H  
-HETATM    7  H3  UNL     1       1.082  -1.311  -0.045  1.00  0.00           H  
-HETATM    8  H4  UNL     1      -1.979   0.089  -0.663  1.00  0.00           H  
-HETATM    9  H5  UNL     1      -1.680   0.295   1.147  1.00  0.00           H  
-HETATM   10  H6  UNL     1      -1.125  -1.207   0.231  1.00  0.00           H  
-CONECT    1    2    5    6    7
-CONECT    2    3    3    4
-CONECT    4    8    9   10
-END
-"""
 
 
 class TestLigands(unittest.TestCase):
@@ -36,12 +21,56 @@ class TestLigands(unittest.TestCase):
 
     def test_pdb_reader(self):
 
+
         # Check all atoms are found
         self.assertEqual(10, len(self.molecule.molecule['input']))
 
         # Check atom names and coords are extracted for each atom in the molecule
         for atom in self.molecule.molecule['input']:
             self.assertEqual(4, len(atom))
+
+    def test_bonds(self):
+
+        # check we have found the bonds in the conectons table
+        bonds = [(1, 5), (1, 6), (1, 7), (1, 2), (2, 3), (2, 4), (4, 8), (4, 9), (4, 10)]
+        self.assertEqual(bonds, list(self.molecule.topology.edges))
+
+        # make sure every bond has a length
+        self.assertEqual(len(self.molecule.bond_lengths), len(list(self.molecule.topology.edges)))
+
+    def test_angles(self):
+
+        # check that we have found all angles in the molecule
+        angles = [(2, 1, 5), (2, 1, 6), (2, 1, 7), (5, 1, 6), (5, 1, 7), (6, 1, 7), (1, 2, 3), (1, 2, 4),
+                  (3, 2, 4), (2, 4, 8), (2, 4, 9), (2, 4, 10), (8, 4, 9), (8, 4, 10), (9, 4, 10)]
+
+        self.assertEqual(angles, list(self.molecule.angles))
+
+        # make sure every angle has a value
+        self.assertEqual(len(self.molecule.angles), len(self.molecule.angle_values))
+
+    def test_dihedrals(self):
+
+        # check the dihedral angles in the molecule
+        dihedrals = {(1, 2): [(5, 1, 2, 3), (5, 1, 2, 4), (6, 1, 2, 3), (6, 1, 2, 4), (7, 1, 2, 3), (7, 1, 2, 4)],
+                     (2, 4): [(1, 2, 4, 8), (1, 2, 4, 9), (1, 2, 4, 10), (3, 2, 4, 8), (3, 2, 4, 9), (3, 2, 4, 10)]}
+
+        # check that every dihedral has a value measured
+        self.assertEqual(12, len(self.molecule.dih_phis))
+
+        # check the improper dihedrals found
+        impropers = [(2, 1, 3, 4)]
+        self.assertEqual(impropers, self.molecule.improper_torsions)
+
+        # check the rotatable torsions found this ensures that the methyl groups are removed from the
+        # torsion list and symmetry is working
+        rot = []
+        self.assertEqual(rot, self.molecule.rotatable)
+
+    @classmethod
+    def tearDownClass(cls):
+        """Remove the files produced during testing"""
+        system('rm acetone.pdb')
 
 
 if __name__ == '__main__':
