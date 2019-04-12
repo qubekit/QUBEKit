@@ -107,6 +107,12 @@ class Main:
         if self.args.bulk_run:
             self.bulk_execute()
 
+        # check if we just want to do the torsion test?
+        elif self.args.torsion_test:
+            # get the file
+            self.file = self.args.input
+            self.order = OrderedDict([('parametrise', self.parametrise), ('torsion_test', self.torsion_test)])
+
         # If not bulk must be main single run
         if self.args.restart:
             self.file = getcwd().split('_')[1] + '.pdb'
@@ -277,12 +283,12 @@ We welcome any suggestions for additions or changes.""")
                                                      'finalise'], help='Enter the end point of the QUBEKit job.')
         parser.add_argument('-progress', '--progress', nargs='?', const=True,
                             help='Get the current progress of a QUBEKit single or bulk job.', action=ProgressAction)
-        parser.add_argument('-combination', '--combination', default='opls', choices=['opls', 'amber'],
-                            help='Enter the combination rules that should be used.')
         parser.add_argument('-skip', '--skip', nargs='+', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem',
                                                                    'density', 'charges', 'lennard_jones',
                                                                    'torsion_scan', 'torsion_optimise', 'finalise'],
                             help='Option to skip certain stages of the execution.')
+        parser.add_argument('-tor_test', '--torsion_test', default=False, choices=[True, False], type=bool,
+                            help='Enter True if you would like to run a torsion test on the chosen torsions.')
 
         # Add mutually exclusive groups to stop wrong combinations of options,
         # e.g. setup should not be ran with another command
@@ -508,16 +514,20 @@ We welcome any suggestions for additions or changes.""")
         Geometric/ OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
         """
 
+        # Check which method we want then do the optimisation
+        # TODO if we dont want geometric we can do a quick native openmm full optimisation?
         if self.args.mm_opt_method == 'openmm':
             # Make the inputs
-            molecule.write_pdb(name='openmm', input_type='input')
-            molecule.write_parameters(name='state')
+            molecule.write_pdb(input_type='input')
+            molecule.write_parameters()
             # Run geometric
             with open('log.txt', 'w+') as log:
-                run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml',
-                    shell=True, stdout=log, stderr=log)
-            # Get the optimised structure stored under mm
-            molecule.read_xyz(input_type='mm')
+                run(f'geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb {molecule.name}.pdb '
+                    f'--openmm {molecule.name}.xml', shell=True, stdout=log, stderr=log)
+            # Read the xyz traj and store the frames
+            molecule.read_xyz(f'{molecule.name}_optim.xyz')
+            # Store the last from of the traj as the mm optimised structure
+            molecule.molecule['mm'] = molecule.molecule['traj'][-1]
 
         else:
             # Run an rdkit optimisation with the right FF
@@ -537,7 +547,10 @@ We welcome any suggestions for additions or changes.""")
 
             # Calculate geometric-related gradient and geometry
             qm_engine.geo_gradient(input_type='mm')
-            molecule.read_xyz(input_type='qm')
+            # Read in the full qm optimisation traj
+            molecule.read_xyz(f'{molecule.name}_optim.xyz')
+            # Store the last frame as the QM optimisaed structure
+            molecule.molecule['qm'] = molecule.molecule['traj'][-1]
 
         else:
             qm_engine.generate_input(input_type='mm', optimise=True)
@@ -633,7 +646,7 @@ We welcome any suggestions for additions or changes.""")
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
         opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS',
-                               combination=self.args.combination, refinement_method=self.fitting['refinement_method'],
+                               combination=molecule.combination, refinement_method=self.fitting['refinement_method'],
                                vn_bounds=self.fitting['tor_limit'])
         opt.run()
 
@@ -704,6 +717,19 @@ We welcome any suggestions for additions or changes.""")
 
         return molecule
 
+    def torsion_test(self, molecule):
+        """Take the molecule and do the torsion test method."""
+
+        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
+        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS',
+                               combination=molecule.combination, refinement_method=self.fitting['refinement_method'],
+                               vn_bounds=self.fitting['tor_limit'])
+
+        # test the torsions!
+        opt.torsion_test()
+
+        print('Torsion testing done!')
+
     @exception_logger
     def execute(self, torsion_options=None):
         """
@@ -719,7 +745,7 @@ We welcome any suggestions for additions or changes.""")
         # Check if starting from the beginning; if so:
         if 'parametrise' in self.order:
             # Initialise ligand object fully before pickling it
-            molecule = Ligand(self.file, combination=self.args.combination)
+            molecule = Ligand(self.file)
 
             # If there are extra options add them to the molecule
             if torsion_options is not None:
@@ -746,7 +772,8 @@ We welcome any suggestions for additions or changes.""")
             'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
             'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
             'pause': ['Pausing analysis', 'Analysis paused!'],
-            'skip': ['Skipping section', 'Section skipped']}
+            'skip': ['Skipping section', 'Section skipped'],
+            'torsion_test': ['Testing torsion single point energies', 'Torsion testing complete']}
 
         # do the first stage in the order
         key = list(self.order)[0]

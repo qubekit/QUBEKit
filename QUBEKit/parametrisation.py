@@ -63,6 +63,7 @@ class Parametrisation:
         self.input_file = input_file
         self.fftype = fftype
         self.gaff_types = {}
+        self.combination = 'amber'
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -244,6 +245,7 @@ class XML(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
+        self.molecule.combination = 'opls'
 
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
@@ -277,6 +279,7 @@ class XMLProtein(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
+        self.molecule.combination = 'opls'
 
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
@@ -406,6 +409,7 @@ class AnteChamber(Parametrisation):
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
+        self.molecule.combination = self.combination
 
     def serialise_system(self):
         """Serialise the amber style files into an openmm object."""
@@ -421,7 +425,6 @@ class AnteChamber(Parametrisation):
 
         # file paths when moving in and out of temp locations
         cwd = getcwd()
-        input_file = path.abspath(self.molecule.filename)
         mol2 = path.abspath(f'{self.molecule.name}.mol2')
         frcmod_file = path.abspath(f'{self.molecule.name}.frcmod')
         prmtop_file = path.abspath(f'{self.molecule.name}.prmtop')
@@ -499,6 +502,7 @@ class OpenFF(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
+        self.molecule.combination = self.combination
 
     def serialise_system(self):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
@@ -540,6 +544,7 @@ class BOSS(Parametrisation):
         self.BOSS_cmd()
         self.gather_parameters()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
+        self.molecule.combination = 'opls'
 
     def BOSS_cmd(self):
         """

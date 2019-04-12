@@ -20,7 +20,7 @@ from itertools import groupby
 class Molecule:
     """Base class for ligands and proteins."""
 
-    def __init__(self, filename, smiles_string=None, combination='opls'):
+    def __init__(self, filename, smiles_string=None):
         """
         # Namings
         filename                str; Full filename e.g. methane.pdb
@@ -74,7 +74,7 @@ class Molecule:
         self.smiles = smiles_string
 
         # Structure
-        self.molecule = {'qm': [], 'mm': [], 'input': []}
+        self.molecule = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
         self.topology = None
         self.angles = None
         self.dihedrals = None
@@ -96,7 +96,7 @@ class Molecule:
         self.HarmonicAngleForce = {}
         self.PeriodicTorsionForce = OrderedDict()
         self.NonbondedForce = OrderedDict()
-        self.combination = combination
+        self.combination = None
         self.sites = None
 
         # QUBEKit internals
@@ -354,7 +354,9 @@ class Molecule:
         l14 = '0.5'
         c14 = '0.83333' if self.combination == 'amber' else '0.5'
 
-        NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14})
+        # add the combination rule to the xml for geometric.
+        NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14,
+                                                                    'combination': self.combination})
 
         for key, val in self.AtomTypes.items():
             SubElement(AtomTypes, "Type", attrib={
@@ -565,7 +567,7 @@ class Molecule:
 
 class Ligand(Molecule):
 
-    def __init__(self, filename, smiles_string=None, combination='opls'):
+    def __init__(self, filename, smiles_string=None):
         """
         scan_order              A list of the dihedral cores to be scaned in the scan order
         mm_optimised            List of lists; Inner list is the atom type followed by its coords for mm optimised
@@ -579,7 +581,7 @@ class Ligand(Molecule):
         symmetry_types          list; symmetrised atom types
         """
 
-        super().__init__(filename, smiles_string, combination)
+        super().__init__(filename, smiles_string)
 
         self.scan_order = None
         self.parameter_engine = None
@@ -593,24 +595,36 @@ class Ligand(Molecule):
         self.find_angles()
         self.find_dihedrals()
         self.find_rotatable_dihedrals()
+        self.find_impropers()
         self.get_dihedral_values()
         self.get_bond_lengths()
         self.get_angle_values()
         self.symmetrise_from_topo()
 
-    def read_xyz(self, name=None, input_type='input'):
-        """Read an xyz file to store the molecule structure."""
+    def read_xyz(self, name, input_type='traj'):
+        """Read an xyz file and get all frames from the file and put in the traj molecule holder by default
+        or if there is only one frame change the input location."""
 
-        opt_molecule = []
-
-        # opt.xyz is the geometric optimised structure file.
+        traj_molecules = []
+        molecule = []
         try:
-            with open(f'{name if name is not None else "opt"}.xyz', 'r') as xyz_file:
-                lines = xyz_file.readlines()[2:]
-                for line in lines:
+            with open(name, 'r') as xyz_file:
+                # lines = xyz_file.readlines()
+                # get the amount of atoms
+                natoms = len(self.molecule['input'])
+                for line in xyz_file:
                     line = line.split()
-                    opt_molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
-            self.molecule[input_type] = opt_molecule
+                    # skip frame heading lines
+                    if len(line) <= 1:
+                        next(xyz_file)
+                        continue
+                    else:
+                        molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
+                    if len(molecule) == natoms:
+                        # we have collected the molecule now store the frame
+                        traj_molecules.append(molecule)
+                        molecule = []
+            self.molecule[input_type] = traj_molecules
 
         except FileNotFoundError:
             raise FileNotFoundError(
@@ -650,8 +664,8 @@ class Ligand(Molecule):
 class Protein(Molecule):
     """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
-    def __init__(self, filename, combination='opls'):
-        super().__init__(filename, combination)
+    def __init__(self, filename):
+        super().__init__(filename)
 
         self.pdb_names = None
         self.read_pdb()
