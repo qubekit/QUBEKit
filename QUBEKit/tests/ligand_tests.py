@@ -21,7 +21,8 @@ class TestLigands(unittest.TestCase):
 
     def test_pdb_reader(self):
 
-        # Check all atoms are found in the input structure
+
+        # Check all atoms are found
         self.assertEqual(10, len(self.molecule.molecule['input']))
 
         # Check atom names and coords are extracted for each atom in the molecule

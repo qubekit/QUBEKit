@@ -111,23 +111,20 @@ class Main:
             self.file = self.args.input
             self.order = OrderedDict([('parametrise', self.parametrise), ('torsion_test', self.torsion_test)])
 
+        # If not bulk must be main single run
+        if self.args.restart:
+            self.file = getcwd().split('_')[1] + '.pdb'
         else:
-            # If not bulk must be main single run
-            if self.args.restart:
-                self.file = getcwd().split('/')[-1]
-            else:
-                self.file = self.args.input
-            # Check the end points for a normal run
-            start_point = self.args.restart if self.args.restart is not None else 'parametrise'
-            skip_list = self.args.skip if self.args.skip is not None else []
-            end_point = self.args.end if self.args.end is not None else 'finalise'
+            self.file = self.args.input
+        # Check the end points for a normal run
+        start_point = self.args.restart if self.args.restart is not None else 'parametrise'
+        skip_list = self.args.skip if self.args.skip is not None else []
+        end_point = self.args.end if self.args.end is not None else 'finalise'
 
             # Create list of all keys
             stages = [key for key in self.order]
 
-            # This ensures that the run is start_point to end_point inclusive rather than exclusive.
-            # e.g. -restart parametrise charges goes from parametrise to charges while doing the charges step.
-            extra = 1 if end_point != 'finalise' else 0
+        extra = 1 if end_point != 'finalise' else 0
 
             # Cut out the keys before the start_point and after the end_point
             # Add finalise back in if it's removed (finalise should always be called).
@@ -231,8 +228,10 @@ class Main:
                 pretty_progress()
                 sys_exit()
 
-        parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
-                                              description="""QUBEKit is a Python 3.6+ based force field derivation toolkit for Linux operating systems.
+        # TODO Convert description to just read the intro from the README?
+        parser = argparse.ArgumentParser(
+            prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
+            description="""QUBEKit is a Python 3.6+ based force field derivation toolkit for Linux operating systems.
 Our aims are to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
 QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
 QUBEKit aims to use as few parameters as possible while also being highly customisable.""", epilog="""QUBEKit should currently be considered a work in progress.
@@ -315,7 +314,7 @@ We welcome any suggestions for additions or changes.""")
         bulk_data = mol_data_from_csv(csv_file)
 
         # Run full analysis for each smiles string or pdb in the .csv file.
-        names = list(bulk_data.keys())
+        names = list(bulk_data)
         # Store a copy of self.order which will not be mutated.
         # This allows self.order to be built up after each run.
         temp = self.order
@@ -369,27 +368,6 @@ We welcome any suggestions for additions or changes.""")
 
         sys_exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
 
-    def continue_log(self):
-        """
-        In the event of restarting an analysis, find and append to the existing log file
-        rather than creating a new one.
-        """
-
-        with open(self.log_file, 'a+') as log_file:
-
-            log_file.write(f'\n\nContinuing log file from previous execution: {datetime.now()}\n\n')
-            log_file.write(str(f'The commands given were: {key}: {val}\n\n' for key, val in vars(self.args).items() if val is not None))
-
-            # TODO Add logic to reprint commands with *s after changed defaults.
-            #   Could possibly be done using the pickle file? Are the configs stored in an usable / accessible form?
-            # Writes the config dictionaries to the log file.
-            log_file.write('The defaults being used are:\n')
-            for dic in self.all_configs:
-                for key, var in dic.items():
-                    log_file.write(f'{key}: {var}\n')
-                log_file.write('\n')
-            log_file.write('\n')
-
     def create_log(self):
         """
         Creates the working directory for the job as well as the log file.
@@ -414,13 +392,37 @@ We welcome any suggestions for additions or changes.""")
 
         with open(self.log_file, 'w+') as log_file:
 
-            log_file.write(f'Beginning log file: {datetime.now()}\n\n')
-            log_file.write(str(f'The commands given were: {key}: {val}\n\n' for key, val in vars(self.args).items() if val is not None))
+            log_file.write(f'Beginning log file; the time is: {datetime.now()}\n\n\n')
+        self.log_configs()
+
+    def continue_log(self):
+        """
+        In the event of restarting an analysis, find and append to the existing log file
+        rather than creating a new one.
+        """
+
+        with open(self.log_file, 'a+') as log_file:
+
+            log_file.write(f'\n\nContinuing log file from previous execution; the time is: {datetime.now()}\n\n\n')
+        self.log_configs()
+
+    def log_configs(self):
+        """
+        Writes the runtime and file-based defaults to a log file.
+        Adds some fluff like the molecule name and time.
+        """
+        with open(self.log_file, 'a+') as log_file:
+
             log_file.write(f'Analysing: {self.file[:-4]}\n\n')
 
-            # Writes the config dictionaries to the log file.
-            log_file.write('The defaults being used are:\n')
-            for config in self.all_configs:
+            log_file.write('The runtime defaults are:\n\n')
+            for key, val in vars(self.args).items():
+                if val is not None:
+                    log_file.write(f'{key}: {val}\n')
+            log_file.write('\n')
+
+            log_file.write('The config file defaults being used are:\n\n')
+            for config in self.all_configs[1:]:
                 for key, var in config.items():
                     log_file.write(f'{key}: {var}\n')
                 log_file.write('\n')
@@ -445,8 +447,13 @@ We welcome any suggestions for additions or changes.""")
         if torsion_options is not None:
             mol = self.store_torsions(mol, torsion_options)
 
-        if begin_log_msg:
-            printf(f'{begin_log_msg}...', end=' ')
+        skipping = False
+        if self.order[start_key] == self.skip:
+            printf(f'Skipping stage: {start_key}')
+            skipping = True
+        else:
+            if begin_log_msg:
+                printf(f'{begin_log_msg}...', end=' ')
 
         # move into folder
         home = getcwd()
@@ -464,7 +471,7 @@ We welcome any suggestions for additions or changes.""")
         # Begin looping through self.order, but return after the first iteration.
         for key in self.order:
             next_key = key
-            if fin_log_msg:
+            if fin_log_msg and not skipping:
                 printf(fin_log_msg)
 
             mol.pickle(state=next_key)
@@ -671,7 +678,8 @@ We welcome any suggestions for additions or changes.""")
     @staticmethod
     def pause():
         """
-        Pause the analysis when using onetep so we can comeback into the work flow but do not edit the pickling process
+        Pause the analysis when using ONETEP so we can come back into the workflow
+        without breaking the pickling process.
         """
 
         printf('QUBEKit stopping at onetep step!\n To continue please move the ddec.onetep file and xyz file to the '
@@ -681,20 +689,24 @@ We welcome any suggestions for additions or changes.""")
 
     @staticmethod
     def store_torsions(molecule, torsions_list):
-        """Take the molecule object and the list of torsions and convert them to rotatable centers and put them in the
-        scan order object."""
+        """
+        Take the molecule object and the list of torsions and convert them to rotatable centres. Then, put them in the
+        scan order object.
+        """
 
         if torsions_list is not None:
-            scan_order =[]
+
+            scan_order = []
             for torsion in torsions_list:
-                # turn the torsion into a tuple
                 tor = tuple(atom for atom in torsion.split('-'))
-                # convert the string names to the index names and get the core indexed from 1 to match the topology network
+                # convert the string names to the index names and get the core indexed from 1 to match the topology
                 core = (molecule.atom_names.index(tor[1]) + 1, molecule.atom_names.index(tor[2]) + 1)
+
                 if core in molecule.rotatable:
                     scan_order.append(core)
                 elif reversed(core) in molecule.rotatable:
                     scan_order.append(reversed(core))
+
             molecule.scan_order = scan_order
 
         return molecule
@@ -725,7 +737,7 @@ We welcome any suggestions for additions or changes.""")
             torsion_options = torsion_options.split(',')
 
         # Check if starting from the beginning; if so:
-        if 'parametrise' in [key for key in self.order]:
+        if 'parametrise' in self.order:
             # Initialise ligand object fully before pickling it
             molecule = Ligand(self.file)
 
@@ -749,8 +761,8 @@ We welcome any suggestions for additions or changes.""")
                         'Density calculation complete'],
             'charges': [f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated'],
             'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
-            'torsion_scan': ['Performing QM constrained optimisation with Torsiondrive',
-                             'Torsiondrive finished QM results saved'],
+            'torsion_scan': ['Performing QM-constrained optimisation with Torsiondrive',
+                             'Torsiondrive finished and QM results saved'],
             'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
             'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
             'pause': ['Pausing analysis', 'Analysis paused!'],
@@ -758,7 +770,7 @@ We welcome any suggestions for additions or changes.""")
             'torsion_test': ['Testing torsion single point energies', 'Torsion testing complete']}
 
         # do the first stage in the order
-        key = list(self.order.keys())[0]
+        key = list(self.order)[0]
         next_key = self.stage_wrapper(key, stage_dict[key][0], stage_dict[key][1], torsion_options)
 
         # cannot use for loop as we mute the dictionary during the loop

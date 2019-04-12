@@ -9,11 +9,13 @@ from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import run as sub_run
+
 from numpy import array, zeros
 from numpy import append as np_append
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+
 import qcengine as qcng
 import qcelemental as qcel
 
@@ -541,6 +543,10 @@ class QCEngine(Engines):
         super().__init__(molecule, config_dict)
 
     def generate_qschema(self, input_type='input'):
+        """
+        Using the molecule object, generate a QCEngine schema. This can then
+        be fed into the various QCEngine procedures.
+        """
 
         mol_data = f'{self.charge} {self.multiplicity}\n'
 
@@ -554,9 +560,14 @@ class QCEngine(Engines):
         return mol
 
     def call_qcengine(self, engine, driver, input_type):
+        """
+        Using the created schema, run a particular engine, specifying the driver (job type).
+        e.g. engine: geo, driver: energies
+        """
 
         mol = self.generate_qschema(input_type=input_type)
 
+        # OLD or NEW? Method for getting qcengine to work. May be removed later
         # task = {
         #     "schema_name": "qcschema_input",
         #     "schema_version": 1,
@@ -577,7 +588,7 @@ class QCEngine(Engines):
 
             return qcng.compute(task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
 
-        else:
+        elif engine == 'geo':
             task = {
                 "schema_name": "qcschema_optimization_input",
                 "schema_version": 1,
@@ -593,7 +604,10 @@ class QCEngine(Engines):
                     "model": {'method': self.qm['theory'], 'basis': self.qm['basis']},
                     "keywords": {},
                 },
-                "initial_molecule": qcng.get_molecule("water"),
+                "initial_molecule": mol,
             }
 
             return qcng.compute_procedure(task, 'geometric')
+
+        else:
+            raise KeyError('Invalid engine type provided. Please use "geo" or "psi4".')

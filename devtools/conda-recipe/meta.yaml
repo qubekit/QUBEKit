@@ -1,0 +1,32 @@
+package:
+  name: qubekit
+  version: {{ environ.get('GIT_DESCRIBE_TAG', 'default') }}
+
+source:
+  path: ../..
+
+build:
+  number: 0
+
+requirements:
+  host:
+    - python
+    - setuptools
+  run:
+    - python
+    - numpy
+    - networkx
+    - matplotlib
+    - scipy
+
+about:
+  home: https://github.com/qubekit/QUBEKitdev
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE.txt
+  summary: Quantum mechanical bespoke force field derivation toolkit
+  doc_url: https://github.com/qubekit/QUBEKitdev
+
+extra:
+  recipe-maintainers:
+    - CRingrose94

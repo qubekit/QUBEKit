@@ -382,7 +382,7 @@ class Molecule:
                 'angle': val[0], 'k': val[1]})
 
         # add the proper and improper torsion terms
-        for key in self.PeriodicTorsionForce.keys():
+        for key in self.PeriodicTorsionForce:
             if self.PeriodicTorsionForce[key][-1] == 'Improper':
                 tor_type = 'Improper'
             else:
@@ -404,7 +404,7 @@ class Molecule:
                 'phase4': self.PeriodicTorsionForce[key][3][2]})
 
         # add the non-bonded parameters
-        for key in self.NonbondedForce.keys():
+        for key in self.NonbondedForce:
             SubElement(NonbondedForce, "Atom", attrib={
                 'type': self.AtomTypes[key][1],
                 'charge': self.NonbondedForce[key][0],
@@ -546,7 +546,7 @@ class Molecule:
         use this to update all missing terms."""
 
         # using the new harmonic bond force dict we can add the bond edges to the topology graph
-        for key in self.HarmonicBondForce.keys():
+        for key in self.HarmonicBondForce:
             self.topology.add_edge(key[0] + 1, key[1] + 1)
 
         self.find_angles()

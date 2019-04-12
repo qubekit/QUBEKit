@@ -1,3 +1,2 @@
 qcelemental
 qcengine
-python >= 3.6

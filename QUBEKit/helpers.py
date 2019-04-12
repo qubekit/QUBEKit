@@ -329,6 +329,8 @@ def pretty_progress():
             if 'QUBEKit_log.txt' in file:
                 log_files.append(path.abspath(f'{root}/{file}'))
 
+    print(log_files)
+
     # Open all log files sequentially
     info = OrderedDict()
     for file in log_files:
@@ -354,7 +356,8 @@ def pretty_progress():
         info[name]['torsions'] = set_dict_val(file, '~TORSION')
 
     header_string = '{:15} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12}'
-    print(header_string.format('Name', 'Parametrised', 'Optimised', 'Mod-Sem', 'Gaussian', 'Chargemol', 'L-J', 'Torsions'))
+    print(header_string.format(
+        'Name', 'Parametrised', 'Optimised', 'Mod-Sem', 'Gaussian', 'Chargemol', 'L-J', 'Torsions'))
 
     # Outer dict contains the names of the molecules.
     for key_out, var_out in info.items():

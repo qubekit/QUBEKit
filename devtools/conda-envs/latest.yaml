@@ -1,0 +1,16 @@
+name: test
+channels:
+  - defaults
+  - psi4
+  - devtools-forge
+  - omnia
+dependencies:
+    # Psi test depends
+  - psi4
+  - qcengine >= 0.6.*
+
+    # QUBEKit base depends
+  - numpy
+  - networkx
+  - matplotlib
+  - scipy
