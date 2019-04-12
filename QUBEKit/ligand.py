@@ -340,10 +340,12 @@ class Molecule:
         root = Element('ForceField')
         AtomTypes = SubElement(root, "AtomTypes")
         Residues = SubElement(root, "Residues")
+
         if protein:
             Residue = SubElement(Residues, "Residue", name="QUP")
         else:
             Residue = SubElement(Residues, "Residue", name="UNK")
+
         HarmonicBondForce = SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = SubElement(root, "HarmonicAngleForce")
         PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
@@ -479,6 +481,7 @@ class Molecule:
                     except:
                         break
         except FileNotFoundError:
+            # TODO Should this only pass if we're on the first stage? i.e. if the file hasn't been made yet
             pass
 
         # Now we can save the items; first assign the location
@@ -494,10 +497,10 @@ class Molecule:
 
     def symmetrise_from_topo(self):
         """
-        Based on the Molecule self.topology, symmetrise the methyl/amine Hydrogens.
+        Based on the molecule topology, symmetrise the methyl / amine hydrogens.
         If there's a carbon, does it have 3 hydrogens? -> symmetrise
-        If there's a Nitrogen, does it have 2 hydrogens? -> symmetrise
-        Also keep a list of the methyl carbons and amine/nitrle nitrogens
+        If there's a nitrogen, does it have 2 hydrogens? -> symmetrise
+        Also keep a list of the methyl carbons and amine / nitrile nitrogens
         then exclude these bonds from the rotatable torsions list.
         """
 
@@ -540,8 +543,10 @@ class Molecule:
             self.rotatable = rotatable
 
     def update(self, input_type='input'):
-        """After the protein has been passed to the parameterisation class we get back the bond info
-        use this to update all missing terms."""
+        """
+        After the protein has been passed to the parametrisation class we get back the bond info
+        use this to update all missing terms.
+        """
 
         # using the new harmonic bond force dict we can add the bond edges to the topology graph
         for key in self.HarmonicBondForce:

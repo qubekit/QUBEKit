@@ -21,6 +21,7 @@
         * [High Throughput](https://github.com/qubekit/QUBEKitdev#qubekit-commands-high-throughput)
         * [Custom Start and End Points](https://github.com/qubekit/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule)
             * [Single Molecules](https://github.com/qubekit/QUBEKitdev#qubekit-commands-custom-start-and-end-points-single-molecule)
+            * [Skipping Stages](https://github.com/qubekit/QUBEKitdev#qubekit-commands-custom-start-and-end-points-skipping-stages)
             * [Multiple Molecules](https://github.com/qubekit/QUBEKitdev#qubekit-commands-custom-start-and-end-points-multiple-molecules)
         * [Other Commands and Information](https://github.com/qubekit/QUBEKitdev#qubekit-commands-other-commands-and-information)
 * [Cook Book](https://github.com/qubekit/QUBEKitdev#cook-book)
@@ -162,7 +163,7 @@ you may use whatever case you like for the name of files (e.g. `-i DMSO.pdb`) or
 Running a full analysis on molecule.pdb with a non-default charge of 1, the default charge engine (Chargemol) and with GeomeTRIC off:
 Note, ordering does not matter as long as tuples commands (`-c` `1`) are together.
 
-`-i` is for the file input type, `-c` denotes the charge and `-geo` is for (en/dis)abling geomeTRIC.
+`-i` is for the file *input* type, `-c` denotes the charge and `-geo` is for (en/dis)abling geomeTRIC.
     
     QUBEKit -i molecule.pdb -c 1 -geo false
     QUBEKit -c 1 -geo false -i molecule.pdb
@@ -186,13 +187,15 @@ See [QUBEKit Commands: Custom Start and End Points (single molecule)](https://gi
 
 Each time QUBEKit runs, a new working directory containing a log file will be created.
 The name of the directory will contain the run number provided via the terminal command `-log` 
-(or the default run number in the configs if a ```-log``` command is not provided).
+(or the default run number in the configs if a `-log` command is not provided).
 This log file will store which methods were called, how long they took, and any docstring for them (if it exists).
 The log file will also contain information regarding the config options used, as well as the commands given and much more.
 The log file updates in real time and contains far more information than is printed to the terminal during a run.
 If there is an error with QUBEKit, the full stack trace of an exception will be stored in the log file.
 
-Many errors have custom exceptions to help if, for example, a module has not been installed correctly.
+**The error printed to the terminal may be different and incorrect so it's always better to check the log file.**
+
+Many errors have custom exceptions to help elucidate if, for example, a module has not been installed correctly.
 
 The format for the name of the active directory is:
 
@@ -297,12 +300,12 @@ The molecule can then be optimised with respect to these parameters.
 * **finalise** - This step (which is always performed, regardless of end-point) produces an XML for the molecule.
 This stage also prints the final information to the log file and a truncated version to the terminal.
 
-In a normal run, all of these functions are called sequentially,
+In a normal run, all of these stages are called sequentially,
 but with `-end` and `-restart` you are free to run *from* any step *to* any step inclusively.
 
-When using `-end`, simply specify the end-point in the proceeding command,
-when using `-restart`, specify the start-point in the proceeding command.
-The end-point (if not finalise) can then be specified with the `-end` command.
+When using `-end`, simply specify the end-point in the proceeding command (default `finalise`),
+when using `-restart`, specify the start-point in the proceeding command (default `parametrise`).
+The end-point (if not `finalise`) can then be specified with the `-end` command.
 
 When using these commands, all other config-changing commands can be used in the same ways as before. For example:
 
@@ -330,6 +333,34 @@ Here, the calculation was performed with the default DDEC version 6, then rerun 
 It is recommended to copy (**not cut**) the directory containing the files because some of them will be overwritten when restarting.
 
 Note that because `-restart` was used, it was not necessary to specify the pdb file name with `-i`.
+
+### QUBEKit Commands: Skipping Stages
+
+There is another command for controlling the flow of execution: `-skip`.
+The skip command allows you to skip any number of *proceeding* steps.
+This is useful if using a method not covered by QUBEKit for a particular stage, 
+or if you're just not interested in certain time-consuming results.
+
+`-skip` takes at least one argument and on use will completely skip over the provided stage(s).
+Say you are not interested in calculating bonds and angles, and simply want the charges.
+
+The command:
+
+`QUBEKit -i acetone.pdb -skip hessian mod_sem` 
+
+will skip over the Hessian matrix calculation which is necessary for the modified Seminario method (skipping that too).
+QUBEKit will then go on to calculate density, charges and so on.
+
+**Beware skipping steps which are required for other stages of the analysis.**
+
+Just like the other commands, `-skip` can be used in conjunction with other commands like config changing, 
+and `-end` or `-restart`.
+
+**`-skip` is not yet available for `-bulk` commands.**
+
+In case you want to add external files to be used by QUBEKit, empty folders are created in the correct place.
+This makes it easy to drop in, say, a .cube file from another charges engine, 
+then calculate the Lennard-Jones parameters with QUBEKit.
 
 ### QUBEKit Commands: Custom Start and End Points (multiple molecules)
 
@@ -487,3 +518,7 @@ Fill in the csv file like so:
 Run the analysis:
 
     QUBEKit -bulk simple_alkanes.csv
+    
+**Just calculating charges for acetone:**
+
+    QUBEKit -i acetone.pdb -skip hessian mod_sem -end charges

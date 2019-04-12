@@ -39,7 +39,7 @@ class Main:
 
         self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, '
                              'view the log file.\nOur documentation (README.md) '
-                             'also contains help on handling the various commands for QUBEKit\n')
+                             'also contains help on handling the various commands for QUBEKit.\n')
 
         # Call order of the analysing methods.
         # Slices of this dict are taken when changing the start and end points of analyses.
@@ -83,10 +83,12 @@ class Main:
 
         self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
         self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
+
         # Update the configs with any command line options
         self.config_update()
 
         self.continue_log() if self.args.restart is not None else self.create_log()
+
         # Starting a single run so print the message
         printf(self.start_up_msg)
 
@@ -110,13 +112,14 @@ class Main:
             self.file = getcwd().split('_')[1] + '.pdb'
         else:
             self.file = self.args.input
+
         # Check the end points for a normal run
         start_point = self.args.restart if self.args.restart is not None else 'parametrise'
         skip_list = self.args.skip if self.args.skip is not None else []
         end_point = self.args.end if self.args.end is not None else 'finalise'
 
         # Create list of all keys
-        stages = [key for key in self.order]
+        stages = list(self.order)
 
         extra = 1 if end_point != 'finalise' else 0
 
@@ -302,13 +305,13 @@ We welcome any suggestions for additions or changes.""")
 
         # TODO look at worker queues to maximise resource usage
 
-        csv_file = self.args.bulk_run
         printf(self.start_up_msg)
 
+        csv_file = self.args.bulk_run
         bulk_data = mol_data_from_csv(csv_file)
 
-        # Run full analysis for each smiles string or pdb in the .csv file.
         names = list(bulk_data)
+
         # Store a copy of self.order which will not be mutated.
         # This allows self.order to be built up after each run.
         temp = self.order
@@ -316,14 +319,15 @@ We welcome any suggestions for additions or changes.""")
         for name in names:
             printf(f'\nAnalysing: {name}\n')
 
-            # Set the start and end points to what is given in the csv. See the -restart / -end section below
-            # for further details and better documentation.
+            # Get the start and end points from the csv file, otherwise use defaults.
             start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'parametrise'
-            end_point = bulk_data[name]['end']
+            end_point = bulk_data[name]['end'] if bulk_data[name]['end'] else 'finalise'
+
             torsion_options = bulk_data[name]['torsion order']
-            stages = [key for key in temp]
-            extra = 1 if end_point != 'finalise' else 0
-            stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
+            stages = list(temp)
+
+            # Set stages to be the keys of self.order which will be executed (finalise is always executed).
+            stages = stages[stages.index(start_point):stages.index(end_point)] + ['finalise']
             self.order = OrderedDict(pair for pair in temp.items() if pair[0] in set(stages))
 
             # Configs
@@ -335,11 +339,11 @@ We welcome any suggestions for additions or changes.""")
             if start_point == 'parametrise':
 
                 if bulk_data[name]['smiles string'] is not None:
-                    smile_string = bulk_data[name]['smiles string']
-                    self.file = smiles_to_pdb(smile_string, name)
+                    smiles_string = bulk_data[name]['smiles string']
+                    self.file = smiles_to_pdb(smiles_string, name)
 
                 else:
-                    self.file = name
+                    self.file = f'{name}.pdb'
 
                 self.create_log()
 
@@ -351,6 +355,7 @@ We welcome any suggestions for additions or changes.""")
                             chdir(dir_name)
 
                 # These are the files in the active directory, search for the pdb.
+                # TODO Can we just set self.file = f'{name}.pdb' ?
                 files = [file for file in listdir('.') if path.isfile(file)]
                 self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
 
@@ -405,6 +410,7 @@ We welcome any suggestions for additions or changes.""")
         Writes the runtime and file-based defaults to a log file.
         Adds some fluff like the molecule name and time.
         """
+
         with open(self.log_file, 'a+') as log_file:
 
             log_file.write(f'Analysing: {self.file[:-4]}\n\n')
@@ -502,15 +508,15 @@ We welcome any suggestions for additions or changes.""")
         Geometric/ OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
         """
 
-        # Check which method we want then do the optimisation
         if self.args.mm_opt_method == 'openmm':
             # Make the inputs
             molecule.write_pdb(name='openmm', input_type='input')
             molecule.write_parameters(name='state')
             # Run geometric
             with open('log.txt', 'w+') as log:
-                run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml', shell=True, stdout=log, stderr=log)
-            # Get the optimised structure store under mm
+                run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml',
+                    shell=True, stdout=log, stderr=log)
+            # Get the optimised structure stored under mm
             molecule.read_xyz(input_type='mm')
 
         else:
@@ -746,7 +752,7 @@ We welcome any suggestions for additions or changes.""")
         key = list(self.order)[0]
         next_key = self.stage_wrapper(key, stage_dict[key][0], stage_dict[key][1], torsion_options)
 
-        # cannot use for loop as we mute the dictionary during the loop
+        # cannot use for loop as we mutate the dictionary during the loop
         while True:
             if next_key is None:
                 break
