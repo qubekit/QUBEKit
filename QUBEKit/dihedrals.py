@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 from subprocess import run as sub_run
 from collections import OrderedDict
 from copy import deepcopy
-from os import chdir, mkdir, system, getcwd
+from os import chdir, mkdir, system, getcwd, listdir
 from shutil import rmtree
 
 import matplotlib.pyplot as plt
@@ -156,7 +156,17 @@ class TorsionScan:
         #   e.g. user gives 6 cores for QM and we run two drives that takes 12 cores!
 
         for scan in self.scan_mol.scan_order:
-            mkdir(f'SCAN_{scan[0]}_{scan[1]}')
+            try:
+                mkdir(f'SCAN_{scan[0]}_{scan[1]}')
+            except FileExistsError:
+                # if the folder has only been used to test the torsions then use the folder
+                if listdir(f'SCAN_{scan[0]}_{scan[1]}') == ['testing_torsion']:
+                    pass
+                # if there is a full run in their back the folder up and start again
+                else:
+                    print(f'SCAN_{scan[0]}_{scan[1]} folder present backing up folder to SCAN_{scan[0]}_{scan[1]}_tmp')
+                    system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
+                    mkdir(f'SCAN_{scan[0]}_{scan[1]}')
             chdir(f'SCAN_{scan[0]}_{scan[1]}')
             mkdir('QM_torsiondrive')
             chdir('QM_torsiondrive')
@@ -618,37 +628,52 @@ class TorsionOptimiser:
         self.qm_energy -= min(self.qm_energy)  # make relative to lowest energy
         self.qm_energy *= 627.509  # convert to kcal/mol
 
-    def opt_test(self):
+    def torsion_test(self):
         """
         Take optimized xml file and test the agreement with QM by doing a torsion drive and checking the single
-        point energies.
+        point energies for each rotatable dihedral.
         """
 
-        # move into testing folder
-        mkdir('testing_opt')
-        chdir('testing_opt')
+        # now run the scanner
+        for i , self.scan in enumerate(self.molecule.rotatable):
+            print(f'Testing torsion {i} of {len(self.molecule.rotatable)}...', end='')
 
-        self.scan = self.scan_order[0]
+            # move into the scan folder that should of been made
+            try:
+                mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
 
-        # now run the torsiondrive
-        # step 2 MM torsion scan
-        # with wavefront propagation, returns the new set of coords these become the new scan coords
-        self.scan_coords = self.drive_mm(engine='torsiondrive')
+            except FileExistsError:
+                pass
 
-        # step 4 calculate the single point energies
-        self.qm_energy = self.single_point()
+            else:
+                chdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
 
-        # Normalise the qm energy again using the qm reference energy
-        self.qm_normalise()
+            # move into testing folder
+            mkdir('testing_torsion')
+            chdir('testing_torsion')
 
-        # calculate the mm energy
-        # use the parameters to get the current energies
-        self.mm_energy = deepcopy(self.mm_energies())
+            # now run the torsiondrive
+            # step 2 MM torsion scan
+            # with wavefront propagation, returns the new set of coords these become the new scan coords
+            self.scan_coords = self.drive_mm(engine='torsiondrive')
 
-        # for the graph
-        self.initial_energy = self.mm_energy
-        # now graph the energy
-        self.plot_results(name='testing_opt')
+            # step 4 calculate the single point energies
+            self.qm_energy = self.single_point()
+
+            # Normalise the qm energy again using the qm reference energy
+            self.qm_normalise()
+
+            # calculate the mm energy
+            # use the parameters to get the current energies
+            self.mm_energy = deepcopy(self.mm_energies())
+
+            # for the graph
+            self.initial_energy = self.mm_energy
+            # now graph the energy
+            self.plot_results(name='testing_torsion')
+
+            print('done')
+            chdir('../../')
 
     def run(self):
         """
@@ -992,7 +1017,7 @@ class TorsionOptimiser:
         return res.fun, res.x
 
     def call_force_balance(self):
-        """Call force balance to do the single point energy matching."""
+        """Call force balance to do the single point energy matching for amber combination rules only."""
 
         pass
 
@@ -1155,18 +1180,20 @@ class TorsionOptimiser:
         # Write out a pdb file of the qm optimised geometry
         self.molecule.write_pdb(name='openmm')
         # Also need an xml file for the molecule to use in geometric
-        self.molecule.write_parameters(name='input')
+        self.molecule.write_parameters(name='state')
         # openmm.pdb and input.xml are the expected names for geometric
         with open('log.txt', 'w+')as log:
             if engine == 'torsiondrive':
                 self.write_dihedrals()
-                completed = system('torsiondrive-launch -e openmm openmm.pdb dihedrals.txt > log.txt')
+                with open('log.txt', 'w+') as log:
+                    completed = sub_run('torsiondrive-launch -e openmm openmm.pdb dihedrals.txt', shell=True, stderr=log, stdout=log)
                 if completed == 0:
                     positions = self.get_coords(engine='torsiondrive')
             elif engine == 'geometric':
                 self.make_constraints()
-                sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --openmm openmm.pdb constraints.txt',
-                        shell=True, stdout=log)
+                with open('log.txt', 'w+') as log:
+                    sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml constraints.txt',
+                            shell=True, stdout=log, stderr=log)
                 positions = self.get_coords(engine='geometric')
             else:
                 raise NotImplementedError
@@ -1196,11 +1223,11 @@ class TorsionOptimiser:
             # now we need to change the positions of the molecule in the molecule array
             for y, coord in enumerate(x):
                 for z, pos in enumerate(coord):
-                    # convert from nanometers in openmm to Angs in QM
-                    self.qm_engine.molecule.molecule['input'][y][z + 1] = pos * 10
+                    # convert from nanometers in openmm to Angs in QM and store in the temp position in the molecule
+                    self.qm_engine.molecule.molecule['temp'][y][z + 1] = pos * 10
 
             # Write the new coordinate file and run the calculation
-            self.qm_engine.generate_input(energy=True)
+            self.qm_engine.generate_input(input_type='temp', energy=True)
 
             # Extract the energy and save to the array
             sp_energy.append(self.qm_engine.get_energy())
