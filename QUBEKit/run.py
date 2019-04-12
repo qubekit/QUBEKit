@@ -127,11 +127,9 @@ class Main:
         # Create list of all keys
         stages = list(self.order)
 
-        extra = 1 if end_point != 'finalise' else 0
-
         # Cut out the keys before the start_point and after the end_point
         # Add finalise back in if it's removed (finalise should always be called).
-        stages = stages[stages.index(start_point):stages.index(end_point) + extra] + ['finalise']
+        stages = stages[stages.index(start_point):stages.index(end_point)] + ['finalise']
 
         # Redefine self.order to only contain the key, val pairs from stages
         self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
