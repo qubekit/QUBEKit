@@ -519,6 +519,10 @@ class ONETEP(Engines):
         print('Run this file in ONETEP.')
 
     def calculate_hull(self):
+        """
+        Generate the smallest convex hull which encloses the molecule.
+        Then make a 3d plot of the points and hull.
+        """
 
         coords = array([atom[1:] for atom in self.molecule.molecule['input']])
 
