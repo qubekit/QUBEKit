@@ -55,6 +55,8 @@ class Main:
                                   ('torsion_optimise', self.torsion_optimise),
                                   ('finalise', self.finalise)])
 
+        self.immutable_order = self.order
+
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
 
         # Argparse will only return if we are doing a QUBEKit run bulk or normal
@@ -283,8 +285,8 @@ We welcome any suggestions for additions or changes.""")
                             help='Choose the method to do the charge partioning.')
         parser.add_argument('-density', '--density_engine', choices=['onetep', 'g09', 'psi4'],
                             help='Enter the name of the QM code to calculate the electron density of the molecule.')
-        parser.add_argument('-solvent', '--solvent',
-                            help='Enter the dielectric constant or the name of the solvent you wish to use.')
+        parser.add_argument('-solvent', '--solvent', choices=[True, False], type=bool,
+                            help='Enter whether or not you would like to use a solvent.')
         # maybe separate into known solvents and IPCM constants?
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
                             help='Enter the convergence criteria for the optimisation.')
@@ -491,12 +493,14 @@ We welcome any suggestions for additions or changes.""")
 
         # move into folder
         home = getcwd()
+
+        folder_name = f'{list(self.immutable_order).index(start_key) + 1}-{start_key}'
         try:
-            mkdir(f'{start_key}')
+            mkdir(folder_name)
         except FileExistsError:
             pass
         finally:
-            chdir(f'{start_key}')
+            chdir(folder_name)
 
         self.order[start_key](mol)
         self.order.pop(start_key, None)
