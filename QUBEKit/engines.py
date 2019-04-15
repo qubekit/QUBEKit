@@ -299,7 +299,7 @@ class PSI4(Engines):
 
             file.write(f'molecule {self.molecule.name} {{\n {self.charge} {self.multiplicity} \n')
             for atom in molecule:
-                file.write(f'  {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
+                file.write(f'  {atom[0]:2}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
             file.write(f" units angstrom\n no_reorient\n}}\nset basis {self.qm['basis']}\n")
 

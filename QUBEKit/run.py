@@ -229,6 +229,34 @@ class Main:
                 pretty_progress()
                 sys_exit()
 
+        class TorsionMakerAction(argparse.Action):
+            """Help the user make a torsion scan file."""
+
+            def __call__(self, pars, namespace, values, option_string=None):
+                """This function is executed when Torsion maker is called."""
+                # load in the ligand molecule
+                mol = Ligand(values)
+                # make fake engine class
+
+                class Engine:
+                    def __init__(self):
+                        self.fitting = {'increment': 15}
+
+                # now promt the user for the scan order
+                scanner = TorsionScan(mol, Engine())
+                scanner.find_scan_order()
+
+                # now write out the scan file
+                with open('QUBE_torsions.txt', 'w+') as qube:
+                    qube.write('# dihedral definition by atom indices starting from 1\n#  i      j      k      l\n')
+                    for scan in mol.scan_order:
+                        scan_di = mol.dihedrals[scan][0]
+                        qube.write(f'  {scan_di[0]:2}     {scan_di[1]:2}     {scan_di[2]:2}     {scan_di[3]:2}\n')
+                print('QUBE_torsions.txt made.')
+
+                sys_exit()
+
+
         # TODO Convert description to just read the intro from the README?
         parser = argparse.ArgumentParser(
             prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -287,6 +315,8 @@ We welcome any suggestions for additions or changes.""")
                             help='Option to skip certain stages of the execution.')
         parser.add_argument('-tor_test', '--torsion_test', default=False, choices=[True, False], type=bool,
                             help='Enter True if you would like to run a torsion test on the chosen torsions.')
+        parser.add_argument('-tor_make', '--torsion_maker', action=TorsionMakerAction,
+                            help='Allow QUBEKit to help you make a torsion input file for the given molecule')
 
         # Add mutually exclusive groups to stop wrong combinations of options,
         # e.g. setup should not be ran with another command
@@ -632,7 +662,14 @@ We welcome any suggestions for additions or changes.""")
         """Perform torsion scan."""
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        scan = TorsionScan(molecule, qm_engine, self.all_configs)
+        scan = TorsionScan(molecule, qm_engine)
+        # Try and find a scan file if none and more than one torsion found promt user
+        try:
+            copy('../../QUBE_torsions.txt', 'QUBE_torsions.txt')
+            scan.find_scan_order(file='QUBE_torsions.txt')
+        except FileNotFoundError:
+            scan.find_scan_order()
+            # Do the scan
         scan.start_scan()
 
         append_to_log('Torsion scans complete')

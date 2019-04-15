@@ -21,7 +21,6 @@ class TestLigands(unittest.TestCase):
 
     def test_pdb_reader(self):
 
-
         # Check all atoms are found
         self.assertEqual(10, len(self.molecule.molecule['input']))
 
@@ -54,6 +53,7 @@ class TestLigands(unittest.TestCase):
         # check the dihedral angles in the molecule
         dihedrals = {(1, 2): [(5, 1, 2, 3), (5, 1, 2, 4), (6, 1, 2, 3), (6, 1, 2, 4), (7, 1, 2, 3), (7, 1, 2, 4)],
                      (2, 4): [(1, 2, 4, 8), (1, 2, 4, 9), (1, 2, 4, 10), (3, 2, 4, 8), (3, 2, 4, 9), (3, 2, 4, 10)]}
+        self.assertEqual(dihedrals, self.molecule.dihedrals)
 
         # check that every dihedral has a value measured
         self.assertEqual(12, len(self.molecule.dih_phis))

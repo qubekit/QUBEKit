@@ -50,18 +50,17 @@ class TorsionScan:
         self.home = getcwd()
 
         # setup methods
-        self.cmd = {}
-        self.find_scan_order()
+        self.cmd = None
         self.torsion_cmd()
 
-    def find_scan_order(self):
+    def find_scan_order(self, file=None):
         """
         Function takes the molecule and displays the rotatable central bonds,
         the user then enters the number of the torsions to be scanned in the order to be scanned.
-        The molecule can also be supplied with a scan order already, if coming from csv
-        or chosen in the input string.
+        The molecule can also be supplied with a scan order already, if coming from csv.
+        Else the use can supply a torsiondrive stule QUBE_torsions.txt file that we can extract the parameters from.
         """
-
+        # TODO if there is a torsion file extract the parameters
         if self.scan_mol.scan_order:
             return self.scan_mol
 
@@ -72,6 +71,20 @@ class TorsionScan:
         elif len(self.scan_mol.rotatable) == 0:
             print('No rotatable torsions found in the molecule')
             self.scan_mol.scan_order = []
+
+        # If we have a QUBE_torsions.txt file get the scan order from there
+        elif file:
+            scan_order = []
+            torsions = open(file).readlines()
+            for line in torsions[2:]:
+                torsion = line.split()
+                core = (int(torsion[1]), int(torsion[2]))
+                if core in self.scan_mol.rotatable:
+                    scan_order.append(core)
+                elif reversed(tuple(core)) in self.scan_mol.rotatable:
+                    scan_order.append(reversed(tuple(core)))
+
+            self.scan_mol.scan_order = scan_order
 
         else:
             # Get the rotatable dihedrals from the molecule
@@ -106,10 +119,10 @@ class TorsionScan:
         # TODO need to add PSI4 redundant mode selector
 
         if self.native_opt:
-            self.qm_engine.generate_input(optimise=True)
+            self.qm_engine.generate_input(optimise=True, run=False)
 
         else:
-            self.qm_engine.geo_gradient(run=False)
+            self.qm_engine.geo_gradient(run=False, threads=True)
 
     def torsion_cmd(self):
         """Generates a command string to run torsiondrive based on the input commands for QM and MM."""
@@ -165,6 +178,11 @@ class TorsionScan:
                 # if there is a full run in their back the folder up and start again
                 else:
                     print(f'SCAN_{scan[0]}_{scan[1]} folder present backing up folder to SCAN_{scan[0]}_{scan[1]}_tmp')
+                    # make sure any old backup is gone
+                    try:
+                        rmtree(f'SCAN_{scan[0]}_{scan[1]}_tmp')
+                    except FileNotFoundError:
+                        pass
                     system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
                     mkdir(f'SCAN_{scan[0]}_{scan[1]}')
             chdir(f'SCAN_{scan[0]}_{scan[1]}')
@@ -173,7 +191,8 @@ class TorsionScan:
 
             # now make the scan input files
             self.qm_scan_input(scan)
-            sub_run(self.cmd, shell=True)
+            with open('log.txt', 'w+') as log:
+                sub_run(self.cmd, shell=True, stdout=log, stderr=log)
             self.get_energy(scan)
             chdir(self.home)
 
@@ -1311,3 +1330,12 @@ class TorsionOptimiser:
             #             nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
 
         return self.system
+
+
+def write_dihedrals_tor(molecule):
+    """Write out the torsion drive dihedral file for the current self.scan."""
+
+    with open('dihedrals.txt', 'w+') as out:
+        out.write('# dihedral definition by atom indices starting from 0\n# i     j     k     l\n')
+        mol_di = self.molecule.dihedrals[self.scan][0]
+        out.write(f'  {mol_di[0]}     {mol_di[1]}     {mol_di[2]}     {mol_di[3]}\n')
