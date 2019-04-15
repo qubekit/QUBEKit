@@ -322,6 +322,9 @@ def pretty_progress():
     # TODO Print tick mark after final column (use unicode characters).
     # TODO May need to improve formatting for longer molecule names.
 
+    # TODO update the dict and append_to_log messages to better represent the current state
+    #   Alternatively, could just use the folder names (and contents?) to keep track of state
+
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
     for root, dirs, files in walk('.', topdown=True):

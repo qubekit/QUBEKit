@@ -55,7 +55,7 @@ class Main:
                                   ('torsion_optimise', self.torsion_optimise),
                                   ('finalise', self.finalise)])
 
-        self.immutable_order = self.order
+        self.immutable_order = list(self.order)
 
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
 
@@ -117,7 +117,7 @@ class Main:
 
         # If not bulk must be main single run
         if self.args.restart:
-            self.file = getcwd().split('_')[1] + '.pdb'
+            self.file = [file for file in listdir(getcwd()) if '.pdb' in file][0]
         else:
             self.file = self.args.input
 
@@ -361,9 +361,7 @@ We welcome any suggestions for additions or changes.""")
                             chdir(dir_name)
 
                 # These are the files in the active directory, search for the pdb.
-                # TODO Can we just set self.file = f'{name}.pdb' ?
-                files = [file for file in listdir('.') if path.isfile(file)]
-                self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
+                self.file = [file for file in listdir(getcwd()) if '.pdb' in file][0]
 
                 self.continue_log()
 
@@ -464,7 +462,7 @@ We welcome any suggestions for additions or changes.""")
         # move into folder
         home = getcwd()
 
-        folder_name = f'{list(self.immutable_order).index(start_key) + 1}-{start_key}'
+        folder_name = f'{self.immutable_order.index(start_key) + 1}_{start_key}'
         try:
             mkdir(folder_name)
         except FileExistsError:
@@ -507,7 +505,7 @@ We welcome any suggestions for additions or changes.""")
 
     def mm_optimise(self, molecule):
         """
-        Use a mm force field to get the initial optimisation of a molecule
+        Use an mm force field to get the initial optimisation of a molecule
 
         options
         ---------
@@ -517,7 +515,7 @@ We welcome any suggestions for additions or changes.""")
         """
 
         # Check which method we want then do the optimisation
-        # TODO if we dont want geometric we can do a quick native openmm full optimisation?
+        # TODO if we don't want geometric we can do a quick native openmm full optimisation?
         if self.args.mm_opt_method == 'openmm':
             # Make the inputs
             molecule.write_pdb(input_type='input')
@@ -613,7 +611,7 @@ We welcome any suggestions for additions or changes.""")
         """Perform DDEC calculation with Chargemol."""
 
         # TODO add option to use chargemol on onetep cube files.
-        copy(f'../density/{molecule.name}.wfx', f'{molecule.name}.wfx')
+        copy(f'../6_density/{molecule.name}.wfx', f'{molecule.name}.wfx')
         c_mol = Chargemol(molecule, self.all_configs)
         c_mol.generate_input()
 
@@ -624,7 +622,7 @@ We welcome any suggestions for additions or changes.""")
     def lennard_jones(self, molecule):
         """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
-        system('cp ../charges/DDEC* .')
+        system('cp ../7_charges/DDEC* .')
         lj = LennardJones(molecule, self.all_configs)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
@@ -644,7 +642,7 @@ We welcome any suggestions for additions or changes.""")
         return molecule
 
     def torsion_optimise(self, molecule):
-        """Perform torsion optimisation"""
+        """Perform torsion optimisation."""
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
         opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS',
@@ -666,7 +664,7 @@ We welcome any suggestions for additions or changes.""")
         molecule.write_pdb()
         molecule.write_parameters()
 
-        # get the molecule descriptors from rdkit
+        # get the molecule descriptors from RDKit
         molecule.descriptors = rdkit_descriptors(molecule.filename)
 
         # Print ligand objects to log file and terminal
@@ -677,9 +675,7 @@ We welcome any suggestions for additions or changes.""")
 
     @staticmethod
     def skip(molecule):
-        """
-        A blank method that does nothing to that stage but adds the pickle points to not break the flow
-        """
+        """A blank method that does nothing to that stage but adds the pickle points to not break the flow."""
 
         return molecule
 
