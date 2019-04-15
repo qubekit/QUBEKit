@@ -20,7 +20,7 @@ class ParametrisationTest(unittest.TestCase):
         cls.molecule = Ligand('acetone.pdb')
 
     def test_antechamber(self):
-        # try and parameterise the molecule with antechamber
+        # try to parametrise the molecule with antechamber
         AnteChamber(self.molecule)
 
         # now make sure we have parameters assigned
@@ -33,9 +33,8 @@ class ParametrisationTest(unittest.TestCase):
 
         self.assertEqual(len(self.molecule.molecule['input']), len(self.molecule.NonbondedForce))
 
-
     def test_OpenFF(self):
-        # try and parameterise using OpenFF
+        # try to parametrise using OpenFF
         OpenFF(self.molecule)
 
         # now make sure we have parameters assigned
@@ -47,8 +46,6 @@ class ParametrisationTest(unittest.TestCase):
                          len(self.molecule.dih_phis) + len(self.molecule.improper_torsions))
 
         self.assertEqual(len(self.molecule.molecule['input']), len(self.molecule.NonbondedForce))
-
-
 
     @classmethod
     def tearDownClass(cls):

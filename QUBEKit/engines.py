@@ -191,8 +191,10 @@ class PSI4(Engines):
             return hess_matrix
 
     def optimised_structure(self):
-        """Parses the final optimised structure from the output.dat file (from psi4) to a numpy array.
-        Also returns the energy of the optimized structure."""
+        """
+        Parses the final optimised structure from the output.dat file (from psi4) to a numpy array.
+        Also returns the energy of the optimized structure.
+        """
 
         # Run through the file and find all lines containing '==> Geometry', add these lines to a list.
         # Reverse the list
@@ -417,7 +419,8 @@ class Gaussian(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_run(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log', shell=True, stdout=log, stderr=log)
+                sub_run(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log',
+                        shell=True, stdout=log, stderr=log)
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
