@@ -591,6 +591,11 @@ class Ligand(Molecule):
         self.qm_scan_energy = {}
         self.descriptors = {}
 
+        # Constraint file is either:
+        #   an empty string (does nothing in geometric run command);
+        #   the abspath of the constraint.txt file (constrains the execution of geometric)
+        self.constraints_file = ''
+
         self.read_pdb()
         self.find_angles()
         self.find_dihedrals()
@@ -609,9 +614,8 @@ class Ligand(Molecule):
         molecule = []
         try:
             with open(name, 'r') as xyz_file:
-                # lines = xyz_file.readlines()
-                # get the amount of atoms
-                natoms = len(self.molecule['input'])
+                # get the number of atoms
+                n_atoms = len(self.molecule['input'])
                 for line in xyz_file:
                     line = line.split()
                     # skip frame heading lines
@@ -620,7 +624,7 @@ class Ligand(Molecule):
                         continue
                     else:
                         molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
-                    if len(molecule) == natoms:
+                    if len(molecule) == n_atoms:
                         # we have collected the molecule now store the frame
                         traj_molecules.append(molecule)
                         molecule = []

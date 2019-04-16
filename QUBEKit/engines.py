@@ -9,6 +9,7 @@ from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import run as sub_run
+from os import system
 
 from numpy import array, zeros
 from numpy import append as np_append
@@ -311,7 +312,7 @@ class PSI4(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
+                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.qm["threads"]}',
                         shell=True, stdout=log, stderr=log)
 
 
@@ -323,10 +324,7 @@ class Chargemol(Engines):
         super().__init__(molecule, config_file)
 
     def generate_input(self, run=True):
-        """
-        Given a DDEC version (from the defaults), this function writes the job file for chargemol and
-        executes it.
-        """
+        """Given a DDEC version (from the defaults), this function writes the job file for chargemol and executes it."""
 
         if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
             append_to_log(message='Invalid or unsupported DDEC version given, running with default version 6.',

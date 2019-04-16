@@ -157,8 +157,10 @@ class Parametrisation:
             self.molecule.PeriodicTorsionForce[key] = val
 
     def get_gaff_types(self, fftype='gaff', file=None):
-        """Convert the pdb file into a mol2 antechamber file and get the gaff atom types
-        and gaff bonds if there were """
+        """
+        Convert the pdb file into a mol2 antechamber file and get the gaff atom types
+        and gaff bonds if there were any
+        """
 
         # call Antechamber to convert if we don't have the mol2 file
         if file is None:
@@ -173,17 +175,15 @@ class Parametrisation:
                 chdir(temp)
                 copy(pdb, 'in.pdb')
 
-                # call antechamber
+                # Call antechamber
                 with open('Antechamber.log', 'w+') as log:
-                    sub_run(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at '
-                             f'{fftype} -c bcc', shell=True, stdout=log)
+                    sub_run(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {fftype} -c bcc',
+                            shell=True, stdout=log)
 
                 # Ensure command worked
                 if not path.exists('out.mol2'):
                     raise FileNotFoundError('out.mol2 not found antechamber failed!')
 
-
-                # now copy the file back from the folder
                 copy('out.mol2', mol2)
                 chdir(cwd)
 
@@ -194,7 +194,7 @@ class Parametrisation:
             bonds = False
             for line in mol_in.readlines():
 
-                # TODO Surely this can be simplified?!
+                # TODO Surely this can be simplified?
                 if '@<TRIPOS>ATOM' in line:
                     atoms = True
                     continue
@@ -346,8 +346,8 @@ class XMLProtein(Parametrisation):
                 self.molecule.PeriodicTorsionForce[tor_string_forward].append(
                     [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
             elif tor_string_back in self.molecule.PeriodicTorsionForce:
-                self.molecule.PeriodicTorsionForce[tor_string_back].append([Torsion.get('periodicity'), Torsion.get('k'),
-                                                                            phases[int(Torsion.get('periodicity')) - 1]])
+                self.molecule.PeriodicTorsionForce[tor_string_back].append(
+                    [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
         # Now we have all of the torsions from the openMM system
         # we should check if any torsions we found in the molecule do not have parameters
         # if they don't give them the default 0 parameter this will not change the energy
@@ -541,12 +541,12 @@ class BOSS(Parametrisation):
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
         super().__init__(molecule, input_file, fftype)
 
-        self.BOSS_cmd()
+        self.boss_cmd()
         self.gather_parameters()
         self.molecule.parameter_engine = 'BOSS ' + self.fftype
         self.molecule.combination = 'opls'
 
-    def BOSS_cmd(self):
+    def boss_cmd(self):
         """
         This method is used to call the required BOSS scripts.
         1 The zmat file with CM1A charges is first generated for the molecule keeping the same pdb order.

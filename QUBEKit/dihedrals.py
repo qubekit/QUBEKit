@@ -34,7 +34,7 @@ class TorsionScan:
     grid_space                  The distance between the scan points on the surface
     """
 
-    def __init__(self, molecule, qm_engine, native_opt=False, verbose=False):
+    def __init__(self, molecule, qm_engine, native_opt=False, verbose=False, constraints_made=False):
 
         # engine info
         self.qm_engine = qm_engine
@@ -44,7 +44,7 @@ class TorsionScan:
 
         # molecule
         self.scan_mol = molecule
-        self.constraints = None
+        self.constraints_made = constraints_made
 
         # working dir
         self.home = getcwd()
@@ -142,6 +142,9 @@ class TorsionScan:
         if self.verbose:
             cmd_qm += '-v '
 
+        if self.constraints_made:
+            cmd_qm += f'-c {self.constraints_made} '
+
         self.cmd = cmd_qm
 
     def get_energy(self, scan):
@@ -216,8 +219,9 @@ class TorsionOptimiser:
     vn_bounds:              The absolute upper limit on Vn parameters (moving past this has a heavy penalty)
     """
 
-    def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, combination='opls', use_force=False, step_size=0.02,
-                 error_tol=1e-5, x_tol=1e-5, opt_method='BFGS', refinement_method='Steep', vn_bounds=20):
+    def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, combination='opls', use_force=False,
+                 step_size=0.02, error_tol=1e-5, x_tol=1e-5, opt_method='BFGS', refinement_method='Steep',
+                 vn_bounds=20):
 
         # configurations
         self.qm, self.fitting, self.descriptions = config_dict[1:]
@@ -259,8 +263,7 @@ class TorsionOptimiser:
         self.coords_store = []
         # the qm optimised geometrys
         self.initial_coords = []
-        self.atm_no = len(molecule.atom_names)
-        # important! stores the torsion indexs in the OpenMM system and groups torsions
+        # important! stores the torsion indices in the OpenMM system and groups torsions
         self.tor_types = OrderedDict()
         # list of the qm optimised energies
         self.target_energy = None
@@ -331,7 +334,7 @@ class TorsionOptimiser:
                 atoms = int(lines[0])
                 for i, line in enumerate(lines):
                     if 'Iteration' in line:
-                        # this is the start of the cordinates
+                        # this is the start of the coordinates
                         tups = []
                         for coords in lines[i + 1:i + atoms + 1]:
                             coord = tuple(float(x) / 10 for x in coords.split()[1:])
@@ -653,11 +656,11 @@ class TorsionOptimiser:
         point energies for each rotatable dihedral.
         """
 
-        # now run the scanner
-        for i , self.scan in enumerate(self.molecule.rotatable):
+        # Run the scanner
+        for i, self.scan in enumerate(self.molecule.rotatable):
             print(f'Testing torsion {i} of {len(self.molecule.rotatable)}...', end='')
 
-            # move into the scan folder that should of been made
+            # move into the scan folder that should have been made
             try:
                 mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
 
@@ -667,11 +670,11 @@ class TorsionOptimiser:
             else:
                 chdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
 
-            # move into testing folder
+            # Move into testing folder
             mkdir('testing_torsion')
             chdir('testing_torsion')
 
-            # now run the torsiondrive
+            # Run torsiondrive
             # step 2 MM torsion scan
             # with wavefront propagation, returns the new set of coords these become the new scan coords
             self.scan_coords = self.drive_mm(engine='torsiondrive')
@@ -682,13 +685,13 @@ class TorsionOptimiser:
             # Normalise the qm energy again using the qm reference energy
             self.qm_normalise()
 
-            # calculate the mm energy
-            # use the parameters to get the current energies
+            # Calculate the mm energy
+            # Use the parameters to get the current energies
             self.mm_energy = deepcopy(self.mm_energies())
 
-            # for the graph
+            # For the graph:
             self.initial_energy = self.mm_energy
-            # now graph the energy
+            # Graph the energy
             self.plot_results(name='testing_torsion')
 
             print('done')
@@ -981,6 +984,8 @@ class TorsionOptimiser:
         this can be added into the penalty function.
         """
 
+        # TODO Can we please remove this; I hate it.
+
         import __main__
         # Quiet and no GUI
         __main__.pymol_argv = ['pymol', '-qc']
@@ -1169,10 +1174,14 @@ class TorsionOptimiser:
     def make_constraints(self):
         """Write a constraint file used by geometric during optimizations."""
 
-        with open('constraints.txt', 'w+')as constraint:
-            constraint.write(
-                f'$scan\ndihedral {self.molecule.dihedrals[self.scan][0][0]} {self.molecule.dihedrals[self.scan][0][1]}'
-                f' {self.molecule.dihedrals[self.scan][0][2]} {self.molecule.dihedrals[self.scan][0][3]} -165.0 180 24\n')
+        with open('qube_constraints.txt', 'w+') as constraint:
+            mol_di = self.molecule.dihedrals[self.scan][0]
+            constraint.write(f'$scan\ndihedral {mol_di[0]} {mol_di[1]} {mol_di[2]} {mol_di[3]} -165.0 180 24\n')
+
+            if self.molecule.constraint_file:
+                with open(self.molecule.constraint_file, 'r') as cons_file:
+                    for line in cons_file:
+                        constraint.write(line)
 
     def write_dihedrals(self):
         """Write out the torsion drive dihedral file for the current self.scan."""
@@ -1201,18 +1210,21 @@ class TorsionOptimiser:
         # Also need an xml file for the molecule to use in geometric
         self.molecule.write_parameters(name='state')
         # openmm.pdb and input.xml are the expected names for geometric
-        with open('log.txt', 'w+')as log:
+        with open('log.txt', 'a+')as log:
             if engine == 'torsiondrive':
+                if self.constraints_made:
+                    system('mv ../constraints.txt .')
                 self.write_dihedrals()
-                with open('log.txt', 'w+') as log:
-                    completed = sub_run('torsiondrive-launch -e openmm openmm.pdb dihedrals.txt', shell=True, stderr=log, stdout=log)
-                if completed == 0:
-                    positions = self.get_coords(engine='torsiondrive')
+                sub_run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt {self.molecule.constraints_made}',
+                        shell=True, stderr=log, stdout=log)
+                positions = self.get_coords(engine='torsiondrive')
             elif engine == 'geometric':
-                self.make_constraints()
-                with open('log.txt', 'w+') as log:
-                    sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml constraints.txt',
-                            shell=True, stdout=log, stderr=log)
+                if self.constraints_made:
+                    system('mv ../constraints.txt .')
+                else:
+                    self.make_constraints()
+                sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml qube_constraints.txt',
+                        shell=True, stdout=log, stderr=log)
                 positions = self.get_coords(engine='geometric')
             else:
                 raise NotImplementedError
