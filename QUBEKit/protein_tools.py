@@ -295,13 +295,14 @@ DOI: 10.1021/jp508971m</Reference>
  </NonbondedForce>
 </ForceField>'''
 
-    water_dict = {'tip3p': tip3p, 'spce': spce, 'tip3pfb': tip3pfb,   # 3 particle waters
-                  'tip4p': tip4pew, 'tip4pew': tip4pew, 'tip4p-d': tip4pd, 'tip4pfb': tip4pfb, 'opc': opc,  # 4 particle waters
-                  'tip5p': tip5p,
-                  }
+    water_dict = {
+        'tip3p': tip3p, 'spce': spce, 'tip3pfb': tip3pfb,   # 3 particle waters
+        'tip4p': tip4pew, 'tip4pew': tip4pew, 'tip4p-d': tip4pd, 'tip4pfb': tip4pfb, 'opc': opc,  # 4 particle waters
+        'tip5p': tip5p  # 5 particle waters
+    }
 
     if not water or water == 'help':
-        print('Please eneter a water model from the current options:\nOpenMM standard '
+        print('Please enter a water model from the current options:\nOpenMM standard '
               'models:\ntip3p\ntip4pew\ntip5p\nspce\nForcebalance models:\ntip3pfb\ntip4pfb\nExtras:\ntip4p-d\nopc')
     else:
         with open(f'QUBE_{water}.xml', 'w+') as xml:

@@ -31,7 +31,7 @@ class Configure:
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
         'iterations': '100',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
-        'density_engine': 'onetep',        # Engine used to calculate the electron density
+        'density_engine': 'onetep',     # Engine used to calculate the electron density
         'charges_engine': 'chargemol',  # Engine used for charge partitioning
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
@@ -43,7 +43,7 @@ class Configure:
         'increment': '15',              # Angle increase increment
         'dih_end': '180',               # The last dihedral angle in the scan
         't_weight': 'infinity',         # Weighting temperature that can be changed to better fit complicated surfaces
-        'opt_method': 'BFGS',           # The type of scipy optimiser to use
+        'opt_method': 'BFGS',           # The type of SciPy optimiser to use
         'refinement_method': 'SP',      # The type of QUBE refinement that should be done SP: single point energies
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array

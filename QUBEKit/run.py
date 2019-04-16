@@ -65,6 +65,8 @@ class Main:
         # Look through the command line options and apply bulk and restart settings
         self.check_options()
 
+        self.constraints_file = ''
+
         # Configs:
         self.defaults_dict = {'charge': self.args.charge,
                               'multiplicity': self.args.multiplicity,
@@ -393,9 +395,22 @@ We welcome any suggestions for additions or changes.""")
         copy(abspath, f'{dir_string}/{self.file}')
         chdir(dir_string)
 
-        with open(self.log_file, 'w+') as log_file:
+        for root, dirs, files in walk('.', topdown=True):
+            for file in files:
+                if 'constraints.txt' in file:
+                    self.constraints_file = path.abspath(f'{root}/{file}')
 
+        # Find external files
+        copy_files = [f'{self.file[:-4]}.xml', 'QUBE_torsions.txt']
+        for file in copy_files:
+            try:
+                system(f'cp ../{file} .')
+            except FileNotFoundError:
+                pass
+
+        with open(self.log_file, 'w+') as log_file:
             log_file.write(f'Beginning log file; the time is: {datetime.now()}\n\n\n')
+
         self.log_configs()
 
     def continue_log(self):
@@ -494,7 +509,7 @@ We welcome any suggestions for additions or changes.""")
 
         # If we are using xml we have to move it
         if self.fitting['parameter_engine'] == 'xml':
-            copy(f'../../{molecule.name}.xml', f'{molecule.name}.xml')
+            copy(f'../{molecule.name}.xml', f'{molecule.name}.xml')
 
         # Perform the parametrisation
         param_dict[self.fitting['parameter_engine']](molecule)
@@ -523,7 +538,8 @@ We welcome any suggestions for additions or changes.""")
             # Run geometric
             with open('log.txt', 'w+') as log:
                 run(f'geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb {molecule.name}.pdb '
-                    f'--openmm {molecule.name}.xml', shell=True, stdout=log, stderr=log)
+                    f'--openmm {molecule.name}.xml {self.constraints_file}', shell=True, stdout=log, stderr=log)
+
             # Read the xyz traj and store the frames
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
             # Store the last from of the traj as the mm optimised structure
@@ -549,7 +565,7 @@ We welcome any suggestions for additions or changes.""")
             qm_engine.geo_gradient(input_type='mm')
             # Read in the full qm optimisation traj
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
-            # Store the last frame as the QM optimisaed structure
+            # Store the last frame as the QM optimised structure
             molecule.molecule['qm'] = molecule.molecule['traj'][-1]
 
         else:
@@ -744,6 +760,7 @@ We welcome any suggestions for additions or changes.""")
         if 'parametrise' in self.order:
             # Initialise ligand object fully before pickling it
             molecule = Ligand(self.file)
+            molecule.constraints_file = self.constraints_file
 
             # If there are extra options add them to the molecule
             if torsion_options is not None:
