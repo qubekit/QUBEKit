@@ -434,7 +434,7 @@ We welcome any suggestions for additions or changes.""")
         copy_files = [f'{self.file[:-4]}.xml', 'QUBE_torsions.txt']
         for file in copy_files:
             try:
-                system(f'cp ../{file} .')
+                copy(f'cp ../{file}', '.')
             except FileNotFoundError:
                 pass
 
@@ -492,19 +492,19 @@ We welcome any suggestions for additions or changes.""")
 
         mol = unpickle()[start_key]
 
-        # if we have an torsion options dictionary pass it to the molecule
+        # if we have a torsion options dictionary pass it to the molecule
         if torsion_options is not None:
             mol = self.store_torsions(mol, torsion_options)
 
         skipping = False
         if self.order[start_key] == self.skip:
             printf(f'Skipping stage: {start_key}')
+            append_to_log(f'skipping stage: {start_key}')
             skipping = True
         else:
             if begin_log_msg:
                 printf(f'{begin_log_msg}...', end=' ')
 
-        # move into folder
         home = getcwd()
 
         folder_name = f'{self.immutable_order.index(start_key) + 1}_{start_key}'
@@ -580,7 +580,7 @@ We welcome any suggestions for additions or changes.""")
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = smiles_mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
 
-        append_to_log(f'Optimised the molecule with {self.args.mm_opt_method}')
+        append_to_log(f'mm_optimised the molecule with {self.args.mm_opt_method}')
 
         return molecule
 
@@ -602,7 +602,7 @@ We welcome any suggestions for additions or changes.""")
             qm_engine.generate_input(input_type='mm', optimise=True)
             molecule.molecule['qm'] = qm_engine.optimised_structure()
 
-        append_to_log(f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
+        append_to_log(f'qm_optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
 
         return molecule
 
@@ -631,7 +631,7 @@ We welcome any suggestions for additions or changes.""")
         mod_sem = ModSeminario(molecule, self.all_configs)
         mod_sem.modified_seminario_method()
 
-        append_to_log('Modified Seminario method complete')
+        append_to_log('Mod_Seminario method complete')
 
         return molecule
 
@@ -642,10 +642,10 @@ We welcome any suggestions for additions or changes.""")
         qm_engine.generate_input(input_type='qm', density=True, solvent=self.qm['solvent'])
 
         if self.qm['density_engine'] == 'g09':
-            append_to_log('Gaussian analysis complete')
+            append_to_log('Density analysis complete')
         else:
             # If we use onetep we have to stop after this step
-            append_to_log('ONETEP file made')
+            append_to_log('Density analysis file made for ONETEP')
 
             # Now we have to edit the order to end here.
             self.order = OrderedDict([('density', self.density), ('charges', self.skip), ('lennard_jones', self.skip),
@@ -661,7 +661,7 @@ We welcome any suggestions for additions or changes.""")
         c_mol = Chargemol(molecule, self.all_configs)
         c_mol.generate_input()
 
-        append_to_log(f'Chargemol analysis with DDEC{self.qm["ddec_version"]} complete')
+        append_to_log(f'Charge analysis completed with Chargemol and DDEC{self.qm["ddec_version"]}')
 
         return molecule
 
@@ -681,7 +681,8 @@ We welcome any suggestions for additions or changes.""")
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
         scan = TorsionScan(molecule, qm_engine)
-        # Try and find a scan file if none and more than one torsion found promt user
+
+        # Try to find a scan file if none provided and more than one torsion detected, prompt user
         try:
             copy('../../QUBE_torsions.txt', 'QUBE_torsions.txt')
             scan.find_scan_order(file='QUBE_torsions.txt')
@@ -690,7 +691,7 @@ We welcome any suggestions for additions or changes.""")
             # Do the scan
         scan.start_scan()
 
-        append_to_log('Torsion scans complete')
+        append_to_log('Torsion_scans complete')
 
         return molecule
 
@@ -703,7 +704,7 @@ We welcome any suggestions for additions or changes.""")
                                vn_bounds=self.fitting['tor_limit'])
         opt.run()
 
-        append_to_log('Torsion optimisations complete')
+        append_to_log('Torsion_optimisations complete')
 
         return molecule
 

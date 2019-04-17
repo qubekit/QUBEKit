@@ -22,6 +22,7 @@
             * [Single Molecules](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-single-molecule)
             * [Skipping Stages](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-skipping-stages)
             * [Multiple Molecules](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-multiple-molecules)
+        * [Progress](https://github.com/qubekit/QUBEKit#qubekit-commands-progress)
         * [Other Commands and Information](https://github.com/qubekit/QUBEKit#qubekit-commands-other-commands-and-information)
 * [Cook Book](https://github.com/qubekit/QUBEKit#cook-book)
 
@@ -48,17 +49,19 @@ We welcome any suggestions for additions or changes.
 
 ## Installation
 
-To install, it is recommended to conda *([help](https://github.com/qubekit/QUBEKit#requirements))* 
-or pip install QUBEKit with either of the following commands: 
-
-    conda install -c cringrose qubekit
-    pip install qubekit
-
-You can also install straight from our github with:
+To install, it is to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*:
 
     git clone https://github.com/qubekit/QUBEKit.git
     cd <install location>
     python setup.py install
+
+---
+    
+    pip install qubekit
+
+---
+
+    conda install -c cringrose qubekit
 
 ### Requirements
 
@@ -76,39 +79,40 @@ We recommend you add conda to your .bashrc when prompted.
 
 Installation of Gaussian is likely handled by your institution; QUBEKit uses it for density calculations only.
 If you don't plan on performing these sorts of calculations then it is not necessary.
+If you do, please make sure Gaussian09 is executable with the command `g09`.
 
 * [Chargemol](https://sourceforge.net/projects/ddec/files/)
 
 Chargemol can be downloaded and installed from a zip file in the above link. 
-Be sure to add the path to configs once you've generated them *([explanation](https://github.com/qubekit/QUBEKit#before-you-start-config-files))*.
+Be sure to add the path to the QUBEKit configs once you've generated them *([explanation](https://github.com/qubekit/QUBEKit#before-you-start-config-files))*.
 
 Many packages come pre-installed with Anaconda, however there are some which require further installation.
 These packages are on different conda channels, hence needing the extra arguments.
 
 * [PSI4](http://www.psicode.org/)
 
-```conda install -c psi4 psi4```
+`conda install -c psi4 psi4`
 
 * [GeomeTRIC](https://github.com/leeping/geomeTRIC)
 
-```conda install -c conda-forge geometric``` 
+`conda install -c conda-forge geometric` 
 
 * [RDKit](http://rdkit.org/)
 
-```conda install -c rdkit rdkit```
+`conda install -c rdkit rdkit`
 
 * [OpenFF](https://openforcefield.org/)
 
-```conda install -c omnia openforcefield```
+`conda install -c omnia openforcefield`
 
 * [OpenEye](https://docs.eyesopen.com/toolkits/python/index.html)
 
-```conda install -c openeye openeye-toolkits```
+`conda install -c openeye openeye-toolkits`
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
-This is generally safest, as Anaconda will deal with versions and conflicts in your environment.
+This is generally safest, as Anaconda should deal with versions and conflicts in your environment.
 Generally, conda packages will have the conda install command on their website or github.
-For the software not available through Anaconda, or if Anaconda is having trouble resolving conflicts*, either git clone them and install:
+For the software not available through Anaconda, or if Anaconda is having trouble resolving conflicts, either git clone them and install:
 
     git clone http://<git_address_here>
     cd <location of cloned package>
@@ -116,15 +120,12 @@ For the software not available through Anaconda, or if Anaconda is having troubl
 
 or follow the described steps in the respective documentation.
 
-**In particular, torsiondrive and geomeTRIC have caused issues with conda environments.
-These are usually fixed by simply installing from the github.*
-
 You should now be able to use QUBEKit straight away from the command line or as an imported Python module.
 
 ## Help
 
 Below is general help for most of the commands available in QUBEKit.
-Please be aware there are currently no terminal help commands; all necessary information is within this document.
+There is some short help available through the terminal (invoked with `-h`) but all necessary long-form help is within this document.
 
 ### Before you start: Config files
 
@@ -141,23 +142,24 @@ To do this use the command `QUBEKit -setup` where you will then be presented wit
 
 Choose option two to set up a new template which will be used every time you run QUBEKit 
 (unless you supply the name of another ini file in the configs folder).
-The only parameter that must be changed for QUBEKit to run is the Chargemol path in the descriptions section.
-This option is what controls where the Chargemol code is kept on your PC.
-It should be the location of the Chargemol home directory, plus the name of the Chargemol folder itself:
+The only parameter that **must** be changed for QUBEKit to run is the Chargemol path in the descriptions section.
+This option is what controls where the Chargemol code is accessed from on your PC.
+It should be the location of the Chargemol home directory, plus the name of the Chargemol folder itself to account for version differences:
 
     '/home/<user>/Programs/chargemol_09_26_2017'
     
-Following this, feel free to change any of the other options.
+Following this, feel free to change any of the other options such as the basis set.
 
 ### QUBEKit Commands: Running Jobs
 
-Given a list of commands, such as: `-end`, `psi4` some are taken as single word commands.
-Others however, such as changing defaults: (`-c` `0`), (`-m` `1`), etc are taken as tuple commands.
-The first command of tuple commands is always preceded by a `-`, while single word commands are not.
+Given a list of commands, such as: `-setup`, `-progress` some are taken as single word commands.
+Others however, such as changing defaults: (`-c` `0`), (`-m` `1`), are taken as tuple commands.
+The first command of tuple commands is always preceded by a `-`, while the latter commands are not: (`-skip` `density` `charges`).
 (An error is raised for hanging commands e.g. `-c`, `1` or `-sm`.)
 
-Single-word commands are taken in any order, assuming they are given, while tuple commands are taken as (`-key` `value`).
-**All commands are optional**. If nothing at all is given, the program will run entirely with defaults.
+All commands can be provided in any order, as long as tuple commands are paired together.
+**All configuration commands are optional**. If nothing at all is given, the program will run entirely with defaults.
+QUBEKit only *needs* to know the molecule you're analysing, given with `-i` `<molecule>.pdb` or `-sm` `<smiles string>`.
 
 Files to be analysed must be written with their file extension (.pdb) attached or they will not be recognised commands.
 All commands should be given in lower case with two main exceptions;
@@ -287,18 +289,17 @@ For example (csv row order does not matter, and you do not need to include smile
 QUBEKit also has the ability to run partial analyses, or redo certain parts of an analysis.
 For a single molecule analysis, this is achieved with the `-end` and `-restart` commands. 
 
-`-end` specifies the final stage for an analysis, where `finalise` is the default. The stages are:
+The stages are:
 
-* **rdkit_optimise** - This is a quick, preliminary optimisation with RDKit which speeds up later optimisations.
-This step also loads in the molecule and extracts key information like the atoms and their coordinates. 
 * **parametrise** - The molecule is parametrised using OpenFF, AnteChamber or XML.
+This step also loads in the molecule and extracts key information like the atoms and their coordinates. 
+* **mm_optimise** - This is a quick, preliminary optimisation which speeds up later optimisations.
 * **qm_optimise** - This is the main optimisation stage, default method is to use PSI4 with GeomeTRIC.
-* **hessian** - This again uses PSI4 to calculate the Hessian matrix.
+* **hessian** - This again uses PSI4 to calculate the Hessian matrix which is needed for calculating bonding parameters.
 * **mod_sem** - Using the Hessian matrix, the bonds and angles terms are calculated with the Modified Seminario Method.
-* **density** - The density is calculated using Gaussian09. This is where the solvent is applied as well. 
-* **charges** - The charges are partitioned and calculated using Chargemol and DDEC3 or 6.
-* **lennard_jones** - The charges are extracted ready for producing an XML.
-The Lennard-Jones parameters are also calculated and stored.
+* **density** - The density is calculated using Gaussian09. This is where the solvent is applied as well (if configured). 
+* **charges** - The charges are partitioned and calculated using Chargemol with DDEC3 or 6.
+* **lennard_jones** - The charges are extracted and Lennard-Jones parameters calculated, ready to produce an XML.
 * **torsion_scan** - Using the molecule's geometry, a torsion scan is performed.
 The molecule can then be optimised with respect to these parameters.
 * **torsion_optimise** - The optimisation step for the torsional analysis.
@@ -324,7 +325,8 @@ Just like a normal analysis.
 
 However, using `-restart` requires files and other information from previous executions.
 Therefore, `-restart` can only be run from *inside* a directory with those files present.
-You do not need to use the `-i` command when restarting, QUBEKit will detect the pdb file for you.
+
+*Note: you do not need to use the `-i` (input file) command when restarting, QUBEKit will detect the pdb file for you.*
 
 To illustrate this point, a possible use case would be to perform a full calculation on the molecule ethane,
 then recalculate using a different (set of) default value(s):
@@ -347,9 +349,7 @@ This is useful if using a method not covered by QUBEKit for a particular stage,
 or if you're just not interested in certain time-consuming results.
 
 `-skip` takes at least one argument and on use will completely skip over the provided stage(s).
-Say you are not interested in calculating bonds and angles, and simply want the charges.
-
-The command:
+Say you are not interested in calculating bonds and angles, and simply want the charges; the command:
 
 `QUBEKit -i acetone.pdb -skip hessian mod_sem` 
 
@@ -361,9 +361,11 @@ QUBEKit will then go on to calculate density, charges and so on.
 Just like the other commands, `-skip` can be used in conjunction with other commands like config changing, 
 and `-end` or `-restart`.
 
-**`-skip` is not yet available for `-bulk` commands.**
+**`-skip` is not available for `-bulk` commands and probably never will be. 
+This is to keep bulk commands reasonably simple. 
+We recommend creating a simple script to run single analysis commands if you would like to skip stages frequently.**
 
-In case you want to add external files to be used by QUBEKit, empty folders are created in the correct place.
+In case you want to add external files to be used by QUBEKit, empty folders are created in the correct place even when skipped.
 This makes it easy to drop in, say, a .cube file from another charges engine, 
 then calculate the Lennard-Jones parameters with QUBEKit.
 
@@ -397,14 +399,24 @@ Using a similar example as above, two molecules are analysed with DDEC6, then re
 The first execution uses a config file for DDEC6 and runs from the beginning up to the charges stage.
 The second execution uses a config file for DDEC3 and runs from the density stage to the charges stage.
 
-### QUBEKit Commands: Other Commands and Information
+### QUBEKit Commands: Progress
 
-To display the progress of all analyses in your current directory:
+Throughout an analysis, key information will be added to the log file.
+This information can be quickly parsed by QUBEKit's `-progress` command
+
+To display the progress of all analyses in your current directory and below, use the command:
 
     QUBEKit -progress
     
-This will scan where you are for all directories starting with 'QUBEKit'.
-QUBEKit will then find the log files in those directories and display a table of the progress indicated in those log files.  
+QUBEKit will find the log files in all QUBEKit directories and display a colour-coded table of the progress.  
+
+* Tick marks indicate a stage has completed successfully
+* Tildes indicate a stage has not finished nor has is errored
+* An S indicates a stage has been skipped
+* An E indicates that a stage has started and failed for some reason. 
+Viewing the log file will give more information as to *why* it failed.
+
+### QUBEKit Commands: Other Commands and Information
 
 You cannot run multiple kinds of analysis at once. For example:
 
@@ -416,7 +428,7 @@ is not a valid command. These should be performed separately:
     QUBEKit -i methane.pdb -bonds g09
     
 Be wary of running QUBEKit concurrently through different terminal windows.
-The programs QUBEKit calls often just try to use however much RAM is assigned in the config files;
+The programs QUBEKit calls often just try to use however much memory is assigned in the config files;
 this means they may try to take more than is available, leading to a crash.
 
 
@@ -459,13 +471,11 @@ Optional commands:
     
 **Redo that analysis but use DDEC6 instead:**
 
-*If you don't care about overwriting the previous analysis, skip the next two steps.*
-
-Copy the folder and change the name to indicate it's for DDEC6:
+(Optional) Copy the folder and change the name to indicate it's for DDEC6:
     
     cp -r QUBEKit_benzene_2019_01_01_BENZ_DDEC3 QUBEKit_benzene_2019_01_01_BENZ_DDEC6
 
-Move into the new folder:
+(Optional) Move into the new folder:
 
     cd QUBEKit_benzene_2019_01_01_BENZ_DDEC6
 
@@ -475,11 +485,13 @@ Here we're restarting from density and finishing on charges:
 
     QUBEKit -restart density -end charges -ddec 6
 
+This will still produce an xml in the `finalise` folder.
+
 **Analyse methanol from its smiles string both with and without a solvent:**
 
     QUBEKit -sm CO -solvent true -log Methanol_Solvent
 
-*Again, skip the following two steps if you don't care about files being overwritten.*
+(Optional) Create and move into new folder
 
     cp -r QUBEKit_methanol_2019_01_01_Methanol_Solvent QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
     cd QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
@@ -525,5 +537,8 @@ Run the analysis:
     QUBEKit -bulk simple_alkanes.csv
     
 **Just calculating charges for acetone:**
+
+Skip hessian which is only needed for mod_sem which calculates the bonds and angles.
+Then end after the charge calculation. 
 
     QUBEKit -i acetone.pdb -skip hessian mod_sem -end charges
