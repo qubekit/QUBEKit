@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.helpers import append_to_log
 
 from tempfile import TemporaryDirectory
 from shutil import copy
@@ -213,7 +212,7 @@ class Parametrisation:
                     except KeyError:
                         gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
 
-        append_to_log(f'GAFF types: {self.gaff_types}', msg_type='minor')
+        # append_to_log(f'GAFF types: {self.gaff_types}', msg_type='minor')
 
         # Check if the molecule already has bonds; if not apply these bonds
         if not list(self.molecule.topology.edges):

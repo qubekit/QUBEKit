@@ -292,9 +292,14 @@ def append_to_log(message, msg_type='major'):
     Used for significant stages in the program such as when G09 has finished.
     """
 
+    if 'QUBEKit_log.txt' in listdir('.'):
+        log_file = 'QUBEKit_log.txt'
+    else:
+        log_file = '../QUBEKit_log.txt'
+
     # Check if the message is a blank string to avoid adding blank lines and separators
     if message:
-        with open('../QUBEKit_log.txt', 'a+') as file:
+        with open(log_file, 'a+') as file:
             if msg_type == 'major':
                 file.write(f'~~~~~~~~{message.upper()}~~~~~~~~')
             elif msg_type == 'warning':
@@ -318,13 +323,6 @@ def pretty_progress():
     Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
     """
 
-    # TODO Add legend.
-    # TODO Print tick mark after final column (use unicode characters).
-    # TODO May need to improve formatting for longer molecule names.
-
-    # TODO update the dict and append_to_log messages to better represent the current state
-    #   Alternatively, could just use the folder names (and contents?) to keep track of state
-
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
     for root, dirs, files in walk('.', topdown=True):
@@ -332,7 +330,9 @@ def pretty_progress():
             if 'QUBEKit_log.txt' in file:
                 log_files.append(path.abspath(f'{root}/{file}'))
 
-    print(log_files)
+    if not log_files:
+        print('No QUBEKit directories with log files found.')
+        return
 
     # Open all log files sequentially
     info = OrderedDict()
@@ -346,21 +346,11 @@ def pretty_progress():
                 raise EOFError('Cannot locate molecule name in file.')
 
         # Create ordered dictionary based on the log file info
-        info[name] = OrderedDict()
+        info[name] = populate_progress_dict(file)
 
-        # Set the values of the ordered dicts based on the info in the log files.
-        # Tildes (~) are used as markers for useful information.
-        info[name]['parametrised'] = set_dict_val(file, '~PARAMETRISED')
-        info[name]['optimised'] = set_dict_val(file, '~OPTIMISED')
-        info[name]['mod sem'] = set_dict_val(file, '~MODIFIED')
-        info[name]['gaussian'] = set_dict_val(file, '~GAUSSIAN')
-        info[name]['chargemol'] = set_dict_val(file, '~CHARGEMOL')
-        info[name]['lennard'] = set_dict_val(file, '~LENNARD')
-        info[name]['torsions'] = set_dict_val(file, '~TORSION')
-
-    header_string = '{:15} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12}'
+    header_string = '{:15}' + '{:>10}' * 10
     print(header_string.format(
-        'Name', 'Parametrised', 'Optimised', 'Mod-Sem', 'Gaussian', 'Chargemol', 'L-J', 'Torsions'))
+        'Name', 'Param', 'MM Opt', 'QM Opt', 'Hessian', 'Mod-Sem', 'Density', 'Charges', 'L-J', 'Tor Scan', 'Tor Opt'))
 
     # Outer dict contains the names of the molecules.
     for key_out, var_out in info.items():
@@ -368,16 +358,74 @@ def pretty_progress():
 
         # Inner dict contains the individual molecules' data.
         for var_in in var_out.values():
-            if var_in == 1:
-                # Uses exit codes to set terminal font colours.
-                # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
-                # The second exit code resets the style back to default.
-                print(f'\033[1;32m{var_in:>12d}\033[0;0m', end=' ')
 
-            else:
-                print(f'\033[1;31m{var_in:>12d}\033[0;0m', end=' ')
+            # Uses exit codes to set terminal font colours.
+            # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
+            # The second exit code resets the style back to default.
+
+            end = '\033[0m'
+            # Bold colours
+            colours = {
+                'red': '\033[1;31m',
+                'green': '\033[1;32m',
+                'orange': '\033[1;33m',
+                'blue': '\033[1;34m'
+            }
+
+            if var_in == u'\u2713':
+                print(f'{colours["green"]}{var_in:>9}{end}', end=' ')
+
+            elif var_in == 'S':
+                print(f'{colours["blue"]}{var_in:>9}{end}', end=' ')
+
+            elif var_in == 'E':
+                print(f'{colours["red"]}{var_in:>9}{end}', end=' ')
+
+            elif var_in == '~':
+                print(f'{colours["orange"]}{var_in:>9}{end}', end=' ')
 
         print('')
+
+
+def populate_progress_dict(file_name):
+    """
+    With a log file open:
+        Search for a keyword marking the completion or skipping of a stage;
+        If that's not found, look for error messages,
+        Otherwise, just return that the stage hasn't finished yet.
+    Key:
+        tick mark: Done; S: Skipped; E: Error; ~ (tilde): Not done yet, no error found.
+    """
+
+    # Indicators in the log file which show a stage has completed
+    search_terms = ['PARAMETRISE', 'MM_OPT', 'QM_OPT', 'HESSIAN', 'MOD_SEM', 'DENSITY', 'CHARGE', 'LENNARD',
+                    'TORSION_S', 'TORSION_O']
+
+    progress = OrderedDict((k, '~') for k in search_terms)
+
+    with open(file_name, 'r') as file:
+        for line in file:
+
+            # Reset progress when restarting (set all progress to incomplete)
+            if 'Continuing log file' in line:
+                progress = OrderedDict((k, '~') for k in search_terms)
+
+            # Look for the specific search terms
+            for term in search_terms:
+                if term in line:
+                    # If you find a search term, check if it's skipped (S)
+                    if 'SKIP' in line:
+                        progress[term] = 'S'
+                    # If it's found and not skipped, it must be done (tick)
+                    else:
+                        progress[term] = u'\u2713'
+                    last_success = term
+            # If an error is found, then the stage after the last successful stage has errored (E)
+            if 'Exception Logger - ERROR' in line:
+                term = search_terms[search_terms.index(last_success) + 1]
+                progress[term] = 'E'
+
+    return progress
 
 
 def pretty_print(molecule, to_file=False, finished=True):
@@ -403,16 +451,6 @@ def pretty_print(molecule, to_file=False, finished=True):
         # Custom __str__ method; see its documentation for details.
         print(molecule.__str__(trunc=True))
         print('')
-
-
-def set_dict_val(file_name, search_term):
-    """With a file open, search for a keyword; if it's anywhere in the file, return 1, else return 0."""
-
-    with open(file_name, 'r+') as file:
-        for line in file:
-            if search_term in line:
-                return True
-    return False
 
 
 def unpickle():
