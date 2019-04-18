@@ -2,7 +2,7 @@
 
 # TODO Add remaining xml methods for Protein class
 # TODO allow reading of different input files on instancing (mol2, xyz, ....)
-# new method read_input this should decided what file reader should be used
+#   new method read_input this should decided what file reader should be used
 
 from numpy import array, linalg, dot, degrees, cross, arctan2, arccos
 from networkx import neighbors, Graph, has_path
@@ -28,26 +28,31 @@ class Molecule:
         smiles                  str; equal to the smiles_string if one is provided
 
         # Structure
+        molecule                Dict of lists where the keys are the input type (mm, qm, etc) and the vals are
+                                lists of lists where the inner lists are the atom name, followed by the coords
+                                e.g. {'mm': [['C', 1.045, 2.456, 1.564], ...], ...}
         topology                Graph class object. Contains connection information for molecule
-        molecule                List of lists; Inner list is the atom type followed by its coords
-                                e.g. [['C', -0.022, 0.003, 0.017], ['H', -0.669, 0.889, -0.101], ...]
         angles                  List of tuples; Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
         dihedrals               Dictionary of dihedral tuples stored under their common core bond
                                 e.g. {(1,2): [(3, 1, 2, 6), (3, 1, 2, 7)]}
+        improper_torsions
         rotatable               List of dihedral core tuples [(1,2)]
         atom_names              List of the atom names taken from the pdb file
         bond_lengths            Dictionary of bond lengths stored under the bond tuple
                                 e.g. {(1, 3): 1.115341203992107} (angstroms)
         dih_phis                Dictionary of the dihedral angles measured in the molecule object stored under the
                                 dihedral tuple e.g. {(3, 1, 2, 6): -70.3506776877}  (degrees)
-        angle_values             Dictionary of the angle values measured in the molecule object stored under the
+        angle_values            Dictionary of the angle values measured in the molecule object stored under the
                                 angle tuple e.g. {(2, 1, 3): 107.2268} (degrees)
+        symm_hs
+        qm_energy
 
         # XML Info
         xml_tree                An XML class object containing the force field values
         AtomTypes               dict of lists; basic non-symmetrised atoms types for each atom in the molecule
                                 e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
         Residues                List of residue names in the sequence they are found in the protein
+        extra_sites
 
         Parameters
         -------------------
@@ -62,9 +67,10 @@ class Molecule:
                                 e.g. {(3, 1, 2, 6): [[1, 0.6, 0 ] [2, 0, 3.141592653589793] .... Improper]}
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
 
-        # QUBEKit Internals
+        combination
         sites                   OrderedDict of virtual site parameters {0: [(top nos parent, a .b), (p1, p2, p3), charge]}
 
+        # QUBEKit Internals
         state                   str; Describes the stage the analysis is in for pickling and unpickling
         """
 
@@ -557,9 +563,9 @@ class Molecule:
         self.find_angles()
         self.find_dihedrals()
         self.find_rotatable_dihedrals()
-        self.get_dihedral_values(input_type=input_type)
-        self.get_bond_lengths(input_type=input_type)
-        self.get_angle_values(input_type=input_type)
+        self.get_dihedral_values(input_type)
+        self.get_bond_lengths(input_type)
+        self.get_angle_values(input_type)
         self.find_impropers()
         # this creates the dictionary of terms that should be symmetrise
         self.symmetrise_from_topo()
@@ -569,16 +575,14 @@ class Ligand(Molecule):
 
     def __init__(self, filename, smiles_string=None):
         """
-        scan_order              A list of the dihedral cores to be scaned in the scan order
-        mm_optimised            List of lists; Inner list is the atom type followed by its coords for mm optimised
-                                e.g. [['C', -0.022, 0.003, 0.017], ['H', -0.669, 0.889, -0.101], ...]
-        qm_optimised            Same as the mm_optimised but storing the qm structure.
+        scan_order              A list of the dihedral cores to be scanned in the scan order
         parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
         hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
         modes                   A list of the qm predicted frequency modes
-        QM_scan_energy
+        qm_scan_energy
         descriptors
-        symmetry_types          list; symmetrised atom types
+        constraints_file        Either an empty string (does nothing in geometric run command); or
+                                the abspath of the constraint.txt file (constrains the execution of geometric)
         """
 
         super().__init__(filename, smiles_string)
@@ -591,9 +595,6 @@ class Ligand(Molecule):
         self.qm_scan_energy = {}
         self.descriptors = {}
 
-        # Constraint file is either:
-        #   an empty string (does nothing in geometric run command);
-        #   the abspath of the constraint.txt file (constrains the execution of geometric)
         self.constraints_file = ''
 
         self.read_pdb()
@@ -607,8 +608,10 @@ class Ligand(Molecule):
         self.symmetrise_from_topo()
 
     def read_xyz(self, name, input_type='traj'):
-        """Read an xyz file and get all frames from the file and put in the traj molecule holder by default
-        or if there is only one frame change the input location."""
+        """
+        Read an xyz file and get all frames from the file and put in the traj molecule holder by default
+        or if there is only one frame change the input location.
+        """
 
         traj_molecules = []
         molecule = []

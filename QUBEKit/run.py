@@ -3,7 +3,7 @@
 from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise, rdkit_descriptors
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP
+from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
@@ -19,6 +19,7 @@ from shutil import copy
 from collections import OrderedDict
 from functools import partial
 from datetime import datetime
+
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -259,7 +260,6 @@ class Main:
                 print('QUBE_torsions.txt made.')
 
                 sys_exit()
-
 
         # TODO Convert description to just read the intro from the README?
         parser = argparse.ArgumentParser(
@@ -598,6 +598,8 @@ We welcome any suggestions for additions or changes.""")
             # Store the last frame as the QM optimised structure
             molecule.molecule['qm'] = molecule.molecule['traj'][-1]
 
+            # TODO Get optimised structure from qcengine
+
         else:
             qm_engine.generate_input(input_type='mm', optimise=True)
             molecule.molecule['qm'] = qm_engine.optimised_structure()
@@ -609,17 +611,14 @@ We welcome any suggestions for additions or changes.""")
     def hessian(self, molecule):
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-
-        # Write input file for bonds engine
-        qm_engine.generate_input(input_type='qm', hessian=True)
-
-        # Calc bond lengths from molecule topology
         molecule.get_bond_lengths(input_type='qm')
 
-        # Extract Hessian and modes
-        molecule.hessian = qm_engine.hessian()
-        molecule.modes = qm_engine.all_modes()
+        qceng = QCEngine(molecule, self.all_configs)
+
+        # TODO Dynamically change input type?
+        hessian = qceng.call_qcengine('hessian', input_type='qm')
+
+        molecule.hessian = hessian
 
         append_to_log(f'Hessian calculated using {self.qm["bonds_engine"]}')
 
