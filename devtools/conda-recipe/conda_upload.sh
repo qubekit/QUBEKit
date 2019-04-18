@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 PKG_NAME=qubekit
-USER=cringrose94
+USER=cringrose
 OS=linux-64
 
 mkdir ~/conda-bld
