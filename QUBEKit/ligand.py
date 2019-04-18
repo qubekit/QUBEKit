@@ -609,7 +609,6 @@ class Ligand(Molecule):
         molecule = []
         try:
             with open(name, 'r') as xyz_file:
-                # lines = xyz_file.readlines()
                 # get the amount of atoms
                 natoms = len(self.molecule['input'])
                 for line in xyz_file:

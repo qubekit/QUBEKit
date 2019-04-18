@@ -5,7 +5,12 @@
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/qubekit/QUBEKit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/qubekit/QUBEKit/context:python)
 
 [![Build Status](https://travis-ci.com/qubekit/QUBEKit.svg?branch=master)](https://travis-ci.com/qubekit/QUBEKit)
-
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/platforms.svg)](https://anaconda.org/cringrose/qubekit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/license.svg)](https://anaconda.org/cringrose/qubekit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/downloads.svg)](https://anaconda.org/cringrose/qubekit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/installer/conda.svg)](https://conda.anaconda.org/cringrose)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/version.svg)](https://anaconda.org/cringrose/qubekit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/latest_release_date.svg)](https://anaconda.org/cringrose/qubekit)
 ## Table of Contents
 
 * [What is QUBEKit?](https://github.com/qubekit/QUBEKitdev#what-is-qubekit)

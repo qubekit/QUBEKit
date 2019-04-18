@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from QUBEKit.decorators import timer_logger, for_all_methods
+from QUBEKit.engines import PSI4
 
 from simtk.openmm import app
 import simtk.openmm as mm
@@ -60,7 +61,7 @@ class TorsionScan:
         The molecule can also be supplied with a scan order already, if coming from csv.
         Else the use can supply a torsiondrive stule QUBE_torsions.txt file that we can extract the parameters from.
         """
-        # TODO if there is a torsion file extract the parameters
+
         if self.scan_mol.scan_order:
             return self.scan_mol
 
@@ -215,9 +216,10 @@ class TorsionOptimiser:
     {SP: single point energy matching, Steep: steepest decent optimizer, None: no extra refinement.}
     vn_bounds:              The absolute upper limit on Vn parameters (moving past this has a heavy penalty)
     """
+    # TODO get combination rule from xml file
 
     def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, combination='opls', use_force=False, step_size=0.02,
-                 error_tol=1e-5, x_tol=1e-5, opt_method='BFGS', refinement_method='Steep', vn_bounds=20):
+                 error_tol=1e-5, x_tol=1e-5, refinement_method='Steep', vn_bounds=20):
 
         # configurations
         self.qm, self.fitting, self.descriptions = config_dict[1:]
@@ -227,7 +229,7 @@ class TorsionOptimiser:
         self.weight_mm = weight_mm
         self.step_size = step_size
         self.methods = {'NM': 'Nelder-Mead', 'BFGS': 'BFGS', None: None}
-        self.method = self.methods[opt_method]
+        self.method = self.methods[self.fitting['opt_method']]
         self.error_tol = error_tol
         self.x_tol = x_tol
         self.use_Force = use_force
@@ -250,7 +252,7 @@ class TorsionOptimiser:
         # list of the scan keys in the order to be fit
         self.scan_order = molecule.scan_order
         # list of molecule geometries in OpenMM format list[tuple] [(x, y, z)]
-        self.scan_coords = []
+        self.scan_coords = None
         # list of the dihedral starting parameters
         self.starting_params = []
         # list of all of the qm energies collected in the same order as the scan coords
@@ -469,7 +471,7 @@ class TorsionOptimiser:
         self.update_torsions()
 
         # first drive the torsion using geometric
-        self.scan_coords = self.drive_mm(engine='geometric')
+        self.scan_coords = self.drive_mm('geometric')
 
         # Get the mm corresponding energy
         self.mm_energy = self.mm_energies()
@@ -528,13 +530,13 @@ class TorsionOptimiser:
 
             # step 2 MM torsion scan
             # with wavefront propagation, returns the new set of coords these become the new scan coords
-            self.scan_coords = self.drive_mm(engine='torsiondrive')
+            self.scan_coords = self.drive_mm('torsiondrive')
 
             # also save these coords to the coords store
             self.coords_store = deepcopy(self.coords_store + self.scan_coords)
 
             # step 3 calculate the rmsd for these structures compared to QM
-            rmsd = self.rmsd(f'{self.qm_local}/scan.xyz', 'torsiondrive_scan/scan.xyz')
+            rmsd = TorsionOptimiser.rmsd(f'{self.qm_local}/scan.xyz', 'torsiondrive_scan/scan.xyz')
 
             # step 4 calculate the single point energies
             self.qm_energy = self.single_point()
@@ -674,7 +676,7 @@ class TorsionOptimiser:
             # now run the torsiondrive
             # step 2 MM torsion scan
             # with wavefront propagation, returns the new set of coords these become the new scan coords
-            self.scan_coords = self.drive_mm(engine='torsiondrive')
+            self.scan_coords = self.drive_mm('torsiondrive')
 
             # step 4 calculate the single point energies
             self.qm_energy = self.single_point()
@@ -703,17 +705,23 @@ class TorsionOptimiser:
         # Set up the first fitting
         for self.scan in self.scan_order:
             # move into the QM scan folder to get the scan coords
-            chdir(f'SCAN_{self.scan[0]}_{self.scan[1]}/QM_torsiondrive')
+            chdir(f'../torsion_scan/SCAN_{self.scan[0]}_{self.scan[1]}/QM_torsiondrive')
             # keep track of the QM_torsiondrive location needed for rmsd error
             self.qm_local = getcwd()
 
             # Get the MM coords from the QM torsion drive
-            self.scan_coords = self.get_coords(engine='torsiondrive')
+            self.scan_coords = TorsionOptimiser.get_coords('torsiondrive')
 
-            # now move to our working folder
-            # make a lot of folders not nice
-            # sort out errors how will this work with restarts and re-runs?
-            chdir('../')
+
+
+            # Move home and set up or working folders
+            chdir(self.home)
+            try:
+                rmtree(f'SCAN_{self.scan[0]}_{self.scan[1]}')
+            except FileNotFoundError:
+                pass
+            mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
+            chdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
             try:
                 mkdir('Optimisation')
             except FileExistsError:
@@ -804,7 +812,7 @@ class TorsionOptimiser:
                 error = {}
 
                 # First we need to get the initial error with a full relaxed scan
-                self.scan_coords = self.drive_mm(engine='geometric')
+                self.scan_coords = self.drive_mm('geometric')
 
                 # get the starting energies and errors from the current parameter set
                 normal = self.objective(x)
@@ -817,7 +825,7 @@ class TorsionOptimiser:
                 y_plus[i] += step_size[step_index]
                 print(f'y plus {y_plus}')
                 # now find the new error
-                self.scan_coords = self.drive_mm(engine='geometric')
+                self.scan_coords = self.drive_mm('geometric')
 
                 error_plus = self.objective(y_plus)
                 error[error_plus] = y_plus
@@ -828,7 +836,7 @@ class TorsionOptimiser:
                 print(f'y minus {y_minus}')
 
                 # now find the other error
-                self.scan_coords = self.drive_mm(engine='geometric')
+                self.scan_coords = self.drive_mm('geometric')
                 error_minus = self.objective(y_minus)
                 error[error_minus] = y_minus
 
@@ -1199,21 +1207,20 @@ class TorsionOptimiser:
         # Write out a pdb file of the qm optimised geometry
         self.molecule.write_pdb(name='openmm')
         # Also need an xml file for the molecule to use in geometric
-        self.molecule.write_parameters(name='state')
+        self.molecule.write_parameters(name='openmm')
         # openmm.pdb and input.xml are the expected names for geometric
         with open('log.txt', 'w+')as log:
             if engine == 'torsiondrive':
                 self.write_dihedrals()
                 with open('log.txt', 'w+') as log:
-                    completed = sub_run('torsiondrive-launch -e openmm openmm.pdb dihedrals.txt', shell=True, stderr=log, stdout=log)
-                if completed == 0:
-                    positions = self.get_coords(engine='torsiondrive')
+                    sub_run('torsiondrive-launch -e openmm openmm.pdb dihedrals.txt', shell=True, stderr=log, stdout=log)
+                positions = TorsionOptimiser.get_coords('torsiondrive')
             elif engine == 'geometric':
                 self.make_constraints()
                 with open('log.txt', 'w+') as log:
                     sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml constraints.txt',
                             shell=True, stdout=log, stderr=log)
-                positions = self.get_coords(engine='geometric')
+                positions = TorsionOptimiser.get_coords('geometric')
             else:
                 raise NotImplementedError
 
@@ -1227,8 +1234,9 @@ class TorsionOptimiser:
         """Take set of coordinates of a molecule and do a single point calculation; returns an array of the energies."""
 
         sp_energy = []
+        # reset the temp entry in the moleule
+        self.molecule.molecule['temp'] = self.molecule.molecule['input']
         # for each coordinate in the system we need to write a qm input file and get the single point energy
-        # TODO add progress bar (tqdm?)
         try:
             rmtree(f'Single_points')
         except FileNotFoundError:
@@ -1249,7 +1257,7 @@ class TorsionOptimiser:
             self.qm_engine.generate_input(input_type='temp', energy=True)
 
             # Extract the energy and save to the array
-            sp_energy.append(self.qm_engine.get_energy())
+            sp_energy.append(PSI4.get_energy())
 
             # Move back to the base directory
             chdir('../')
