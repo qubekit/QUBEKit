@@ -49,7 +49,7 @@ We welcome any suggestions for additions or changes.
 
 ## Installation
 
-To install, it is to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*:
+To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*:
 
     git clone https://github.com/qubekit/QUBEKit.git
     cd <install location>
