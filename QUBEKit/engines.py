@@ -15,6 +15,8 @@ from numpy import append as np_append
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile
+from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 
 import qcengine as qcng
 import qcelemental as qcel
@@ -65,7 +67,7 @@ class PSI4(Engines):
         # input.dat is the PSI4 input file.
         with open('input.dat', 'w+') as input_file:
             # opening tag is always writen
-            input_file.write(f"memory {self.qm['threads']} GB\n\nmolecule {self.molecule.name} {{\n{self.charge} {self.multiplicity} \n")
+            input_file.write(f"memory {self.qm['memory']} GB\n\nmolecule {self.molecule.name} {{\n{self.charge} {self.multiplicity} \n")
             # molecule is always printed
             for atom in molecule:
                 input_file.write(f' {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
@@ -123,10 +125,6 @@ class PSI4(Engines):
             with open('log.txt', 'w+') as log:
                 sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True, stdout=log, stderr=log)
 
-    # TODO change to one general file parser that gathers any info it can find
-    #   puts into the engine object proper API?
-    #   file parser is called after execution
-    #   this avoids opening and closing the file multiple times if you want a lot of info?
     def hessian(self):
         """
         Parses the Hessian from the output.dat file (from psi4) into a numpy array.
@@ -299,7 +297,7 @@ class PSI4(Engines):
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
-            file.write(f'molecule {self.molecule.name} {{\n {self.charge} {self.multiplicity} \n')
+            file.write(f'memory {self.qm["memory"]} GB\n\nmolecule {self.molecule.name} {{\n {self.charge} {self.multiplicity} \n')
             for atom in molecule:
                 file.write(f'  {atom[0]:2}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
@@ -623,4 +621,103 @@ class QCEngine(Engines):
             return ret['trajectory']
 
         else:
-            raise KeyError('Invalid or unimplemented output type provided. Please use "geo" or "psi4".')
+            raise KeyError('Invalid engine type provided. Please use "geo" or "psi4".')
+
+
+class RDKit:
+    """Class for controlling useful RDKit functions try to keep class static."""
+
+    @staticmethod
+    def smiles_to_pdb_mol(smiles_string, name=None):
+        """Converts smiles strings to pdb and mol files."""
+        # Originally written by: venkatakrishnan, rewritten and extended by: Chris Ringrose
+
+        if 'H' in smiles_string:
+            raise SyntaxError('Smiles string contains hydrogen atoms; try again.')
+
+        m = AllChem.MolFromSmiles(smiles_string)
+        if not name:
+            name = input('Please enter a name for the molecule:\n>')
+        m.SetProp('_Name', name)
+        m_h = AllChem.AddHs(m)
+        AllChem.EmbedMolecule(m_h, AllChem.ETKDG())
+        AllChem.SanitizeMol(m_h)
+
+        print(AllChem.MolToMolBlock(m_h), file=open(f'{name}.mol', 'w+'))
+        AllChem.MolToPDBFile(m_h, f'{name}.pdb')
+
+        return f'{name}.pdb'
+
+    @staticmethod
+    def mm_optimise(pdb_file, ff='MMF'):
+        """
+        Perform rough preliminary optimisation to speed up later optimisations
+        and extract some extra information about the molecule.
+        """
+
+        force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
+
+        mol = MolFromPDBFile(pdb_file, removeHs=False)
+
+        force_fields[ff](mol)
+
+        AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
+
+        return f'{pdb_file[:-4]}_rdkit_optimised.pdb'
+
+    @staticmethod
+    def rdkit_descriptors(pdb_file):
+        """
+        Use RDKit Descriptors to extract properties and store in Descriptors dictionary
+        :param pdb_file: The molecule input file
+        :return: descriptors dictionary
+        """
+
+        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
+        descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(mol),
+                       'H-bond donors': Descriptors.NumHDonors(mol),
+                       'H-bond acceptors': Descriptors.NumHAcceptors(mol),
+                       'Molecular weight': Descriptors.MolWt(mol),
+                       'LogP': Descriptors.MolLogP(mol)}
+
+        return descriptors
+
+    @staticmethod
+    def get_smiles(pdb_file):
+        """
+        Use RDKit to load in the pdb file of the molecule and get the smiles code.
+        :param pdb_file: The molecule input file
+        :return: The smiles string
+        """
+
+        mol = MolFromPDBFile(pdb_file, removeHs=False)
+
+        return MolToSmiles(mol, isomericSmiles=True, allHsExplicit=True)
+
+    @staticmethod
+    def get_smarts(pdb_file):
+        """
+        Use RDKit to get the smarts string of the molecule.
+        :param pdb_file: The molecule input file
+        :return: The smarts string
+        """
+
+        mol = MolFromPDBFile(pdb_file, removeHs=False)
+
+        return MolToSmarts(mol)
+
+    @staticmethod
+    def get_mol(pdb_file):
+        """
+        Use RDKit to generate a mol file
+        :param pdb_file: The molecule input file.
+        :return: The name of the mol file made.
+        """
+
+        mol = MolFromPDBFile(pdb_file, removeHs=False)
+
+        mol_name = pdb_file[:-4] + '.mol'
+        MolToMolFile(mol, mol_name)
+
+        return mol_name

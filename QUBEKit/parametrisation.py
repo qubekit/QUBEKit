@@ -1,20 +1,22 @@
 #!/usr/bin/env python
 
 from QUBEKit.decorators import for_all_methods, timer_logger
+from QUBEKit.helpers import append_to_log
+from QUBEKit.engines import RDKit
+
 
 from tempfile import TemporaryDirectory
 from shutil import copy
-from os import getcwd, chdir, path
+from os import getcwd, chdir, path, rename
 from subprocess import run as sub_run
 from collections import OrderedDict
 from copy import deepcopy
 
 from xml.etree.ElementTree import parse as parse_tree
 from simtk.openmm import app, XmlSerializer
-from openeye import oechem
-
+from openforcefield.topology import Molecule, Topology
 from openforcefield.typing.engines.smirnoff import ForceField
-from openforcefield.utils import get_data_filename, generateTopologyFromOEMol
+
 
 # TODO Users should be able to just install ONE of the necessary parametrisation methods and not worry about needing the others too.
 #   Is there a nice way of doing this other than try: import <module>; except ImportError: pass ?
@@ -56,7 +58,7 @@ class Parametrisation:
     NonbondedForce : dictionary of charge, sigma and epsilon stored under the original atom ordering.
     """
 
-    def __init__(self, molecule, input_file=None, fftype=None, mol2_file=None):
+    def __init__(self, molecule, input_file=None, fftype=None):
 
         self.molecule = molecule
         self.input_file = input_file
@@ -223,13 +225,11 @@ class Parametrisation:
 
             self.molecule.update()
 
-            # Warning this rewrites the pdb file and re
-            # Write a new pdb with the connection information
-            self.molecule.write_pdb(input_type='input', name=f'{self.molecule.name}_qube')
-            self.molecule.filename = f'{self.molecule.name}_qube.pdb'
-            print(f'Molecule connections updated new pdb file made and used: {self.molecule.name}_qube.pdb')
-            # Update the input file name for the xml
-            self.input_file = f'{self.molecule.name}.xml'
+            # Now we need to rewrite the pdb file to have the conect terms
+            # Back up the old pdb file
+            rename(self.molecule.filename, 'backup.pdb')
+            # Rewrite the pdb file with the conect terms
+            self.molecule.write_pdb(input_type='input')
 
 
 @for_all_methods(timer_logger)
@@ -238,7 +238,7 @@ class XML(Parametrisation):
 
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS', mol2_file=None):
 
-        super().__init__(molecule, input_file, fftype, mol2_file)
+        super().__init__(molecule, input_file, fftype)
 
         self.get_gaff_types(fftype='gaff', file=mol2_file)
         self.serialise_system()
@@ -400,7 +400,7 @@ class AnteChamber(Parametrisation):
 
     def __init__(self, molecule, input_file=None, fftype='gaff', mol2_file=None):
 
-        super().__init__(molecule, input_file, fftype, mol2_file)
+        super().__init__(molecule, input_file, fftype)
 
         self.antechamber_cmd()
         self.serialise_system()
@@ -490,12 +490,12 @@ class AnteChamber(Parametrisation):
 @for_all_methods(timer_logger)
 class OpenFF(Parametrisation):
     """
-    This class uses the openFF in openeye to parametrise the molecule using frost.
+    This class uses the openFFtoolkit 2 to parametrise a molecule and load an OpenMM simulation.
     A serialised XML is then stored in the parameter dictionaries.
     """
 
     def __init__(self, molecule, input_file=None, fftype='frost', mol2_file=None):
-        super().__init__(molecule, input_file, fftype, mol2_file)
+        super().__init__(molecule, input_file, fftype)
 
         self.get_gaff_types(mol2_file)
         self.serialise_system()
@@ -506,27 +506,25 @@ class OpenFF(Parametrisation):
     def serialise_system(self):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 
-        # Load molecule using OpenEye tools
-        mol = oechem.OEGraphMol()
-        ifs = oechem.oemolistream(self.molecule.filename)
-        flavor = oechem.OEIFlavor_Generic_Default | oechem.OEIFlavor_MOL2_Default | oechem.OEIFlavor_MOL2_Forcefield
-        ifs.SetFlavor(oechem.OEFormat_MOL2, flavor)
-        oechem.OEReadMolecule(ifs, mol)
-        oechem.OETriposAtomNames(mol)
+        # Load the molecule using openforcefield
+        pdbfile = app.PDBFile(self.molecule.filename)
 
-        # Load a SMIRNOFF small molecule forcefield for alkanes, ethers, and alcohols
-        forcefield = ForceField(get_data_filename('forcefield/smirnoff99Frosst.offxml'))
+        # Now we need the connection info try using smiles string from rdkit
+        molecule = Molecule.from_smiles(RDKit.get_smiles(self.molecule.filename))
 
-        # Create the OpenMM system
-        topology = generateTopologyFromOEMol(mol)
-        system = forcefield.createSystem(topology, [mol])
+        # Make the openMM system
+        omm_topology = pdbfile.topology
+        off_topology = Topology.from_openmm(omm_topology, unique_molecules=[molecule])
+
+        # Load the smirnof99Frosst force field.
+        forcefield = ForceField('smirnoff99Frosst.offxml')
+
+        # Parametrize the topology and create an OpenMM System.
+        system = forcefield.create_openmm_system(off_topology)
 
         # Serialise the OpenMM system into the xml file
         with open('serialised.xml', 'w+') as out:
             out.write(XmlSerializer.serializeSystem(system))
-
-        # get the gaff atom types
-        self.get_gaff_types()
 
 
 @for_all_methods(timer_logger)
