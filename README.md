@@ -22,7 +22,7 @@
             * [Single Molecules](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-single-molecule)
             * [Skipping Stages](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-skipping-stages)
             * [Multiple Molecules](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-multiple-molecules)
-        * [Progress](https://github.com/qubekit/QUBEKit#qubekit-commands-progress)
+        * [Checking Progress](https://github.com/qubekit/QUBEKit#qubekit-commands-checking-progress)
         * [Other Commands and Information](https://github.com/qubekit/QUBEKit#qubekit-commands-other-commands-and-information)
 * [Cook Book](https://github.com/qubekit/QUBEKit#cook-book)
 
@@ -399,7 +399,7 @@ Using a similar example as above, two molecules are analysed with DDEC6, then re
 The first execution uses a config file for DDEC6 and runs from the beginning up to the charges stage.
 The second execution uses a config file for DDEC3 and runs from the density stage to the charges stage.
 
-### QUBEKit Commands: Progress
+### QUBEKit Commands: Checking Progress
 
 Throughout an analysis, key information will be added to the log file.
 This information can be quickly parsed by QUBEKit's `-progress` command
