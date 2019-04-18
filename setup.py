@@ -16,14 +16,13 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/qubekit/QUBEKit',
     packages=find_packages(),
-    install_requires=[
-        'pyyaml',
-        'py-cpuinfo',
-        'psutil',
-        'qcengine',
-        'pydantic>=0.20.0',
-        'networkx',
-    ],
+    # install_requires=[
+    #     'pyyaml',
+    #     'py-cpuinfo',
+    #     'psutil',
+    #     'qcengine',
+    #     'pydantic>=0.20.0',
+    # ],
     author=['Joshua Thomas Horton', 'Chris Ringrose'],
     entry_points={
         'console_scripts': [
