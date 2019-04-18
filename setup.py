@@ -3,6 +3,7 @@
 from setuptools import setup, find_packages
 from pathlib import Path
 from os import path, makedirs
+from datetime import datetime
 
 here = path.abspath(path.dirname(__file__))
 
@@ -31,7 +32,7 @@ setup(
             'QUBEKit-pro = QUBEKit.protein_run:main'
         ]
     },
-    version='2.0.0',
+    version=datetime.now().strftime('%Y.%m.%d'),
     license='MIT',
     classifiers=[
         'Intended Audience :: Science/Research',

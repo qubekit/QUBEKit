@@ -1,6 +1,8 @@
+{% set data = load_setup_py_data(setup_file='../../setup.py', from_recipe_dir=True) %}
+
 package:
   name: qubekit
-  version: {{ environ['VERSION'] }}
+  version: {{ data.get('version') }}
 
 source:
   path: ../..
