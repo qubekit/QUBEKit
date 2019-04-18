@@ -1,12 +1,15 @@
 package:
   name: qubekit
-  version: {{ environ.get('GIT_DESCRIBE_TAG', 'default') }}
+  version: {{ environ['VERSION'] }}
 
 source:
   path: ../..
 
 build:
   number: 0
+  script_env:
+    - VERSION
+    - CONDA_BLD_PATH
 
 requirements:
   host:

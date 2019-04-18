@@ -345,11 +345,11 @@ class LennardJones:
         self.molecule.sites = sites
 
         # get the parent non bonded values
-        for value in sites.values():
-            charge, sigma, eps = self.non_bonded_force[value[0][0]]
+        for site in sites.values():
+            charge, sigma, eps = self.non_bonded_force[site[0][0]]
             # Change the charge on the first entry
-            charge = float(charge) - value[2]
-            self.non_bonded_force[value[0][0]] = [str(charge), sigma, eps]
+            charge = float(charge) - site[2]
+            self.non_bonded_force[site[0][0]] = [str(charge), sigma, eps]
 
     def calculate_non_bonded_force(self):
         """
