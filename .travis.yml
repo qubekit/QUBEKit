@@ -53,12 +53,14 @@ install:
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
+  - conda install conda-build
+  - conda install anaconda-client
 
 script:
   - python QUBEKit/tests/ligand_tests.py
 
 after_success:
-  - test $TRAVIS_BRANCH "master" && conda install conda-build && conda install anaconda-client && bash devtools/conda-recipe/conda_upload.sh
+  - test $TRAVIS_BRANCH "master" && bash devtools/conda-recipe/conda_upload.sh
 
 notifications:
   email: false
