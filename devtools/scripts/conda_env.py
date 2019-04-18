@@ -1,7 +1,7 @@
 import argparse
 from os import unlink
 from shutil import which
-import subprocess as sp
+from subprocess import call
 
 parser = argparse.ArgumentParser(description='Creates a conda environment from file for a given Python version.')
 parser.add_argument('-n', '--name', type=str, nargs=1, help='The name of the created Python environment')
@@ -26,5 +26,5 @@ print("PYTHON VERSION  {}".format(args.python[0]))
 print("CONDA FILE NAME {}".format(args.conda_file[0]))
 print("CONDA path      {}".format(conda_path))
 
-sp.call("{} env create -n {} -f {}".format(conda_path, args.name[0], tmp_file), shell=True)
+call("{} env create -n {} -f {}".format(conda_path, args.name[0], tmp_file), shell=True)
 unlink(tmp_file)

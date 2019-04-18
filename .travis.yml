@@ -30,7 +30,7 @@ matrix:
 
 before_install:
   - source devtools/travis/before_install.sh
-  - python -V
+  - python -V3.6
 
 install:
   - |
