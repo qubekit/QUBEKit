@@ -2,7 +2,7 @@
 
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, RDKit
+from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
@@ -18,6 +18,7 @@ from shutil import copy
 from collections import OrderedDict
 from functools import partial
 from datetime import datetime
+
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -54,6 +55,8 @@ class Main:
                                   ('torsion_optimise', self.torsion_optimise),
                                   ('finalise', self.finalise)])
 
+        self.immutable_order = list(self.order)
+
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
 
         # Argparse will only return if we are doing a QUBEKit run bulk or normal
@@ -61,6 +64,8 @@ class Main:
 
         # Look through the command line options and apply bulk and restart settings
         self.check_options()
+
+        self.constraints_file = ''
 
         # Configs:
         self.defaults_dict = {'charge': self.args.charge,
@@ -114,7 +119,7 @@ class Main:
 
         # If not bulk must be main single run
         if self.args.restart:
-            self.file = getcwd().split('_')[1] + '.pdb'
+            self.file = [file for file in listdir(getcwd()) if '.pdb' in file][0]
         else:
             self.file = self.args.input
 
@@ -255,7 +260,6 @@ class Main:
 
                 sys_exit()
 
-
         # TODO Convert description to just read the intro from the README?
         parser = argparse.ArgumentParser(
             prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -282,8 +286,8 @@ We welcome any suggestions for additions or changes.""")
                             help='Choose the method to do the charge partioning.')
         parser.add_argument('-density', '--density_engine', choices=['onetep', 'g09', 'psi4'],
                             help='Enter the name of the QM code to calculate the electron density of the molecule.')
-        parser.add_argument('-solvent', '--solvent',
-                            help='Enter the dielectric constant or the name of the solvent you wish to use.')
+        parser.add_argument('-solvent', '--solvent', choices=[True, False], type=bool,
+                            help='Enter whether or not you would like to use a solvent.')
         # maybe separate into known solvents and IPCM constants?
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
                             help='Enter the convergence criteria for the optimisation.')
@@ -388,9 +392,7 @@ We welcome any suggestions for additions or changes.""")
                             chdir(dir_name)
 
                 # These are the files in the active directory, search for the pdb.
-                # TODO Can we just set self.file = f'{name}.pdb' ?
-                files = [file for file in listdir('.') if path.isfile(file)]
-                self.file = [file for file in files if file.endswith('.pdb') and not file.endswith('optimised.pdb')][0]
+                self.file = [file for file in listdir(getcwd()) if '.pdb' in file][0]
 
                 self.continue_log()
 
@@ -422,9 +424,22 @@ We welcome any suggestions for additions or changes.""")
         copy(abspath, f'{dir_string}/{self.file}')
         chdir(dir_string)
 
-        with open(self.log_file, 'w+') as log_file:
+        for root, dirs, files in walk('.', topdown=True):
+            for file in files:
+                if 'constraints.txt' in file:
+                    self.constraints_file = path.abspath(f'{root}/{file}')
 
+        # Find external files
+        copy_files = [f'{self.file[:-4]}.xml', 'QUBE_torsions.txt']
+        for file in copy_files:
+            try:
+                copy(f'cp ../{file}', '.')
+            except FileNotFoundError:
+                pass
+
+        with open(self.log_file, 'w+') as log_file:
             log_file.write(f'Beginning log file; the time is: {datetime.now()}\n\n\n')
+
         self.log_configs()
 
     def continue_log(self):
@@ -476,26 +491,28 @@ We welcome any suggestions for additions or changes.""")
 
         mol = unpickle()[start_key]
 
-        # if we have an torsion options dictionary pass it to the molecule
+        # if we have a torsion options dictionary pass it to the molecule
         if torsion_options is not None:
             mol = self.store_torsions(mol, torsion_options)
 
         skipping = False
         if self.order[start_key] == self.skip:
             printf(f'Skipping stage: {start_key}')
+            append_to_log(f'skipping stage: {start_key}')
             skipping = True
         else:
             if begin_log_msg:
                 printf(f'{begin_log_msg}...', end=' ')
 
-        # move into folder
         home = getcwd()
+
+        folder_name = f'{self.immutable_order.index(start_key) + 1}_{start_key}'
         try:
-            mkdir(f'{start_key}')
+            mkdir(folder_name)
         except FileExistsError:
             pass
         finally:
-            chdir(f'{start_key}')
+            chdir(folder_name)
 
         self.order[start_key](mol)
         self.order.pop(start_key, None)
@@ -521,7 +538,7 @@ We welcome any suggestions for additions or changes.""")
 
         # If we are using xml we have to move it
         if self.fitting['parameter_engine'] == 'xml':
-            copy(f'../../{molecule.name}.xml', f'{molecule.name}.xml')
+            copy(f'../{molecule.name}.xml', f'{molecule.name}.xml')
 
         # Perform the parametrisation
         param_dict[self.fitting['parameter_engine']](molecule)
@@ -532,7 +549,7 @@ We welcome any suggestions for additions or changes.""")
 
     def mm_optimise(self, molecule):
         """
-        Use a mm force field to get the initial optimisation of a molecule
+        Use an mm force field to get the initial optimisation of a molecule
 
         options
         ---------
@@ -542,6 +559,7 @@ We welcome any suggestions for additions or changes.""")
         """
 
         # Check which method we want then do the optimisation
+        # TODO if we don't want geometric we can do a quick native openmm full optimisation?
         if self.args.mm_opt_method == 'openmm':
             # Make the inputs
             molecule.write_pdb(input_type='input')
@@ -549,7 +567,8 @@ We welcome any suggestions for additions or changes.""")
             # Run geometric
             with open('log.txt', 'w+') as log:
                 run(f'geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb {molecule.name}.pdb '
-                    f'--openmm {molecule.name}.xml', shell=True, stdout=log, stderr=log)
+                    f'--openmm {molecule.name}.xml {self.constraints_file}', shell=True, stdout=log, stderr=log)
+
             # Read the xyz traj and store the frames
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
             # Store the last from of the traj as the mm optimised structure
@@ -560,7 +579,7 @@ We welcome any suggestions for additions or changes.""")
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
 
-        append_to_log(f'Optimised the molecule with {self.args.mm_opt_method}')
+        append_to_log(f'mm_optimised the molecule with {self.args.mm_opt_method}')
 
         return molecule
 
@@ -576,31 +595,30 @@ We welcome any suggestions for additions or changes.""")
             # TODO need to make sure geometric converged other wise we make the hessian with a bad structure
             # Read in the full qm optimisation traj
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
-            # Store the last frame as the QM optimisaed structure
+            # Store the last frame as the QM optimised structure
             molecule.molecule['qm'] = molecule.molecule['traj'][-1]
+
+            # TODO Get optimised structure from qcengine
 
         else:
             qm_engine.generate_input(input_type='mm', optimise=True)
             molecule.molecule['qm'] = qm_engine.optimised_structure()
 
-        append_to_log(f'Optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
+        append_to_log(f'qm_optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
 
         return molecule
 
     def hessian(self, molecule):
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-
-        # Write input file for bonds engine
-        qm_engine.generate_input(input_type='qm', hessian=True)
-
-        # Calc bond lengths from molecule topology
         molecule.get_bond_lengths(input_type='qm')
 
-        # Extract Hessian and modes
-        molecule.hessian = qm_engine.hessian()
-        molecule.modes = qm_engine.all_modes()
+        qceng = QCEngine(molecule, self.all_configs)
+
+        # TODO Dynamically change input type?
+        hessian = qceng.call_qcengine('hessian', input_type='qm')
+
+        molecule.hessian = hessian
 
         append_to_log(f'Hessian calculated using {self.qm["bonds_engine"]}')
 
@@ -612,7 +630,7 @@ We welcome any suggestions for additions or changes.""")
         mod_sem = ModSeminario(molecule, self.all_configs)
         mod_sem.modified_seminario_method()
 
-        append_to_log('Modified Seminario method complete')
+        append_to_log('Mod_Seminario method complete')
 
         return molecule
 
@@ -623,10 +641,10 @@ We welcome any suggestions for additions or changes.""")
         qm_engine.generate_input(input_type='qm', density=True, solvent=self.qm['solvent'])
 
         if self.qm['density_engine'] == 'g09':
-            append_to_log('Gaussian analysis complete')
+            append_to_log('Density analysis complete')
         else:
             # If we use onetep we have to stop after this step
-            append_to_log('ONETEP file made')
+            append_to_log('Density analysis file made for ONETEP')
 
             # Now we have to edit the order to end here.
             self.order = OrderedDict([('density', self.density), ('charges', self.skip), ('lennard_jones', self.skip),
@@ -638,18 +656,18 @@ We welcome any suggestions for additions or changes.""")
         """Perform DDEC calculation with Chargemol."""
 
         # TODO add option to use chargemol on onetep cube files.
-        copy(f'../density/{molecule.name}.wfx', f'{molecule.name}.wfx')
+        copy(f'../6_density/{molecule.name}.wfx', f'{molecule.name}.wfx')
         c_mol = Chargemol(molecule, self.all_configs)
         c_mol.generate_input()
 
-        append_to_log(f'Chargemol analysis with DDEC{self.qm["ddec_version"]} complete')
+        append_to_log(f'Charge analysis completed with Chargemol and DDEC{self.qm["ddec_version"]}')
 
         return molecule
 
     def lennard_jones(self, molecule):
         """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
-        system('cp ../charges/DDEC* .')
+        system('cp ../7_charges/DDEC* .')
         lj = LennardJones(molecule, self.all_configs)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
@@ -662,7 +680,8 @@ We welcome any suggestions for additions or changes.""")
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
         scan = TorsionScan(molecule, qm_engine)
-        # Try and find a scan file if none and more than one torsion found promt user
+
+        # Try to find a scan file if none provided and more than one torsion detected, prompt user
         try:
             copy('../../QUBE_torsions.txt', 'QUBE_torsions.txt')
             scan.find_scan_order(file='QUBE_torsions.txt')
@@ -671,12 +690,12 @@ We welcome any suggestions for additions or changes.""")
             # Do the scan
         scan.start_scan()
 
-        append_to_log('Torsion scans complete')
+        append_to_log('Torsion_scans complete')
 
         return molecule
 
     def torsion_optimise(self, molecule):
-        """Perform torsion optimisation"""
+        """Perform torsion optimisation."""
 
         # TODO get the combination rule from xml file.
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
@@ -685,7 +704,7 @@ We welcome any suggestions for additions or changes.""")
                                vn_bounds=self.fitting['tor_limit'])
         opt.run()
 
-        append_to_log('Torsion optimisations complete')
+        append_to_log('Torsion_optimisations complete')
 
         return molecule
 
@@ -710,9 +729,7 @@ We welcome any suggestions for additions or changes.""")
 
     @staticmethod
     def skip(molecule):
-        """
-        A blank method that does nothing to that stage but adds the pickle points to not break the flow
-        """
+        """A blank method that does nothing to that stage but adds the pickle points to not break the flow."""
 
         return molecule
 
@@ -781,6 +798,7 @@ We welcome any suggestions for additions or changes.""")
         if 'parametrise' in self.order:
             # Initialise ligand object fully before pickling it
             molecule = Ligand(self.file)
+            molecule.constraints_file = self.constraints_file
 
             # If there are extra options add them to the molecule
             if torsion_options is not None:

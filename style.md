@@ -79,7 +79,7 @@ according to each "thought" or segment. Partitioning like this significantly imp
 Following PEP8, continuation over new lines should be achieved using parentheses, rather than slashes.
 
 Imports should be as specific as is reasonable, to avoid excessive module loading.
-If possible, avoid using imports altogether. Never use ```import *``` (even if it's what another package recommends.)
+If possible, avoid using imports altogether. Never use `import *` (even if it's what another package recommends).
 
     # Terrible
     from math import *
@@ -240,9 +240,10 @@ Due to the formatting of the input/output and job files, it is often appropriate
 Sometimes, splitting a line can be less readable than simply running a few characters over, particularly in highly indented sections of code.
 For example:
 
-    subprocess.call(f'geometric-optimize --psi4 {self.molecule_name}.psi4in --nt {self.qm['threads']}', shell=True, stdout=log)
+    subprocess.call(f'geometric-optimize --psi4 {self.molecule_name}.psi4in --nt {self.qm['threads']}', 
+                    shell=True, stdout=log)
 
-Splitting this line would add confusion as to which arguments are parsed where and how the string formatting is carried out.
+Splitting the string in this line would add confusion as to which arguments are parsed where and how the string formatting is carried out.
 This is also relevant when dealing with highly nested sections of code. We have no hard limit on line length.
 
 All strings should be written with single quotes. When both are used, double quotes should be inside the single quotes:

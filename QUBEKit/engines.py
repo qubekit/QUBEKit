@@ -10,7 +10,7 @@ from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import run as sub_run
 
-from numpy import array, zeros
+from numpy import array, zeros, reshape
 from numpy import append as np_append
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
@@ -189,8 +189,10 @@ class PSI4(Engines):
             return hess_matrix
 
     def optimised_structure(self):
-        """Parses the final optimised structure from the output.dat file (from psi4) to a numpy array.
-        Also returns the energy of the optimized structure."""
+        """
+        Parses the final optimised structure from the output.dat file (from psi4) to a numpy array.
+        Also returns the energy of the optimized structure.
+        """
 
         # Run through the file and find all lines containing '==> Geometry', add these lines to a list.
         # Reverse the list
@@ -307,7 +309,7 @@ class PSI4(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.qm["threads"]}',
+                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.qm["threads"]}',
                         shell=True, stdout=log, stderr=log)
 
 
@@ -319,10 +321,7 @@ class Chargemol(Engines):
         super().__init__(molecule, config_file)
 
     def generate_input(self, run=True):
-        """
-        Given a DDEC version (from the defaults), this function writes the job file for chargemol and
-        executes it.
-        """
+        """Given a DDEC version (from the defaults), this function writes the job file for chargemol and executes it."""
 
         if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
             append_to_log(message='Invalid or unsupported DDEC version given, running with default version 6.',
@@ -415,7 +414,8 @@ class Gaussian(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_run(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log', shell=True, stdout=log, stderr=log)
+                sub_run(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log',
+                        shell=True, stdout=log, stderr=log)
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
@@ -561,13 +561,11 @@ class QCEngine(Engines):
 
         return mol
 
-    def call_qcengine(self, engine, driver, input_type):
+    def call_qcengine(self, output, input_type):
         """
         Using the created schema, run a particular engine, specifying the driver (job type).
         e.g. engine: geo, driver: energies
         """
-
-        mol = self.generate_qschema(input_type=input_type)
 
         # OLD or NEW? Method for getting qcengine to work. May be removed later
         # task = {
@@ -580,18 +578,27 @@ class QCEngine(Engines):
         #     "return_output": False
         # }
 
-        if engine == 'psi4':
-            task = qcel.models.ResultInput(
+        mol = self.generate_qschema(input_type=input_type)
+
+        if output == 'hessian':
+            psi4_task = qcel.models.ResultInput(
                 molecule=mol,
-                driver=driver,
+                driver='hessian',
                 model={'method': self.qm['theory'], 'basis': self.qm['basis']},
-                keywords={'scf_type': 'df'}
+                keywords={'scf_type': 'df'},
             )
 
-            return qcng.compute(task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
+            hess_size = 3 * len(self.molecule.molecule[input_type])
 
-        elif engine == 'geo':
-            task = {
+            ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
+
+            hessian = reshape(ret.return_result, (hess_size, hess_size))
+            check_symmetry(hessian)
+
+            return hessian
+
+        elif output == 'gradient':
+            geo_task = {
                 "schema_name": "qcschema_optimization_input",
                 "schema_version": 1,
                 "keywords": {
@@ -609,7 +616,9 @@ class QCEngine(Engines):
                 "initial_molecule": mol,
             }
 
-            return qcng.compute_procedure(task, 'geometric')
+            # return_dict=True seems to be default False in newer versions. Ergo docs are wrong again.
+            ret = qcng.compute_procedure(geo_task, 'geometric', return_dict=True)
+            return ret['trajectory']
 
         else:
             raise KeyError('Invalid engine type provided. Please use "geo" or "psi4".')

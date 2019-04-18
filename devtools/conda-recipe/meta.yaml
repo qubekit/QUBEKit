@@ -1,12 +1,16 @@
+{% set data = load_setup_py_data(setup_file='../../setup.py', from_recipe_dir=True) %}
+
 package:
   name: qubekit
-  version: {{ environ.get('GIT_DESCRIBE_TAG', 'default') }}
+  version: {{ data.get('version') }}
 
 source:
   path: ../..
 
 build:
-  number: 0
+  script_env:
+    - VERSION
+    - CONDA_BLD_PATH
 
 requirements:
   host:
@@ -20,12 +24,12 @@ requirements:
     - scipy
 
 about:
-  home: https://github.com/qubekit/QUBEKitdev
+  home: https://github.com/qubekit/QUBEKit
   license: MIT
   license_family: MIT
   license_file: LICENSE.txt
   summary: Quantum mechanical bespoke force field derivation toolkit
-  doc_url: https://github.com/qubekit/QUBEKitdev
+  doc_url: https://github.com/qubekit/QUBEKit
 
 extra:
   recipe-maintainers:

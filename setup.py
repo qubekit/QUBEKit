@@ -3,6 +3,7 @@
 from setuptools import setup, find_packages
 from pathlib import Path
 from os import path, makedirs
+from datetime import datetime
 
 here = path.abspath(path.dirname(__file__))
 
@@ -14,16 +15,15 @@ setup(
     description='Quantum mechanical bespoke force field parameter generation',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/qubekit/QUBEKitdev',
+    url='https://github.com/qubekit/QUBEKit',
     packages=find_packages(),
-    install_requires=[
-        'pyyaml',
-        'py-cpuinfo',
-        'psutil',
-        'qcengine',
-        'pydantic>=0.20.0',
-        'networkx',
-    ],
+    # install_requires=[
+    #     'pyyaml',
+    #     'py-cpuinfo',
+    #     'psutil',
+    #     'qcengine',
+    #     'pydantic>=0.20.0',
+    # ],
     author=['Joshua Thomas Horton', 'Chris Ringrose'],
     entry_points={
         'console_scripts': [
@@ -32,7 +32,7 @@ setup(
             'QUBEKit-pro = QUBEKit.protein_run:main'
         ]
     },
-    version='2.0.0',
+    version=datetime.now().strftime('%Y.%m.%d'),
     license='MIT',
     classifiers=[
         'Intended Audience :: Science/Research',

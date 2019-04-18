@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 PKG_NAME=qubekit
-USER=cringrose94
-
+USER=cringrose
 OS=linux-64
+
 mkdir ~/conda-bld
 conda config --set anaconda_upload no
 export CONDA_BLD_PATH=~/conda-bld

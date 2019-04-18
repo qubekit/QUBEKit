@@ -7,6 +7,11 @@ from QUBEKit.protein_tools import qube_general, pdb_reformat, get_water
 
 from os import remove
 import argparse
+from sys import exit as sys_exit
+from functools import partial
+
+
+printf = partial(print, flush=True)
 
 
 def main():
@@ -24,13 +29,13 @@ def main():
         def __call__(self, pars, namespace, values, option_string=None):
             """This function is executed when setup is called."""
 
-            print('starting protein prep, reading pdb file...')
+            printf('starting protein prep, reading pdb file...')
             protein = Protein(values)
-            print(f'{len(protein.Residues)} residues found!')
+            printf(f'{len(protein.Residues)} residues found!')
             # TODO find the magic numbers for the box for onetep
             protein.write_xyz(name='protein')
-            print(f'protein.xyz file made for ONETEP\n Run this file')
-            exit()
+            printf(f'protein.xyz file made for ONETEP\n Run this file')
+            sys_exit()
 
     class BuildAction(argparse.Action):
         """This class handles the building of the protein xml and pdb files."""
@@ -54,14 +59,14 @@ def main():
 
             # now we write out the final parameters
             # we should also calculate the charges and lj at this point!
-            print('Writing pdb file with conections...')
+            printf('Writing pdb file with connections...')
             pro.write_pdb(name='QUBE_pro')
-            print('Writing XML file for the system...')
+            printf('Writing XML file for the system...')
             pro.write_parameters(name='QUBE_pro', protein=True)
             # now remove the qube general file
             remove('QUBE_general_pi.xml')
-            print('Done')
-            exit()
+            printf('Done')
+            sys_exit()
 
     class WaterAction(argparse.Action):
         """This class builds the water models requested"""
@@ -69,19 +74,19 @@ def main():
         def __call__(self, pars, namespace, values, option_string=None):
             """This function is executed when water is called."""
             get_water(values)
-            exit()
+            sys_exit()
 
     class ConvertAction(argparse.Action):
         """This class converts the names in a qube taj file to match the reference."""
 
         def __call__(self, pars, namespace, values, option_string=None):
             """This function is executed when water is called."""
-            refernece, target = values[0], values[1]
-            print(refernece, target)
-            print(f'Rewriting input:{target} to match:{refernece}...')
-            pdb_reformat(refernece, target)
-            print('Done output made: QUBE_traj.pdb')
-            exit()
+            reference, target = values
+            printf(reference, target)
+            printf(f'Rewriting input: {target} to match: {reference}...')
+            pdb_reformat(reference, target)
+            printf('Done output made: QUBE_traj.pdb')
+            sys_exit()
 
     # Set up the argument parser
     parser = argparse.ArgumentParser(prog='QUBEKit-pro', formatter_class=argparse.RawDescriptionHelpFormatter,

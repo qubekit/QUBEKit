@@ -1,9 +1,8 @@
 from QUBEKit.ligand import Ligand
 from QUBEKit.tests.test_structures import acetone
 
-from os import system
-
 import unittest
+from os import system
 
 
 class TestLigands(unittest.TestCase):
@@ -11,7 +10,7 @@ class TestLigands(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """
-        Write the big string above to a file to be used for testing.
+        Write the big string in test_structures to a file to be used for testing.
         Cannot use actual files as pathing causes issues.
         """
         with open('acetone.pdb', 'w+') as pdb_test_file:
@@ -30,7 +29,7 @@ class TestLigands(unittest.TestCase):
 
     def test_bonds(self):
 
-        # check we have found the bonds in the conectons table
+        # check we have found the bonds in the connections table
         bonds = [(1, 5), (1, 6), (1, 7), (1, 2), (2, 3), (2, 4), (4, 8), (4, 9), (4, 10)]
         self.assertEqual(bonds, list(self.molecule.topology.edges))
 
