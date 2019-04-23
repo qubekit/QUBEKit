@@ -67,7 +67,7 @@ class Molecule:
                                 e.g. {(3, 1, 2, 6): [[1, 0.6, 0 ] [2, 0, 3.141592653589793] .... Improper]}
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
 
-        combination
+        combination             str; Combination rules e.g. 'opls'
         sites                   OrderedDict of virtual site parameters {0: [(top nos parent, a .b), (p1, p2, p3), charge]}
 
         # QUBEKit Internals
@@ -102,6 +102,7 @@ class Molecule:
         self.HarmonicAngleForce = {}
         self.PeriodicTorsionForce = OrderedDict()
         self.NonbondedForce = OrderedDict()
+
         self.combination = None
         self.sites = None
 
@@ -131,15 +132,19 @@ class Molecule:
         Can be also be called for Protein class objects.
         """
 
-        # This is the old __str__ definition which is basically a one-line alternative to the else case below.
-        # return '\n'.join(('{} = {}'.format(key, val) for key, val in self.__dict__.items()))
-
         return_str = ''
-        for key, val in self.__dict__.items():
-            if trunc:
-                # if it's smaller than 120 chars: print it as is. Otherwise print a truncated version.
-                return_str += f'\n{key} = {val if (len(str(key) + str(val)) < 120) else str(val)[:121 - len(str(key))] + "..."}'
-            else:
+
+        if trunc:
+            for key, val in self.__dict__.items():
+                # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".
+                return_str += f'\n{key} = '
+                if len(str(key) + str(val)) < 120:
+                    return_str += str(val)
+                else:
+                    return_str += str(val)[:121 - len(str(key))] + '...'
+
+        else:
+            for key, val in self.__dict__.items():
                 # Return all objects as {ligand object name} = {ligand object value(s)} without any special formatting.
                 return_str += f'\n{key} = {val}\n'
 
