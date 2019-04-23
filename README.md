@@ -1,5 +1,11 @@
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/qubekit/QUBEKit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/qubekit/QUBEKit/context:python)
 [![Build Status](https://travis-ci.com/qubekit/QUBEKit.svg?branch=master)](https://travis-ci.com/qubekit/QUBEKit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/platforms.svg)](https://anaconda.org/cringrose/qubekit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/license.svg)](https://anaconda.org/cringrose/qubekit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/downloads.svg)](https://anaconda.org/cringrose/qubekit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/installer/conda.svg)](https://conda.anaconda.org/cringrose)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/version.svg)](https://anaconda.org/cringrose/qubekit)
+[![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/latest_release_date.svg)](https://anaconda.org/cringrose/qubekit)
 
 # QUBEKit - QUantum BEspoke force field toolKit
 
@@ -22,7 +28,7 @@
             * [Single Molecules](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-single-molecule)
             * [Skipping Stages](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-skipping-stages)
             * [Multiple Molecules](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-multiple-molecules)
-        * [Progress](https://github.com/qubekit/QUBEKit#qubekit-commands-progress)
+        * [Checking Progress](https://github.com/qubekit/QUBEKit#qubekit-commands-checking-progress)
         * [Other Commands and Information](https://github.com/qubekit/QUBEKit#qubekit-commands-other-commands-and-information)
 * [Cook Book](https://github.com/qubekit/QUBEKit#cook-book)
 
@@ -399,7 +405,7 @@ Using a similar example as above, two molecules are analysed with DDEC6, then re
 The first execution uses a config file for DDEC6 and runs from the beginning up to the charges stage.
 The second execution uses a config file for DDEC3 and runs from the density stage to the charges stage.
 
-### QUBEKit Commands: Progress
+### QUBEKit Commands: Checking Progress
 
 Throughout an analysis, key information will be added to the log file.
 This information can be quickly parsed by QUBEKit's `-progress` command

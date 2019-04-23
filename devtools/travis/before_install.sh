@@ -4,6 +4,8 @@
 pushd .
 cd $HOME
 
+python -m ensurepip
+
 # Install Miniconda
 MINICONDA=Miniconda3-latest-Linux-x86_64.sh
 export PYTHON_VER=3.6

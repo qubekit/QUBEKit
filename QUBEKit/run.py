@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
-from QUBEKit.smiles import smiles_to_pdb, smiles_mm_optimise, rdkit_descriptors
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine
+from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
 from QUBEKit.ligand import Ligand
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
@@ -378,7 +377,7 @@ We welcome any suggestions for additions or changes.""")
 
                 if bulk_data[name]['smiles string'] is not None:
                     smiles_string = bulk_data[name]['smiles string']
-                    self.file = smiles_to_pdb(smiles_string, name)
+                    self.file = RDKit.smiles_to_pdb_mol(smiles_string, name)
 
                 else:
                     self.file = f'{name}.pdb'
@@ -578,7 +577,7 @@ We welcome any suggestions for additions or changes.""")
         else:
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
-            molecule.filename = smiles_mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
+            molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
 
         append_to_log(f'mm_optimised the molecule with {self.args.mm_opt_method}')
 
@@ -589,10 +588,11 @@ We welcome any suggestions for additions or changes.""")
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
 
-        if self.qm['geometric']:
+        if self.qm['geometric'] and self.qm['bonds_engine'] == 'psi4':
 
             # Calculate geometric-related gradient and geometry
             qm_engine.geo_gradient(input_type='mm')
+            # TODO need to make sure geometric converged other wise we make the hessian with a bad structure
             # Read in the full qm optimisation traj
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
             # Store the last frame as the QM optimised structure
@@ -697,8 +697,9 @@ We welcome any suggestions for additions or changes.""")
     def torsion_optimise(self, molecule):
         """Perform torsion optimisation."""
 
+        # TODO get the combination rule from xml file.
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS',
+        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs,
                                combination=molecule.combination, refinement_method=self.fitting['refinement_method'],
                                vn_bounds=self.fitting['tor_limit'])
         opt.run()
@@ -717,8 +718,8 @@ We welcome any suggestions for additions or changes.""")
         molecule.write_pdb()
         molecule.write_parameters()
 
-        # get the molecule descriptors from RDKit
-        molecule.descriptors = rdkit_descriptors(molecule.filename)
+        # get the molecule descriptors from rdkit
+        molecule.descriptors = RDKit.rdkit_descriptors(molecule.filename)
 
         # Print ligand objects to log file and terminal
         pretty_print(molecule, to_file=True)
