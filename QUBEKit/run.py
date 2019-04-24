@@ -18,6 +18,7 @@ from shutil import copy
 from collections import OrderedDict
 from functools import partial
 from datetime import datetime
+from numpy import array
 
 
 # To avoid calling flush=True in every print statement.
@@ -433,7 +434,7 @@ We welcome any suggestions for additions or changes.""")
         copy_files = [f'{self.file[:-4]}.xml', 'QUBE_torsions.txt']
         for file in copy_files:
             try:
-                copy(f'cp ../{file}', '.')
+                copy(f'../{file}', file)
             except FileNotFoundError:
                 pass
 
@@ -590,15 +591,17 @@ We welcome any suggestions for additions or changes.""")
 
         if self.qm['geometric'] and self.qm['bonds_engine'] == 'psi4':
 
-            # Calculate geometric-related gradient and geometry
-            qm_engine.geo_gradient(input_type='mm')
-            # TODO need to make sure geometric converged other wise we make the hessian with a bad structure
-            # Read in the full qm optimisation traj
-            molecule.read_xyz(f'{molecule.name}_optim.xyz')
-            # Store the last frame as the QM optimised structure
-            molecule.molecule['qm'] = molecule.molecule['traj'][-1]
-
-            # TODO Get optimised structure from qcengine
+            # Optimise the structure using QCEngine with geometric and psi4
+            qceng = QCEngine(molecule, self.all_configs)
+            traj = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
+            # Check if converged and get the geometry
+            if traj[-1]['success']:
+                # Convert coordinates from bohr to angstroms
+                geometry = array(traj[-1]['molecule']['geometry']) * 0.529177210
+                for i, atom in enumerate(traj[-1]['molecule']['symbols']):
+                    molecule.molecule['qm'].append([atom, geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
+            else:
+                sys_exit('Molecule not optimised.')
 
         else:
             qm_engine.generate_input(input_type='mm', optimise=True)
@@ -616,7 +619,7 @@ We welcome any suggestions for additions or changes.""")
         qceng = QCEngine(molecule, self.all_configs)
 
         # TODO Dynamically change input type?
-        hessian = qceng.call_qcengine('hessian', input_type='qm')
+        hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
 
         molecule.hessian = hessian
 

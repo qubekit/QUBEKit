@@ -144,8 +144,10 @@ class LennardJones:
             'H': [7.6, 6.5, 1.64],
             'C': [34.4, 46.6, 2.08],
             'N': [25.9, 24.2, 1.72],
+            'B': [46.7, 99.5, 2.08],
             'O': [22.1, 15.6, 1.60],
             'F': [18.2, 9.5, 1.58],
+            'P': [84.6, 185, 2.00],
             'S': [75.2, 134.0, 2.00],
             'Cl': [65.1, 94.6, 1.88],
             'Br': [95.7, 162.0, 1.96],
@@ -289,6 +291,9 @@ class LennardJones:
         w1o, w2o, w3o = 1.0, 0.0, 0.0  # SUM SHOULD BE 1
         w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
         w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
+
+        if not exists('xyz_with_extra_point_charges.xyz'):
+            return
 
         with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
             lines = xyz_sites.readlines()

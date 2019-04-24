@@ -110,7 +110,8 @@ class Molecule:
         self.state = None
 
         # Atomic weight dict
-        self.element_dict = {'H': 1.008000,  # Group 1
+        self.element_dict = {'H': 1.008000,   # Group 1
+                             'B': 10.811000,  # Group 3
                              'C': 12.011000,  # Group 4
                              'N': 14.007000, 'P': 30.973762,  # Group 5
                              'O': 15.999000, 'S': 32.060000,  # Group 6
