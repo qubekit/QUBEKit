@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
 from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.helpers import append_to_log
 from QUBEKit.engines import RDKit
-
 
 from tempfile import TemporaryDirectory
 from shutil import copy
@@ -48,10 +46,10 @@ class Parametrisation:
 
     Residues : dictionary of residue names indexed by the order they appear.
 
-    HarmonicBondForce: dictionary of equilibrium distances and force constants stored under the bond tuple.
+    HarmonicBondForce : dictionary of equilibrium distances and force constants stored under the bond tuple.
                 {(0, 1): [eqr=456, fc=984375]}
 
-    HarmonicAngleForce: dictionary of equilibrium  angles and force constant stored under the angle tuple.
+    HarmonicAngleForce : dictionary of equilibrium  angles and force constant stored under the angle tuple.
 
     PeriodicTorsionForce : dictionary of periodicity, barrier and phase stored under the torsion tuple.
 
@@ -179,7 +177,7 @@ class Parametrisation:
                 # Call antechamber
                 with open('Antechamber.log', 'w+') as log:
                     sub_run(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {fftype} -c bcc',
-                            shell=True, stdout=log)
+                            shell=True, stdout=log, stderr=log)
 
                 # Ensure command worked
                 if not path.exists('out.mol2'):
@@ -438,10 +436,10 @@ class AnteChamber(Parametrisation):
             chdir(temp)
             copy(mol2, 'out.mol2')
 
-
             # Run parmchk
             with open('Antechamber.log', 'a') as log:
-                sub_run(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}", shell=True, stdout=log)
+                sub_run(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}",
+                        shell=True, stdout=log, stderr=log)
 
             # Ensure command worked
             if not path.exists('out.frcmod'):
@@ -471,7 +469,7 @@ class AnteChamber(Parametrisation):
 
             # Now run tleap
             with open('Antechamber.log', 'a') as log:
-                sub_run('tleap -f tleap_commands', shell=True, stdout=log)
+                sub_run('tleap -f tleap_commands', shell=True, stdout=log, stderr=log)
 
             # Check results present
             if not path.exists('out.prmtop') or not path.exists('out.inpcrd'):

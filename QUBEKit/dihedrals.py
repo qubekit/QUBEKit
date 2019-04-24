@@ -8,14 +8,13 @@ import simtk.openmm as mm
 from simtk import unit
 from numpy import array, zeros, sqrt, sum, exp, round, append
 from scipy.optimize import minimize
+import matplotlib.pyplot as plt
 
 from subprocess import run as sub_run
 from collections import OrderedDict
 from copy import deepcopy
 from os import chdir, mkdir, system, getcwd, listdir
 from shutil import rmtree
-
-import matplotlib.pyplot as plt
 
 
 @for_all_methods(timer_logger)
@@ -221,8 +220,8 @@ class TorsionOptimiser:
     """
     # TODO get combination rule from xml file
 
-    def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, combination='opls', use_force=False, step_size=0.02,
-                 error_tol=1e-5, x_tol=1e-5, refinement_method='Steep', vn_bounds=20):
+    def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, combination='opls', use_force=False,
+                 step_size=0.02, error_tol=1e-5, x_tol=1e-5, refinement='Steep', vn_bounds=20):
 
         # configurations
         self.qm, self.fitting, self.descriptions = config_dict[1:]
@@ -237,7 +236,7 @@ class TorsionOptimiser:
         self.x_tol = x_tol
         self.use_Force = use_force
         self.abs_bounds = vn_bounds
-        self.refinement = refinement_method
+        self.refinement = refinement
 
         # QUBEKit objects
         self.molecule = molecule
@@ -262,7 +261,7 @@ class TorsionOptimiser:
         self.energy_store_qm = []
         # list of all of the coordinates sampled in the fitting
         self.coords_store = []
-        # the qm optimised geometrys
+        # the qm optimised geometries
         self.initial_coords = []
         # important! stores the torsion indices in the OpenMM system and groups torsions
         self.tor_types = OrderedDict()
@@ -272,13 +271,13 @@ class TorsionOptimiser:
         self.qm_energy = None
         # the current scan key that is being fit
         self.scan = None
-        # numpy array of the parameters being fit, this is a flat array even with multipule torsions
+        # numpy array of the parameters being fit, this is a flat array even with multiple torsions
         self.param_vector = None
         # this dictionary is a copy of the molecules periodic torsion force dict
         self.torsion_store = None
         # used to work out the index of the torsions in the OpenMM system
         self.index_dict = {}
-        # the loaction of the QM torsiondrive
+        # the location of the QM torsiondrive
         self.qm_local = None
 
         # OpenMM system info

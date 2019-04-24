@@ -117,7 +117,9 @@ def exception_logger(func):
         try:
             return func(*args, **kwargs)
 
-        # Any exception that occurs is logged
+        except KeyboardInterrupt:
+            raise
+        # Any other exception that occurs is logged
         except:
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
@@ -142,7 +144,7 @@ def exception_logger(func):
                         pickle_point = lines[pos - 2].split()[-1]
 
                 if not (mol_name and pickle_point):
-                    raise EOFError('Cannot locate molecule name or completion stage in file.')
+                    raise EOFError('Cannot locate molecule name or completion stage in log file.')
 
                 mol = unpickle()[pickle_point]
                 pretty_print(mol, to_file=True, finished=False)

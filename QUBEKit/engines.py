@@ -630,7 +630,7 @@ class RDKit:
     @staticmethod
     def smiles_to_pdb_mol(smiles_string, name=None):
         """Converts smiles strings to pdb and mol files."""
-        # Originally written by: venkatakrishnan, rewritten and extended by: Chris Ringrose
+        # Originally written by venkatakrishnan; rewritten and extended by Chris Ringrose
 
         if 'H' in smiles_string:
             raise SyntaxError('Smiles string contains hydrogen atoms; try again.')
