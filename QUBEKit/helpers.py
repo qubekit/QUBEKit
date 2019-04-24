@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
+from collections import OrderedDict
+from configparser import ConfigParser
+from contextlib import contextmanager
 from csv import DictReader, writer, QUOTE_MINIMAL
 from os import walk, listdir, path, system
-from collections import OrderedDict
-from numpy import allclose
 from pathlib import Path
-from configparser import ConfigParser
 from pickle import load
-from contextlib import contextmanager
+
+from numpy import allclose
 
 
 class Configure:
@@ -297,7 +298,7 @@ def append_to_log(message, msg_type='major'):
     else:
         log_file = '../QUBEKit_log.txt'
 
-    # Check if the message is a blank string to avoid adding blank lines and separators
+    # Check if the message is a blank string to avoid adding blank lines and unnecessary separators
     if message:
         with open(log_file, 'a+') as file:
             if msg_type == 'major':

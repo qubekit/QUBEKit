@@ -556,7 +556,7 @@ We welcome any suggestions for additions or changes.""")
         ---------
         RDKit MFF or UFF force fields can have strange effects on the geometry of molecules
 
-        Geometric/ OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
+        Geometric / OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
         """
 
         # Check which method we want then do the optimisation
@@ -622,6 +622,8 @@ We welcome any suggestions for additions or changes.""")
         hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
 
         molecule.hessian = hessian
+
+        # TODO Check units of hessian
 
         append_to_log(f'Hessian calculated using {self.qm["bonds_engine"]}')
 
@@ -702,9 +704,8 @@ We welcome any suggestions for additions or changes.""")
 
         # TODO get the combination rule from xml file.
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs,
-                               combination=molecule.combination, refinement_method=self.fitting['refinement_method'],
-                               vn_bounds=self.fitting['tor_limit'])
+        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, combination=molecule.combination,
+                               refinement=self.fitting['refinement_method'], vn_bounds=self.fitting['tor_limit'])
         opt.run()
 
         append_to_log('Torsion_optimisations complete')
@@ -713,7 +714,8 @@ We welcome any suggestions for additions or changes.""")
 
     @staticmethod
     def finalise(molecule):
-        """Make the xml and pdb file print the ligand object to terminal (in abbreviated form) and to the log file
+        """
+        Make the xml and pdb file print the ligand object to terminal (in abbreviated form) and to the log file
         after getting the rdkit descriptors.
         """
 
@@ -744,7 +746,7 @@ We welcome any suggestions for additions or changes.""")
         """
 
         printf('QUBEKit stopping at onetep step!\n To continue please move the ddec.onetep file and xyz file to the '
-               'density folder and use -restart lennard_jones to continue.')
+               'density folder and use -restart lennard_jones.')
 
         return
 
@@ -776,9 +778,8 @@ We welcome any suggestions for additions or changes.""")
         """Take the molecule and do the torsion test method."""
 
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, opt_method='BFGS',
-                               combination=molecule.combination, refinement_method=self.fitting['refinement_method'],
-                               vn_bounds=self.fitting['tor_limit'])
+        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, combination=molecule.combination,
+                               refinement=self.fitting['refinement_method'], vn_bounds=self.fitting['tor_limit'])
 
         # test the torsions!
         opt.torsion_test()
