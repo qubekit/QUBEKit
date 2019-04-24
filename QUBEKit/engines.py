@@ -365,7 +365,7 @@ class Gaussian(Engines):
 
         super().__init__(molecule, config_dict)
 
-        self.functional_dict = {'PBE': 'PBEPBE'}
+        self.functional_dict = {'PBE': 'PBEPBE', 'wB97X-D': 'wB97XD'}
         if self.functional_dict.get(self.qm['theory'], None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory']]
 
@@ -561,7 +561,7 @@ class QCEngine(Engines):
 
         return mol
 
-    def call_qcengine(self, output, input_type):
+    def call_qcengine(self, engine, driver, input_type):
         """
         Using the created schema, run a particular engine, specifying the driver (job type).
         e.g. engine: geo, driver: energies
@@ -580,30 +580,35 @@ class QCEngine(Engines):
 
         mol = self.generate_qschema(input_type=input_type)
 
-        if output == 'hessian':
+        # Call psi4 for energy, gradient, hessian or property calculations
+        if engine == 'psi4':
             psi4_task = qcel.models.ResultInput(
                 molecule=mol,
-                driver='hessian',
+                driver=driver,
                 model={'method': self.qm['theory'], 'basis': self.qm['basis']},
                 keywords={'scf_type': 'df'},
             )
 
-            hess_size = 3 * len(self.molecule.molecule[input_type])
-
             ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
 
-            hessian = reshape(ret.return_result, (hess_size, hess_size))
-            check_symmetry(hessian)
+            if driver == 'hessian':
+                hess_size = 3 * len(self.molecule.molecule[input_type])
+                hessian = reshape(array(ret.return_result) * 627.509391 / (0.529 ** 2), (hess_size, hess_size))
+                check_symmetry(hessian)
 
-            return hessian
+                return hessian
 
-        elif output == 'gradient':
+            else:
+                return ret.return_result
+
+        # Call geometric with psi4 to optimise a molecule
+        elif engine == 'geometric':
             geo_task = {
                 "schema_name": "qcschema_optimization_input",
                 "schema_version": 1,
                 "keywords": {
                     "coordsys": "tric",
-                    "maxiter": 100,
+                    "maxiter": self.qm['iterations'],
                     "program": "psi4"
                 },
                 "input_specification": {
