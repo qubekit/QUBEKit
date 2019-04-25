@@ -127,22 +127,29 @@ class Molecule:
         Mostly just used for logging, debugging and displaying the results at the end of a run.
         If trunc is set to True:
             Check the items being printed:
+                If they are empty or None -> skip over them
                 If they're short (<120 chars) -> print them as normal
                 Otherwise -> print a truncated version of them.
-        This is called with:   Ligand(filename='').__str__(trunc=True)
-        Can be also be called for Protein class objects.
+        If trunc is set to False:
+            Just print everything (all key: value pairs) as is with a little extra spacing.
         """
 
         return_str = ''
 
         if trunc:
             for key, val in self.__dict__.items():
-                # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".
-                return_str += f'\n{key} = '
-                if len(str(key) + str(val)) < 120:
-                    return_str += str(val)
-                else:
-                    return_str += str(val)[:121 - len(str(key))] + '...'
+
+                # Don't bother printing objects that are empty or None.
+                if val and val is not None:
+
+                    return_str += f'\n{key} = '
+
+                    # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".
+                    if len(str(key) + str(val)) < 120:
+                        # Print the repr() not the str(). This means generator expressions etc appear too.
+                        return_str += repr(val)
+                    else:
+                        return_str += repr(val)[:121 - len(str(key))] + '...'
 
         else:
             for key, val in self.__dict__.items():

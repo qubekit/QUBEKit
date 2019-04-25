@@ -349,9 +349,33 @@ def pretty_progress():
         # Create ordered dictionary based on the log file info
         info[name] = populate_progress_dict(file)
 
+    # Uses exit codes to set terminal font colours.
+    # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
+    # The second exit code resets the style back to default.
+
+    # Need to add an end tag or terminal colours will persist
+    end = '\033[0m'
+
+    # Bold colours
+    colours = {
+        'red': '\033[1;31m',
+        'green': '\033[1;32m',
+        'orange': '\033[1;33m',
+        'blue': '\033[1;34m'
+    }
+
+    print('Displaying progress of all analyses in current directory.')
+    print(f'Progress key: {colours["green"]}\u2713{end} = Done;', end=' ')
+    print(f'{colours["blue"]}S{end} = Skipped;', end=' ')
+    print(f'{colours["red"]}E{end} = Error;', end=' ')
+    print(f'{colours["orange"]}~{end} = Queued')
+
     header_string = '{:15}' + '{:>10}' * 10
     print(header_string.format(
         'Name', 'Param', 'MM Opt', 'QM Opt', 'Hessian', 'Mod-Sem', 'Density', 'Charges', 'L-J', 'Tor Scan', 'Tor Opt'))
+
+    # Sort the info alphabetically
+    info = OrderedDict(sorted(info.items(), key=lambda tup: tup[0]))
 
     # Outer dict contains the names of the molecules.
     for key_out, var_out in info.items():
@@ -359,19 +383,6 @@ def pretty_progress():
 
         # Inner dict contains the individual molecules' data.
         for var_in in var_out.values():
-
-            # Uses exit codes to set terminal font colours.
-            # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
-            # The second exit code resets the style back to default.
-
-            end = '\033[0m'
-            # Bold colours
-            colours = {
-                'red': '\033[1;31m',
-                'green': '\033[1;32m',
-                'orange': '\033[1;33m',
-                'blue': '\033[1;34m'
-            }
 
             if var_in == u'\u2713':
                 print(f'{colours["green"]}{var_in:>9}{end}', end=' ')
@@ -421,9 +432,15 @@ def populate_progress_dict(file_name):
                     else:
                         progress[term] = u'\u2713'
                     last_success = term
+
             # If an error is found, then the stage after the last successful stage has errored (E)
             if 'Exception Logger - ERROR' in line:
-                term = search_terms[search_terms.index(last_success) + 1]
+                # On the rare occasion that the error occurs after torsion optimisation (the final stage),
+                # a try except is needed to catch the index error (because there's no stage after torsion_optimisation).
+                try:
+                    term = search_terms[search_terms.index(last_success) + 1]
+                except IndexError:
+                    term = search_terms[search_terms.index(last_success)]
                 progress[term] = 'E'
 
     return progress

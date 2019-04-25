@@ -2,6 +2,7 @@
 
 #### Newcastle University UK - Cole Group.
 
+
 | **Status** | [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/qubekit/QUBEKit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/qubekit/QUBEKit/context:python) [![Build Status](https://travis-ci.com/qubekit/QUBEKit.svg?branch=master)](https://travis-ci.com/qubekit/QUBEKit) [![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/version.svg)](https://anaconda.org/cringrose/qubekit) |
 | :------ | :------ |
 | **Foundation** | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python Version](https://img.shields.io/badge/Python-3.6+-1f425f.svg)](https://www.python.org/) [![platforms](https://img.shields.io/badge/Platform-Linux%20x64-orange.svg)]() |
@@ -52,7 +53,8 @@ We welcome any suggestions for additions or changes.
 
 ## Installation
 
-To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*:
+To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*.
+Git has our latest version which will likely have newer features but may not stable.
 
     git clone https://github.com/qubekit/QUBEKit.git
     cd <install location>
@@ -104,13 +106,9 @@ These packages are on different conda channels, hence needing the extra argument
 
 `conda install -c rdkit rdkit`
 
-* [OpenFF](https://openforcefield.org/)
+* [OpenForceField](https://openforcefield.org/)
 
 `conda install -c omnia openforcefield`
-
-* [OpenEye](https://docs.eyesopen.com/toolkits/python/index.html)
-
-`conda install -c openeye openeye-toolkits`
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda should deal with versions and conflicts in your environment.

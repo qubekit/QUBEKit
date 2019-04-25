@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
-# TODO Add better error handling for missing info. (Done for file extraction.)
-#       Maybe add path checking for Chargemol?
-# TODO use QCEngine to run PSI4, geometric and torsion drive QM commands.
+# TODO Add better error handling for missing info. Maybe add path checking for Chargemol?
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
@@ -466,6 +464,9 @@ class Gaussian(Engines):
                 if 'Input orientation' in line:
                     opt_coords_pos.append(pos + 5)
 
+            if not opt_coords_pos:
+                raise EOFError('Cannot locate any input orientations in file.')
+
             start_pos = opt_coords_pos[-1]
 
             num_atoms = len(self.molecule.molecule['input'])
@@ -593,7 +594,7 @@ class QCEngine(Engines):
 
             if driver == 'hessian':
                 hess_size = 3 * len(self.molecule.molecule[input_type])
-                hessian = reshape(array(ret.return_result) * 627.509391 / (0.529 ** 2), (hess_size, hess_size))
+                hessian = reshape(ret.return_result, (hess_size, hess_size)) * 627.509391 / (0.529 ** 2)
                 check_symmetry(hessian)
 
                 return hessian

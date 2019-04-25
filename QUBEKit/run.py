@@ -14,7 +14,7 @@ import argparse
 from subprocess import run
 from sys import exit as sys_exit
 from os import mkdir, chdir, path, listdir, walk, getcwd, system
-from shutil import copy
+from shutil import copy, move
 from collections import OrderedDict
 from functools import partial
 from datetime import datetime
@@ -63,10 +63,10 @@ class Main:
         # Argparse will only return if we are doing a QUBEKit run bulk or normal
         self.args = self.parse_commands()
 
+        self.constraints_file = ''
+
         # Look through the command line options and apply bulk and restart settings
         self.check_options()
-
-        self.constraints_file = ''
 
         # Configs:
         self.defaults_dict = {'charge': self.args.charge,
@@ -417,13 +417,31 @@ We welcome any suggestions for additions or changes.""")
 
         # Define name of working directory.
         # This is formatted as 'QUBEKit_molecule name_yyyy_mm_dd_log_string'.
-        dir_string = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
-        mkdir(dir_string)
+        dir_name = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
+        try:
+            mkdir(dir_name)
 
-        # Copy active pdb into new directory.
-        abspath = path.abspath(self.file)
-        copy(abspath, f'{dir_string}/{self.file}')
-        chdir(dir_string)
+        except FileExistsError:
+            try:
+                mkdir('QUBEKit_backups')
+                printf('Making backup folder')
+            except FileExistsError:
+                # Backup folder already made
+                pass
+            finally:
+                count = 1
+                while path.exists(f'QUBEKit_backups/{dir_name}_{count}'):
+                    count += 1
+
+                move(dir_name, f'QUBEKit_backups/{dir_name}_{count}')
+                printf('Moving directory to backup folder')
+                mkdir(dir_name)
+
+        finally:
+            # Copy active pdb into new directory.
+            abspath = path.abspath(self.file)
+            copy(abspath, f'{dir_name}/{self.file}')
+            chdir(dir_name)
 
         for root, dirs, files in walk('.', topdown=True):
             for file in files:
@@ -622,8 +640,6 @@ We welcome any suggestions for additions or changes.""")
         hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
 
         molecule.hessian = hessian
-
-        # TODO Check units of hessian
 
         append_to_log(f'Hessian calculated using {self.qm["bonds_engine"]}')
 
