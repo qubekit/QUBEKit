@@ -3,17 +3,17 @@
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.engines import RDKit
 
-from tempfile import TemporaryDirectory
-from shutil import copy
-from os import getcwd, chdir, path, rename
-from subprocess import run as sub_run
 from collections import OrderedDict
 from copy import deepcopy
+import os
+from shutil import copy
+from subprocess import run as sub_run
+from tempfile import TemporaryDirectory
 
-from xml.etree.ElementTree import parse as parse_tree
-from simtk.openmm import app, XmlSerializer
 from openforcefield.topology import Molecule, Topology
 from openforcefield.typing.engines.smirnoff import ForceField
+from simtk.openmm import app, XmlSerializer
+from xml.etree.ElementTree import parse as parse_tree
 
 
 # TODO Users should be able to just install ONE of the necessary parametrisation methods and not worry about needing the others too.
@@ -163,15 +163,15 @@ class Parametrisation:
 
         # call Antechamber to convert if we don't have the mol2 file
         if file is None:
-            cwd = getcwd()
+            cwd = os.getcwd()
 
             # do this in a temp directory as it produces a lot of files
-            pdb = path.abspath(self.molecule.filename)
-            mol2 = path.abspath(f'{self.molecule.name}.mol2')
+            pdb = os.path.abspath(self.molecule.filename)
+            mol2 = os.path.abspath(f'{self.molecule.name}.mol2')
             file = mol2
 
             with TemporaryDirectory() as temp:
-                chdir(temp)
+                os.chdir(temp)
                 copy(pdb, 'in.pdb')
 
                 # Call antechamber
@@ -180,11 +180,11 @@ class Parametrisation:
                             shell=True, stdout=log, stderr=log)
 
                 # Ensure command worked
-                if not path.exists('out.mol2'):
+                if not os.path.exists('out.mol2'):
                     raise FileNotFoundError('out.mol2 not found antechamber failed!')
 
                 copy('out.mol2', mol2)
-                chdir(cwd)
+                os.chdir(cwd)
 
         # Get the gaff atom types and bonds in case we don't have this info
         gaff_bonds = {}
@@ -225,7 +225,7 @@ class Parametrisation:
 
             # Now we need to rewrite the pdb file to have the conect terms
             # Back up the old pdb file
-            rename(self.molecule.filename, 'backup.pdb')
+            os.rename(self.molecule.filename, 'backup.pdb')
             # Rewrite the pdb file with the conect terms
             self.molecule.write_pdb(input_type='input')
 
@@ -421,19 +421,19 @@ class AnteChamber(Parametrisation):
         """Method to run Antechamber, parmchk2 and tleap."""
 
         # file paths when moving in and out of temp locations
-        cwd = getcwd()
-        mol2 = path.abspath(f'{self.molecule.name}.mol2')
-        frcmod_file = path.abspath(f'{self.molecule.name}.frcmod')
-        prmtop_file = path.abspath(f'{self.molecule.name}.prmtop')
-        inpcrd_file = path.abspath(f'{self.molecule.name}.inpcrd')
-        ant_log = path.abspath('Antechamber.log')
+        cwd = os.getcwd()
+        mol2 = os.path.abspath(f'{self.molecule.name}.mol2')
+        frcmod_file = os.path.abspath(f'{self.molecule.name}.frcmod')
+        prmtop_file = os.path.abspath(f'{self.molecule.name}.prmtop')
+        inpcrd_file = os.path.abspath(f'{self.molecule.name}.inpcrd')
+        ant_log = os.path.abspath('Antechamber.log')
 
         # Call Antechamber
         self.get_gaff_types(fftype=self.fftype)
 
         # Work in temp directory due to the amount of files made by antechamber
         with TemporaryDirectory() as temp:
-            chdir(temp)
+            os.chdir(temp)
             copy(mol2, 'out.mol2')
 
             # Run parmchk
@@ -442,7 +442,7 @@ class AnteChamber(Parametrisation):
                         shell=True, stdout=log, stderr=log)
 
             # Ensure command worked
-            if not path.exists('out.frcmod'):
+            if not os.path.exists('out.frcmod'):
                 raise FileNotFoundError('out.frcmod not found parmchk2 failed!')
 
             # Now get the files back from the temp folder
@@ -452,7 +452,7 @@ class AnteChamber(Parametrisation):
 
         # Now we need to run tleap to get the prmtop and inpcrd files
         with TemporaryDirectory() as temp:
-            chdir(temp)
+            os.chdir(temp)
             copy(mol2, 'in.mol2')
             copy(frcmod_file, 'in.frcmod')
             copy(ant_log, 'Antechamber.log')
@@ -472,13 +472,13 @@ class AnteChamber(Parametrisation):
                 sub_run('tleap -f tleap_commands', shell=True, stdout=log, stderr=log)
 
             # Check results present
-            if not path.exists('out.prmtop') or not path.exists('out.inpcrd'):
+            if not os.path.exists('out.prmtop') or not os.path.exists('out.inpcrd'):
                 raise FileNotFoundError('Neither out.prmtop nor out.inpcrd found; tleap failed!')
 
             copy('Antechamber.log', ant_log)
             copy('out.prmtop', prmtop_file)
             copy('out.inpcrd', inpcrd_file)
-            chdir(cwd)
+            os.chdir(cwd)
 
         # Now give the file names to parametrisation method
         self.prmtop = f'{self.molecule.name}.prmtop'

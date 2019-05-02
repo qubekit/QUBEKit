@@ -7,9 +7,10 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-from numpy import cross, linalg, empty, zeros, reshape, dot, real, average
-from math import degrees, acos, sin, cos
+import math
 from operator import itemgetter
+
+import numpy as np
 
 
 class ModSemMaths:
@@ -22,14 +23,14 @@ class ModSemMaths:
     def unit_vector_n(u_bc, u_ab):
         """Calculates unit normal vector which is perpendicular to plane abc."""
 
-        return cross(u_bc, u_ab) / linalg.norm(cross(u_bc, u_ab))
+        return np.cross(u_bc, u_ab) / np.linalg.norm(np.cross(u_bc, u_ab))
 
     @staticmethod
     def vector_along_bond(coords, atom_a, atom_b):
 
         diff_ab = coords[atom_b, :] - coords[atom_a, :]
 
-        return diff_ab / linalg.norm(diff_ab)
+        return diff_ab / np.linalg.norm(diff_ab)
 
     @staticmethod
     def u_pa_from_angles(atom_a, atom_b, atom_c, coords):
@@ -56,7 +57,7 @@ class ModSemMaths:
 
         unit_vectors_ab = ModSemMaths.vector_along_bond(coords, atom_a, atom_b)
 
-        return -0.5 * sum(eigenvals_ab[i] * abs(dot(unit_vectors_ab, eigenvecs_ab[:, i])) for i in range(3))
+        return -0.5 * sum(eigenvals_ab[i] * abs(np.dot(unit_vectors_ab, eigenvecs_ab[:, i])) for i in range(3))
 
     @staticmethod
     def force_constant_angle(atom_a, atom_b, atom_c, bond_lens, eigenvals, eigenvecs, coords, scalings):
@@ -100,7 +101,7 @@ class ModSemMaths:
             k_theta = abs(k_theta * 0.5)
 
             # Equilibrium Angle
-            theta_0 = degrees(acos(dot(u_ab, u_cb)))
+            theta_0 = np.degrees(math.acos(np.dot(u_ab, u_cb)))
 
         return k_theta, theta_0
 
@@ -110,11 +111,11 @@ class ModSemMaths:
 
         # Number of samples around the bond.
         n_samples = 200
-        k_theta_array = zeros(n_samples)
+        k_theta_array = np.zeros(n_samples)
 
         for theta in range(n_samples):
 
-            u_n = [sin(theta) * cos(theta), sin(theta) * sin(theta), cos(theta)]
+            u_n = [math.sin(theta) * math.cos(theta), math.sin(theta) * math.sin(theta), math.cos(theta)]
 
             u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
             u_pc = ModSemMaths.unit_vector_n(u_cb, u_n)
@@ -127,8 +128,8 @@ class ModSemMaths:
 
             k_theta_array[theta] = abs(k_theta_i * 0.5)
 
-        k_theta = average(k_theta_array)
-        theta_0 = acos(dot(u_ab, u_cb))
+        k_theta = np.average(k_theta_array)
+        theta_0 = math.acos(np.dot(u_ab, u_cb))
 
         return k_theta, theta_0
 
@@ -154,23 +155,23 @@ class ModSeminario:
 
         coords = [atom[j + 1] for atom in self.molecule.molecule['qm'] for j in range(3)]
         size_mol = len(self.molecule.molecule['qm'])
-        coords = reshape(coords, (size_mol, 3))
+        coords = np.reshape(coords, (size_mol, 3))
         hessian = self.molecule.hessian
 
         # Find bond lengths and create empty matrix of correct size.
-        bond_lens = zeros((size_mol, size_mol))
+        bond_lens = np.zeros((size_mol, size_mol))
 
-        eigenvecs = empty((3, 3, size_mol, size_mol), dtype=complex)
-        eigenvals = empty((size_mol, size_mol, 3), dtype=complex)
+        eigenvecs = np.empty((3, 3, size_mol, size_mol), dtype=complex)
+        eigenvals = np.empty((size_mol, size_mol, 3), dtype=complex)
 
         for i in range(size_mol):
             for j in range(size_mol):
                 diff_i_j = coords[i, :] - coords[j, :]
-                bond_lens[i][j] = linalg.norm(diff_i_j)
+                bond_lens[i][j] = np.linalg.norm(diff_i_j)
 
                 partial_hessian = hessian[(i * 3):((i + 1) * 3), (j * 3):((j + 1) * 3)]
 
-                eigenvals[i, j, :], eigenvecs[:, :, i, j] = linalg.eig(partial_hessian)
+                eigenvals[i, j, :], eigenvecs[:, :, i, j] = np.linalg.eig(partial_hessian)
 
         # The bond and angle values are calculated and written to file.
         self.calculate_bonds(self.molecule.topology.edges, bond_lens, eigenvals, eigenvecs, coords)
@@ -179,7 +180,7 @@ class ModSeminario:
     def calculate_angles(self, angle_list, bond_lens, eigenvals, eigenvecs, coords):
         """Uses the modified Seminario method to find the angle parameters and prints them to file."""
 
-        k_theta, theta_0 = zeros(len(angle_list)), zeros(len(angle_list))
+        k_theta, theta_0 = np.zeros(len(angle_list)), np.zeros(len(angle_list))
 
         # A structure is created with the index giving the central atom of the angle;
         # an array then lists the angles with that central atom.
@@ -231,13 +232,13 @@ class ModSeminario:
 
                 # Forwards direction, finds the same bonds with the central atom i
                 while ((j + n) < len(central_atoms_angles[i])) and central_atoms_angles[i][j][0] == central_atoms_angles[i][j + n][0]:
-                    extra_contribs += (abs(dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j + n][:]))) ** 2
+                    extra_contribs += (abs(np.dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j + n][:]))) ** 2
                     n += 1
                     angles_around += 1
 
                 # Backwards direction, finds the same bonds with the central atom i
                 while ((j - m) >= 0) and central_atoms_angles[i][j][0] == central_atoms_angles[i][j - m][0]:
-                    extra_contribs += (abs(dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j - m][:]))) ** 2
+                    extra_contribs += (abs(np.dot(unit_pa_all_angles[i][j][:], unit_pa_all_angles[i][j - m][:]))) ** 2
                     m += 1
                     angles_around += 1
 
@@ -282,7 +283,7 @@ class ModSeminario:
 
         conversion = 418.4
 
-        k_b, bond_len_list = zeros(len(bond_list)), zeros(len(bond_list))
+        k_b, bond_len_list = np.zeros(len(bond_list)), np.zeros(len(bond_list))
 
         # Used to find average values
         unique_values_bonds = []
@@ -294,7 +295,7 @@ class ModSeminario:
                 ba = ModSemMaths.force_constant_bond(bond[1] - 1, bond[0] - 1, eigenvals, eigenvecs, coords)
 
                 # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
-                k_b[pos] = real((ab + ba) / 2) * (self.qm['vib_scaling'] ** 2)
+                k_b[pos] = np.real((ab + ba) / 2) * (self.qm['vib_scaling'] ** 2)
 
                 bond_len_list[pos] = bond_lens[bond[0] - 1, bond[1] - 1]
                 bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')

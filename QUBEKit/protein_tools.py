@@ -1,4 +1,6 @@
-from numpy import sqrt
+#!/usr/bin/env python
+
+import numpy as np
 import simtk.openmm as mm
 
 
@@ -36,7 +38,7 @@ def apply_opls_combo(system, switching_distance=None):
         lorentz.addExclusion(p1, p2)
         if eps._value != 0.0:
             charge = 0.5 * (l_j_set[p1][2] * l_j_set[p2][2])
-            sig14 = sqrt(l_j_set[p1][0] * l_j_set[p2][0])
+            sig14 = np.sqrt(l_j_set[p1][0] * l_j_set[p2][0])
             nonbonded_force.setExceptionParameters(i, p1, p2, charge, sig14, eps)
 
     return system

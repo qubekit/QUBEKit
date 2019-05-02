@@ -3,9 +3,10 @@
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.helpers import check_net_charge
 
-from os.path import exists
+import os
 from collections import OrderedDict
-from numpy import array, cross, dot, sqrt
+
+import numpy as np
 
 
 @for_all_methods(timer_logger)
@@ -51,10 +52,11 @@ class LennardJones:
         else:
             raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
 
-        if not exists(net_charge_file_name):
-            raise FileNotFoundError('\nCannot find the DDEC output file.\nThis could be indicative of several issues.\n'
-                                    'Please check Chargemol is installed in the correct location and that the configs'
-                                    ' point to that location.')
+        if not os.path.exists(net_charge_file_name):
+            raise FileNotFoundError(
+                '\nCannot find the DDEC output file.\nThis could be indicative of several issues.\n'
+                'Please check Chargemol is installed in the correct location and that the configs'
+                ' point to that location.')
 
         with open(net_charge_file_name, 'r+') as charge_file:
 
@@ -292,7 +294,7 @@ class LennardJones:
         w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
         w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
 
-        if not exists('xyz_with_extra_point_charges.xyz'):
+        if not os.path.exists('xyz_with_extra_point_charges.xyz'):
             return
 
         with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
@@ -312,7 +314,7 @@ class LennardJones:
                         break
                     else:
                         # get the virtual site coords
-                        v_pos = array([float(pos_site.split()[x]) for x in range(1, 4)])
+                        v_pos = np.array([float(pos_site.split()[x]) for x in range(1, 4)])
                         # get parent index number for the topology network
                         parent = i + 1 - sites_no
                         # get the two closest atoms to the parent
@@ -323,23 +325,23 @@ class LennardJones:
                             closet_atoms.append(list(self.molecule.topology.neighbors(closet_atoms[0]))[-1])
 
                         # Get the xyz coordinates of the reference atoms
-                        parent_pos = array(self.molecule.molecule['qm'][parent - 1][1:])
-                        close_a = array(self.molecule.molecule['qm'][closet_atoms[0] - 1][1:])
-                        close_b = array(self.molecule.molecule['qm'][closet_atoms[1] - 1][1:])
+                        parent_pos = np.array(self.molecule.molecule['qm'][parent - 1][1:])
+                        close_a = np.array(self.molecule.molecule['qm'][closet_atoms[0] - 1][1:])
+                        close_b = np.array(self.molecule.molecule['qm'][closet_atoms[1] - 1][1:])
 
                         # work out the local coordinates site using rules from the OpenMM guide
                         orig = w1o * parent_pos + w2o * close_a + close_b * w3o
                         ab = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
                         ac = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
                         # Get the axis unit vectors
-                        z_dir = cross(ab, ac)
-                        z_dir = z_dir / sqrt(dot(z_dir, z_dir.reshape(3, 1)))
-                        x_dir = ab / sqrt(dot(ab, ab.reshape(3, 1)))
-                        y_dir = cross(z_dir, x_dir)
+                        z_dir = np.cross(ab, ac)
+                        z_dir = z_dir / np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
+                        x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
+                        y_dir = np.cross(z_dir, x_dir)
                         # Get the local coordinates positions
-                        p1 = dot((v_pos - orig), x_dir.reshape(3, 1))
-                        p2 = dot((v_pos - orig), y_dir.reshape(3, 1))
-                        p3 = dot((v_pos - orig), z_dir.reshape(3, 1))
+                        p1 = np.dot((v_pos - orig), x_dir.reshape(3, 1))
+                        p2 = np.dot((v_pos - orig), y_dir.reshape(3, 1))
+                        p3 = np.dot((v_pos - orig), z_dir.reshape(3, 1))
 
                         charge = float(pos_site.split()[4])
 

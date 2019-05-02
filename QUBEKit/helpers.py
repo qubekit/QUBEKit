@@ -3,12 +3,12 @@
 from collections import OrderedDict
 from configparser import ConfigParser
 from contextlib import contextmanager
-from csv import DictReader, writer, QUOTE_MINIMAL
-from os import walk, listdir, path, system
+import csv
+import os
 from pathlib import Path
-from pickle import load
+import pickle
 
-from numpy import allclose
+import numpy as np
 
 
 class Configure:
@@ -53,7 +53,7 @@ class Configure:
     }
 
     descriptions = {
-        'chargemol': '/home/QUBEKit_user/chargemol_09_26_2017',  # Location of the chargemol program directory
+        'chargemol': '/home/<QUBEKit_user>/chargemol_09_26_2017',  # Location of the chargemol program directory
         'log': '999',                   # Default string for the working directories and logs
     }
 
@@ -63,12 +63,12 @@ class Configure:
         'vib_scaling': ';Associated scaling to the theory',
         'threads': ';Number of processors used in g09; affects the bonds and dihedral scans',
         'memory': ';Amount of memory (in GB); specified in the g09 and PSI4 scripts',
-        'convergence': ';Criterion used during optimisations; works using psi4 and geometric so far',
+        'convergence': ';Criterion used during optimisations; works using psi4 and geometric',
         'iterations': ';Max number of optimisation iterations',
         'bonds_engine': ';Engine used for bonds calculations',
         'density_engine': ';Engine used to calculate the electron density',
         'charges_engine': ';Engine used for charge partitioning',
-        'ddec_version': ';DDEC version used by chargemol, 6 recommended but 3 is also available',
+        'ddec_version': ';DDEC version used by Chargemol, 6 recommended but 3 is also available',
         'geometric': ';Use geometric for optimised structure (if False, will just use PSI4)',
         'solvent': ';Use a solvent in the psi4/gaussian09 input',
         'dih_start': ';Starting angle of dihedral scan',
@@ -76,13 +76,13 @@ class Configure:
         'dih_end': ';The last dihedral angle in the scan',
         't_weight': ';Weighting temperature that can be changed to better fit complicated surfaces',
         'l_pen': ';The regularisation penalty',
-        'opt_method': ';The type of scipy optimiser to use',
+        'opt_method': ';The type of SciPy optimiser to use',
         'refinement_method': ';The type of QUBE refinement that should be done SP: single point energies',
         'tor_limit': ';Torsion Vn limit to speed up fitting',
         'div_index': ';Fitting starting index in the division array',
         'parameter_engine': ';Method used for initial parametrisation',
-        'chargemol': ';Location of the chargemol program directory (do not end with a "/")',
-        'log': ';Default string for the working directories and logs'
+        'chargemol': ';Location of the Chargemol program directory (do not end with a "/")',
+        'log': ';Default string for the names of the working directories'
     }
 
     @staticmethod
@@ -101,7 +101,7 @@ class Configure:
 
         else:
             # Load in the ini file given
-            if path.exists(config_file):
+            if os.path.exists(config_file):
                 qm, fitting, descriptions = Configure.ini_parser(config_file)
 
             else:
@@ -122,6 +122,8 @@ class Configure:
         # Now cast the one float the scaling
         qm['vib_scaling'] = float(qm['vib_scaling'])
 
+        # TODO Properly handle all command line / config arguments (not just geometric)
+
         # Now cast the bools
         if not bool(qm['geometric']):
             if qm['geometric'].lower() == 'true':
@@ -130,11 +132,11 @@ class Configure:
             else:
                 qm['geometric'] = False
 
-            if qm['solvent'].lower() == 'true':
-                qm['solvent'] = True
+        if qm['solvent'].lower() == 'true':
+            qm['solvent'] = True
 
-            else:
-                qm['solvent'] = False
+        else:
+            qm['solvent'] = False
 
         # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
@@ -161,7 +163,7 @@ class Configure:
     def show_ini():
         """Show all of the ini file options in the config folder."""
 
-        inis = listdir(Configure.config_folder)
+        inis = os.listdir(Configure.config_folder)
 
         return inis
 
@@ -169,7 +171,7 @@ class Configure:
     def check_master():
         """Check if there is a new master ini file in the configs folder."""
 
-        return True if path.exists(Configure.config_folder + Configure.master_file) else False
+        return True if os.path.exists(Configure.config_folder + Configure.master_file) else False
 
     @staticmethod
     def ini_writer(ini):
@@ -219,9 +221,7 @@ class Configure:
         if not ini_file.endswith('.ini'):
             ini_file += '.ini'
 
-        system(f'emacs -nw {Configure.config_folder + ini_file}')
-
-        return
+        os.system(f'emacs -nw {Configure.config_folder + ini_file}')
 
 
 def mol_data_from_csv(csv_name):
@@ -233,7 +233,7 @@ def mol_data_from_csv(csv_name):
 
     with open(csv_name, 'r') as csv_file:
 
-        mol_confs = DictReader(csv_file)
+        mol_confs = csv.DictReader(csv_file)
 
         rows = []
         for row in mol_confs:
@@ -269,19 +269,19 @@ def generate_bulk_csv(csv_name):
     """
 
     files = []
-    for file in listdir("."):
+    for file in os.listdir("."):
         if file.endswith('.pdb'):
-            files.append(file)
+            files.append(file[:-4])
 
     if csv_name[-4:] != '.csv':
         raise TypeError('Invalid or unspecified file type. File must be .csv')
 
     with open(csv_name, 'w') as csv_file:
 
-        file_writer = writer(csv_file, delimiter=',', quotechar='|', quoting=QUOTE_MINIMAL)
+        file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles string', 'torsion order', 'start', 'end'])
         for file in files:
-            file_writer.writerow([file, 0, 1, ])
+            file_writer.writerow([file, 0, 1, '', '', '', '', ''])
 
     print(f'{csv_name} generated.')
     return
@@ -290,10 +290,10 @@ def generate_bulk_csv(csv_name):
 def append_to_log(message, msg_type='major'):
     """
     Appends a message to the log file in a specific format.
-    Used for significant stages in the program such as when G09 has finished.
+    Used for significant stages in the program such as when a stage has finished.
     """
 
-    if 'QUBEKit_log.txt' in listdir('.'):
+    if 'QUBEKit_log.txt' in os.listdir('.'):
         log_file = 'QUBEKit_log.txt'
     else:
         log_file = '../QUBEKit_log.txt'
@@ -307,6 +307,8 @@ def append_to_log(message, msg_type='major'):
                 file.write(f'########{message.upper()}########')
             elif msg_type == 'minor':
                 file.write(f'~~~~~~~~{message}~~~~~~~~')
+            else:
+                raise KeyError('Invalid message type; use major, warning or minor.')
 
             file.write(f'\n\n{"-" * 50}\n\n')
 
@@ -326,13 +328,13 @@ def pretty_progress():
 
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
-    for root, dirs, files in walk('.', topdown=True):
+    for root, dirs, files in os.walk('.', topdown=True):
         for file in files:
             if 'QUBEKit_log.txt' in file:
-                log_files.append(path.abspath(f'{root}/{file}'))
+                log_files.append(os.path.abspath(f'{root}/{file}'))
 
     if not log_files:
-        print('No QUBEKit directories with log files found.')
+        print('No QUBEKit directories with log files found. Perhaps you need to move to the parent directory.')
         return
 
     # Open all log files sequentially
@@ -344,7 +346,9 @@ def pretty_progress():
                     name = line.split()[1]
                     break
             else:
-                raise EOFError('Cannot locate molecule name in file.')
+                # If the molecule name isn't found, there's something wrong with the log file
+                # To avoid errors, just skip over that file and tell the user.
+                print(f'Cannot locate molecule in {file}\nIs it a valid QUBEKit-made log file?\n')
 
         # Create ordered dictionary based on the log file info
         info[name] = populate_progress_dict(file)
@@ -484,7 +488,7 @@ def unpickle():
     with open('.QUBEKit_states', 'rb') as jar:
         while True:
             try:
-                mol = load(jar)
+                mol = pickle.load(jar)
                 mol_states[mol.state] = mol
             except EOFError:
                 break
@@ -519,7 +523,7 @@ def check_symmetry(matrix, error=0.00001):
 
     # Check the matrix transpose is equal to the matrix within error.
     with assert_wrapper(ValueError):
-        assert (allclose(matrix, matrix.T, atol=error)), 'Matrix is not symmetric.'
+        assert (np.allclose(matrix, matrix.T, atol=error)), 'Matrix is not symmetric.'
 
     print(f'Symmetry check successful. The matrix is symmetric within an error of {error}.')
     return True

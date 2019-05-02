@@ -8,13 +8,12 @@ from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import run as sub_run
 
-from numpy import array, zeros, reshape
-from numpy import append as np_append
-from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
+from scipy.spatial import ConvexHull
 
 import qcengine as qcng
 import qcelemental as qcel
@@ -176,7 +175,7 @@ class PSI4(Engines):
 
                 reshaped.append(new_row)
 
-            hess_matrix = array(reshaped)
+            hess_matrix = np.array(reshaped)
 
             # Cache the unit conversion.
             conversion = 627.509391 / (0.529 ** 2)
@@ -283,7 +282,7 @@ class PSI4(Engines):
 
             all_modes = [float(val) for val in structures]
 
-            return array(all_modes)
+            return np.array(all_modes)
 
     def geo_gradient(self, input_type='input', threads=False, run=True):
         """
@@ -438,7 +437,7 @@ class Gaussian(Engines):
 
         hess_size = 3 * len(self.molecule.molecule['input'])
 
-        hessian = zeros((hess_size, hess_size))
+        hessian = np.zeros((hess_size, hess_size))
 
         # Rewrite Hessian to full, symmetric 3N * 3N matrix rather than list with just the non-repeated values.
         m = 0
@@ -498,7 +497,7 @@ class Gaussian(Engines):
             for pos in freq_positions:
                 freqs.extend(float(num) for num in lines[pos].split()[2:])
 
-        return array(freqs)
+        return np.array(freqs)
 
 
 @for_all_methods(timer_logger)
@@ -523,7 +522,7 @@ class ONETEP(Engines):
         Then make a 3d plot of the points and hull.
         """
 
-        coords = array([atom[1:] for atom in self.molecule.molecule['input']])
+        coords = np.array([atom[1:] for atom in self.molecule.molecule['input']])
 
         hull = ConvexHull(coords)
 
@@ -533,7 +532,7 @@ class ONETEP(Engines):
         ax.plot(coords.T[0], coords.T[1], coords.T[2], 'ko')
 
         for simplex in hull.simplices:
-            simplex = np_append(simplex, simplex[0])
+            simplex = np.append(simplex, simplex[0])
             ax.plot(coords[simplex, 0], coords[simplex, 1], coords[simplex, 2], color='lightseagreen')
 
         plt.show()
@@ -594,7 +593,7 @@ class QCEngine(Engines):
 
             if driver == 'hessian':
                 hess_size = 3 * len(self.molecule.molecule[input_type])
-                hessian = reshape(ret.return_result, (hess_size, hess_size)) * 627.509391 / (0.529 ** 2)
+                hessian = np.reshape(ret.return_result, (hess_size, hess_size)) * 627.509391 / (0.529 ** 2)
                 check_symmetry(hessian)
 
                 return hessian

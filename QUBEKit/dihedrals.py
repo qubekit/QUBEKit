@@ -3,18 +3,18 @@
 from QUBEKit.decorators import timer_logger, for_all_methods
 from QUBEKit.engines import PSI4
 
-from simtk.openmm import app
-import simtk.openmm as mm
-from simtk import unit
-from numpy import array, zeros, sqrt, sum, exp, round, append
-from scipy.optimize import minimize
-import matplotlib.pyplot as plt
-
-from subprocess import run as sub_run
 from collections import OrderedDict
 from copy import deepcopy
-from os import chdir, mkdir, system, getcwd, listdir
+import os
 from shutil import rmtree
+from subprocess import run as sub_run
+
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.optimize import minimize
+import simtk.openmm as mm
+from simtk.openmm import app
+from simtk import unit
 
 
 @for_all_methods(timer_logger)
@@ -47,7 +47,7 @@ class TorsionScan:
         self.constraints_made = constraints_made
 
         # working dir
-        self.home = getcwd()
+        self.home = os.getcwd()
 
         # setup methods
         self.cmd = None
@@ -159,7 +159,7 @@ class TorsionScan:
                 if 'Energy ' in line:
                     scan_energy.append(float(line.split()[3]))
 
-            self.scan_mol.qm_scan_energy[scan] = array(scan_energy)
+            self.scan_mol.qm_scan_energy[scan] = np.array(scan_energy)
 
     def start_scan(self):
         """Makes a folder and writes a new a dihedral input file for each scan and runs the scan."""
@@ -173,10 +173,10 @@ class TorsionScan:
 
         for scan in self.scan_mol.scan_order:
             try:
-                mkdir(f'SCAN_{scan[0]}_{scan[1]}')
+                os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
             except FileExistsError:
                 # if the folder has only been used to test the torsions then use the folder
-                if listdir(f'SCAN_{scan[0]}_{scan[1]}') == ['testing_torsion']:
+                if os.listdir(f'SCAN_{scan[0]}_{scan[1]}') == ['testing_torsion']:
                     pass
                 # if there is a full run in their back the folder up and start again
                 else:
@@ -186,18 +186,18 @@ class TorsionScan:
                         rmtree(f'SCAN_{scan[0]}_{scan[1]}_tmp')
                     except FileNotFoundError:
                         pass
-                    system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
-                    mkdir(f'SCAN_{scan[0]}_{scan[1]}')
-            chdir(f'SCAN_{scan[0]}_{scan[1]}')
-            mkdir('QM_torsiondrive')
-            chdir('QM_torsiondrive')
+                    os.system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
+                    os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
+            os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
+            os.mkdir('QM_torsiondrive')
+            os.chdir('QM_torsiondrive')
 
             # now make the scan input files
             self.qm_scan_input(scan)
             with open('log.txt', 'w+') as log:
                 sub_run(self.cmd, shell=True, stdout=log, stderr=log)
             self.get_energy(scan)
-            chdir(self.home)
+            os.chdir(self.home)
 
 
 @for_all_methods(timer_logger)
@@ -287,7 +287,7 @@ class TorsionOptimiser:
         # constants
         self.k_b = 0.001987
         self.phases = [0, 3.141592653589793, 0, 3.141592653589793]
-        self.home = getcwd()
+        self.home = os.getcwd()
 
         # start the OpenMM system
         self.molecule.write_pdb()
@@ -301,7 +301,7 @@ class TorsionOptimiser:
         for position in self.scan_coords:
             mm_energy.append(self.get_energy(position))
 
-        return array(mm_energy)
+        return np.array(mm_energy)
         # get forces from the system
         # open_grad = state.getForces()
 
@@ -447,10 +447,10 @@ class TorsionOptimiser:
 
         # if using a weighting, add that here
         if self.t_weight != 'infinity':
-            error *= exp(-self.qm_energy / (self.k_b * self.t_weight))
+            error *= np.exp(-self.qm_energy / (self.k_b * self.t_weight))
 
         # Find the total error
-        total_error = sqrt(sum(error) / len(self.scan_coords))
+        total_error = np.sqrt(sum(error) / len(self.scan_coords))
 
         # Calculate the penalties
         # 1 the movement away from the starting values
@@ -488,10 +488,10 @@ class TorsionOptimiser:
 
         # if using a weighting, add that here
         if self.t_weight != 'infinity':
-            error *= exp(-self.qm_energy / (self.k_b * self.t_weight))
+            error *= np.exp(-self.qm_energy / (self.k_b * self.t_weight))
 
         # Find the total error
-        total_error = sqrt(sum(error) / len(self.scan_coords))
+        total_error = np.sqrt(sum(error) / len(self.scan_coords))
 
         # Calculate the penalty
         pen = self.l_pen * sum((x - self.starting_params) ** 2)
@@ -524,10 +524,10 @@ class TorsionOptimiser:
         while not converged:
             # move into the first iteration folder
             try:
-                mkdir(f'Iteration_{iteration}')
+                os.mkdir(f'Iteration_{iteration}')
             except FileExistsError:
                 pass
-            chdir(f'Iteration_{iteration}')
+            os.chdir(f'Iteration_{iteration}')
 
             # step 2 MM torsion scan
             # with wavefront propagation, returns the new set of coords these become the new scan coords
@@ -543,7 +543,7 @@ class TorsionOptimiser:
             self.qm_energy = self.single_point()
 
             # Keep a copy of the energy before adjusting in case another loop is needed
-            self.energy_store_qm = deepcopy(append(self.energy_store_qm, self.qm_energy))
+            self.energy_store_qm = deepcopy(np.append(self.energy_store_qm, self.qm_energy))
 
             # Normalise the qm energy again using the qm reference energy
             self.qm_normalise()
@@ -587,7 +587,7 @@ class TorsionOptimiser:
                 self.qm_normalise()
 
                 # move out of the folder
-                chdir('../')
+                os.chdir('../')
 
                 # add 1 to the iteration
                 iteration += 1
@@ -596,7 +596,7 @@ class TorsionOptimiser:
                 self.mm_energy = deepcopy(self.mm_energies())
                 # print the final iteration energy prediction
                 self.plot_results(name=f'SP_iter_{iteration}')
-                chdir('../')
+                os.chdir('../')
                 break
 
         # find the minimum total error index in list
@@ -662,17 +662,17 @@ class TorsionOptimiser:
 
             # move into the scan folder that should have been made
             try:
-                mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
+                os.mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
 
             except FileExistsError:
                 pass
 
             else:
-                chdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
+                os.chdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
 
             # Move into testing folder
-            mkdir('testing_torsion')
-            chdir('testing_torsion')
+            os.mkdir('testing_torsion')
+            os.chdir('testing_torsion')
 
             # Run torsiondrive
             # step 2 MM torsion scan
@@ -695,7 +695,7 @@ class TorsionOptimiser:
             self.plot_results(name='testing_torsion')
 
             print('done')
-            chdir('../../')
+            os.chdir('../../')
 
     def run(self):
         """
@@ -706,9 +706,9 @@ class TorsionOptimiser:
         # Set up the first fitting
         for self.scan in self.scan_order:
             # move into the QM scan folder to get the scan coords
-            chdir(f'../torsion_scan/SCAN_{self.scan[0]}_{self.scan[1]}/QM_torsiondrive')
+            os.chdir(f'../torsion_scan/SCAN_{self.scan[0]}_{self.scan[1]}/QM_torsiondrive')
             # keep track of the QM_torsiondrive location needed for rmsd error
-            self.qm_local = getcwd()
+            self.qm_local = os.getcwd()
 
             # Get the MM coords from the QM torsion drive
             self.scan_coords = TorsionOptimiser.get_coords('torsiondrive')
@@ -716,24 +716,24 @@ class TorsionOptimiser:
 
 
             # Move home and set up or working folders
-            chdir(self.home)
+            os.chdir(self.home)
             try:
                 rmtree(f'SCAN_{self.scan[0]}_{self.scan[1]}')
             except FileNotFoundError:
                 pass
-            mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
-            chdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
+            os.mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
+            os.chdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
             try:
-                mkdir('Optimisation')
+                os.mkdir('Optimisation')
             except FileExistsError:
                 pass
-            chdir('Optimisation')
+            os.chdir('Optimisation')
             try:
-                mkdir('First_fit')
-                mkdir('Refinement')
+                os.mkdir('First_fit')
+                os.mkdir('Refinement')
             except FileExistsError:
                 pass
-            chdir('First_fit')
+            os.chdir('First_fit')
 
             # Set the target energies first
             self.target_energy = self.energy_dict[self.scan]
@@ -767,7 +767,7 @@ class TorsionOptimiser:
             self.plot_results(name='Stage1_scipy')
 
             # move to the refinment section
-            chdir('../Refinement')
+            os.chdir('../Refinement')
 
             if self.refinement == 'SP':
                 error, opt_parameters = self.single_point_matching(error, opt_parameters)
@@ -781,7 +781,7 @@ class TorsionOptimiser:
             self.update_mol()
 
             # now move back to the starting directory
-            chdir(self.home)
+            os.chdir(self.home)
 
     def steepest_decent_refinement(self, x):
         """
@@ -977,7 +977,7 @@ class TorsionOptimiser:
         self.tor_types = OrderedDict((index, k) for index, k in enumerate(torsion_string_dict.values()))
 
         # Make the param_vector of the correct size
-        self.param_vector = zeros((1, 4 * len(self.tor_types)))
+        self.param_vector = np.zeros((1, 4 * len(self.tor_types)))
 
         # now take the master vectors and make the starting parameter list
         # Store the original parameter vectors to use regularisation
@@ -1020,7 +1020,8 @@ class TorsionOptimiser:
             minus = self.objective(x)
             diff = (plus - minus) / self.step_size
             gradient.append(diff)
-        return array(gradient)
+
+        return np.array(gradient)
 
     def scipy_optimiser(self):
         """The main torsion parameter optimiser that controls the optimisation method used."""
@@ -1111,7 +1112,7 @@ class TorsionOptimiser:
         angles = [x for x in range(-165, 195, self.qm_engine.fitting['increment'])]
         plt.plot(angles, self.qm_energy, 'o', label='QM')
         for pos, scan in enumerate(energies):
-            self.mm_energy = array(scan)
+            self.mm_energy = np.array(scan)
             self.mm_energy -= min(self.mm_energy)
             plt.plot(angles, self.mm_energy, label=f'MM{pos}')
         plt.ylabel('Relative energy (kcal/mol')
@@ -1208,8 +1209,8 @@ class TorsionOptimiser:
             rmtree(temp)
         except FileNotFoundError:
             pass
-        mkdir(temp)
-        chdir(temp)
+        os.mkdir(temp)
+        os.chdir(temp)
 
         # Write out a pdb file of the qm optimised geometry
         self.molecule.write_pdb(name='openmm')
@@ -1219,14 +1220,14 @@ class TorsionOptimiser:
         with open('log.txt', 'a+')as log:
             if engine == 'torsiondrive':
                 if self.constraints_made:
-                    system('mv ../constraints.txt .')
+                    os.system('mv ../constraints.txt .')
                 self.write_dihedrals()
                 sub_run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt {self.molecule.constraints_made}',
                         shell=True, stderr=log, stdout=log)
                 positions = self.get_coords(engine='torsiondrive')
             elif engine == 'geometric':
                 if self.constraints_made:
-                    system('mv ../constraints.txt .')
+                    os.system('mv ../constraints.txt .')
                 else:
                     self.make_constraints()
                 sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml qube_constraints.txt',
@@ -1236,7 +1237,7 @@ class TorsionOptimiser:
                 raise NotImplementedError
 
         # move back to the master folder
-        chdir('../')
+        os.chdir('../')
 
         # return the new positions
         return positions
@@ -1252,11 +1253,11 @@ class TorsionOptimiser:
             rmtree(f'Single_points')
         except FileNotFoundError:
             pass
-        mkdir('Single_points')
-        chdir('Single_points')
+        os.mkdir('Single_points')
+        os.chdir('Single_points')
         for i, x in enumerate(self.scan_coords):
-            mkdir(f'SP_{i}')
-            chdir(f'SP_{i}')
+            os.mkdir(f'SP_{i}')
+            os.chdir(f'SP_{i}')
             print(f'Doing single point calculations on new structures ... {i + 1}/{len(self.scan_coords)}')
             # now we need to change the positions of the molecule in the molecule array
             for y, coord in enumerate(x):
@@ -1271,12 +1272,12 @@ class TorsionOptimiser:
             sp_energy.append(PSI4.get_energy())
 
             # Move back to the base directory
-            chdir('../')
+            os.chdir('../')
 
         # move out to the main folder
-        chdir('../')
+        os.chdir('../')
 
-        return array(sp_energy)
+        return np.array(sp_energy)
 
     def update_mol(self):
         """When the optimisation is complete, update the PeriodicTorsionForce parameters in the molecule."""
@@ -1322,7 +1323,7 @@ class TorsionOptimiser:
             lorentz.addExclusion(p1, p2)
             if eps._value != 0.0:
                 charge = 0.5 * (l_j_set[p1][2] * l_j_set[p2][2])
-                sig14 = sqrt(l_j_set[p1][0] * l_j_set[p2][0])
+                sig14 = np.sqrt(l_j_set[p1][0] * l_j_set[p2][0])
                 nonbonded_force.setExceptionParameters(i, p1, p2, charge, sig14, eps)
             # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
             # Old method which needs updating

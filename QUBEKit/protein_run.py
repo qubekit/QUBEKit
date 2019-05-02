@@ -5,10 +5,10 @@ from QUBEKit.parametrisation import XMLProtein
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.protein_tools import qube_general, pdb_reformat, get_water
 
-from os import remove
 import argparse
-from sys import exit as sys_exit
 from functools import partial
+import os
+import sys
 
 
 printf = partial(print, flush=True)
@@ -35,7 +35,7 @@ def main():
             # TODO find the magic numbers for the box for onetep
             protein.write_xyz(name='protein')
             printf(f'protein.xyz file made for ONETEP\n Run this file')
-            sys_exit()
+            sys.exit()
 
     class BuildAction(argparse.Action):
         """This class handles the building of the protein xml and pdb files."""
@@ -64,9 +64,9 @@ def main():
             printf('Writing XML file for the system...')
             pro.write_parameters(name='QUBE_pro', protein=True)
             # now remove the qube general file
-            remove('QUBE_general_pi.xml')
+            os.remove('QUBE_general_pi.xml')
             printf('Done')
-            sys_exit()
+            sys.exit()
 
     class WaterAction(argparse.Action):
         """This class builds the water models requested"""
@@ -74,7 +74,7 @@ def main():
         def __call__(self, pars, namespace, values, option_string=None):
             """This function is executed when water is called."""
             get_water(values)
-            sys_exit()
+            sys.exit()
 
     class ConvertAction(argparse.Action):
         """This class converts the names in a qube taj file to match the reference."""
@@ -86,7 +86,7 @@ def main():
             printf(f'Rewriting input: {target} to match: {reference}...')
             pdb_reformat(reference, target)
             printf('Done output made: QUBE_traj.pdb')
-            sys_exit()
+            sys.exit()
 
     # Set up the argument parser
     parser = argparse.ArgumentParser(prog='QUBEKit-pro', formatter_class=argparse.RawDescriptionHelpFormatter,
