@@ -10,16 +10,16 @@ from QUBEKit.decorators import exception_logger
 from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
     Configure, unpickle
 
-import argparse
-from subprocess import run
-from sys import exit as sys_exit
-from os import mkdir, chdir, path, listdir, walk, getcwd, system
-from shutil import copy, move
 from collections import OrderedDict
-from functools import partial
 from datetime import datetime
-from numpy import array
+from functools import partial
+import os
+from shutil import copy, move
+from subprocess import run as sub_run
+import sys
 
+import argparse
+import numpy as np
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -120,7 +120,7 @@ class Main:
 
         # If not bulk must be main single run
         if self.args.restart:
-            self.file = [file for file in listdir(getcwd()) if '.pdb' in file][0]
+            self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
         else:
             self.file = self.args.input
 
@@ -214,7 +214,7 @@ class Main:
                 else:
                     raise KeyError('Invalid selection; please choose from 1, 2 or 3.')
 
-                sys_exit()
+                sys.exit()
 
         class CSVAction(argparse.Action):
             """The csv creation class run when the csv option is used."""
@@ -223,7 +223,7 @@ class Main:
                 """This function is executed when csv is called."""
 
                 generate_bulk_csv(values)
-                sys_exit()
+                sys.exit()
 
         class ProgressAction(argparse.Action):
             """Run the pretty progress function to get the progress of all running jobs."""
@@ -232,7 +232,7 @@ class Main:
                 """This function is executed when progress is called."""
 
                 pretty_progress()
-                sys_exit()
+                sys.exit()
 
         class TorsionMakerAction(argparse.Action):
             """Help the user make a torsion scan file."""
@@ -259,7 +259,7 @@ class Main:
                         qube.write(f'  {scan_di[0]:2}     {scan_di[1]:2}     {scan_di[2]:2}     {scan_di[3]:2}\n')
                 print('QUBE_torsions.txt made.')
 
-                sys_exit()
+                sys.exit()
 
         # TODO Convert description to just read the intro from the README?
         parser = argparse.ArgumentParser(
@@ -387,21 +387,21 @@ We welcome any suggestions for additions or changes.""")
 
             # If starting from the middle somewhere, FIND (not create) the folder, and log and pdb files, then execute
             else:
-                for root, dirs, files in walk('.', topdown=True):
+                for root, dirs, files in os.walk('.', topdown=True):
                     for dir_name in dirs:
                         if dir_name.startswith(f'QUBEKit_{name}'):
-                            chdir(dir_name)
+                            os.chdir(dir_name)
 
                 # These are the files in the active directory, search for the pdb.
-                self.file = [file for file in listdir(getcwd()) if '.pdb' in file][0]
+                self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
 
                 self.continue_log()
 
             # if we have a torsion order add it here
             self.execute(torsion_options)
-            chdir('../')
+            os.chdir('../')
 
-        sys_exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
+        sys.exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
 
     def create_log(self):
         """
@@ -419,34 +419,34 @@ We welcome any suggestions for additions or changes.""")
         # This is formatted as 'QUBEKit_molecule name_yyyy_mm_dd_log_string'.
         dir_name = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
         try:
-            mkdir(dir_name)
+            os.mkdir(dir_name)
 
         except FileExistsError:
             try:
-                mkdir('QUBEKit_backups')
+                os.mkdir('QUBEKit_backups')
                 printf('Making backup folder')
             except FileExistsError:
                 # Backup folder already made
                 pass
             finally:
                 count = 1
-                while path.exists(f'QUBEKit_backups/{dir_name}_{count}'):
+                while os.path.exists(f'QUBEKit_backups/{dir_name}_{count}'):
                     count += 1
 
                 move(dir_name, f'QUBEKit_backups/{dir_name}_{count}')
                 printf('Moving directory to backup folder')
-                mkdir(dir_name)
+                os.mkdir(dir_name)
 
         finally:
             # Copy active pdb into new directory.
-            abspath = path.abspath(self.file)
+            abspath = os.path.abspath(self.file)
             copy(abspath, f'{dir_name}/{self.file}')
-            chdir(dir_name)
+            os.chdir(dir_name)
 
-        for root, dirs, files in walk('.', topdown=True):
+        for root, dirs, files in os.walk('.', topdown=True):
             for file in files:
                 if 'constraints.txt' in file:
-                    self.constraints_file = path.abspath(f'{root}/{file}')
+                    self.constraints_file = os.path.abspath(f'{root}/{file}')
 
         # Find external files
         copy_files = [f'{self.file[:-4]}.xml', 'QUBE_torsions.txt']
@@ -523,19 +523,19 @@ We welcome any suggestions for additions or changes.""")
             if begin_log_msg:
                 printf(f'{begin_log_msg}...', end=' ')
 
-        home = getcwd()
+        home = os.getcwd()
 
         folder_name = f'{self.immutable_order.index(start_key) + 1}_{start_key}'
         try:
-            mkdir(folder_name)
+            os.mkdir(folder_name)
         except FileExistsError:
             pass
         finally:
-            chdir(folder_name)
+            os.chdir(folder_name)
 
         self.order[start_key](mol)
         self.order.pop(start_key, None)
-        chdir(home)
+        os.chdir(home)
 
         # Begin looping through self.order, but return after the first iteration.
         for key in self.order:
@@ -585,8 +585,8 @@ We welcome any suggestions for additions or changes.""")
             molecule.write_parameters()
             # Run geometric
             with open('log.txt', 'w+') as log:
-                run(f'geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb {molecule.name}.pdb '
-                    f'--openmm {molecule.name}.xml {self.constraints_file}', shell=True, stdout=log, stderr=log)
+                sub_run(f'geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb {molecule.name}.pdb '
+                        f'--openmm {molecule.name}.xml {self.constraints_file}', shell=True, stdout=log, stderr=log)
 
             # Read the xyz traj and store the frames
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
@@ -615,11 +615,11 @@ We welcome any suggestions for additions or changes.""")
             # Check if converged and get the geometry
             if traj[-1]['success']:
                 # Convert coordinates from bohr to angstroms
-                geometry = array(traj[-1]['molecule']['geometry']) * 0.529177210
+                geometry = np.array(traj[-1]['molecule']['geometry']) * 0.529177210
                 for i, atom in enumerate(traj[-1]['molecule']['symbols']):
                     molecule.molecule['qm'].append([atom, geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
             else:
-                sys_exit('Molecule not optimised.')
+                sys.exit('Molecule not optimised.')
 
         else:
             qm_engine.generate_input(input_type='mm', optimise=True)
@@ -688,7 +688,7 @@ We welcome any suggestions for additions or changes.""")
     def lennard_jones(self, molecule):
         """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
-        system('cp ../7_charges/DDEC* .')
+        os.system('cp ../7_charges/DDEC* .')
         lj = LennardJones(molecule, self.all_configs)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 

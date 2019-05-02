@@ -2,11 +2,11 @@
 
 from QUBEKit.helpers import pretty_print, unpickle
 
-from time import time
 from datetime import datetime
 from functools import wraps
-from logging import getLogger, Formatter, FileHandler, INFO
-from os import listdir
+import logging
+from time import time
+import os
 
 
 def timer_func(orig_func):
@@ -86,14 +86,14 @@ def logger_format():
     This isn't a decorator itself but is only used by exception_logger_decorator so it makes sense for it to be here.
     """
 
-    logger = getLogger('Exception Logger')
-    logger.setLevel(INFO)
+    logger = logging.getLogger('Exception Logger')
+    logger.setLevel(logging.INFO)
 
-    file_handler = FileHandler('QUBEKit_log.txt')
+    file_handler = logging.FileHandler('QUBEKit_log.txt')
 
     # Format the log message
     fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    formatter = Formatter(fmt)
+    formatter = logging.Formatter(fmt)
     file_handler.setFormatter(formatter)
 
     logger.addHandler(file_handler)
@@ -124,7 +124,7 @@ def exception_logger(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
-            if 'QUBEKit_log.txt' in listdir("."):
+            if 'QUBEKit_log.txt' in os.listdir("."):
                 log_file = 'QUBEKit_log.txt'
             else:
                 log_file = '../QUBEKit_log.txt'

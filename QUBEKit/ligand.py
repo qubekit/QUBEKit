@@ -4,17 +4,17 @@
 # TODO allow reading of different input files on instancing (mol2, xyz, ....)
 #   new method read_input this should decided what file reader should be used
 
-from numpy import array, linalg, dot, degrees, cross, arctan2, arccos
-from networkx import neighbors, Graph, has_path
+from collections import OrderedDict
+from datetime import datetime
+from itertools import groupby
+import pickle
+import re
+
+import networkx as nx
+import numpy as np
 
 from xml.etree.ElementTree import tostring, Element, SubElement, ElementTree
 from xml.dom.minidom import parseString
-
-from datetime import datetime
-from pickle import dump, load
-from re import sub
-from collections import OrderedDict
-from itertools import groupby
 
 
 class Molecule:
@@ -110,13 +110,14 @@ class Molecule:
         self.state = None
 
         # Atomic weight dict
-        self.element_dict = {'H': 1.008000,   # Group 1
-                             'B': 10.811000,  # Group 3
-                             'C': 12.011000,  # Group 4
-                             'N': 14.007000, 'P': 30.973762,  # Group 5
-                             'O': 15.999000, 'S': 32.060000,  # Group 6
-                             'F': 18.998403, 'CL': 35.450000, 'BR': 79.904000, 'I': 126.904470  # Group 7
-                             }
+        self.element_dict = {
+            'H': 1.008000,   # Group 1
+            'B': 10.811000,  # Group 3
+            'C': 12.011000,  # Group 4
+            'N': 14.007000, 'P': 30.973762,  # Group 5
+            'O': 15.999000, 'S': 32.060000,  # Group 6
+            'F': 18.998403, 'CL': 35.450000, 'BR': 79.904000, 'I': 126.904470   # Group 7
+        }
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -171,7 +172,7 @@ class Molecule:
             lines = pdb.readlines()
 
         molecule = []
-        self.topology = Graph()
+        self.topology = nx.Graph()
         self.atom_names = []
 
         # atom counter used for graph node generation
@@ -179,14 +180,15 @@ class Molecule:
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
                 element = str(line[76:78])
-                element = sub('[0-9]+', '', element)
+                element = re.sub('[0-9]+', '', element)
                 element = element.strip()
                 self.atom_names.append(str(line.split()[2]))
 
                 # If the element column is missing from the pdb, extract the element from the name.
+                # TODO Will this be ok if the element is 2 chars?
                 if not element:
                     element = str(line.split()[2])[:-1]
-                    element = sub('[0-9]+', '', element)
+                    element = re.sub('[0-9]+', '', element)
 
                 # Also add the atom number as the node in the graph
                 self.topology.add_node(atom_count)
@@ -210,7 +212,7 @@ class Molecule:
 
         self.improper_torsions = []
         for node in self.topology.nodes:
-            near = sorted(list(neighbors(self.topology, node)))
+            near = sorted(list(nx.neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
             if len(near) == 3:
                 self.improper_torsions.append((node, near[0], near[1], near[2]))
@@ -224,7 +226,7 @@ class Molecule:
         self.angles = []
 
         for node in self.topology.nodes:
-            bonded = sorted(list(neighbors(self.topology, node)))
+            bonded = sorted(list(nx.neighbors(self.topology, node)))
 
             # Check that the atom has more than one bond
             if len(bonded) < 2:
@@ -245,9 +247,9 @@ class Molecule:
         molecule = self.molecule[input_type]
 
         for edge in self.topology.edges:
-            atom1 = array(molecule[int(edge[0]) - 1][1:])
-            atom2 = array(molecule[int(edge[1]) - 1][1:])
-            self.bond_lengths[edge] = linalg.norm(atom2 - atom1)
+            atom1 = np.array(molecule[int(edge[0]) - 1][1:])
+            atom2 = np.array(molecule[int(edge[1]) - 1][1:])
+            self.bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
 
     def find_dihedrals(self):
         """
@@ -260,12 +262,12 @@ class Molecule:
         # Work through the network using each edge as a central dihedral bond
         for edge in self.topology.edges:
 
-            for start in list(neighbors(self.topology, edge[0])):
+            for start in list(nx.neighbors(self.topology, edge[0])):
 
                 # Check atom not in main bond
                 if start != edge[0] and start != edge[1]:
 
-                    for end in list(neighbors(self.topology, edge[1])):
+                    for end in list(nx.neighbors(self.topology, edge[1])):
 
                         # Check atom not in main bond
                         if end != edge[0] and end != edge[1]:
@@ -292,7 +294,7 @@ class Molecule:
             self.topology.remove_edge(*key)
 
             # Check if there is still a path between the two atoms in the edges.
-            if not has_path(self.topology, key[0], key[1]):
+            if not nx.has_path(self.topology, key[0], key[1]):
                 self.rotatable.append(key)
 
             # Add edge back to the network and try next key
@@ -314,11 +316,11 @@ class Molecule:
         for key in keys:
             for torsion in self.dihedrals[key]:
                 # Calculate the dihedral angle in the molecule using the molecule data array.
-                x1, x2, x3, x4 = [array(molecule[int(torsion[i]) - 1][1:]) for i in range(4)]
+                x1, x2, x3, x4 = [np.array(molecule[int(torsion[i]) - 1][1:]) for i in range(4)]
                 b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
-                t1 = linalg.norm(b2) * dot(b1, cross(b2, b3))
-                t2 = dot(cross(b1, b2), cross(b2, b3))
-                self.dih_phis[torsion] = degrees(arctan2(t1, t2))
+                t1 = np.linalg.norm(b2) * np.dot(b1, np.cross(b2, b3))
+                t2 = np.dot(np.cross(b1, b2), np.cross(b2, b3))
+                self.dih_phis[torsion] = np.degrees(np.arctan2(t1, t2))
 
     def get_angle_values(self, input_type='input'):
         """
@@ -331,12 +333,12 @@ class Molecule:
         molecule = self.molecule[input_type]
 
         for angle in self.angles:
-            x1 = array(molecule[int(angle[0]) - 1][1:])
-            x2 = array(molecule[int(angle[1]) - 1][1:])
-            x3 = array(molecule[int(angle[2]) - 1][1:])
+            x1 = np.array(molecule[int(angle[0]) - 1][1:])
+            x2 = np.array(molecule[int(angle[1]) - 1][1:])
+            x3 = np.array(molecule[int(angle[2]) - 1][1:])
             b1, b2 = x1 - x2, x3 - x2
-            cosine_angle = dot(b1, b2) / (linalg.norm(b1) * linalg.norm(b2))
-            self.angle_values[angle] = degrees(arccos(cosine_angle))
+            cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
+            self.angle_values[angle] = np.degrees(np.arccos(cosine_angle))
 
     def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
@@ -370,8 +372,8 @@ class Molecule:
         PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
 
         # Assign the combination rule
-        l14 = '0.5'
         c14 = '0.83333' if self.combination == 'amber' else '0.5'
+        l14 = '0.5'
 
         # add the combination rule to the xml for geometric.
         NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14,
@@ -497,7 +499,7 @@ class Molecule:
             with open(f'.QUBEKit_states', 'rb') as pickle_jar:
                 while True:
                     try:
-                        mol = load(pickle_jar)
+                        mol = pickle.load(pickle_jar)
                         mols[mol.state] = mol
                     except:
                         break
@@ -514,7 +516,7 @@ class Molecule:
             # If there were other molecules of the same state in the jar: overwrite them
 
             for val in mols.values():
-                dump(val, pickle_jar)
+                pickle.dump(val, pickle_jar)
 
     def symmetrise_from_topo(self):
         """
@@ -674,7 +676,7 @@ class Ligand(Molecule):
 
             # Now add the connection terms
             for node in self.topology.nodes:
-                bonded = sorted(list(neighbors(self.topology, node)))
+                bonded = sorted(list(nx.neighbors(self.topology, node)))
                 if len(bonded) > 1:
                     pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
 
@@ -701,7 +703,7 @@ class Protein(Molecule):
             lines = pdb.readlines()
 
         protein = []
-        self.topology = Graph()
+        self.topology = nx.Graph()
         self.atom_names = []
         self.residues = []
         self.Residues = []
@@ -712,13 +714,13 @@ class Protein(Molecule):
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
                 element = str(line[76:78])
-                element = sub('[0-9]+', '', element)
+                element = re.sub('[0-9]+', '', element)
                 element = element.strip()
 
                 # If the element column is missing from the pdb, extract the element from the name.
                 if not element:
                     element = str(line.split()[2])
-                    element = sub('[0-9]+', '', element)
+                    element = re.sub('[0-9]+', '', element)
 
                 # now make sure we have a valid element
                 if element.lower() == 'cl' or element.lower() == 'br':
@@ -770,7 +772,7 @@ class Protein(Molecule):
 
             # Now add the connection terms
             for node in self.topology.nodes:
-                bonded = sorted(list(neighbors(self.topology, node)))
+                bonded = sorted(list(nx.neighbors(self.topology, node)))
                 if len(bonded) > 1:
                     pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
 
