@@ -2,6 +2,7 @@
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. Maybe add path checking for Chargemol?
+# TODO Rewrite file parsers to use takewhile/dropwhile rather than reading the whole files to memory.
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
@@ -630,7 +631,7 @@ class QCEngine(Engines):
 
 
 class RDKit:
-    """Class for controlling useful RDKit functions try to keep class static."""
+    """Class for controlling useful RDKit functions; try to keep class static."""
 
     @staticmethod
     def smiles_to_pdb_mol(smiles_string, name=None):
@@ -641,7 +642,7 @@ class RDKit:
             raise SyntaxError('Smiles string contains hydrogen atoms; try again.')
 
         m = AllChem.MolFromSmiles(smiles_string)
-        if not name:
+        if name is None:
             name = input('Please enter a name for the molecule:\n>')
         m.SetProp('_Name', name)
         m_h = AllChem.AddHs(m)
@@ -722,7 +723,7 @@ class RDKit:
 
         mol = MolFromPDBFile(pdb_file, removeHs=False)
 
-        mol_name = pdb_file[:-4] + '.mol'
+        mol_name = f'{pdb_file[:-4]}.mol'
         MolToMolFile(mol, mol_name)
 
         return mol_name

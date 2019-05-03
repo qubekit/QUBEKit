@@ -164,7 +164,7 @@ class TorsionScan:
     def start_scan(self):
         """Makes a folder and writes a new a dihedral input file for each scan and runs the scan."""
 
-        # TODO QCArchive/Fractal search don't do a calc that has been done!
+        # TODO QCArchive/Fractal search; don't do a calc that has been done!
 
         # TODO
         #   if the molecule has multiple scans to do they should all start at the same time as this is slow
@@ -713,8 +713,6 @@ class TorsionOptimiser:
             # Get the MM coords from the QM torsion drive
             self.scan_coords = TorsionOptimiser.get_coords('torsiondrive')
 
-
-
             # Move home and set up or working folders
             os.chdir(self.home)
             try:
@@ -789,7 +787,7 @@ class TorsionOptimiser:
         using full relaxed surface scans. SLOW!
         """
 
-        print('Starting optimisation...')
+        print('Starting optimisation ...')
 
         # search steep sizes
         step_size = [0.1, 0.01, 0.001]
@@ -1058,16 +1056,14 @@ class TorsionOptimiser:
         forces = {self.simulation.system.getForce(index).__class__.__name__: self.simulation.system.getForce(index) for
                   index in range(self.simulation.system.getNumForces())}
         torsion_force = forces['PeriodicTorsionForce']
-        i = 0
+
         for val in self.tor_types.values():
             for j, dihedral in enumerate(val[0]):
                 for v_n in range(4):
-                    torsion_force.setTorsionParameters(index=v_n + val[2][j],
-                                                       particle1=dihedral[0], particle2=dihedral[1],
-                                                       particle3=dihedral[2], particle4=dihedral[3],
-                                                       periodicity=v_n + 1, phase=self.phases[v_n],
-                                                       k=val[1][v_n])
-                    i += 1
+                    torsion_force.setTorsionParameters(
+                        index=v_n + val[2][j], periodicity=v_n + 1, phase=self.phases[v_n], k=val[1][v_n],
+                        particle1=dihedral[0], particle2=dihedral[1], particle3=dihedral[2], particle4=dihedral[3]
+                    )
         torsion_force.updateParametersInContext(self.simulation.context)
 
         return self.system
@@ -1186,7 +1182,7 @@ class TorsionOptimiser:
             constraint.write(f'$scan\ndihedral {mol_di[0]} {mol_di[1]} {mol_di[2]} {mol_di[3]} -165.0 180 24\n')
 
             if self.molecule.constraint_file:
-                with open(self.molecule.constraint_file, 'r') as cons_file:
+                with open(self.molecule.constraint_file) as cons_file:
                     for line in cons_file:
                         constraint.write(line)
 

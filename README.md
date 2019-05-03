@@ -1,6 +1,6 @@
-# QUBEKit - *Qu*antum *Be*spoke force field tool*kit*
+# QUBEKit - *Qu*antum Mechanical *Be*spoke force field tool*kit*
 
-#### Newcastle University UK - Cole Group.
+#### **Newcastle University UK - Cole Group**
 
 
 | **Status** | [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/qubekit/QUBEKit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/qubekit/QUBEKit/context:python) [![Build Status](https://travis-ci.com/qubekit/QUBEKit.svg?branch=master)](https://travis-ci.com/qubekit/QUBEKit) [![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/version.svg)](https://anaconda.org/cringrose/qubekit) |

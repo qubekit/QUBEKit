@@ -16,8 +16,7 @@ from simtk.openmm import app, XmlSerializer
 from xml.etree.ElementTree import parse as parse_tree
 
 
-# TODO Users should be able to just install ONE of the necessary parametrisation methods and not worry about needing the others too.
-#   Is there a nice way of doing this other than try: import <module>; except ImportError: pass ?
+# TODO Implement a serialise_system() method in the base class which can be overwritten? Lots of repeated code.
 
 
 class Parametrisation:
@@ -204,6 +203,7 @@ class Parametrisation:
                 elif '@<TRIPOS>SUBSTRUCTURE' in line:
                     bonds = False
                     continue
+
                 if atoms:
                     self.gaff_types[self.molecule.atom_names[int(line.split()[0]) - 1]] = str(line.split()[5])
                 if bonds:
@@ -211,8 +211,6 @@ class Parametrisation:
                         gaff_bonds[int(line.split()[1])].append(int(line.split()[2]))
                     except KeyError:
                         gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
-
-        # append_to_log(f'GAFF types: {self.gaff_types}', msg_type='minor')
 
         # Check if the molecule already has bonds; if not apply these bonds
         if not list(self.molecule.topology.edges):
