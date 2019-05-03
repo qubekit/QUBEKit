@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.engines import RDKit
+from QUBEKit.engines import Babel
 
 from tempfile import TemporaryDirectory
 from shutil import copy
@@ -12,12 +12,6 @@ from copy import deepcopy
 
 from xml.etree.ElementTree import parse as parse_tree
 from simtk.openmm import app, XmlSerializer
-from openforcefield.topology import Molecule, Topology
-from openforcefield.typing.engines.smirnoff import ForceField
-
-
-# TODO Users should be able to just install ONE of the necessary parametrisation methods and not worry about needing the others too.
-#   Is there a nice way of doing this other than try: import <module>; except ImportError: pass ?
 
 
 class Parametrisation:
@@ -61,7 +55,7 @@ class Parametrisation:
         self.molecule = molecule
         self.input_file = input_file
         self.fftype = fftype
-        self.gaff_types = {}
+        self.atom_types = {}
         self.combination = 'amber'
 
     def __repr__(self):
@@ -77,7 +71,7 @@ class Parametrisation:
         for i, atom in enumerate(self.molecule.atom_names):
             self.molecule.AtomTypes[i] = [atom, 'QUBE_' + str(800 + i),
                                           str(self.molecule.molecule['input'][i][0]) + str(800 + i),
-                                          self.gaff_types[atom]]
+                                          self.molecule.mol2_types[i]]
 
         input_xml_file = 'serialised.xml'
         in_root = parse_tree(input_xml_file).getroot()
@@ -157,8 +151,7 @@ class Parametrisation:
 
     def get_gaff_types(self, fftype='gaff', file=None):
         """
-        Convert the pdb file into a mol2 antechamber file and get the gaff atom types
-        and gaff bonds if there were any
+        Convert the pdb file into a mol2 antechamber file and get the gaff atom types and bonds if we need them.
         """
 
         # call Antechamber to convert if we don't have the mol2 file
@@ -168,7 +161,6 @@ class Parametrisation:
             # do this in a temp directory as it produces a lot of files
             pdb = path.abspath(self.molecule.filename)
             mol2 = path.abspath(f'{self.molecule.name}.mol2')
-            file = mol2
 
             with TemporaryDirectory() as temp:
                 chdir(temp)
@@ -180,47 +172,29 @@ class Parametrisation:
                             shell=True, stdout=log, stderr=log)
 
                 # Ensure command worked
-                if not path.exists('out.mol2'):
-                    raise FileNotFoundError('out.mol2 not found antechamber failed!')
+                try:
+                    # Copy the gaff mol2 and antechamber file back
+                    copy('out.mol2', mol2)
+                    copy('Antechamber.log', cwd)
+                except FileNotFoundError:
+                    # If the molecule contains boron we expect this so use RDKit
+                    print('using OpenBabel')
+                    mol2_file = self.molecule.name + '.mol2'
+                    Babel.convert('in.pdb', mol2_file)
+                    copy(mol2_file, mol2)
 
-                copy('out.mol2', mol2)
                 chdir(cwd)
+        else:
+            mol2 = file
+
+        # Check if the pdb file had connections if not we should remake the file
+        remake = True if self.molecule.bond_lengths is None else False
 
         # Get the gaff atom types and bonds in case we don't have this info
-        gaff_bonds = {}
-        with open(file, 'r') as mol_in:
-            atoms = False
-            bonds = False
-            for line in mol_in.readlines():
+        self.molecule.read_mol2(mol2)
 
-                # TODO Surely this can be simplified?
-                if '@<TRIPOS>ATOM' in line:
-                    atoms = True
-                    continue
-                elif '@<TRIPOS>BOND' in line:
-                    atoms = False
-                    bonds = True
-                    continue
-                elif '@<TRIPOS>SUBSTRUCTURE' in line:
-                    bonds = False
-                    continue
-                if atoms:
-                    self.gaff_types[self.molecule.atom_names[int(line.split()[0]) - 1]] = str(line.split()[5])
-                if bonds:
-                    try:
-                        gaff_bonds[int(line.split()[1])].append(int(line.split()[2]))
-                    except KeyError:
-                        gaff_bonds[int(line.split()[1])] = [int(line.split()[2])]
-
-        # append_to_log(f'GAFF types: {self.gaff_types}', msg_type='minor')
-
-        # Check if the molecule already has bonds; if not apply these bonds
-        if not list(self.molecule.topology.edges):
-            # add the bonds to the molecule
-            for key, value in gaff_bonds.items():
-                for node in value:
-                    self.molecule.topology.add_edge(key, node)
-
+        # Check if the molecule has bond lengths if not call the update method
+        if remake:
             self.molecule.update()
 
             # Now we need to rewrite the pdb file to have the conect terms
@@ -483,46 +457,6 @@ class AnteChamber(Parametrisation):
         # Now give the file names to parametrisation method
         self.prmtop = f'{self.molecule.name}.prmtop'
         self.inpcrd = f'{self.molecule.name}.inpcrd'
-
-
-@for_all_methods(timer_logger)
-class OpenFF(Parametrisation):
-    """
-    This class uses the openFFtoolkit 2 to parametrise a molecule and load an OpenMM simulation.
-    A serialised XML is then stored in the parameter dictionaries.
-    """
-
-    def __init__(self, molecule, input_file=None, fftype='frost', mol2_file=None):
-        super().__init__(molecule, input_file, fftype)
-
-        self.get_gaff_types(mol2_file)
-        self.serialise_system()
-        self.gather_parameters()
-        self.molecule.parameter_engine = 'OpenFF ' + self.fftype
-        self.molecule.combination = self.combination
-
-    def serialise_system(self):
-        """Create the OpenMM system; parametrise using frost; serialise the system."""
-
-        # Load the molecule using openforcefield
-        pdbfile = app.PDBFile(self.molecule.filename)
-
-        # Now we need the connection info try using smiles string from rdkit
-        molecule = Molecule.from_smiles(RDKit.get_smiles(self.molecule.filename))
-
-        # Make the openMM system
-        omm_topology = pdbfile.topology
-        off_topology = Topology.from_openmm(omm_topology, unique_molecules=[molecule])
-
-        # Load the smirnof99Frosst force field.
-        forcefield = ForceField('smirnoff99Frosst.offxml')
-
-        # Parametrize the topology and create an OpenMM System.
-        system = forcefield.create_openmm_system(off_topology)
-
-        # Serialise the OpenMM system into the xml file
-        with open('serialised.xml', 'w+') as out:
-            out.write(XmlSerializer.serializeSystem(system))
 
 
 @for_all_methods(timer_logger)

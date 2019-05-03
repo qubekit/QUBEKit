@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 # TODO Add remaining xml methods for Protein class
-# TODO allow reading of different input files on instancing (mol2, xyz, ....)
-#   new method read_input this should decided what file reader should be used
 
 from numpy import array, linalg, dot, degrees, cross, arctan2, arccos
 from networkx import neighbors, Graph, has_path
@@ -76,7 +74,9 @@ class Molecule:
 
         # Namings
         self.filename = filename
-        self.name = filename[:-4]
+        self.name = str(filename).split(".")[0]
+        # Also check if we have a full path in the name
+        self.name = str(self.name).split("/")[-1]
         self.smiles = smiles_string
 
         # Structure
@@ -87,6 +87,7 @@ class Molecule:
         self.improper_torsions = []
         self.rotatable = None
         self.atom_names = None
+        self.mol2_types = None
         self.bond_lengths = None
         self.dih_phis = None
         self.angle_values = None
@@ -151,7 +152,15 @@ class Molecule:
 
         return return_str
 
-    def read_pdb(self, input_type='input'):
+    def read_file(self):
+        """The base file reader used on instancing the class it will decided what file reader to use."""
+
+        if self.filename.split(".")[1] == 'pdb':
+            self.read_pdb(self.filename)
+        elif self.filename.split(".")[1] == 'mol2':
+            self.read_mol2(self.filename)
+
+    def read_pdb(self, name, input_type='input'):
         """
         Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
         Then reads through the connection tags and builds a connectivity network
@@ -160,7 +169,7 @@ class Molecule:
         Can also generate a simple plot of the network.
         """
 
-        with open(self.filename, 'r') as pdb:
+        with open(name, 'r') as pdb:
             lines = pdb.readlines()
 
         molecule = []
@@ -195,18 +204,97 @@ class Molecule:
         # put the object back into the correct place
         self.molecule[input_type] = molecule
 
+    def read_mol2(self, name, input_type='input'):
+        """
+        Read an input mol2 file and extract the atom names, positions, atom types and bonds.
+        :param input_type: Assign the structure to right holder, input, mm, qm, temp or traj.
+        :return: The object back into the right place.
+        """
+
+        molecule = []
+        self.topology = Graph()
+        self.atom_names = []
+        self.mol2_types = []
+
+        # atom counter used for graph node generation
+        atom_count = 1
+
+        with open(name, 'r') as mol2:
+            lines = mol2.readlines()
+
+        atoms = False
+        bonds = False
+
+        for line in lines:
+            if '@<TRIPOS>ATOM' in line:
+                atoms = True
+                continue
+            elif '@<TRIPOS>BOND' in line:
+                atoms = False
+                bonds = True
+                continue
+            elif '@<TRIPOS>SUBSTRUCTURE' in line:
+                bonds = False
+                continue
+            if atoms:
+                # Add the molecule information
+                element = line.split()[1][:2]
+                element = sub('[0-9]+', '', element)
+                element = element.strip()
+                if element.upper() not in self.element_dict:
+                    element = element[0]
+                molecule.append([element, float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
+
+                # Collect the atom names
+                self.atom_names.append(str(line.split()[1]))
+
+                # Add the nodes to the topology object
+                self.topology.add_node(atom_count)
+                atom_count += 1
+
+                # Get the atom types
+                atom_type = line.split()[5]
+                atom_type = atom_type.replace(".", "")
+                self.mol2_types.append(atom_type)
+
+            if bonds:
+                # Add edges to the topology network
+                self.topology.add_edge(int(line.split()[1]), int(line.split()[2]))
+
+        # put the object back into the correct place
+        self.molecule[input_type] = molecule
+
+    def read_geometric_traj(self, trajectory):
+        """
+        Read in the molecule coordinates to the traj holder from a geometric optimisation using qcengine.
+        :param trajectory: The qcengine trajectory
+        :return: None
+        """
+
+        for frame in trajectory:
+            opt_traj = []
+            # Convert coordinates from bohr to angstroms
+            geometry = array(frame['molecule']['geometry']) * 0.529177210
+            for i, atom in enumerate(frame['molecule']['symbols']):
+                opt_traj.append([atom, geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
+            self.molecule['traj'].append(opt_traj)
+
     def find_impropers(self):
         """
         Take the topology graph and find all of the improper torsions in the molecule;
         these are atoms with 3 bonds.
         """
 
-        self.improper_torsions = []
+        improper_torsions = []
+
         for node in self.topology.nodes:
             near = sorted(list(neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
             if len(near) == 3:
-                self.improper_torsions.append((node, near[0], near[1], near[2]))
+                improper_torsions.append((node, near[0], near[1], near[2]))
+
+        if bool(improper_torsions):
+            self.improper_torsions = improper_torsions
 
     def find_angles(self):
         """
@@ -214,7 +302,7 @@ class Molecule:
         Checked against OPLS-AA on molecules containing 10-63 angles.
         """
 
-        self.angles = []
+        angles = []
 
         for node in self.topology.nodes:
             bonded = sorted(list(neighbors(self.topology, node)))
@@ -228,19 +316,26 @@ class Molecule:
                 for j in range(i + 1, len(bonded)):
                     atom1, atom3 = bonded[i], bonded[j]
 
-                    self.angles.append((atom1, node, atom3))
+                    angles.append((atom1, node, atom3))
+
+        if bool(angles):
+            self.angles = angles
 
     def get_bond_lengths(self, input_type='input'):
         """For the given molecule and topology find the length of all of the bonds."""
 
-        self.bond_lengths = {}
+        bond_lengths = {}
 
         molecule = self.molecule[input_type]
 
         for edge in self.topology.edges:
             atom1 = array(molecule[int(edge[0]) - 1][1:])
             atom2 = array(molecule[int(edge[1]) - 1][1:])
-            self.bond_lengths[edge] = linalg.norm(atom2 - atom1)
+            bond_lengths[edge] = linalg.norm(atom2 - atom1)
+
+        # Check if the dictionary is full then store else leave as None
+        if bool(bond_lengths):
+            self.bond_lengths = bond_lengths
 
     def find_dihedrals(self):
         """
@@ -248,7 +343,7 @@ class Molecule:
         the central bond keys which describe the angle.
         """
 
-        self.dihedrals = {}
+        dihedrals = {}
 
         # Work through the network using each edge as a central dihedral bond
         for edge in self.topology.edges:
@@ -263,13 +358,16 @@ class Molecule:
                         # Check atom not in main bond
                         if end != edge[0] and end != edge[1]:
 
-                            if edge not in self.dihedrals:
+                            if edge not in dihedrals:
                                 # Add the central edge as a key the first time it is used
-                                self.dihedrals[edge] = [(start, edge[0], edge[1], end)]
+                                dihedrals[edge] = [(start, edge[0], edge[1], end)]
 
                             else:
                                 # Add the tuple to the correct key.
-                                self.dihedrals[edge].append((start, edge[0], edge[1], end))
+                                dihedrals[edge].append((start, edge[0], edge[1], end))
+
+        if bool(dihedrals):
+            self.dihedrals = dihedrals
 
     def find_rotatable_dihedrals(self):
         """
@@ -278,40 +376,45 @@ class Molecule:
         Also exclude standard rotations such as amides and methyl groups.
         """
 
-        self.rotatable = []
+        if bool(self.dihedrals):
+            rotatable = []
 
-        # For each dihedral key remove the edge from the network
-        for key in self.dihedrals:
-            self.topology.remove_edge(*key)
+            # For each dihedral key remove the edge from the network
+            for key in self.dihedrals:
+                self.topology.remove_edge(*key)
 
-            # Check if there is still a path between the two atoms in the edges.
-            if not has_path(self.topology, key[0], key[1]):
-                self.rotatable.append(key)
+                # Check if there is still a path between the two atoms in the edges.
+                if not has_path(self.topology, key[0], key[1]):
+                    rotatable.append(key)
 
-            # Add edge back to the network and try next key
-            self.topology.add_edge(*key)
+                # Add edge back to the network and try next key
+                self.topology.add_edge(*key)
+
+            if bool(rotatable):
+                self.rotatable = rotatable
 
     def get_dihedral_values(self, input_type='input'):
         """
         Taking the molecules' xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
+        if bool(self.dihedrals):
 
-        self.dih_phis = {}
+            dih_phis = {}
 
-        # Check if a rotatable tuple list is supplied, else calculate the angles for all dihedrals in the molecule.
-        keys = self.rotatable if self.rotatable else list(self.dihedrals.keys())
+            molecule = self.molecule[input_type]
 
-        molecule = self.molecule[input_type]
+            for key in self.dihedrals.keys():
+                for torsion in self.dihedrals[key]:
+                    # Calculate the dihedral angle in the molecule using the molecule data array.
+                    x1, x2, x3, x4 = [array(molecule[int(torsion[i]) - 1][1:]) for i in range(4)]
+                    b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
+                    t1 = linalg.norm(b2) * dot(b1, cross(b2, b3))
+                    t2 = dot(cross(b1, b2), cross(b2, b3))
+                    dih_phis[torsion] = degrees(arctan2(t1, t2))
 
-        for key in keys:
-            for torsion in self.dihedrals[key]:
-                # Calculate the dihedral angle in the molecule using the molecule data array.
-                x1, x2, x3, x4 = [array(molecule[int(torsion[i]) - 1][1:]) for i in range(4)]
-                b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
-                t1 = linalg.norm(b2) * dot(b1, cross(b2, b3))
-                t2 = dot(cross(b1, b2), cross(b2, b3))
-                self.dih_phis[torsion] = degrees(arctan2(t1, t2))
+            if bool(dih_phis):
+                self.dih_phis = dih_phis
 
     def get_angle_values(self, input_type='input'):
         """
@@ -319,7 +422,7 @@ class Molecule:
         then return a dictionary of angles and values.
         """
 
-        self.angle_values = {}
+        angle_values = {}
 
         molecule = self.molecule[input_type]
 
@@ -329,7 +432,10 @@ class Molecule:
             x3 = array(molecule[int(angle[2]) - 1][1:])
             b1, b2 = x1 - x2, x3 - x2
             cosine_angle = dot(b1, b2) / (linalg.norm(b1) * linalg.norm(b2))
-            self.angle_values[angle] = degrees(arccos(cosine_angle))
+            angle_values[angle] = degrees(arccos(cosine_angle))
+
+        if bool(angle_values):
+            self.angle_values = angle_values
 
     def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
@@ -455,15 +561,39 @@ class Molecule:
         self.xml_tree = ElementTree(root)
 
     def write_xyz(self, input_type='input', name=None):
-        """Write a general xyz file. QM and MM decide where it will be written from in the ligand class."""
+        """
+        Write a general xyz file of the molecule if there are multiple geometries in the molecule write a traj
+        :param input_type: Where the molecule coordinates are to be wrote from
+        :param name: The name of the xyz file to be produced
+        :return: None
+        """
 
         with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
 
-            xyz_file.write(f'{len(self.molecule[input_type])}\n')
-            xyz_file.write('xyz file generated with QUBEKit\n')
+            if len(self.molecule[input_type]) / len(self.atom_names) == 1:
+                message = 'xyz file generated with QUBEKit'
+                end = ''
+                trajectory = [self.molecule[input_type]]
 
-            for atom in self.molecule[input_type]:
-                xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
+            else:
+                message = f'QUBEKit xyz trajectory FRAME '
+                end = 1
+                trajectory = self.molecule[input_type]
+
+            # Write out each frame
+            for frame in trajectory:
+
+                xyz_file.write(f'{len(self.atom_names)}\n')
+                xyz_file.write(f'{message}{end}\n')
+
+                for atom in frame:
+                    xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
+
+                try:
+                    end += 1
+                except TypeError:
+                    # This is the result of only printing one frame so catch the error and ignore
+                    pass
 
     def write_gromacs_file(self, input_type='input'):
         """To a gromacs file, write and format the necessary variables."""
@@ -603,15 +733,17 @@ class Ligand(Molecule):
 
         self.constraints_file = ''
 
-        self.read_pdb()
-        self.find_angles()
-        self.find_dihedrals()
-        self.find_rotatable_dihedrals()
-        self.find_impropers()
-        self.get_dihedral_values()
-        self.get_bond_lengths()
-        self.get_angle_values()
-        self.symmetrise_from_topo()
+        self.read_file()
+        # Make sure we have the topology before we calculate the properties
+        if bool(self.topology.edges):
+            self.find_angles()
+            self.find_dihedrals()
+            self.find_rotatable_dihedrals()
+            self.find_impropers()
+            self.get_dihedral_values()
+            self.get_bond_lengths()
+            self.get_angle_values()
+            self.symmetrise_from_topo()
 
     def read_xyz(self, name, input_type='traj'):
         """

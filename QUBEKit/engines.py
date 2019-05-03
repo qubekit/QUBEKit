@@ -3,7 +3,7 @@
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. (Done for file extraction.)
 #       Maybe add path checking for Chargemol?
-# TODO use QCEngine to run PSI4, geometric and torsion drive QM commands.
+# TODO use QCEngine to run torsion drive QM commands.
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
@@ -12,9 +12,18 @@ from subprocess import run as sub_run
 
 from numpy import array, zeros, reshape
 from numpy import append as np_append
+from numpy import sqrt as np_sqrt
+
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+
+from simtk.openmm import app
+import simtk.openmm as mm
+from simtk import unit
+
+import xml.etree.ElementTree as ET
+
 from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 
@@ -51,13 +60,25 @@ class PSI4(Engines):
 
         super().__init__(molecule, config_dict)
 
-        self.functional_dict = {'PBEPBE': 'PBE'}
-        if self.functional_dict.get(self.qm['theory'], None) is not None:
-            self.qm['theory'] = self.functional_dict[self.qm['theory']]
+        self.functional_dict = {'pbepbe': 'PBE', 'wb97xd': 'wB97X-D'}
+        if self.functional_dict.get(self.qm['theory'].lower(), None) is not None:
+            self.qm['theory'] = self.functional_dict[self.qm['theory'].lower()]
 
+    # TODO add restart from log method
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
-                       fchk=False, run=True):
-        """Converts to psi4 input format to be run in psi4 without using geometric"""
+                       fchk=False, restart=False, run=True):
+        """
+        Converts to psi4 input format to be run in psi4 without using geometric.
+        :param input_type: The coordinate set of the molecule to be used
+        :param optimise: Optimise the molecule to the desired convergence critera with in the iteration limit
+        :param hessian: Calculate the hessian matrix
+        :param density: Calculate the electron density
+        :param energy: Calculate the single point energy of the molecule
+        :param fchk: Write out a gaussian style Fchk file
+        :param restart: Restart the calculation from a log point
+        :param run: Run the desired Psi4 job
+        :return: The completion status of the job True if successful False if not run or failed
+        """
 
         molecule = self.molecule.molecule[input_type]
 
@@ -124,6 +145,15 @@ class PSI4(Engines):
         if run:
             with open('log.txt', 'w+') as log:
                 sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True, stdout=log, stderr=log)
+
+            # After running check for normal termination
+            log = open('output.dat', 'r').read()
+            if '*** Psi4 exiting successfully.' in log:
+                return True
+            else:
+                return False
+        else:
+            return False
 
     def hessian(self):
         """
@@ -326,7 +356,7 @@ class Chargemol(Engines):
         if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
             append_to_log(message='Invalid or unsupported DDEC version given, running with default version 6.',
                           msg_type='warning')
-            self.qm['ddec_version'] = 6
+            # self.qm['ddec_version'] = 6
 
         # Write the charges job file.
         with open('job_control.txt', 'w+') as charge_file:
@@ -345,9 +375,6 @@ class Chargemol(Engines):
 
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
-        # sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True)
-        # sub_run('mv Dt.cube total_density.cube', shell=True)
-
         if run:
             with open('log.txt', 'w+') as log:
                 control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
@@ -365,16 +392,31 @@ class Gaussian(Engines):
 
         super().__init__(molecule, config_dict)
 
-        self.functional_dict = {'PBE': 'PBEPBE', 'wB97X-D': 'wB97XD'}
-        if self.functional_dict.get(self.qm['theory'], None) is not None:
-            self.qm['theory'] = self.functional_dict[self.qm['theory']]
+        self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD'}
+        if self.functional_dict.get(self.qm['theory'].lower(), None) is not None:
+            self.qm['theory'] = self.functional_dict[self.qm['theory'].lower()]
+        self.convergence_dict = {'GAU': '',
+                                 'GAU_TIGHT': 'tight',
+                                 'GAU_LOOSE': 'loose',
+                                 'GAU_VERYTIGHT': 'verytight'}
 
-    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, solvent=False, run=True):
-        """Generates the relevant job file for Gaussian, then executes this job file."""
+    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, solvent=False,
+                       restart=False, run=True):
+        """
+        Generates the relevant job file for Gaussian, then executes this job file.
+        :param input_type: The set of coordinates in the molecule that should be used in the job
+        :param optimise: Optimise the geometry of the molecule
+        :param hessian: Calculate the hessian matrix
+        :param density: Calculate the electron density
+        :param solvent: Use a solvent when calculating the electron density
+        :param restart: Restart from a check point file
+        :param run: Run the calculation after writing the input file
+        :return: The exit status of the job if ran, True for normal false for not ran or error
+        """
 
         molecule = self.molecule.molecule[input_type]
 
-        with open(f'gj_{self.molecule.name}', 'w+') as input_file:
+        with open(f'gj_{self.molecule.name}.com', 'w+') as input_file:
 
             input_file.write(f'%Mem={self.qm["memory"]}GB\n%NProcShared={self.qm["threads"]}\n%Chk=lig\n')
 
@@ -382,24 +424,32 @@ class Gaussian(Engines):
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
             if optimise:
-                commands += 'opt '
+                convergence = self.convergence_dict.get(self.qm["convergence"], "")
+                if convergence != "":
+                    convergence = f', {convergence}'
+                # Set the convergence and the iteration cap for the optimisation
+                commands += f'opt(MaxCycles={self.qm["iterations"]} {convergence}) '
 
             if hessian:
                 commands += 'freq '
 
-            if self.qm['solvent']:
+            if solvent:
                 commands += 'SCRF=(IPCM,Read) '
 
             if density:
                 commands += 'density=current OUTPUT=WFX '
 
+            if restart:
+                commands += 'geom=check'
+
             commands += f'\n\n{self.molecule.name}\n\n{self.charge} {self.multiplicity}\n'
 
             input_file.write(commands)
 
-            # Add the atomic coordinates
-            for atom in molecule:
-                input_file.write(f'{atom[0]} {float(atom[1]): .3f} {float(atom[2]): .3f} {float(atom[3]): .3f}\n')
+            if not restart:
+                # Add the atomic coordinates if we are not restarting from the chk file
+                for atom in molecule:
+                    input_file.write(f'{atom[0]} {float(atom[1]): .10f} {float(atom[2]): .10f} {float(atom[3]): .10f}\n')
 
             if solvent:
                 # Adds the epsilon and cavity params
@@ -414,11 +464,24 @@ class Gaussian(Engines):
 
         if run:
             with open('log.txt', 'w+') as log:
-                sub_run(f'g09 < gj_{self.molecule.name} > gj_{self.molecule.name}.log',
+                sub_run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
                         shell=True, stdout=log, stderr=log)
+
+            # After running check for normal termination
+            log = open('log.txt', 'r').read()
+            if 'Normal termination of Gaussian' in log:
+                return True
+            else:
+                return False
+        else:
+            return False
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
+
+        # Make the fchk file first
+        with open('formchck.log', 'w+') as formlog:
+            sub_run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
         with open('lig.fchk', 'r') as fchk:
 
@@ -436,7 +499,7 @@ class Gaussian(Engines):
 
             for line in lines[start_pos: end_pos]:
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
-                hessian_list.extend([float(num) * 0.529 for num in line.strip('\n').split()])
+                hessian_list.extend([float(num) * 627.509391 / (0.529 ** 2) for num in line.strip('\n').split()])
 
         hess_size = 3 * len(self.molecule.molecule['input'])
 
@@ -461,24 +524,58 @@ class Gaussian(Engines):
 
             lines = log_file.readlines()
 
-            opt_coords_pos = []
-            for pos, line in enumerate(lines):
-                if 'Input orientation' in line:
-                    opt_coords_pos.append(pos + 5)
+            output = ''
+            start_end = []
+            # Look for the output stream
+            for i, line in enumerate(lines):
+                if f'R{self.qm["theory"]}\{self.qm["basis"]}' in line:
+                    start_end.append(i)
+                elif '\\@' in line:
+                    start_end.append(i)
 
-            start_pos = opt_coords_pos[-1]
+                elif 'SCF Done' in line:
+                    energy = float(line.split()[3])
 
-            num_atoms = len(self.molecule.molecule['input'])
+            # now add the lines to the output stream
+            for i in range(start_end[0], start_end[1]):
+                output += lines[i].strip()
 
+            # Split the string by the double slash to now find the molecule input
+            molecule = []
+            output = output.split("\\\\")
+            for string in output:
+                if string.startswith(f'{self.charge},{self.multiplicity}\\'):
+                    # Remove the charge and multiplicity from the string
+                    molecule = string.split("\\")[1:]
+
+            # Store the coords back into the molecule array
             opt_struct = []
+            for atom in molecule:
+                atom = atom.split(",")
+                opt_struct.append([atom[0], float(atom[1]), float(atom[2]), float(atom[3])])
 
-            for pos, line in enumerate(lines[start_pos: start_pos + num_atoms]):
+            # print(opt_struct)
+            # assert len(opt_struct) == len(self.molecule.molecule['input'])
+            # exit()
+            #
+            # opt_coords_pos = []
+            # for pos, line in enumerate(lines):
+            #     if 'Input orientation' in line:
+            #         opt_coords_pos.append(pos + 5)
+            #
+            # start_pos = opt_coords_pos[-1]
+            #
+            # num_atoms = len(self.molecule.molecule['input'])
+            #
+            # opt_struct = []
+            #
+            # for pos, line in enumerate(lines[start_pos: start_pos + num_atoms]):
+            #
+            #     vals = line.split()[-3:]
+            #     vals = [self.molecule.molecule['input'][pos][0]] + [float(i) for i in vals]
+            #     opt_struct.append(vals)
 
-                vals = line.split()[-3:]
-                vals = [self.molecule.molecule['input'][pos][0]] + [float(i) for i in vals]
-                opt_struct.append(vals)
-
-        return opt_struct
+        return opt_struct, energy
 
     def all_modes(self):
         """Extract the frequencies from the Gaussian log file."""
@@ -507,7 +604,7 @@ class ONETEP(Engines):
 
         super().__init__(molecule, config_dict)
 
-    def generate_input(self, input_type='input', density=False, solvent=False):
+    def generate_input(self, input_type='input', density=False):
         """ONETEP takes a xyz input file."""
 
         if density:
@@ -548,6 +645,8 @@ class QCEngine(Engines):
         """
         Using the molecule object, generate a QCEngine schema. This can then
         be fed into the various QCEngine procedures.
+        :param input_type: The part of the molecule object that should be used when making the schema
+        :return: The qcelemental qschema
         """
 
         mol_data = f'{self.charge} {self.multiplicity}\n'
@@ -564,19 +663,12 @@ class QCEngine(Engines):
     def call_qcengine(self, engine, driver, input_type):
         """
         Using the created schema, run a particular engine, specifying the driver (job type).
-        e.g. engine: geo, driver: energies
+        e.g. engine: geo, driver: energies.
+        :param engine: The engine to be used psi4 geometric
+        :param driver: The calculation type to be done e.g. energy, gradient, hessian, properties
+        :param input_type: The part of the molecule object that should be used when making the schema
+        :return: The required driver information
         """
-
-        # OLD or NEW? Method for getting qcengine to work. May be removed later
-        # task = {
-        #     "schema_name": "qcschema_input",
-        #     "schema_version": 1,
-        #     "molecule": self.generate_qschema(input_type=input_type),
-        #     "driver": driver,
-        #     "model": {"method": self.qm['theory'], "basis": self.qm['basis']},
-        #     "keywords": {"scf_type": "df"},
-        #     "return_output": False
-        # }
 
         mol = self.generate_qschema(input_type=input_type)
 
@@ -609,7 +701,8 @@ class QCEngine(Engines):
                 "keywords": {
                     "coordsys": "tric",
                     "maxiter": self.qm['iterations'],
-                    "program": "psi4"
+                    "program": "psi4",
+                    "convergence_set": self.qm['convergence'],
                 },
                 "input_specification": {
                     "schema_name": "qcschema_input",
@@ -620,10 +713,11 @@ class QCEngine(Engines):
                 },
                 "initial_molecule": mol,
             }
-
+            # TODO hide the output stream so it does not spoil the terminal printing
             # return_dict=True seems to be default False in newer versions. Ergo docs are wrong again.
-            ret = qcng.compute_procedure(geo_task, 'geometric', return_dict=True)
-            return ret['trajectory']
+            ret = qcng.compute_procedure(geo_task, 'geometric', local_options={'ncores': self.qm['threads']},
+                                         return_dict=True)
+            return ret
 
         else:
             raise KeyError('Invalid engine type provided. Please use "geo" or "psi4".')
@@ -633,8 +727,13 @@ class RDKit:
     """Class for controlling useful RDKit functions try to keep class static."""
 
     @staticmethod
-    def smiles_to_pdb_mol(smiles_string, name=None):
-        """Converts smiles strings to pdb and mol files."""
+    def smiles_to_pdb(smiles_string, name=None):
+        """
+        Converts smiles strings to RDKit molobject.
+        :param smiles_string: The hydrogen free smiles string
+        :param name: The name of the molecule this will be used when writing the pdb file
+        :return: The RDKit molecule
+        """
         # Originally written by venkatakrishnan; rewritten and extended by Chris Ringrose
 
         if 'H' in smiles_string:
@@ -644,20 +743,22 @@ class RDKit:
         if not name:
             name = input('Please enter a name for the molecule:\n>')
         m.SetProp('_Name', name)
-        m_h = AllChem.AddHs(m)
-        AllChem.EmbedMolecule(m_h, AllChem.ETKDG())
-        AllChem.SanitizeMol(m_h)
+        mol_hydrogens = AllChem.AddHs(m)
+        AllChem.EmbedMolecule(mol_hydrogens, AllChem.ETKDG())
+        AllChem.SanitizeMol(mol_hydrogens)
 
-        print(AllChem.MolToMolBlock(m_h), file=open(f'{name}.mol', 'w+'))
-        AllChem.MolToPDBFile(m_h, f'{name}.pdb')
+        print(AllChem.MolToMolBlock(mol_hydrogens), file=open(f'{name}.mol', 'w+'))
+        AllChem.MolToPDBFile(mol_hydrogens, f'{name}.pdb')
 
-        return f'{name}.pdb'
+        return mol_hydrogens
 
     @staticmethod
     def mm_optimise(pdb_file, ff='MMF'):
         """
-        Perform rough preliminary optimisation to speed up later optimisations
-        and extract some extra information about the molecule.
+        Perform rough preliminary optimisation to speed up later optimisations.
+        :param pdb_file: The name of the input pdb file
+        :param ff: The Force field to be used either MMF or UFF
+        :return: The name of the optimised pdb file that is made
         """
 
         force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
@@ -673,9 +774,9 @@ class RDKit:
     @staticmethod
     def rdkit_descriptors(pdb_file):
         """
-        Use RDKit Descriptors to extract properties and store in Descriptors dictionary
+        Use RDKit Descriptors to extract properties and store in Descriptors dictionary.
         :param pdb_file: The molecule input file
-        :return: descriptors dictionary
+        :return: Descriptors dictionary
         """
 
         mol = MolFromPDBFile(pdb_file, removeHs=False)
@@ -715,9 +816,9 @@ class RDKit:
     @staticmethod
     def get_mol(pdb_file):
         """
-        Use RDKit to generate a mol file
-        :param pdb_file: The molecule input file.
-        :return: The name of the mol file made.
+        Use RDKit to generate a mol file.
+        :param pdb_file: The molecule input file
+        :return: The name of the mol file made
         """
 
         mol = MolFromPDBFile(pdb_file, removeHs=False)
@@ -726,3 +827,171 @@ class RDKit:
         MolToMolFile(mol, mol_name)
 
         return mol_name
+
+
+class Babel:
+    """Class to handel babel functions that convert between standard file types
+    acts as a thin wrapper around CLI for babel as python bindings require compiling from source."""
+
+    @staticmethod
+    def convert(input_file, output_file):
+        """
+        Convert the given input file type to the required output.
+        :param input_file: Input file name, file type is found by splitting the name by .
+        :param output_file: Output file name, file type is found by splitting the name by .
+        :return: None
+        """
+
+        cmd = 'babel -i'
+
+        input_type = str(input_file).split(".")[1]
+        output_type = str(output_file).split(".")[1]
+
+        cmd += f'{input_type} {input_file} -o{output_type} {output_file}'
+        print(cmd)
+
+        with open('babel.txt', 'w+') as babel_log:
+            sub_run(cmd, shell=True, stderr=babel_log, stdout=babel_log)
+
+
+class OpenMM:
+    """This class acts as a wrapper around OpenMM so we can many basic functions using the class"""
+
+    def __init__(self, molecule):
+        self.molecule = molecule
+        self.system = None
+        self.simulation = None
+        self.combination = None
+        self.pdb = molecule.name + '.pdb'
+        self.xml = molecule.name + '.xml'
+
+    def openmm_system(self):
+        """Initialise the OpenMM system we will use to evaluate the energies."""
+
+        # Load the initial coords into the system and initialise
+        pdb = app.PDBFile(self.pdb)
+        forcefield = app.ForceField(self.xml)
+        modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
+        self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+
+        # Check what combination rule we should be using from the xml
+        xmlstr = open(self.xml).read()
+        # check if we have opls combination rules if the xml is present
+        try:
+            self.combination = ET.fromstring(xmlstr).find('NonbondedForce').attrib['combination']
+            append_to_log('OPLS combination rules found in xml file', msg_type='major')
+        except AttributeError:
+            pass
+        except KeyError:
+            pass
+
+        if self.combination == 'opls':
+            self.opls_lj()
+
+        temperature = 298.15 * unit.kelvin
+        integrator = mm.LangevinIntegrator(temperature, 5 / unit.picoseconds, 0.001 * unit.picoseconds)
+
+        self.simulation = app.Simulation(modeller.topology, self.system, integrator)
+        self.simulation.context.setPositions(modeller.positions)
+
+    def get_energy(self, position, forces=False):
+        """
+        Return the MM calculated energy of the structure
+        :param position: The OpenMM formatted atomic positions
+        :param forces: If we should also get the forces
+        :return:
+        """
+
+        # update the positions of the system
+        self.simulation.context.setPositions(position)
+
+        # Get the energy from the new state
+        state = self.simulation.context.getState(getEnergy=True, getForces=forces)
+
+        energy = state.getPotentialEnergy().value_in_unit(unit.kilocalories_per_mole)
+
+        if forces:
+            gradient = state.getForces(asNumpy=True)
+
+            return energy, gradient
+
+        return energy
+
+    def opls_lj(self):
+        """
+        This function changes the standard OpenMM combination rules to use OPLS, execp and normal pairs are only
+        required if their are virtual sites in the molecule.
+        """
+
+        # Get the system information from the openmm system
+        forces = {self.system.getForce(index).__class__.__name__: self.system.getForce(index) for index in
+                  range(self.system.getNumForces())}
+        # Use the nondonded_force to get the same rules
+        nonbonded_force = forces['NonbondedForce']
+        lorentz = mm.CustomNonbondedForce(
+            'epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0')
+        lorentz.setNonbondedMethod(nonbonded_force.getNonbondedMethod())
+        lorentz.addPerParticleParameter('sigma')
+        lorentz.addPerParticleParameter('epsilon')
+        lorentz.setCutoffDistance(nonbonded_force.getCutoffDistance())
+        self.system.addForce(lorentz)
+
+        l_j_set = {}
+        # For each particle, calculate the combination list again
+        for index in range(nonbonded_force.getNumParticles()):
+            charge, sigma, epsilon = nonbonded_force.getParticleParameters(index)
+            l_j_set[index] = (sigma, epsilon, charge)
+            lorentz.addParticle([sigma, epsilon])
+            nonbonded_force.setParticleParameters(index, charge, 0, 0)
+
+        for i in range(nonbonded_force.getNumExceptions()):
+            (p1, p2, q, sig, eps) = nonbonded_force.getExceptionParameters(i)
+            # ALL THE 12,13 and 14 interactions are EXCLUDED FROM CUSTOM NONBONDED FORCE
+            lorentz.addExclusion(p1, p2)
+            if eps._value != 0.0:
+                charge = 0.5 * (l_j_set[p1][2] * l_j_set[p2][2])
+                sig14 = np_sqrt(l_j_set[p1][0] * l_j_set[p2][0])
+                nonbonded_force.setExceptionParameters(i, p1, p2, charge, sig14, eps)
+            # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
+            # Old method which needs updating
+            # if excep_pairs:
+            #     for x in range(len(excep_pairs)):  # scale 14 interactions
+            #         if p1 == excep_pairs[x, 0] and p2 == excep_pairs[x, 1] or p2 == excep_pairs[x, 0] and p1 == \
+            #                 excep_pairs[x, 1]:
+            #             charge1, sigma1, epsilon1 = nonbonded_force.getParticleParameters(p1)
+            #             charge2, sigma2, epsilon2 = nonbonded_force.getParticleParameters(p2)
+            #             q = charge1 * charge2 * 0.5
+            #             sig14 = sqrt(sigma1 * sigma2) * 0.5
+            #             eps = sqrt(epsilon1 * epsilon2) * 0.5
+            #             nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
+            #
+            # if normal_pairs:
+            #     for x in range(len(normal_pairs)):
+            #         if p1 == normal_pairs[x, 0] and p2 == normal_pairs[x, 1] or p2 == normal_pairs[x, 0] and p1 == \
+            #                 normal_pairs[x, 1]:
+            #             charge1, sigma1, epsilon1 = nonbonded_force.getParticleParameters(p1)
+            #             charge2, sigma2, epsilon2 = nonbonded_force.getParticleParameters(p2)
+            #             q = charge1 * charge2
+            #             sig14 = sqrt(sigma1 * sigma2)
+            #             eps = sqrt(epsilon1 * epsilon2)
+            #             nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
+
+        return self.system
+
+    def calculate_hessian(self, finite_step):
+        """
+        Using finite displacement calculate the hessian matrix of the molecule.
+        :param finite_step: The finite step size used in the calculation
+        :return: A numpy array of the hessian of size 3N*3N
+        """
+
+        return None
+
+    def normal_modes(self, finite_step):
+        """
+        Calculate the normal modes of the molecule from the hessian matrix
+        :param finite_step: The finite step size used in the calculation of the matrix
+        :return: A numpy array of the normal modes of the molecule
+        """
+
+        return None

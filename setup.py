@@ -18,19 +18,14 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/qubekit/QUBEKit',
     packages=find_packages(),
-    # install_requires=[
-    #     'pyyaml',
-    #     'py-cpuinfo',
-    #     'psutil',
-    #     'qcengine',
-    #     'pydantic>=0.20.0',
-    # ],
+    include_package_data=True,
     author=['Joshua Thomas Horton', 'Chris Ringrose'],
     entry_points={
         'console_scripts': [
             'QUBEKit = QUBEKit.run:main',
             'qubekit = QUBEKit.run:main',
-            'QUBEKit-pro = QUBEKit.protein_run:main'
+            'QUBEKit-pro = QUBEKit.protein_run:main',
+            'QUBEKit-gui = QUBEKit.GUI.gui:main'
         ]
     },
     version=datetime.now().strftime('%Y.%m.%d'),
