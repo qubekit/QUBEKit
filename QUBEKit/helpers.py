@@ -30,7 +30,7 @@ class Configure:
         'threads': '6',                 # Number of processors used in Gaussian09; affects the bonds and dihedral scans
         'memory': '2',                  # Amount of memory (in GB); specified in the Gaussian09 scripts
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
-        'iterations': '100',            # Max number of optimisation iterations
+        'iterations': '350',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
         'density_engine': 'onetep',     # Engine used to calculate the electron density
         'charges_engine': 'chargemol',  # Engine used for charge partitioning
@@ -125,12 +125,11 @@ class Configure:
         # TODO Properly handle all command line / config arguments (not just geometric)
 
         # Now cast the bools
-        if not bool(qm['geometric']):
-            if qm['geometric'].lower() == 'true':
-                qm['geometric'] = True
+        if qm['geometric'].lower() == 'true':
+            qm['geometric'] = True
 
-            else:
-                qm['geometric'] = False
+        else:
+            qm['geometric'] = False
 
         if qm['solvent'].lower() == 'true':
             qm['solvent'] = True

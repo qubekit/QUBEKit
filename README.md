@@ -110,6 +110,19 @@ These packages are on different conda channels, hence needing the extra argument
 
 `conda install -c omnia openforcefield`
 
+* [OpenEye](https://docs.eyesopen.com/toolkits/python/index.html)
+
+`conda install -c openeye openeye-toolkits`
+
+GUI requirements
+* [PyQt5](https://pypi.org/project/PyQt5/)
+
+`pip install PyQt5`
+
+* [PyQtWebEngine 5.12.1](https://pypi.org/project/PyQtWebEngine/)
+
+`pip install PyQtWebEngine`
+
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda should deal with versions and conflicts in your environment.
 Generally, conda packages will have the conda install command on their website or github.

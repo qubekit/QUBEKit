@@ -116,7 +116,8 @@ class Main:
         elif self.args.torsion_test:
             # get the file
             self.file = self.args.input
-            self.order = OrderedDict([('parametrise', self.parametrise), ('torsion_test', self.torsion_test)])
+            self.order = OrderedDict([('parametrise', self.parametrise), ('torsion_test', self.torsion_test),
+                                      ('finalise', self.finalise)])
 
         # If not bulk must be main single run
         if self.args.restart:
@@ -261,6 +262,13 @@ class Main:
 
                 sys.exit()
 
+        def string_to_bool(string):
+            """Convert a string to a bool for argparse use when casting to bool"""
+            if string.lower() in ['true', 't', 'yes']:
+                return True
+            else:
+                return False
+
         intro = ''
         with open(f'{"" if os.path.exists("../README.md") else "../"}../README.md') as readme:
             flag = False
@@ -281,7 +289,7 @@ class Main:
                                                                               'molecule, default 1.')
         parser.add_argument('-ddec', '--ddec_version', choices=[3, 6], type=int,
                             help='Enter the ddec version for charge partitioning, does not effect ONETEP partitioning.')
-        parser.add_argument('-geo', '--geometric', choices=[True, False], type=bool,
+        parser.add_argument('-geo', '--geometric', choices=[True, False], type=string_to_bool,
                             help='Turn on geometric to use this during the qm optimisations, recommended.')
         parser.add_argument('-bonds', '--bonds_engine', choices=['psi4', 'g09'],
                             help='Choose the QM code to calculate the bonded terms.')
@@ -289,7 +297,7 @@ class Main:
                             help='Choose the method to do the charge partioning.')
         parser.add_argument('-density', '--density_engine', choices=['onetep', 'g09', 'psi4'],
                             help='Enter the name of the QM code to calculate the electron density of the molecule.')
-        parser.add_argument('-solvent', '--solvent', choices=[True, False], type=bool,
+        parser.add_argument('-solvent', '--solvent', choices=[True, False], type=string_to_bool,
                             help='Enter whether or not you would like to use a solvent.')
         # maybe separate into known solvents and IPCM constants?
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
@@ -319,7 +327,7 @@ class Main:
                                                                    'density', 'charges', 'lennard_jones',
                                                                    'torsion_scan', 'torsion_optimise', 'finalise'],
                             help='Option to skip certain stages of the execution.')
-        parser.add_argument('-tor_test', '--torsion_test', default=False, choices=[True, False], type=bool,
+        parser.add_argument('-tor_test', '--torsion_test', default=False, choices=[True, False], type=string_to_bool,
                             help='Enter True if you would like to run a torsion test on the chosen torsions.')
         parser.add_argument('-tor_make', '--torsion_maker', action=TorsionMakerAction,
                             help='Allow QUBEKit to help you make a torsion input file for the given molecule')
@@ -380,7 +388,7 @@ class Main:
 
                 if bulk_data[name]['smiles string'] is not None:
                     smiles_string = bulk_data[name]['smiles string']
-                    self.file = RDKit.smiles_to_pdb_mol(smiles_string, name)
+                    self.file = RDKit.smiles_to_pdb(smiles_string, name)
 
                 else:
                     self.file = f'{name}.pdb'
@@ -613,19 +621,34 @@ class Main:
 
             # Optimise the structure using QCEngine with geometric and psi4
             qceng = QCEngine(molecule, self.all_configs)
-            traj = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
+            result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
             # Check if converged and get the geometry
-            if traj[-1]['success']:
-                # Convert coordinates from bohr to angstroms
-                geometry = np.array(traj[-1]['molecule']['geometry']) * 0.529177210
-                for i, atom in enumerate(traj[-1]['molecule']['symbols']):
-                    molecule.molecule['qm'].append([atom, geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
+            if result['success']:
+                # Load all of the frames into the molecules trajectory holder
+                molecule.read_geometric_traj(result['trajectory'])
+                # store the last frame as the qm optimised structure
+                molecule.molecule['qm'] = molecule.molecule['traj'][-1]
+                # Write out the trajectory file
+                molecule.write_xyz(input_type='traj', name=f'{molecule.name}_opt')
+                molecule.write_xyz(input_type='qm', name='opt')
+
             else:
                 sys.exit('Molecule not optimised.')
 
         else:
-            qm_engine.generate_input(input_type='mm', optimise=True)
-            molecule.molecule['qm'] = qm_engine.optimised_structure()
+            converged = qm_engine.generate_input(input_type='mm', optimise=True)
+            # Check the exit status of the job if failed restart the job up to 2 times
+            restart_count = 1
+            while not converged and restart_count < 3:
+                append_to_log(f'{self.qm["bonds_engine"]} optimisation failed restarting')
+                converged = qm_engine.generate_input(input_type='mm', optimise=True, restart=True)
+                restart_count += 1
+            if not converged:
+                sys.exit(f'{self.qm["bonds_engine"]} optimisation did not converge after 3 restarts check log file.')
+            # Get the qm optimised structure and the energy
+            molecule.molecule['qm'], molecule.qm_energy = qm_engine.optimised_structure()
+            # Write out a xyz file for the opt structure
+            molecule.write_xyz(input_type='qm', name='opt')
 
         append_to_log(f'qm_optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
 
@@ -636,12 +659,15 @@ class Main:
 
         molecule.get_bond_lengths(input_type='qm')
 
-        qceng = QCEngine(molecule, self.all_configs)
+        # Check what engine we want to use
+        if self.qm['bonds_engine'] == 'g09':
+            qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
+            qm_engine.generate_input(input_type='qm', hessian=True)
+            molecule.hessian = qm_engine.hessian()
 
-        # TODO Dynamically change input type?
-        hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
-
-        molecule.hessian = hessian
+        else:
+            qceng = QCEngine(molecule, self.all_configs)
+            molecule.hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
 
         append_to_log(f'Hessian calculated using {self.qm["bonds_engine"]}')
 
