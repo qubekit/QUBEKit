@@ -1,31 +1,23 @@
 #!/usr/bin/env python
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
-# TODO Add better error handling for missing info. (Done for file extraction.)
-#       Maybe add path checking for Chargemol?
-# TODO use QCEngine to run torsion drive QM commands.
+# TODO Add better error handling for missing info. Maybe add path checking for Chargemol?
+# TODO Rewrite file parsers to use takewhile/dropwhile rather than reading the whole files to memory.
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import run as sub_run
 
-from numpy import array, zeros, reshape
-from numpy import append as np_append
-from numpy import sqrt as np_sqrt
-
-from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
-from simtk.openmm import app
-import simtk.openmm as mm
-from simtk import unit
-
-import xml.etree.ElementTree as ET
-
+import numpy as np
 from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
+from scipy.spatial import ConvexHull
+import simtk.openmm as mm
+from simtk import unit
+import xml.etree.ElementTree as ET
 
 import qcengine as qcng
 import qcelemental as qcel
@@ -208,7 +200,7 @@ class PSI4(Engines):
 
                 reshaped.append(new_row)
 
-            hess_matrix = array(reshaped)
+            hess_matrix = np.array(reshaped)
 
             # Cache the unit conversion.
             conversion = 627.509391 / (0.529 ** 2)
@@ -315,7 +307,7 @@ class PSI4(Engines):
 
             all_modes = [float(val) for val in structures]
 
-            return array(all_modes)
+            return np.array(all_modes)
 
     def geo_gradient(self, input_type='input', threads=False, run=True):
         """
@@ -503,7 +495,7 @@ class Gaussian(Engines):
 
         hess_size = 3 * len(self.molecule.molecule['input'])
 
-        hessian = zeros((hess_size, hess_size))
+        hessian = np.zeros((hess_size, hess_size))
 
         # Rewrite Hessian to full, symmetric 3N * 3N matrix rather than list with just the non-repeated values.
         m = 0
@@ -594,7 +586,7 @@ class Gaussian(Engines):
             for pos in freq_positions:
                 freqs.extend(float(num) for num in lines[pos].split()[2:])
 
-        return array(freqs)
+        return np.array(freqs)
 
 
 @for_all_methods(timer_logger)
@@ -619,7 +611,7 @@ class ONETEP(Engines):
         Then make a 3d plot of the points and hull.
         """
 
-        coords = array([atom[1:] for atom in self.molecule.molecule['input']])
+        coords = np.array([atom[1:] for atom in self.molecule.molecule['input']])
 
         hull = ConvexHull(coords)
 
@@ -629,7 +621,7 @@ class ONETEP(Engines):
         ax.plot(coords.T[0], coords.T[1], coords.T[2], 'ko')
 
         for simplex in hull.simplices:
-            simplex = np_append(simplex, simplex[0])
+            simplex = np.append(simplex, simplex[0])
             ax.plot(coords[simplex, 0], coords[simplex, 1], coords[simplex, 2], color='lightseagreen')
 
         plt.show()
@@ -685,7 +677,7 @@ class QCEngine(Engines):
 
             if driver == 'hessian':
                 hess_size = 3 * len(self.molecule.molecule[input_type])
-                hessian = reshape(array(ret.return_result) * 627.509391 / (0.529 ** 2), (hess_size, hess_size))
+                hessian = np.reshape(ret.return_result, (hess_size, hess_size)) * 627.509391 / (0.529 ** 2)
                 check_symmetry(hessian)
 
                 return hessian
@@ -724,7 +716,7 @@ class QCEngine(Engines):
 
 
 class RDKit:
-    """Class for controlling useful RDKit functions try to keep class static."""
+    """Class for controlling useful RDKit functions; try to keep class static."""
 
     @staticmethod
     def smiles_to_pdb(smiles_string, name=None):
@@ -740,7 +732,7 @@ class RDKit:
             raise SyntaxError('Smiles string contains hydrogen atoms; try again.')
 
         m = AllChem.MolFromSmiles(smiles_string)
-        if not name:
+        if name is None:
             name = input('Please enter a name for the molecule:\n>')
         m.SetProp('_Name', name)
         mol_hydrogens = AllChem.AddHs(m)
@@ -823,7 +815,7 @@ class RDKit:
 
         mol = MolFromPDBFile(pdb_file, removeHs=False)
 
-        mol_name = pdb_file[:-4] + '.mol'
+        mol_name = f'{pdb_file[:-4]}.mol'
         MolToMolFile(mol, mol_name)
 
         return mol_name
@@ -869,10 +861,10 @@ class OpenMM:
         """Initialise the OpenMM system we will use to evaluate the energies."""
 
         # Load the initial coords into the system and initialise
-        pdb = app.PDBFile(self.pdb)
-        forcefield = app.ForceField(self.xml)
-        modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
-        self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+        pdb = mm.app.PDBFile(self.pdb)
+        forcefield = mm.app.ForceField(self.xml)
+        modeller = mm.app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
+        self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=mm.app.NoCutoff, constraints=None)
 
         # Check what combination rule we should be using from the xml
         xmlstr = open(self.xml).read()
@@ -891,7 +883,7 @@ class OpenMM:
         temperature = 298.15 * unit.kelvin
         integrator = mm.LangevinIntegrator(temperature, 5 / unit.picoseconds, 0.001 * unit.picoseconds)
 
-        self.simulation = app.Simulation(modeller.topology, self.system, integrator)
+        self.simulation = mm.app.Simulation(modeller.topology, self.system, integrator)
         self.simulation.context.setPositions(modeller.positions)
 
     def get_energy(self, position, forces=False):
@@ -950,7 +942,7 @@ class OpenMM:
             lorentz.addExclusion(p1, p2)
             if eps._value != 0.0:
                 charge = 0.5 * (l_j_set[p1][2] * l_j_set[p2][2])
-                sig14 = np_sqrt(l_j_set[p1][0] * l_j_set[p2][0])
+                sig14 = np.sqrt(l_j_set[p1][0] * l_j_set[p2][0])
                 nonbonded_force.setExceptionParameters(i, p1, p2, charge, sig14, eps)
             # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
             # Old method which needs updating

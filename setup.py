@@ -1,14 +1,14 @@
 # !/usr/bin/env python
 
-from setuptools import setup, find_packages
-from pathlib import Path
-from os import path, makedirs
 from datetime import datetime
+import os
+from pathlib import Path
+from setuptools import setup, find_packages
 
 
-here = path.abspath(path.dirname(__file__))
+here = os.path.abspath(os.path.dirname(__file__))
 
-with open(path.join(here, 'README.md'), encoding='utf-8') as file:
+with open(os.path.join(here, 'README.md'), encoding='utf-8') as file:
     long_description = file.read()
 
 setup(
@@ -43,6 +43,6 @@ print('Finding home directory to store QUBEKit config files')
 home = str(Path.home())
 config_folder = f'{home}/QUBEKit_configs/'
 
-if not path.exists(config_folder):
-    makedirs(config_folder)
+if not os.path.exists(config_folder):
+    os.makedirs(config_folder)
     print(f'Making config folder at: {home}')

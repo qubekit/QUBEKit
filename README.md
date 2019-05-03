@@ -1,6 +1,7 @@
-# QUBEKit - *Qu*antum *Be*spoke force field tool*kit*
+# QUBEKit - *Qu*antum Mechanical *Be*spoke force field tool*kit*
 
-#### Newcastle University UK - Cole Group.
+#### **Newcastle University UK - Cole Group**
+
 
 | **Status** | [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/qubekit/QUBEKit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/qubekit/QUBEKit/context:python) [![Build Status](https://travis-ci.com/qubekit/QUBEKit.svg?branch=master)](https://travis-ci.com/qubekit/QUBEKit) [![Anaconda-Server Badge](https://anaconda.org/cringrose/qubekit/badges/version.svg)](https://anaconda.org/cringrose/qubekit) |
 | :------ | :------ |
@@ -52,7 +53,8 @@ We welcome any suggestions for additions or changes.
 
 ## Installation
 
-To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*:
+To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*.
+Git has our latest version which will likely have newer features but may not stable.
 
     git clone https://github.com/qubekit/QUBEKit.git
     cd <install location>
@@ -104,7 +106,7 @@ These packages are on different conda channels, hence needing the extra argument
 
 `conda install -c rdkit rdkit`
 
-* [OpenFF](https://openforcefield.org/)
+* [OpenForceField](https://openforcefield.org/)
 
 `conda install -c omnia openforcefield`
 
