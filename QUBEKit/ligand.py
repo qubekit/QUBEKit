@@ -141,8 +141,16 @@ class Molecule:
             for key, val in self.__dict__.items():
 
                 # Don't bother printing objects that are empty or None.
-                if val and val is not None:
+                # Just checking (if val) won't work as truth table is ambiguous for length > 1 arrays
+                # I know this is gross, but it's the best of a bad situation.
 
+                try:
+                    bool(val)
+                # Catch numpy array truth table
+                except ValueError:
+                    continue
+
+                if val is not None and val:
                     return_str += f'\n{key} = '
 
                     # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".

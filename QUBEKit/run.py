@@ -261,17 +261,19 @@ class Main:
 
                 sys.exit()
 
-        # TODO Convert description to just read the intro from the README?
-        parser = argparse.ArgumentParser(
-            prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
-            description="""QUBEKit is a Python 3.6+ based force field derivation toolkit for Linux operating systems.
-Our aims are to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
-QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
-QUBEKit aims to use as few parameters as possible while also being highly customisable.""", epilog="""QUBEKit should currently be considered a work in progress.
-While it is stable we are constantly working to improve the code and broaden its compatibility. 
-We use lots of software written by many different people;
-if reporting a bug please (to the best of your ability) make sure it is a bug with QUBEKit and not with a dependency.
-We welcome any suggestions for additions or changes.""")
+        intro = ''
+        with open(f'{"" if os.path.exists("../README.md") else "../"}../README.md') as readme:
+            flag = False
+            for line in readme:
+                if 'Users who' in line:
+                    flag = False
+                if flag:
+                    intro += line
+                if '## What is QUBEKit' in line:
+                    flag = True
+
+        parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description=intro)
 
         # Add all of the command line options in the arg parser
         parser.add_argument('-c', '--charge', default=0, type=int, help='Enter the charge of the molecule, default 0.')

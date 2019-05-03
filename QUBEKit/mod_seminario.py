@@ -7,7 +7,6 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-import math
 from operator import itemgetter
 
 import numpy as np
@@ -101,7 +100,7 @@ class ModSemMaths:
             k_theta = abs(k_theta * 0.5)
 
             # Equilibrium Angle
-            theta_0 = np.degrees(math.acos(np.dot(u_ab, u_cb)))
+            theta_0 = np.degrees(np.arccos(np.dot(u_ab, u_cb)))
 
         return k_theta, theta_0
 
@@ -115,7 +114,7 @@ class ModSemMaths:
 
         for theta in range(n_samples):
 
-            u_n = [math.sin(theta) * math.cos(theta), math.sin(theta) * math.sin(theta), math.cos(theta)]
+            u_n = [np.sin(theta) * np.cos(theta), np.sin(theta) * np.sin(theta), np.cos(theta)]
 
             u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
             u_pc = ModSemMaths.unit_vector_n(u_cb, u_n)
@@ -129,7 +128,7 @@ class ModSemMaths:
             k_theta_array[theta] = abs(k_theta_i * 0.5)
 
         k_theta = np.average(k_theta_array)
-        theta_0 = math.acos(np.dot(u_ab, u_cb))
+        theta_0 = np.arccos(np.dot(u_ab, u_cb))
 
         return k_theta, theta_0
 
