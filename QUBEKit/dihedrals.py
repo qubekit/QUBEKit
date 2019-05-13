@@ -12,9 +12,6 @@ from subprocess import run as sub_run
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
-import simtk.openmm as mm
-from simtk.openmm import app
-from simtk import unit
 
 
 @for_all_methods(timer_logger)

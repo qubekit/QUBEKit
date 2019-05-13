@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# TODO Get rid of linux-specific commands
+
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
@@ -19,7 +21,6 @@ from subprocess import run as sub_run
 import sys
 
 import argparse
-import numpy as np
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -58,6 +59,7 @@ class Main:
 
         self.immutable_order = list(self.order)
 
+        # TODO Make QCEngine optional? i.e. don't run it automatically when psi4 is selected.
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
 
         # Argparse will only return if we are doing a QUBEKit run bulk or normal
@@ -127,8 +129,8 @@ class Main:
 
         # Check the end points for a normal run
         start_point = self.args.restart if self.args.restart is not None else 'parametrise'
-        skip_list = self.args.skip if self.args.skip is not None else []
         end_point = self.args.end if self.args.end is not None else 'finalise'
+        skip_list = self.args.skip if self.args.skip is not None else []
 
         # Create list of all keys
         stages = list(self.order)
@@ -264,11 +266,10 @@ class Main:
 
         def string_to_bool(string):
             """Convert a string to a bool for argparse use when casting to bool"""
-            if string.lower() in ['true', 't', 'yes']:
-                return True
-            else:
-                return False
+            return True if string.lower() in ['true', 't', 'yes', 'y'] else False
 
+        # Extract the intro the readme. this is based on the title "What is QUBEKit" and the following paragraph
+        # which starts "Users who ... "
         intro = ''
         with open(f'{"" if os.path.exists("../README.md") else "../"}../README.md') as readme:
             flag = False
@@ -428,13 +429,17 @@ class Main:
         # Define name of working directory.
         # This is formatted as 'QUBEKit_molecule name_yyyy_mm_dd_log_string'.
         dir_name = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
+
+        # Back up stuff:
+        #   If you can't make a dir because it exists, back it up.
+        #   True for working dirs, and the backup folder itself.
         try:
             os.mkdir(dir_name)
 
         except FileExistsError:
             try:
                 os.mkdir('QUBEKit_backups')
-                printf('Making backup folder')
+                printf('Making backup folder: QUBEKit_backups')
             except FileExistsError:
                 # Backup folder already made
                 pass
@@ -444,15 +449,17 @@ class Main:
                     count += 1
 
                 move(dir_name, f'QUBEKit_backups/{dir_name}_{count}')
-                printf('Moving directory to backup folder')
+                printf(f'Moving directory: {dir_name} to backup folder')
                 os.mkdir(dir_name)
 
+        # Finally, having made any necessary backups, move files and change to working dir.
         finally:
             # Copy active pdb into new directory.
             abspath = os.path.abspath(self.file)
             copy(abspath, f'{dir_name}/{self.file}')
             os.chdir(dir_name)
 
+        # TODO Better handling of constraints files; what if we have more than one?
         for root, dirs, files in os.walk('.', topdown=True):
             for file in files:
                 if 'constraints.txt' in file:
@@ -478,8 +485,8 @@ class Main:
         """
 
         with open(self.log_file, 'a+') as log_file:
-
             log_file.write(f'\n\nContinuing log file from previous execution; the time is: {datetime.now()}\n\n\n')
+
         self.log_configs()
 
     def log_configs(self):
@@ -536,6 +543,7 @@ class Main:
         home = os.getcwd()
 
         folder_name = f'{self.immutable_order.index(start_key) + 1}_{start_key}'
+        # Make sure you don't get an error if restarting
         try:
             os.mkdir(folder_name)
         except FileExistsError:
@@ -604,7 +612,7 @@ class Main:
             molecule.molecule['mm'] = molecule.molecule['traj'][-1]
 
         else:
-            # Run an rdkit optimisation with the right FF
+            # Run an RDKit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
 
@@ -637,17 +645,18 @@ class Main:
 
         else:
             converged = qm_engine.generate_input(input_type='mm', optimise=True)
+
             # Check the exit status of the job if failed restart the job up to 2 times
             restart_count = 1
             while not converged and restart_count < 3:
-                append_to_log(f'{self.qm["bonds_engine"]} optimisation failed restarting')
+                append_to_log(f'{self.qm["bonds_engine"]} optimisation failed; restarting', msg_type='minor')
                 converged = qm_engine.generate_input(input_type='mm', optimise=True, restart=True)
                 restart_count += 1
+
             if not converged:
                 sys.exit(f'{self.qm["bonds_engine"]} optimisation did not converge after 3 restarts check log file.')
-            # Get the qm optimised structure and the energy
+
             molecule.molecule['qm'], molecule.qm_energy = qm_engine.optimised_structure()
-            # Write out a xyz file for the opt structure
             molecule.write_xyz(input_type='qm', name='opt')
 
         append_to_log(f'qm_optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
@@ -730,13 +739,13 @@ class Main:
         qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
         scan = TorsionScan(molecule, qm_engine)
 
-        # Try to find a scan file if none provided and more than one torsion detected, prompt user
+        # Try to find a scan file; if none provided and more than one torsion detected: prompt user
         try:
             copy('../../QUBE_torsions.txt', 'QUBE_torsions.txt')
             scan.find_scan_order(file='QUBE_torsions.txt')
         except FileNotFoundError:
             scan.find_scan_order()
-            # Do the scan
+
         scan.start_scan()
 
         append_to_log('Torsion_scans complete')
@@ -770,7 +779,6 @@ class Main:
         # get the molecule descriptors from rdkit
         molecule.descriptors = RDKit.rdkit_descriptors(molecule.filename)
 
-        # Print ligand objects to log file and terminal
         pretty_print(molecule, to_file=True)
         pretty_print(molecule)
 
@@ -854,7 +862,7 @@ class Main:
             molecule.pickle(state='parametrise')
 
         # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
-        # Longer messages should be written inside the key stages' functions using helpers.append_to_log().
+        # Longer messages should be written inside the key stages' methods using helpers.append_to_log().
         # See PSI4 class in engines for an example of where this is used.
 
         # The stage keys and messages

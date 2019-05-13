@@ -94,6 +94,8 @@ Be sure to add the path to the QUBEKit configs once you've generated them *([exp
 Many packages come pre-installed with Anaconda, however there are some which require further installation.
 These packages are on different conda channels, hence needing the extra arguments.
 
+**Core Requirements**
+
 * [PSI4](http://www.psicode.org/)
 
 `conda install -c psi4 psi4`
@@ -110,11 +112,8 @@ These packages are on different conda channels, hence needing the extra argument
 
 `conda install -c omnia openforcefield`
 
-* [OpenEye](https://docs.eyesopen.com/toolkits/python/index.html)
+**GUI Requirements**
 
-`conda install -c openeye openeye-toolkits`
-
-GUI requirements
 * [PyQt5](https://pypi.org/project/PyQt5/)
 
 `pip install PyQt5`

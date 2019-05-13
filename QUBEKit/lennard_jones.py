@@ -3,8 +3,8 @@
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.helpers import check_net_charge
 
-import os
 from collections import OrderedDict
+import os
 
 import numpy as np
 
@@ -273,10 +273,11 @@ class LennardJones:
                     charges.append(float(self.non_bonded_force[atom - 1][0]))
                     sigmas.append(float(self.non_bonded_force[atom - 1][1]))
                     epsilons.append(float(self.non_bonded_force[atom - 1][2]))
+
                 # calculate the average values to be used in symmetry
                 charge, sigma, epsilon = sum(charges) / len(charges), sum(sigmas) / len(sigmas), sum(epsilons) / len(epsilons)
 
-                # now loop through the atoms again and store the new values
+                # Loop through the atoms again and store the new values
                 for atom in atom_set:
                     self.non_bonded_force[atom - 1] = [str(charge), str(sigma), str(epsilon)]
 
