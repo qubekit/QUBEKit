@@ -37,7 +37,7 @@ function ChangeView(representation){
 }
 
 function LoadCube(fileName, isolevel, color1=null, color2=null, opacity=0.7, opaqueBack=false){
-    // first we should remove a componet by name
+    // first we should remove a component by name
     stage.loadFile(fileName).then(function  (molecule){
         if (color1 && color2){
             // load two representations with the different colors

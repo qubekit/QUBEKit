@@ -1,8 +1,12 @@
-# Import all of the core engines
-from .parameterEngines import XML, XMLProtein, AnteChamber, BOSS
+# TODO Are these relative imports OK on travis?
 
-# Now try and import the extras
+# Import all of the core engines (shouldn't cause issues)
+from .parameter_engines import XML, XMLProtein, AnteChamber, BOSS
+
+# try to import the extras
 try:
-    from .OpenFF import OpenFF
+    from .openforcefield import OpenFF
 except ImportError:
-    print('Openforcefield not available')
+    print('Openforcefield not available, continuing without for now. '
+          'If you do not want to use it, please make sure it is removed from the config options; '
+          'otherwise, install it.')
