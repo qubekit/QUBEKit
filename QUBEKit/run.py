@@ -244,17 +244,17 @@ class Main:
                 """This function is executed when Torsion maker is called."""
                 # load in the ligand molecule
                 mol = Ligand(values)
-                # make fake engine class
 
+                # make fake engine class
                 class Engine:
                     def __init__(self):
                         self.fitting = {'increment': 15}
 
-                # now promt the user for the scan order
+                # Prompt the user for the scan order
                 scanner = TorsionScan(mol, Engine())
                 scanner.find_scan_order()
 
-                # now write out the scan file
+                # Write out the scan file
                 with open('QUBE_torsions.txt', 'w+') as qube:
                     qube.write('# dihedral definition by atom indices starting from 1\n#  i      j      k      l\n')
                     for scan in mol.scan_order:
@@ -269,7 +269,7 @@ class Main:
             return True if string.lower() in ['true', 't', 'yes', 'y'] else False
 
         # Extract the intro the readme. this is based on the title "What is QUBEKit" and the following paragraph
-        # which starts "Users who ... "
+        # which starts with "Users who ... "
         intro = ''
         with open(f'{"" if os.path.exists("../README.md") else "../"}../README.md') as readme:
             flag = False
@@ -303,7 +303,7 @@ class Main:
         # maybe separate into known solvents and IPCM constants?
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
                             help='Enter the convergence criteria for the optimisation.')
-        parser.add_argument('-param', '--parameter_engine', choices=['xml', 'gaff', 'gaff2', 'openff'],
+        parser.add_argument('-param', '--parameter_engine', choices=['xml', 'antechamber', 'openff'],
                             help='Enter the method of where we should get the initial molecule parameters from, '
                                  'if xml make sure the xml has the same name as the pdb file.')
         parser.add_argument('-mm', '--mm_opt_method', default='openmm', choices=['openmm', 'rdkit_mff', 'rdkit_uff'],
@@ -342,9 +342,8 @@ class Main:
         groups.add_argument('-bulk', '--bulk_run',
                             help='Enter the name of the csv file to run as bulk, bulk will use smiles unless it finds '
                                  'a molecule file with the same name.')
-        groups.add_argument('-csv', '--csv_filename',
-                            help='Enter the name of the csv file you would like to create for bulk runs.',
-                            action=CSVAction)
+        groups.add_argument('-csv', '--csv_filename', action=CSVAction,
+                            help='Enter the name of the csv file you would like to create for bulk runs.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
 
         return parser.parse_args()
@@ -445,10 +444,10 @@ class Main:
                 pass
             finally:
                 count = 1
-                while os.path.exists(f'QUBEKit_backups/{dir_name}_{count}'):
+                while os.path.exists(f'QUBEKit_backups/{dir_name}_{str(count).zfill(3)}'):
                     count += 1
 
-                move(dir_name, f'QUBEKit_backups/{dir_name}_{count}')
+                move(dir_name, f'QUBEKit_backups/{dir_name}_{str(count).zfill(3)}')
                 printf(f'Moving directory: {dir_name} to backup folder')
                 os.mkdir(dir_name)
 
@@ -608,7 +607,7 @@ class Main:
 
             # Read the xyz traj and store the frames
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
-            # Store the last from of the traj as the mm optimised structure
+            # Store the last from the traj as the mm optimised structure
             molecule.molecule['mm'] = molecule.molecule['traj'][-1]
 
         else:
@@ -646,7 +645,7 @@ class Main:
         else:
             converged = qm_engine.generate_input(input_type='mm', optimise=True)
 
-            # Check the exit status of the job if failed restart the job up to 2 times
+            # Check the exit status of the job; if failed restart the job up to 2 times
             restart_count = 1
             while not converged and restart_count < 3:
                 append_to_log(f'{self.qm["bonds_engine"]} optimisation failed; restarting', msg_type='minor')
@@ -654,7 +653,7 @@ class Main:
                 restart_count += 1
 
             if not converged:
-                sys.exit(f'{self.qm["bonds_engine"]} optimisation did not converge after 3 restarts check log file.')
+                sys.exit(f'{self.qm["bonds_engine"]} optimisation did not converge after 3 restarts; check log file.')
 
             molecule.molecule['qm'], molecule.qm_energy = qm_engine.optimised_structure()
             molecule.write_xyz(input_type='qm', name='opt')
@@ -665,6 +664,8 @@ class Main:
 
     def hessian(self, molecule):
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
+
+        # TODO Because of QCEngine, nothing is being put into the hessian folder anymore
 
         molecule.get_bond_lengths(input_type='qm')
 

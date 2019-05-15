@@ -84,8 +84,8 @@ class Molecule:
         self.topology = None
         self.angles = None
         self.dihedrals = None
-        self.improper_torsions = []
-        self.rotatable = None
+        self.improper_torsions = None
+        self.rotatable = None       # TODO Rotatable is getting set to [] even when there are rotatables
         self.atom_names = None
         self.mol2_types = None
         self.bond_lengths = None
@@ -96,13 +96,13 @@ class Molecule:
 
         # XML Info
         self.xml_tree = None
-        self.AtomTypes = {}
+        self.AtomTypes = None
         self.Residues = None
         self.extra_sites = None
-        self.HarmonicBondForce = {}
-        self.HarmonicAngleForce = {}
-        self.PeriodicTorsionForce = OrderedDict()
-        self.NonbondedForce = OrderedDict()
+        self.HarmonicBondForce = None
+        self.HarmonicAngleForce = None
+        self.PeriodicTorsionForce = None
+        self.NonbondedForce = None
 
         self.combination = None
         self.sites = None
@@ -147,10 +147,11 @@ class Molecule:
 
                 try:
                     bool(val)
-                # Catch numpy array truth table
+                # Catch numpy array truth table error
                 except ValueError:
                     continue
 
+                # Ignore empty lists / dicts etc and NoneTypes
                 if val is not None and val:
                     return_str += f'\n{key} = '
 
@@ -169,14 +170,14 @@ class Molecule:
         return return_str
 
     def read_file(self):
-        """The base file reader used on instancing the class it will decided what file reader to use."""
+        """The base file reader used upon instancing the class; it will decide which file reader to use."""
 
         if self.filename.split(".")[1] == 'pdb':
             self.read_pdb(self.filename)
         elif self.filename.split(".")[1] == 'mol2':
             self.read_mol2(self.filename)
 
-    def read_pdb(self, name, input_type='input'):
+    def read_pdb(self, filename, input_type='input'):
         """
         Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
         Then reads through the connection tags and builds a connectivity network
@@ -185,7 +186,7 @@ class Molecule:
         Can also generate a simple plot of the network.
         """
 
-        with open(name, 'r') as pdb:
+        with open(filename, 'r') as pdb:
             lines = pdb.readlines()
 
         molecule = []
@@ -202,7 +203,6 @@ class Molecule:
                 self.atom_names.append(str(line.split()[2]))
 
                 # If the element column is missing from the pdb, extract the element from the name.
-                # TODO Will this be ok if the element is 2 chars?
                 if not element:
                     element = str(line.split()[2])[:-1]
                     element = re.sub('[0-9]+', '', element)
@@ -253,11 +253,13 @@ class Molecule:
             elif '@<TRIPOS>SUBSTRUCTURE' in line:
                 bonds = False
                 continue
+
             if atoms:
                 # Add the molecule information
                 element = line.split()[1][:2]
                 element = re.sub('[0-9]+', '', element)
                 element = element.strip()
+
                 if element.upper() not in self.element_dict:
                     element = element[0]
                 molecule.append([element, float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
@@ -830,16 +832,16 @@ class Protein(Molecule):
         super().__init__(filename)
 
         self.pdb_names = None
-        self.read_pdb()
+        self.read_pdb(self.filename)
         self.residues = None
 
-    def read_pdb(self, input_type='input'):
+    def read_pdb(self, filename, input_type='input'):
         """
         Read the pdb file which probably does not have the right connections,
         so we need to find them using QUBE.xml
         """
 
-        with open(self.filename, 'r') as pdb:
+        with open(filename, 'r') as pdb:
             lines = pdb.readlines()
 
         protein = []
@@ -889,6 +891,7 @@ class Protein(Molecule):
         if len(self.topology.edges) == 0:
             print('No connections found!')
 
+        # TODO What if there are two of the same residue back to back?
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
@@ -899,7 +902,7 @@ class Protein(Molecule):
 
         molecule = self.molecule['input']
 
-        with open(f'{name if name else self.name}.pdb', 'w+') as pdb_file:
+        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 
             # Write out the atomic xyz coordinates
             pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')

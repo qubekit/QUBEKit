@@ -26,13 +26,13 @@ class OpenFF(Parametrisation):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 
         # Load the molecule using openforcefield
-        pdbfile = app.PDBFile(self.molecule.filename)
+        pdb_file = app.PDBFile(self.molecule.filename)
 
         # Now we need the connection info try using smiles string from rdkit
         molecule = Molecule.from_smiles(RDKit.get_smiles(self.molecule.filename))
 
         # Make the openMM system
-        omm_topology = pdbfile.topology
+        omm_topology = pdb_file.topology
         off_topology = Topology.from_openmm(omm_topology, unique_molecules=[molecule])
 
         # Load the smirnof99Frosst force field.

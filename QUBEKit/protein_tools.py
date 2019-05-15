@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+
 import simtk.openmm as mm
 
 

@@ -58,6 +58,16 @@ class Parametrisation:
         self.atom_types = {}
         self.combination = 'amber'
 
+        # TODO Set back to None if there are none
+        self.molecule.dihedrals = {}
+        self.molecule.AtomTypes = {}
+        self.molecule.mol2_types = {}
+        self.molecule.HarmonicBondForce = {}
+        self.molecule.HarmonicAngleForce = {}
+        self.molecule.NonbondedForce = OrderedDict()
+        self.molecule.PeriodicTorsionForce = OrderedDict()
+        self.molecule.improper_torsions = []
+
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
@@ -102,12 +112,15 @@ class Parametrisation:
             if tor_str_forward not in self.molecule.PeriodicTorsionForce and tor_str_back not in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_str_forward] = [
                     [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]]]
+
             elif tor_str_forward in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_str_forward].append(
                     [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+
             elif tor_str_back in self.molecule.PeriodicTorsionForce:
-                self.molecule.PeriodicTorsionForce[tor_str_back].append([Torsion.get('periodicity'), Torsion.get('k'),
-                                                                         phases[int(Torsion.get('periodicity')) - 1]])
+                self.molecule.PeriodicTorsionForce[tor_str_back].append(
+                    [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+
         # Now we have all of the torsions from the openMM system
         # we should check if any torsions we found in the molecule do not have parameters
         # if they don't give them the default 0 parameter this will not change the energy

@@ -128,6 +128,7 @@ class LigandTab(QtWidgets.QWidget):
 class Viewer:
 
     def __init__(self, molecule_file=None):
+
         self.molecule_file = molecule_file
         self.view = QWebEngineView()
         self.view.setPage(WebEnginePage(self.view))
