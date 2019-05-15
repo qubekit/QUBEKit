@@ -10,7 +10,10 @@ import os
 
 
 def timer_func(orig_func):
-    """Prints the runtime of a function when applied as a decorator (@timer_func)."""
+    """
+    Prints the runtime of a function when applied as a decorator (@timer_func).
+    Currently only used for debugging.
+    """
 
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
