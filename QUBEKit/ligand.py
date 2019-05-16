@@ -385,7 +385,7 @@ class Molecule:
                                 # Add the tuple to the correct key.
                                 dihedrals[edge].append((start, edge[0], edge[1], end))
 
-        if bool(dihedrals):
+        if dihedrals:
             self.dihedrals = dihedrals
 
     def find_rotatable_dihedrals(self):
@@ -409,7 +409,7 @@ class Molecule:
                 # Add edge back to the network and try next key
                 self.topology.add_edge(*key)
 
-            if bool(rotatable):
+            if rotatable:
                 self.rotatable = rotatable
 
     def get_dihedral_values(self, input_type='input'):
