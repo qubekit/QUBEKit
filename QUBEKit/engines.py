@@ -848,10 +848,9 @@ class Babel:
         input_type = str(input_file).split(".")[1]
         output_type = str(output_file).split(".")[1]
 
-        cmd = f'babel -i {input_type} {input_file} -o{output_type} {output_file}'
-
-        with open('babel.txt', 'w+') as babel_log:
-            sub_run(cmd, shell=True, stderr=babel_log, stdout=babel_log)
+        with open('babel.txt', 'w+') as log:
+            sub_run(f'babel -i{input_type} {input_file} -o{output_type} {output_file}',
+                    shell=True, stderr=log, stdout=log)
 
 
 @for_all_methods(timer_logger)
@@ -880,7 +879,7 @@ class OpenMM:
         # check if we have opls combination rules if the xml is present
         try:
             self.combination = ET.fromstring(xmlstr).find('NonbondedForce').attrib['combination']
-            append_to_log('OPLS combination rules found in xml file', msg_type='major')
+            append_to_log('OPLS combination rules found in xml file', msg_type='minor')
         except AttributeError:
             pass
         except KeyError:

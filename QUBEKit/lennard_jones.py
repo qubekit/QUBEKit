@@ -104,8 +104,9 @@ class LennardJones:
         for pos, atom in enumerate(self.molecule.molecule['input']):
             self.ddec_data.append([pos + 1] + [atom[i] for i in range(4)])
 
+        # TODO Just move the ddec.onetep file instead? Handle this in run file?
         # Second file contains the rest (charges, dipoles and volumes):
-        with open('ddec.onetep', 'r') as file:
+        with open(f'{"" if os.path.exists("ddec.onetep") else "iter_1/"}ddec.onetep', 'r') as file:
             lines = file.readlines()
 
         charge_pos, vol_pos = False, False

@@ -271,15 +271,15 @@ class Main:
         # Extract the intro the readme. this is based on the title "What is QUBEKit" and the following paragraph
         # which starts with "Users who ... "
         intro = ''
-        with open(f'{"" if os.path.exists("../README.md") else "../"}../README.md') as readme:
-            flag = False
-            for line in readme:
-                if 'Users who' in line:
-                    flag = False
-                if flag:
-                    intro += line
-                if '## What is QUBEKit' in line:
-                    flag = True
+        # with open(f'{"" if os.path.exists("../README.md") else "../"}../README.md') as readme:
+        #     flag = False
+        #     for line in readme:
+        #         if 'Users who' in line:
+        #             flag = False
+        #         if flag:
+        #             intro += line
+        #         if '## What is QUBEKit' in line:
+        #             flag = True
 
         parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
                                          description=intro)
