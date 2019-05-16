@@ -2,15 +2,15 @@
 
 # TODO Get rid of linux-specific commands
 
-from QUBEKit.mod_seminario import ModSeminario
-from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
-from QUBEKit.ligand import Ligand
-from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
-from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
 from QUBEKit.decorators import exception_logger
+from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
+from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
 from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
     Configure, unpickle
+from QUBEKit.lennard_jones import LennardJones
+from QUBEKit.ligand import Ligand
+from QUBEKit.mod_seminario import ModSeminario
+from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
 
 from collections import OrderedDict
 from datetime import datetime
@@ -570,7 +570,12 @@ class Main:
         copy(f'../{molecule.filename}', f'{molecule.filename}')
 
         # Parametrisation options:
-        param_dict = {'openff': OpenFF, 'antechamber': AnteChamber, 'xml': XML}
+        param_dict = {'antechamber': AnteChamber, 'xml': XML}
+
+        try:
+            param_dict['openff'] = OpenFF
+        except ImportError:
+            pass
 
         # If we are using xml we have to move it
         if self.fitting['parameter_engine'] == 'xml':
