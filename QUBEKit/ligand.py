@@ -312,7 +312,7 @@ class Molecule:
             if len(near) == 3:
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
-        if bool(improper_torsions):
+        if improper_torsions:
             self.improper_torsions = improper_torsions
 
     def find_angles(self):
@@ -337,7 +337,7 @@ class Molecule:
 
                     angles.append((atom1, node, atom3))
 
-        if bool(angles):
+        if angles:
             self.angles = angles
 
     def get_bond_lengths(self, input_type='input'):
@@ -353,7 +353,7 @@ class Molecule:
             bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
 
         # Check if the dictionary is full then store else leave as None
-        if bool(bond_lengths):
+        if bond_lengths:
             self.bond_lengths = bond_lengths
 
     def find_dihedrals(self):
@@ -395,7 +395,7 @@ class Molecule:
         Also exclude standard rotations such as amides and methyl groups.
         """
 
-        if bool(self.dihedrals):
+        if self.dihedrals:
             rotatable = []
 
             # For each dihedral key remove the edge from the network
@@ -417,7 +417,7 @@ class Molecule:
         Taking the molecules' xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
-        if bool(self.dihedrals):
+        if self.dihedrals:
 
             dih_phis = {}
 
@@ -432,7 +432,7 @@ class Molecule:
                     t2 = np.dot(np.cross(b1, b2), np.cross(b2, b3))
                     dih_phis[torsion] = np.degrees(np.arctan2(t1, t2))
 
-            if bool(dih_phis):
+            if dih_phis:
                 self.dih_phis = dih_phis
 
     def get_angle_values(self, input_type='input'):
@@ -636,12 +636,12 @@ class Molecule:
         # First check if the pickle file exists
         try:
             # Try to load a hidden pickle file; make sure to get all objects
-            with open(f'.QUBEKit_states', 'rb') as pickle_jar:
+            with open('.QUBEKit_states', 'rb') as pickle_jar:
                 while True:
                     try:
                         mol = pickle.load(pickle_jar)
                         mols[mol.state] = mol
-                    except:
+                    except EOFError:
                         break
         except FileNotFoundError:
             # TODO Should this only pass if we're on the first stage? i.e. if the file hasn't been made yet

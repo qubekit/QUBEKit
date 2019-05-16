@@ -244,14 +244,15 @@ class Main:
                 """This function is executed when Torsion maker is called."""
                 # load in the ligand molecule
                 mol = Ligand(values)
+                # Make fake config data
+                configs = {'charge': 0, 'multiplicity': 1,
+                              'config': 'default'}
 
-                # make fake engine class
-                class Engine:
-                    def __init__(self):
-                        self.fitting = {'increment': 15}
+                qm, fitting, descriptions ={'theory': 'wB97XD'}, {'increment': 15}, {}
+                all_configs = [configs, qm, fitting, descriptions]
 
-                # Prompt the user for the scan order
-                scanner = TorsionScan(mol, Engine())
+                # now promt the user for the scan order
+                scanner = TorsionScan(mol, all_configs)
                 scanner.find_scan_order()
 
                 # Write out the scan file
@@ -607,16 +608,19 @@ class Main:
             molecule.write_parameters()
             # Run geometric
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb {molecule.name}.pdb '
+                sub_run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {self.qm["iterations"]}  --pdb {molecule.name}.pdb '
                         f'--openmm {molecule.name}.xml {self.constraints_file}', shell=True, stdout=log, stderr=log)
 
+            # This will continue even if we don't converge this is fine
             # Read the xyz traj and store the frames
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
             # Store the last from the traj as the mm optimised structure
             molecule.molecule['mm'] = molecule.molecule['traj'][-1]
 
         else:
-            # Run an RDKit optimisation with the right FF
+            #TODO change to qcengine as this can already be done
+
+            # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
 
@@ -701,18 +705,20 @@ class Main:
     def density(self, molecule):
         """Perform density calculation with the qm engine."""
 
-        qm_engine = self.engine_dict[self.qm['density_engine']](molecule, self.all_configs)
-        qm_engine.generate_input(input_type='qm', density=True, solvent=self.qm['solvent'])
-
-        if self.qm['density_engine'] == 'g09':
-            append_to_log('Density analysis complete')
-        else:
+        if self.qm['density_engine'] == 'onetep':
+            molecule.write_xyz(input_type='qm')
             # If we use onetep we have to stop after this step
             append_to_log('Density analysis file made for ONETEP')
 
             # Now we have to edit the order to end here.
             self.order = OrderedDict([('density', self.density), ('charges', self.skip), ('lennard_jones', self.skip),
                                       ('torsion_scan', self.torsion_scan), ('pause', self.pause)])
+
+        else:
+            # Do normal density calculation
+            qm_engine = self.engine_dict[self.qm['density_engine']](molecule, self.all_configs)
+            qm_engine.generate_input(input_type='qm', density=True, solvent=self.qm['solvent'])
+            append_to_log('Density analysis complete')
 
         return molecule
 
@@ -742,8 +748,7 @@ class Main:
     def torsion_scan(self, molecule):
         """Perform torsion scan."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        scan = TorsionScan(molecule, qm_engine)
+        scan = TorsionScan(molecule, self.all_configs)
 
         # Try to find a scan file; if none provided and more than one torsion detected: prompt user
         try:
@@ -761,10 +766,8 @@ class Main:
     def torsion_optimise(self, molecule):
         """Perform torsion optimisation."""
 
-        # TODO get the combination rule from xml file.
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, combination=molecule.combination,
-                               refinement=self.fitting['refinement_method'], vn_bounds=self.fitting['tor_limit'])
+        opt = TorsionOptimiser(molecule, self.all_configs, refinement=self.fitting['refinement_method'],
+                               vn_bounds=self.fitting['tor_limit'])
         opt.run()
 
         append_to_log('Torsion_optimisations complete')

@@ -6,6 +6,8 @@ window.addEventListener( "resize", function( event ){
     stage.handleResize();
 }, false );
 
+// declare the rep handerlers
+var licorice, ballstick, hyperball
 
 function moleculeLoader(fileName){
     // If we have a state we need to get rid of it first when loading a new molecule
@@ -16,24 +18,38 @@ function moleculeLoader(fileName){
     // check the file ext as mol is the same as sdf
     if (fileName.includes('.mol') && !fileName.includes('.mol2') ){
         stage.loadFile(fileName, {ext: "sdf"}).then(function (molecule) {
-            molecule.addRepresentation("licorice", {multipleBond: "symmetric"});
             molecule.autoView();
+            addAllReps(molecule);
         })
-        return "Loaded";
+        return 'Loaded';
     }else {
         stage.loadFile(fileName).then(function (molecule) {
-            molecule.addRepresentation("licorice", {multipleBond: "symmetric"});
             molecule.autoView(); 
+            addAllReps(molecule);
         })
-        return "Loaded";
+        return 'Loaded';
     }
 }
 
+function addAllReps(molecule){
+    licorice = molecule.addRepresentation("licorice", {multipleBond: "symmetric"});
+    ballstick = molecule.addRepresentation("ball+stick", {'visible': false});
+    hyperball = molecule.addRepresentation("hyperball", {'visible': false});
+}
+
+// function ChangeView(representation){
+//     stage.compList[0].removeRepresentation();
+//     stage.compList[0].addRepresentation(representation);
+//     stage.compList[0].autoView();
+//     return  'view changed to ' + representation;
+// }
+
 function ChangeView(representation){
-    stage.compList[0].removeRepresentation();
-    stage.compList[0].addRepresentation(representation);
-    stage.compList[0].autoView();
-    return  'view changed to ' + representation;
+    if (representation === 'ball+stick'){
+        ballstick.setVisibility(true);
+    }else if (representation === 'hyperball'){
+        hyperball.setVisibility(true);
+    }
 }
 
 function LoadCube(fileName, isolevel, color1=null, color2=null, opacity=0.7, opaqueBack=false){
