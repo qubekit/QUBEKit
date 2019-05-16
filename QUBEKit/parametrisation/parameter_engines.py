@@ -59,14 +59,12 @@ class Parametrisation:
         self.combination = 'amber'
 
         # TODO Set back to None if there are none
-        self.molecule.dihedrals = {}
         self.molecule.AtomTypes = {}
         self.molecule.mol2_types = {}
         self.molecule.HarmonicBondForce = {}
         self.molecule.HarmonicAngleForce = {}
         self.molecule.NonbondedForce = OrderedDict()
         self.molecule.PeriodicTorsionForce = OrderedDict()
-        self.molecule.improper_torsions = []
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -167,44 +165,46 @@ class Parametrisation:
         Convert the pdb file into a mol2 antechamber file and get the gaff atom types and bonds if we need them.
         """
 
+        # TODO Instead of file argument, just look for a mol2 file?
+
         # call Antechamber to convert if we don't have the mol2 file
         if file is None:
             cwd = os.getcwd()
 
-            # do this in a temp directory as it produces a lot of files
-            pdb = os.path.abspath(self.molecule.filename)
-            mol2 = os.path.abspath(f'{self.molecule.name}.mol2')
+            pdb_path = os.path.abspath(self.molecule.filename)
+            mol2_path = os.path.abspath(f'{self.molecule.name}.mol2')
 
+            # Do this in a temp directory as it produces a lot of files
             with TemporaryDirectory() as temp:
                 os.chdir(temp)
-                copy(pdb, 'in.pdb')
+                copy(pdb_path, 'in.pdb')
 
-                # Call antechamber
-                with open('Antechamber.log', 'w+') as log:
+                # Call Antechamber
+                with open('ante_log.txt', 'w+') as log:
                     sub_run(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {fftype} -c bcc',
                             shell=True, stdout=log, stderr=log)
 
                 # Ensure command worked
                 try:
                     # Copy the gaff mol2 and antechamber file back
-                    copy('out.mol2', mol2)
-                    copy('Antechamber.log', cwd)
+                    copy('out.mol2', mol2_path)
+                    copy('ante_log.txt', cwd)
                 except FileNotFoundError:
                     # If the molecule contains boron we expect this so use RDKit
                     print('using OpenBabel')
-                    mol2_file = self.molecule.name + '.mol2'
+                    mol2_file = f'{self.molecule.name}.mol2'
                     Babel.convert('in.pdb', mol2_file)
-                    copy(mol2_file, mol2)
+                    copy(mol2_file, mol2_path)
 
                 os.chdir(cwd)
         else:
-            mol2 = file
+            mol2_path = file
 
         # Check if the pdb file had connections if not we should remake the file
         remake = True if self.molecule.bond_lengths is None else False
 
         # Get the gaff atom types and bonds in case we don't have this info
-        self.molecule.read_mol2(mol2)
+        self.molecule.read_mol2(mol2_path)
 
         # Check if the molecule has bond lengths if not call the update method
         if remake:
