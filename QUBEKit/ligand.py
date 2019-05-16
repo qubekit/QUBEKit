@@ -84,7 +84,7 @@ class Molecule:
         self.topology = None
         self.angles = None
         self.dihedrals = None
-        self.improper_torsions = []
+        self.improper_torsions = None
         self.rotatable = None
         self.atom_names = None
         self.mol2_types = None
@@ -96,13 +96,13 @@ class Molecule:
 
         # XML Info
         self.xml_tree = None
-        self.AtomTypes = {}
+        self.AtomTypes = None
         self.Residues = None
         self.extra_sites = None
-        self.HarmonicBondForce = {}
-        self.HarmonicAngleForce = {}
-        self.PeriodicTorsionForce = OrderedDict()
-        self.NonbondedForce = OrderedDict()
+        self.HarmonicBondForce = None
+        self.HarmonicAngleForce = None
+        self.PeriodicTorsionForce = None
+        self.NonbondedForce = None
 
         self.combination = None
         self.sites = None
@@ -348,7 +348,7 @@ class Molecule:
         for edge in self.topology.edges:
             atom1 = np.array(molecule[int(edge[0]) - 1][1:])
             atom2 = np.array(molecule[int(edge[1]) - 1][1:])
-            self.bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
+            bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
 
         # Check if the dictionary is full then store else leave as None
         if bool(bond_lengths):
@@ -634,12 +634,12 @@ class Molecule:
         # First check if the pickle file exists
         try:
             # Try to load a hidden pickle file; make sure to get all objects
-            with open(f'.QUBEKit_states', 'rb') as pickle_jar:
+            with open('.QUBEKit_states', 'rb') as pickle_jar:
                 while True:
                     try:
                         mol = pickle.load(pickle_jar)
                         mols[mol.state] = mol
-                    except:
+                    except EOFError:
                         break
         except FileNotFoundError:
             # TODO Should this only pass if we're on the first stage? i.e. if the file hasn't been made yet

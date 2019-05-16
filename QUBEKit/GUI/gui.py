@@ -49,7 +49,6 @@ class LigandTab(QtWidgets.QWidget):
 
         if self.molecule is None:
             self.ligand_name = QtWidgets.QLabel('Load molecule .pdb .mol2 file')
-
         else:
             self.ligand_name = QtWidgets.QLabel(f'{self.molecule.name}')
 
@@ -71,6 +70,13 @@ class LigandTab(QtWidgets.QWidget):
         self.representation_label = QtWidgets.QLabel('Representation')
         self.representation = QtWidgets.QComboBox()
         self.representation.addItems(['Licorice', 'hyperball', 'spheres', 'partialCharge', 'ball+stick', 'spacefill'])
+        # Add text change logic
+        self.representation.currentTextChanged.connect(self.change_rep)
+
+        # Add own box for layout
+        repersentation = QtWidgets.QHBoxLayout()
+        repersentation.addWidget(self.representation_label)
+        repersentation.addWidget(self.representation)
 
         # Add a surface control box
         self.surface_group = QtWidgets.QGroupBox('Surface Controls')
@@ -84,7 +90,7 @@ class LigandTab(QtWidgets.QWidget):
         self.layout.addWidget(self.main_label)
         self.layout.addLayout(top_row)
         self.layout.addWidget(self.viewer.view)
-        #self.layout.addWidget(self.button)
+        self.layout.addLayout(repersentation)
 
         self.setLayout(self.layout)
 
@@ -95,9 +101,9 @@ class LigandTab(QtWidgets.QWidget):
         filename = self.load_file(['pdb', 'mol2', 'mol', 'sdf'])
         if '.pdb' in filename or '.mol2' in filename or 'mol' in filename:
             # Instance the QUBEKit class
-            # self.molecule = Ligand(filename)
+            self.molecule = Ligand(filename)
             self.viewer.load_molecule(filename)
-            # self.ligand_name.setText(f'{self.molecule.name}')
+            self.ligand_name.setText(f'{self.molecule.name}')
 
     def load_surface(self):
         """Check if we have a valid surface file then load it into the viewer."""
@@ -121,6 +127,11 @@ class LigandTab(QtWidgets.QWidget):
 
         return filename
 
+    def change_rep(self, representation):
+        """Change the representation of the ligand."""
+        # Pass the representation to the viewer
+        self.viewer.change_view(representation)
+
 
 class Viewer:
 
@@ -141,8 +152,8 @@ class Viewer:
     def ready(self, returnvalue):
         print(returnvalue)
 
-    def change_view(self):
-        representation = 'hyperball'
+    def change_view(self, representation):
+        print(representation)
         self.view.page().runJavaScript(f'ChangeView("{representation}")', self.ready)
 
     def load_molecule(self, file):

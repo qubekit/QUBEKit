@@ -57,6 +57,13 @@ class Parametrisation:
         self.fftype = fftype
         self.atom_types = {}
         self.combination = 'amber'
+        # init objects
+        self.molecule.mol2_types = []
+        self.molecule.AtomTypes = {}
+        self.molecule.HarmonicAngleForce = {}
+        self.molecule.HarmonicBondForce = {}
+        self.molecule.PeriodicTorsionForce = OrderedDict()
+        self.molecule.NonbondedForce = OrderedDict()
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'

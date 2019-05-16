@@ -460,7 +460,7 @@ class Gaussian(Engines):
                         shell=True, stdout=log, stderr=log)
 
             # After running check for normal termination
-            log = open('log.txt', 'r').read()
+            log = open(f'gj_{self.molecule.name}.log', 'r').read()
             if 'Normal termination of Gaussian' in log:
                 return True
             else:
@@ -526,7 +526,7 @@ class Gaussian(Engines):
                     start_end.append(i)
 
                 elif 'SCF Done' in line:
-                    energy = float(line.split()[3])
+                    energy = float(line.split()[4])
 
             # now add the lines to the output stream
             for i in range(start_end[0], start_end[1]):
@@ -588,7 +588,7 @@ class Gaussian(Engines):
 
         return np.array(freqs)
 
-
+# TODO do we need this class anymore it only makes an xyz file?
 @for_all_methods(timer_logger)
 class ONETEP(Engines):
 
@@ -707,8 +707,8 @@ class QCEngine(Engines):
             }
             # TODO hide the output stream so it does not spoil the terminal printing
             # return_dict=True seems to be default False in newer versions. Ergo docs are wrong again.
-            ret = qcng.compute_procedure(geo_task, 'geometric', local_options={'ncores': self.qm['threads']},
-                                         return_dict=True)
+            ret = qcng.compute_procedure(geo_task, 'geometric', return_dict=True,
+                                         local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
             return ret
 
         else:

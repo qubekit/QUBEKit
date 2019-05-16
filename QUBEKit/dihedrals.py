@@ -12,9 +12,7 @@ from subprocess import run as sub_run
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
-import simtk.openmm as mm
-from simtk.openmm import app
-from simtk import unit
+
 
 
 @for_all_methods(timer_logger)
@@ -26,7 +24,7 @@ class TorsionScan:
     inputs
     ---------------
     molecule                    A QUBEKit Ligand instance
-    qm_engine                   A QUBEKit QM engine instance that will be used for calculations
+    configs                     A QUBEKit config dict that will be used to instance the PSI4 engine, only option
     native_opt                  Should we use the QM engines internal optimizer or torsiondrive/geometric
 
     attributes
@@ -34,10 +32,10 @@ class TorsionScan:
     grid_space                  The distance between the scan points on the surface
     """
 
-    def __init__(self, molecule, qm_engine, native_opt=False, verbose=False, constraints_made=False):
+    def __init__(self, molecule, config_dict, native_opt=False, verbose=False, constraints_made=False):
 
         # engine info
-        self.qm_engine = qm_engine
+        self.qm_engine = PSI4(molecule, config_dict)
         self.grid_space = self.qm_engine.fitting['increment']
         self.native_opt = native_opt
         self.verbose = verbose
@@ -219,14 +217,13 @@ class TorsionOptimiser:
     vn_bounds:              The absolute upper limit on Vn parameters (moving past this has a heavy penalty)
     """
 
-    def __init__(self, molecule, qm_engine, config_dict, weight_mm=True, combination='opls', use_force=False,
-                 step_size=0.02, error_tol=1e-5, x_tol=1e-5, refinement='Steep', vn_bounds=20):
+    def __init__(self, molecule, config_dict, weight_mm=True, use_force=False, step_size=0.02, error_tol=1e-5,
+                 x_tol=1e-5, refinement='Steep', vn_bounds=20):
 
         # configurations
         self.qm, self.fitting, self.descriptions = config_dict[1:]
         self.l_pen = self.fitting['l_pen']
         self.t_weight = self.fitting['t_weight']
-        self.combination = combination
         self.weight_mm = weight_mm
         self.step_size = step_size
         self.methods = {'NM': 'Nelder-Mead', 'BFGS': 'BFGS', None: None}
@@ -239,7 +236,7 @@ class TorsionOptimiser:
 
         # QUBEKit objects
         self.molecule = molecule
-        self.qm_engine = qm_engine
+        self.qm_engine = PSI4(molecule, config_dict)
 
         # TorsionOptimiser starting parameters
         # QM scan energies {(scan): [array of qm energies]}
