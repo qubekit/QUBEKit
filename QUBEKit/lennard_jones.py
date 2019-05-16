@@ -3,8 +3,8 @@
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.helpers import check_net_charge
 
-import os
 from collections import OrderedDict
+import os
 
 import numpy as np
 
@@ -104,8 +104,9 @@ class LennardJones:
         for pos, atom in enumerate(self.molecule.molecule['input']):
             self.ddec_data.append([pos + 1] + [atom[i] for i in range(4)])
 
+        # TODO Just move the ddec.onetep file instead? Handle this in run file?
         # Second file contains the rest (charges, dipoles and volumes):
-        with open('ddec.onetep', 'r') as file:
+        with open(f'{"" if os.path.exists("ddec.onetep") else "iter_1/"}ddec.onetep', 'r') as file:
             lines = file.readlines()
 
         charge_pos, vol_pos = False, False
@@ -273,10 +274,11 @@ class LennardJones:
                     charges.append(float(self.non_bonded_force[atom - 1][0]))
                     sigmas.append(float(self.non_bonded_force[atom - 1][1]))
                     epsilons.append(float(self.non_bonded_force[atom - 1][2]))
+
                 # calculate the average values to be used in symmetry
                 charge, sigma, epsilon = sum(charges) / len(charges), sum(sigmas) / len(sigmas), sum(epsilons) / len(epsilons)
 
-                # now loop through the atoms again and store the new values
+                # Loop through the atoms again and store the new values
                 for atom in atom_set:
                     self.non_bonded_force[atom - 1] = [str(charge), str(sigma), str(epsilon)]
 

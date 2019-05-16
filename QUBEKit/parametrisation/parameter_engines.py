@@ -65,6 +65,14 @@ class Parametrisation:
         self.molecule.PeriodicTorsionForce = OrderedDict()
         self.molecule.NonbondedForce = OrderedDict()
 
+        # TODO Set back to None if there are none
+        self.molecule.AtomTypes = {}
+        self.molecule.mol2_types = {}
+        self.molecule.HarmonicBondForce = {}
+        self.molecule.HarmonicAngleForce = {}
+        self.molecule.NonbondedForce = OrderedDict()
+        self.molecule.PeriodicTorsionForce = OrderedDict()
+
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
@@ -109,21 +117,25 @@ class Parametrisation:
             if tor_str_forward not in self.molecule.PeriodicTorsionForce and tor_str_back not in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_str_forward] = [
                     [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]]]
+
             elif tor_str_forward in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_str_forward].append(
                     [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+
             elif tor_str_back in self.molecule.PeriodicTorsionForce:
-                self.molecule.PeriodicTorsionForce[tor_str_back].append([Torsion.get('periodicity'), Torsion.get('k'),
-                                                                         phases[int(Torsion.get('periodicity')) - 1]])
+                self.molecule.PeriodicTorsionForce[tor_str_back].append(
+                    [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+
         # Now we have all of the torsions from the openMM system
         # we should check if any torsions we found in the molecule do not have parameters
         # if they don't give them the default 0 parameter this will not change the energy
-        for tor_list in self.molecule.dihedrals.values():
-            for torsion in tor_list:
-                # change the indexing to check if they match
-                param = tuple(torsion[i] - 1 for i in range(4))
-                if param not in self.molecule.PeriodicTorsionForce and tuple(reversed(param)) not in self.molecule.PeriodicTorsionForce:
-                    self.molecule.PeriodicTorsionForce[param] = [['1', '0', '0'], ['2', '0', '3.141592653589793'], ['3', '0', '0'], ['4', '0', '3.141592653589793']]
+        if self.molecule.dihedrals is not None:
+            for tor_list in self.molecule.dihedrals.values():
+                for torsion in tor_list:
+                    # change the indexing to check if they match
+                    param = tuple(torsion[i] - 1 for i in range(4))
+                    if param not in self.molecule.PeriodicTorsionForce and tuple(reversed(param)) not in self.molecule.PeriodicTorsionForce:
+                        self.molecule.PeriodicTorsionForce[param] = [['1', '0', '0'], ['2', '0', '3.141592653589793'], ['3', '0', '0'], ['4', '0', '3.141592653589793']]
 
         # Now we need to fill in all blank phases of the Torsions
         for key, val in self.molecule.PeriodicTorsionForce.items():
@@ -139,66 +151,72 @@ class Parametrisation:
             val.sort(key=lambda x: x[0])
 
         # now we need to tag the proper and improper torsions and reorder them so the first atom is the central
-        improper_torsions = OrderedDict()
-        for improper in self.molecule.improper_torsions:
-            for key, val in self.molecule.PeriodicTorsionForce.items():
-                # for each improper find the corresponding torsion parameters and save
-                if sorted(key) == sorted(tuple([x - 1 for x in improper])):
-                    # if they match tag the dihedral
-                    self.molecule.PeriodicTorsionForce[key].append('Improper')
-                    # replace the key with the strict improper order first atom is center
-                    improper_torsions[tuple([x - 1 for x in improper])] = val
+        improper_torsions = None
+        if self.molecule.improper_torsions is not None:
+            improper_torsions = OrderedDict()
+            for improper in self.molecule.improper_torsions:
+                for key, val in self.molecule.PeriodicTorsionForce.items():
+                    # for each improper find the corresponding torsion parameters and save
+                    if sorted(key) == sorted(tuple([x - 1 for x in improper])):
+                        # if they match tag the dihedral
+                        self.molecule.PeriodicTorsionForce[key].append('Improper')
+                        # replace the key with the strict improper order first atom is center
+                        improper_torsions[tuple([x - 1 for x in improper])] = val
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
         # Remake the torsion store in the ligand
         self.molecule.PeriodicTorsionForce = OrderedDict((v, k) for v, k in torsions.items() if k[-1] != 'Improper')
         # now we need to add the impropers at the end of the torsion object
-        for key, val in improper_torsions.items():
-            self.molecule.PeriodicTorsionForce[key] = val
+
+        if improper_torsions is not None:
+            for key, val in improper_torsions.items():
+                self.molecule.PeriodicTorsionForce[key] = val
 
     def get_gaff_types(self, fftype='gaff', file=None):
         """
         Convert the pdb file into a mol2 antechamber file and get the gaff atom types and bonds if we need them.
         """
 
+        # TODO Instead of file argument, just look for a mol2 file?
+
         # call Antechamber to convert if we don't have the mol2 file
         if file is None:
             cwd = os.getcwd()
 
-            # do this in a temp directory as it produces a lot of files
-            pdb = os.path.abspath(self.molecule.filename)
-            mol2 = os.path.abspath(f'{self.molecule.name}.mol2')
+            pdb_path = os.path.abspath(self.molecule.filename)
+            mol2_path = os.path.abspath(f'{self.molecule.name}.mol2')
 
+            # Do this in a temp directory as it produces a lot of files
             with TemporaryDirectory() as temp:
                 os.chdir(temp)
-                copy(pdb, 'in.pdb')
+                copy(pdb_path, 'in.pdb')
 
-                # Call antechamber
-                with open('Antechamber.log', 'w+') as log:
+                # Call Antechamber
+                with open('ante_log.txt', 'w+') as log:
                     sub_run(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {fftype} -c bcc',
                             shell=True, stdout=log, stderr=log)
 
                 # Ensure command worked
                 try:
                     # Copy the gaff mol2 and antechamber file back
-                    copy('out.mol2', mol2)
-                    copy('Antechamber.log', cwd)
+                    copy('out.mol2', mol2_path)
+                    copy('ante_log.txt', cwd)
                 except FileNotFoundError:
                     # If the molecule contains boron we expect this so use RDKit
                     print('using OpenBabel')
-                    mol2_file = self.molecule.name + '.mol2'
+                    mol2_file = f'{self.molecule.name}.mol2'
                     Babel.convert('in.pdb', mol2_file)
-                    copy(mol2_file, mol2)
+                    copy(mol2_file, mol2_path)
 
                 os.chdir(cwd)
         else:
-            mol2 = file
+            mol2_path = file
 
         # Check if the pdb file had connections if not we should remake the file
         remake = True if self.molecule.bond_lengths is None else False
 
         # Get the gaff atom types and bonds in case we don't have this info
-        self.molecule.read_mol2(mol2)
+        self.molecule.read_mol2(mol2_path)
 
         # Check if the molecule has bond lengths if not call the update method
         if remake:

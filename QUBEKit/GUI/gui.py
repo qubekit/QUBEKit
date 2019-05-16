@@ -1,9 +1,12 @@
+from QUBEKit.ligand import Ligand
+
+import os
 import sys
+
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtCore import QUrl
 from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineView
-from QUBEKit.ligand import Ligand
-import os
+
 import qdarkstyle
 
 
@@ -84,7 +87,7 @@ class LigandTab(QtWidgets.QWidget):
         self.surface_label = QtWidgets.QLabel('Surface file')
         self.surface_file = QtWidgets.QPushButton('Load surface file')
         self.surface_file.clicked.connect(self.load_surface)
-        #self.find
+        # self.find
 
         # Set the master layout
         self.layout.addWidget(self.main_label)
@@ -136,21 +139,22 @@ class LigandTab(QtWidgets.QWidget):
 class Viewer:
 
     def __init__(self, molecule_file=None):
+
         self.molecule_file = molecule_file
         self.view = QWebEngineView()
         self.view.setPage(WebEnginePage(self.view))
-        self.view.loadFinished.connect(self.onLoadFinish)
+        self.view.loadFinished.connect(self.on_load_finish)
         self.html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "view.html"))
         self.local_url = QUrl.fromLocalFile(self.html_path)
         self.view.load(self.local_url)
 
-    def onLoadFinish(self, ok):
+    def on_load_finish(self, ok):
         if ok and self.molecule_file is not None:
             file = os.path.abspath(self.molecule_file)
             self.load_molecule(file)
 
-    def ready(self, returnvalue):
-        print(returnvalue)
+    def ready(self, return_value):
+        print(return_value)
 
     def change_view(self, representation):
         print(representation)
@@ -183,6 +187,7 @@ def main():
 
 class WebEnginePage(QWebEnginePage):
     """Class to overwirte the java script console log so it prints to terminal for debugging"""
+
     def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
         print("javaScriptConsoleMessage: ", level, message, lineNumber, sourceID)
 

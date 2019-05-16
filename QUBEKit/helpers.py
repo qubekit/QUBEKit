@@ -444,6 +444,9 @@ def populate_progress_dict(file_name):
                     term = search_terms[search_terms.index(last_success) + 1]
                 except IndexError:
                     term = search_terms[search_terms.index(last_success)]
+                # If errored immediately, then last_success won't have been defined yet
+                except UnboundLocalError:
+                    term = 'PARAMETRISE'
                 progress[term] = 'E'
 
     return progress

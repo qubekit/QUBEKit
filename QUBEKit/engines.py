@@ -2,7 +2,7 @@
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. Maybe add path checking for Chargemol?
-# TODO Rewrite file parsers to use takewhile/dropwhile rather than reading the whole files to memory.
+# TODO Rewrite file parsers to use takewhile/dropwhile/flagging rather than reading the whole files to memory.
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
@@ -12,15 +12,19 @@ from subprocess import run as sub_run
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile
-from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 from scipy.spatial import ConvexHull
-import simtk.openmm as mm
-from simtk import unit
-import xml.etree.ElementTree as ET
 
 import qcengine as qcng
 import qcelemental as qcel
+
+from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile, MolFromMol2File
+from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
+
+from simtk.openmm import app
+import simtk.openmm as mm
+from simtk import unit
+
+import xml.etree.ElementTree as ET
 
 
 class Engines:
@@ -58,7 +62,7 @@ class PSI4(Engines):
 
     # TODO add restart from log method
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
-                       fchk=False, restart=False, run=True):
+                       fchk=False, restart=False, execute=True):
         """
         Converts to psi4 input format to be run in psi4 without using geometric.
         :param input_type: The coordinate set of the molecule to be used
@@ -68,7 +72,7 @@ class PSI4(Engines):
         :param energy: Calculate the single point energy of the molecule
         :param fchk: Write out a gaussian style Fchk file
         :param restart: Restart the calculation from a log point
-        :param run: Run the desired Psi4 job
+        :param execute: Run the desired Psi4 job
         :return: The completion status of the job True if successful False if not run or failed
         """
 
@@ -128,22 +132,19 @@ class PSI4(Engines):
 
             setters += '}\n'
 
-            if not run:
+            if not execute:
                 setters += f'set_num_threads({self.qm["threads"]})\n'
 
             input_file.write(setters)
             input_file.write(tasks)
 
-        if run:
+        if execute:
             with open('log.txt', 'w+') as log:
                 sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True, stdout=log, stderr=log)
 
             # After running check for normal termination
             log = open('output.dat', 'r').read()
-            if '*** Psi4 exiting successfully.' in log:
-                return True
-            else:
-                return False
+            return True if '*** Psi4 exiting successfully.' in log else False
         else:
             return False
 
@@ -309,7 +310,7 @@ class PSI4(Engines):
 
             return np.array(all_modes)
 
-    def geo_gradient(self, input_type='input', threads=False, run=True):
+    def geo_gradient(self, input_type='input', threads=False, execute=True):
         """
         Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
@@ -329,7 +330,7 @@ class PSI4(Engines):
                 file.write(f"set_num_threads({self.qm['threads']})")
             file.write(f"\n\ngradient('{self.qm['theory']}')\n")
 
-        if run:
+        if execute:
             with open('log.txt', 'w+') as log:
                 sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.qm["threads"]}',
                         shell=True, stdout=log, stderr=log)
@@ -342,13 +343,12 @@ class Chargemol(Engines):
 
         super().__init__(molecule, config_file)
 
-    def generate_input(self, run=True):
+    def generate_input(self, execute=True):
         """Given a DDEC version (from the defaults), this function writes the job file for chargemol and executes it."""
 
         if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
             append_to_log(message='Invalid or unsupported DDEC version given, running with default version 6.',
                           msg_type='warning')
-            # self.qm['ddec_version'] = 6
 
         # Write the charges job file.
         with open('job_control.txt', 'w+') as charge_file:
@@ -367,7 +367,7 @@ class Chargemol(Engines):
 
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
-        if run:
+        if execute:
             with open('log.txt', 'w+') as log:
                 control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
                 sub_run(f'{self.descriptions["chargemol"]}/{control_path}', shell=True, stdout=log, stderr=log)
@@ -385,15 +385,17 @@ class Gaussian(Engines):
         super().__init__(molecule, config_dict)
 
         self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD'}
+
         if self.functional_dict.get(self.qm['theory'].lower(), None) is not None:
             self.qm['theory'] = self.functional_dict[self.qm['theory'].lower()]
+
         self.convergence_dict = {'GAU': '',
                                  'GAU_TIGHT': 'tight',
                                  'GAU_LOOSE': 'loose',
                                  'GAU_VERYTIGHT': 'verytight'}
 
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, solvent=False,
-                       restart=False, run=True):
+                       restart=False, execute=True):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
         :param input_type: The set of coordinates in the molecule that should be used in the job
@@ -402,7 +404,7 @@ class Gaussian(Engines):
         :param density: Calculate the electron density
         :param solvent: Use a solvent when calculating the electron density
         :param restart: Restart from a check point file
-        :param run: Run the calculation after writing the input file
+        :param execute: Run the calculation after writing the input file
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
 
@@ -454,17 +456,14 @@ class Gaussian(Engines):
             # Blank lines because Gaussian.
             input_file.write('\n\n')
 
-        if run:
+        if execute:
             with open('log.txt', 'w+') as log:
                 sub_run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
                         shell=True, stdout=log, stderr=log)
 
             # After running check for normal termination
             log = open(f'gj_{self.molecule.name}.log', 'r').read()
-            if 'Normal termination of Gaussian' in log:
-                return True
-            else:
-                return False
+            return True if 'Normal termination of Gaussian' in log else False
         else:
             return False
 
@@ -627,6 +626,7 @@ class ONETEP(Engines):
         plt.show()
 
 
+@for_all_methods(timer_logger)
 class QCEngine(Engines):
 
     def __init__(self, molecule, config_dict):
@@ -715,8 +715,22 @@ class QCEngine(Engines):
             raise KeyError('Invalid engine type provided. Please use "geo" or "psi4".')
 
 
+@for_all_methods(timer_logger)
 class RDKit:
     """Class for controlling useful RDKit functions; try to keep class static."""
+
+    @staticmethod
+    def read_file(filename):
+
+        molecule = []
+
+        file_type = filename.split('.')[-1]
+        if file_type == 'pdb':
+            mol = MolFromPDBFile(filename, removeHs=False)
+        elif file_type == 'mol2':
+            mol = MolFromMol2File(filename, removeHs=False)
+
+        return molecule
 
     @staticmethod
     def smiles_to_pdb(smiles_string, name=None):
@@ -821,6 +835,7 @@ class RDKit:
         return mol_name
 
 
+@for_all_methods(timer_logger)
 class Babel:
     """Class to handel babel functions that convert between standard file types
     acts as a thin wrapper around CLI for babel as python bindings require compiling from source."""
@@ -834,18 +849,15 @@ class Babel:
         :return: None
         """
 
-        cmd = 'babel -i'
-
         input_type = str(input_file).split(".")[1]
         output_type = str(output_file).split(".")[1]
 
-        cmd += f'{input_type} {input_file} -o{output_type} {output_file}'
-        print(cmd)
-
-        with open('babel.txt', 'w+') as babel_log:
-            sub_run(cmd, shell=True, stderr=babel_log, stdout=babel_log)
+        with open('babel.txt', 'w+') as log:
+            sub_run(f'babel -i{input_type} {input_file} -o{output_type} {output_file}',
+                    shell=True, stderr=log, stdout=log)
 
 
+@for_all_methods(timer_logger)
 class OpenMM:
     """This class acts as a wrapper around OpenMM so we can many basic functions using the class"""
 
@@ -861,17 +873,17 @@ class OpenMM:
         """Initialise the OpenMM system we will use to evaluate the energies."""
 
         # Load the initial coords into the system and initialise
-        pdb = mm.app.PDBFile(self.pdb)
-        forcefield = mm.app.ForceField(self.xml)
-        modeller = mm.app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
-        self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=mm.app.NoCutoff, constraints=None)
+        pdb = app.PDBFile(self.pdb)
+        forcefield = app.ForceField(self.xml)
+        modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
+        self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
         # Check what combination rule we should be using from the xml
         xmlstr = open(self.xml).read()
         # check if we have opls combination rules if the xml is present
         try:
             self.combination = ET.fromstring(xmlstr).find('NonbondedForce').attrib['combination']
-            append_to_log('OPLS combination rules found in xml file', msg_type='major')
+            append_to_log('OPLS combination rules found in xml file', msg_type='minor')
         except AttributeError:
             pass
         except KeyError:
@@ -883,7 +895,7 @@ class OpenMM:
         temperature = 298.15 * unit.kelvin
         integrator = mm.LangevinIntegrator(temperature, 5 / unit.picoseconds, 0.001 * unit.picoseconds)
 
-        self.simulation = mm.app.Simulation(modeller.topology, self.system, integrator)
+        self.simulation = app.Simulation(modeller.topology, self.system, integrator)
         self.simulation.context.setPositions(modeller.positions)
 
     def get_energy(self, position, forces=False):

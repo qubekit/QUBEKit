@@ -14,7 +14,6 @@ import numpy as np
 from scipy.optimize import minimize
 
 
-
 @for_all_methods(timer_logger)
 class TorsionScan:
     """
@@ -62,13 +61,13 @@ class TorsionScan:
         if self.scan_mol.scan_order:
             return self.scan_mol
 
+        elif self.scan_mol.rotatable is None:
+            print('No rotatable torsions found in the molecule')
+            self.scan_mol.scan_order = []
+
         elif len(self.scan_mol.rotatable) == 1:
             print('One rotatable torsion found')
             self.scan_mol.scan_order = self.scan_mol.rotatable
-
-        elif len(self.scan_mol.rotatable) == 0:
-            print('No rotatable torsions found in the molecule')
-            self.scan_mol.scan_order = []
 
         # If we have a QUBE_torsions.txt file get the scan order from there
         elif file:
@@ -117,10 +116,10 @@ class TorsionScan:
         # TODO need to add PSI4 redundant mode selector
 
         if self.native_opt:
-            self.qm_engine.generate_input(optimise=True, run=False)
+            self.qm_engine.generate_input(optimise=True, execute=False)
 
         else:
-            self.qm_engine.geo_gradient(run=False, threads=True)
+            self.qm_engine.geo_gradient(execute=False, threads=True)
 
     def torsion_cmd(self):
         """Generates a command string to run torsiondrive based on the input commands for QM and MM."""

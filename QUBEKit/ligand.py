@@ -11,7 +11,7 @@ import re
 import networkx as nx
 import numpy as np
 
-from xml.etree.ElementTree import tostring, Element, SubElement, ElementTree
+import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
 
 
@@ -85,7 +85,7 @@ class Molecule:
         self.angles = None
         self.dihedrals = None
         self.improper_torsions = None
-        self.rotatable = None
+        self.rotatable = None       # TODO Rotatable is getting set to [] even when there are rotatables
         self.atom_names = None
         self.mol2_types = None
         self.bond_lengths = None
@@ -147,10 +147,11 @@ class Molecule:
 
                 try:
                     bool(val)
-                # Catch numpy array truth table
+                # Catch numpy array truth table error
                 except ValueError:
                     continue
 
+                # Ignore empty lists / dicts etc and NoneTypes
                 if val is not None and val:
                     return_str += f'\n{key} = '
 
@@ -169,14 +170,14 @@ class Molecule:
         return return_str
 
     def read_file(self):
-        """The base file reader used on instancing the class it will decided what file reader to use."""
+        """The base file reader used upon instancing the class; it will decide which file reader to use."""
 
         if self.filename.split(".")[1] == 'pdb':
             self.read_pdb(self.filename)
         elif self.filename.split(".")[1] == 'mol2':
             self.read_mol2(self.filename)
 
-    def read_pdb(self, name, input_type='input'):
+    def read_pdb(self, filename, input_type='input'):
         """
         Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
         Then reads through the connection tags and builds a connectivity network
@@ -185,7 +186,7 @@ class Molecule:
         Can also generate a simple plot of the network.
         """
 
-        with open(name, 'r') as pdb:
+        with open(filename, 'r') as pdb:
             lines = pdb.readlines()
 
         molecule = []
@@ -202,7 +203,6 @@ class Molecule:
                 self.atom_names.append(str(line.split()[2]))
 
                 # If the element column is missing from the pdb, extract the element from the name.
-                # TODO Will this be ok if the element is 2 chars?
                 if not element:
                     element = str(line.split()[2])[:-1]
                     element = re.sub('[0-9]+', '', element)
@@ -253,11 +253,13 @@ class Molecule:
             elif '@<TRIPOS>SUBSTRUCTURE' in line:
                 bonds = False
                 continue
+
             if atoms:
                 # Add the molecule information
                 element = line.split()[1][:2]
                 element = re.sub('[0-9]+', '', element)
                 element = element.strip()
+
                 if element.upper() not in self.element_dict:
                     element = element[0]
                 molecule.append([element, float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
@@ -310,7 +312,7 @@ class Molecule:
             if len(near) == 3:
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
-        if bool(improper_torsions):
+        if improper_torsions:
             self.improper_torsions = improper_torsions
 
     def find_angles(self):
@@ -335,7 +337,7 @@ class Molecule:
 
                     angles.append((atom1, node, atom3))
 
-        if bool(angles):
+        if angles:
             self.angles = angles
 
     def get_bond_lengths(self, input_type='input'):
@@ -351,7 +353,7 @@ class Molecule:
             bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
 
         # Check if the dictionary is full then store else leave as None
-        if bool(bond_lengths):
+        if bond_lengths:
             self.bond_lengths = bond_lengths
 
     def find_dihedrals(self):
@@ -383,7 +385,7 @@ class Molecule:
                                 # Add the tuple to the correct key.
                                 dihedrals[edge].append((start, edge[0], edge[1], end))
 
-        if bool(dihedrals):
+        if dihedrals:
             self.dihedrals = dihedrals
 
     def find_rotatable_dihedrals(self):
@@ -393,7 +395,7 @@ class Molecule:
         Also exclude standard rotations such as amides and methyl groups.
         """
 
-        if bool(self.dihedrals):
+        if self.dihedrals:
             rotatable = []
 
             # For each dihedral key remove the edge from the network
@@ -407,7 +409,7 @@ class Molecule:
                 # Add edge back to the network and try next key
                 self.topology.add_edge(*key)
 
-            if bool(rotatable):
+            if rotatable:
                 self.rotatable = rotatable
 
     def get_dihedral_values(self, input_type='input'):
@@ -415,7 +417,7 @@ class Molecule:
         Taking the molecules' xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
-        if bool(self.dihedrals):
+        if self.dihedrals:
 
             dih_phis = {}
 
@@ -430,7 +432,7 @@ class Molecule:
                     t2 = np.dot(np.cross(b1, b2), np.cross(b2, b3))
                     dih_phis[torsion] = np.degrees(np.arctan2(t1, t2))
 
-            if bool(dih_phis):
+            if dih_phis:
                 self.dih_phis = dih_phis
 
     def get_angle_values(self, input_type='input'):
@@ -461,7 +463,7 @@ class Molecule:
         self.build_tree(protein=protein)
 
         tree = self.xml_tree.getroot()
-        messy = tostring(tree, 'utf-8')
+        messy = ET.tostring(tree, 'utf-8')
 
         pretty_xml_as_string = parseString(messy).toprettyxml(indent="")
 
@@ -472,47 +474,47 @@ class Molecule:
         """Separates the parameters and builds an xml tree ready to be used."""
 
         # Create XML layout
-        root = Element('ForceField')
-        AtomTypes = SubElement(root, "AtomTypes")
-        Residues = SubElement(root, "Residues")
+        root = ET.Element('ForceField')
+        AtomTypes = ET.SubElement(root, "AtomTypes")
+        Residues = ET.SubElement(root, "Residues")
 
         if protein:
-            Residue = SubElement(Residues, "Residue", name="QUP")
+            Residue = ET.SubElement(Residues, "Residue", name="QUP")
         else:
-            Residue = SubElement(Residues, "Residue", name="UNK")
+            Residue = ET.SubElement(Residues, "Residue", name="UNK")
 
-        HarmonicBondForce = SubElement(root, "HarmonicBondForce")
-        HarmonicAngleForce = SubElement(root, "HarmonicAngleForce")
-        PeriodicTorsionForce = SubElement(root, "PeriodicTorsionForce")
+        HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
+        HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
+        PeriodicTorsionForce = ET.SubElement(root, "PeriodicTorsionForce")
 
         # Assign the combination rule
         c14 = '0.83333' if self.combination == 'amber' else '0.5'
         l14 = '0.5'
 
         # add the combination rule to the xml for geometric.
-        NonbondedForce = SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14,
+        NonbondedForce = ET.SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14,
                                                                     'combination': self.combination})
 
         for key, val in self.AtomTypes.items():
-            SubElement(AtomTypes, "Type", attrib={
+            ET.SubElement(AtomTypes, "Type", attrib={
                 'name': val[1], 'class': val[2],
                 'element': self.molecule['input'][key][0],
                 'mass': str(self.element_dict[self.molecule['input'][key][0].upper()])})
 
-            SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
+            ET.SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
 
         # Add the bonds / connections
         for key, val in self.HarmonicBondForce.items():
-            SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
+            ET.SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
 
-            SubElement(HarmonicBondForce, "Bond", attrib={
+            ET.SubElement(HarmonicBondForce, "Bond", attrib={
                 'class1': self.AtomTypes[key[0]][2],
                 'class2': self.AtomTypes[key[1]][2],
                 'length': val[0], 'k': val[1]})
 
         # Add the angles
         for key, val in self.HarmonicAngleForce.items():
-            SubElement(HarmonicAngleForce, "Angle", attrib={
+            ET.SubElement(HarmonicAngleForce, "Angle", attrib={
                 'class1': self.AtomTypes[key[0]][2],
                 'class2': self.AtomTypes[key[1]][2],
                 'class3': self.AtomTypes[key[2]][2],
@@ -524,7 +526,7 @@ class Molecule:
                 tor_type = 'Improper'
             else:
                 tor_type = 'Proper'
-            SubElement(PeriodicTorsionForce, tor_type, attrib={
+            ET.SubElement(PeriodicTorsionForce, tor_type, attrib={
                 'class1': self.AtomTypes[key[0]][2],
                 'class2': self.AtomTypes[key[1]][2],
                 'class3': self.AtomTypes[key[2]][2],
@@ -542,7 +544,7 @@ class Molecule:
 
         # add the non-bonded parameters
         for key in self.NonbondedForce:
-            SubElement(NonbondedForce, "Atom", attrib={
+            ET.SubElement(NonbondedForce, "Atom", attrib={
                 'type': self.AtomTypes[key][1],
                 'charge': self.NonbondedForce[key][0],
                 'sigma': self.NonbondedForce[key][1],
@@ -552,13 +554,13 @@ class Molecule:
         if self.sites:
             # Add the atom type to the top
             for key, val in self.sites.items():
-                SubElement(AtomTypes, "Type", attrib={'name': f'v-site{key + 1}', 'class': f'X{key + 1}', 'mass': '0'})
+                ET.SubElement(AtomTypes, "Type", attrib={'name': f'v-site{key + 1}', 'class': f'X{key + 1}', 'mass': '0'})
 
                 # Add the atom info
-                SubElement(Residue, "Atom", attrib={'name': f'X{key + 1}', 'type': f'v-site{key + 1}'})
+                ET.SubElement(Residue, "Atom", attrib={'name': f'X{key + 1}', 'type': f'v-site{key + 1}'})
 
                 # Add the local coords site info
-                SubElement(Residue, "VirtualSite", attrib={
+                ET.SubElement(Residue, "VirtualSite", attrib={
                     'type': 'localCoords', 'index': str(key + len(self.atom_names)),
                     'atom1': str(val[0][0]), 'atom2': str(val[0][1]), 'atom3': str(val[0][2]),
                     'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0', 'wx1': '-1.0', 'wx2': '1.0', 'wx3': '0.0',
@@ -568,14 +570,14 @@ class Molecule:
                     'p3': f'{float(val[1][2]):.4f}'})
 
                 # Add the nonbonded info
-                SubElement(NonbondedForce, "Atom", attrib={
+                ET.SubElement(NonbondedForce, "Atom", attrib={
                     'type': f'v-site{key + 1}',
                     'charge': f'{val[2]}',
                     'sigma': '1.000000',
                     'epsilon': '0.000000'})
 
         # Store the tree back into the molecule
-        self.xml_tree = ElementTree(root)
+        self.xml_tree = ET.ElementTree(root)
 
     def write_xyz(self, input_type='input', name=None):
         """
@@ -830,16 +832,16 @@ class Protein(Molecule):
         super().__init__(filename)
 
         self.pdb_names = None
-        self.read_pdb()
+        self.read_pdb(self.filename)
         self.residues = None
 
-    def read_pdb(self, input_type='input'):
+    def read_pdb(self, filename, input_type='input'):
         """
         Read the pdb file which probably does not have the right connections,
         so we need to find them using QUBE.xml
         """
 
-        with open(self.filename, 'r') as pdb:
+        with open(filename, 'r') as pdb:
             lines = pdb.readlines()
 
         protein = []
@@ -889,6 +891,7 @@ class Protein(Molecule):
         if len(self.topology.edges) == 0:
             print('No connections found!')
 
+        # TODO What if there are two of the same residue back to back?
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
@@ -899,7 +902,7 @@ class Protein(Molecule):
 
         molecule = self.molecule['input']
 
-        with open(f'{name if name else self.name}.pdb', 'w+') as pdb_file:
+        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 
             # Write out the atomic xyz coordinates
             pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
