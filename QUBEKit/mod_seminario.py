@@ -136,12 +136,11 @@ class ModSemMaths:
 @for_all_methods(timer_logger)
 class ModSeminario:
 
-    def __init__(self, molecule, config_dict):
+    def __init__(self, molecule):
 
         self.molecule = molecule
         self.atom_names = self.molecule.atom_names
         # Load the configs using the config_file name.
-        self.qm, self.fitting, self.descriptions = config_dict[1:]
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -267,7 +266,7 @@ class ModSeminario:
                 ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(*angles[::-1], bond_lens, eigenvals, eigenvecs, coords, scalings[::-1])
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
-                k_theta[i] = (self.qm['vib_scaling'] ** 2) * ((ab_k_theta + ba_k_theta) / 2)
+                k_theta[i] = (self.molecule.vib_scaling ** 2) * ((ab_k_theta + ba_k_theta) / 2)
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
                 angle_file.write(f'{i}  {self.atom_names[angle[0] - 1]}-{self.atom_names[angle[1] - 1]}-{self.atom_names[angle[2] - 1]}  ')
@@ -294,7 +293,7 @@ class ModSeminario:
                 ba = ModSemMaths.force_constant_bond(bond[1] - 1, bond[0] - 1, eigenvals, eigenvecs, coords)
 
                 # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
-                k_b[pos] = np.real((ab + ba) / 2) * (self.qm['vib_scaling'] ** 2)
+                k_b[pos] = np.real((ab + ba) / 2) * (self.molecule.vib_scaling ** 2)
 
                 bond_len_list[pos] = bond_lens[bond[0] - 1, bond[1] - 1]
                 bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')

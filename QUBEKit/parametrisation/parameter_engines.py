@@ -57,17 +57,10 @@ class Parametrisation:
         self.fftype = fftype
         self.atom_types = {}
         self.combination = 'amber'
-        # init objects
-        self.molecule.mol2_types = []
-        self.molecule.AtomTypes = {}
-        self.molecule.HarmonicAngleForce = {}
-        self.molecule.HarmonicBondForce = {}
-        self.molecule.PeriodicTorsionForce = OrderedDict()
-        self.molecule.NonbondedForce = OrderedDict()
 
         # TODO Set back to None if there are none
-        self.molecule.AtomTypes = {}
         self.molecule.mol2_types = {}
+        self.molecule.AtomTypes = {}
         self.molecule.HarmonicBondForce = {}
         self.molecule.HarmonicAngleForce = {}
         self.molecule.NonbondedForce = OrderedDict()
@@ -88,8 +81,7 @@ class Parametrisation:
                                           str(self.molecule.molecule['input'][i][0]) + str(800 + i),
                                           self.molecule.mol2_types[i]]
 
-        input_xml_file = 'serialised.xml'
-        in_root = parse_tree(input_xml_file).getroot()
+        in_root = parse_tree('serialised.xml').getroot()
 
         # Extract all bond data
         for Bond in in_root.iter('Bond'):
@@ -192,9 +184,15 @@ class Parametrisation:
                 copy(pdb_path, 'in.pdb')
 
                 # Call Antechamber
+                # TODO Handle non-zero charge with -nc command
+
+                cmd = f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {fftype} -c bcc'
+
+                if self.molecule.charge == 1:
+                    cmd += ' -nc 1'
+
                 with open('ante_log.txt', 'w+') as log:
-                    sub_run(f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {fftype} -c bcc',
-                            shell=True, stdout=log, stderr=log)
+                    sub_run(cmd, shell=True, stdout=log, stderr=log)
 
                 # Ensure command worked
                 try:
@@ -516,3 +514,7 @@ class BOSS(Parametrisation):
         """
 
         pass
+
+
+class Default:
+    pass

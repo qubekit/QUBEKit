@@ -21,7 +21,7 @@ class Configure:
     config_folder = f'{home}/QUBEKit_configs/'
     master_file = 'master_config.ini'
 
-    # QuBeKit config file allows users to reset the global variables
+    # QUBEKit config file allows users to reset the global variables
 
     qm = {
         'theory': 'B3LYP',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
@@ -144,7 +144,8 @@ class Configure:
         # Now cast the regularisation penalty to float
         fitting['l_pen'] = float(fitting['l_pen'])
 
-        return qm, fitting, descriptions
+        # return qm, fitting, descriptions
+        return {**dict(qm), **dict(fitting), **dict(descriptions)}
 
     @staticmethod
     def ini_parser(ini):
@@ -239,13 +240,14 @@ def mol_data_from_csv(csv_name):
 
             # Converts to ordinary dict rather than ordered.
             row = dict(row)
-            row['charge'] = int(float(row['charge']))
-            row['multiplicity'] = int(float(row['multiplicity']))
+            row['charge'] = int(float(row['charge'])) if row['charge'] else 0
+            row['multiplicity'] = int(float(row['multiplicity'])) if row['multiplicity'] else 1
             # If there is no config given assume its the default
             row['config'] = row['config'] if row['config'] else 'default_config'
             # Converts empty string to None (looks a bit weird, I know) otherwise leaves it alone.
-            row['smiles string'] = row['smiles string'] if row['smiles string'] else None
-            row['torsion order'] = row['torsion order'] if row['torsion order'] else None
+            row['smiles'] = row['smiles'] if row['smiles'] else None
+            row['torsion_order'] = row['torsion_order'] if row['torsion_order'] else None
+            row['restart'] = row['restart'] if row['restart'] else 'parametrise'
             row['end'] = row['end'] if row['end'] else 'finalise'
             rows.append(row)
 
@@ -278,7 +280,7 @@ def generate_bulk_csv(csv_name):
     with open(csv_name, 'w') as csv_file:
 
         file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles string', 'torsion order', 'start', 'end'])
+        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
         for file in files:
             file_writer.writerow([file, 0, 1, '', '', '', '', ''])
 

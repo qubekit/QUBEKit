@@ -2,7 +2,7 @@
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. Maybe add path checking for Chargemol?
-# TODO Rewrite file parsers to use takewhile/dropwhile/flagging rather than reading the whole files to memory.
+# TODO Rewrite file parsers to use takewhile / dropwhile / flagging rather than reading the whole files to memory.
 
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
@@ -34,12 +34,9 @@ class Engines:
     Also gives all configs from the appropriate config file.
     """
 
-    def __init__(self, molecule, config_dict):
+    def __init__(self, molecule):
 
         self.molecule = molecule
-        self.charge = config_dict[0]['charge']
-        self.multiplicity = config_dict[0]['multiplicity']
-        self.qm, self.fitting, self.descriptions = config_dict[1:]
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -52,13 +49,13 @@ class PSI4(Engines):
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
     """
 
-    def __init__(self, molecule, config_dict):
+    def __init__(self, molecule):
 
-        super().__init__(molecule, config_dict)
+        super().__init__(molecule)
 
         self.functional_dict = {'pbepbe': 'PBE', 'wb97xd': 'wB97X-D'}
-        if self.functional_dict.get(self.qm['theory'].lower(), None) is not None:
-            self.qm['theory'] = self.functional_dict[self.qm['theory'].lower()]
+        if self.functional_dict.get(self.molecule.theory.lower(), None) is not None:
+            self.molecule.theory = self.functional_dict[self.molecule.theory.lower()]
 
     # TODO add restart from log method
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
@@ -84,26 +81,26 @@ class PSI4(Engines):
         # input.dat is the PSI4 input file.
         with open('input.dat', 'w+') as input_file:
             # opening tag is always writen
-            input_file.write(f"memory {self.qm['memory']} GB\n\nmolecule {self.molecule.name} {{\n{self.charge} {self.multiplicity} \n")
+            input_file.write(f"memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n{self.molecule.charge} {self.molecule.multiplicity} \n")
             # molecule is always printed
             for atom in molecule:
                 input_file.write(f' {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
-            input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.qm['basis']}\n")
+            input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n")
 
             if energy:
                 append_to_log('Writing psi4 energy calculation input')
-                tasks += f"\nenergy  = energy('{self.qm['theory']}')"
+                tasks += f"\nenergy  = energy('{self.molecule.theory}')"
 
             if optimise:
                 append_to_log('Writing PSI4 optimisation input', 'minor')
-                setters += f" g_convergence {self.qm['convergence']}\n GEOM_MAXITER {self.qm['iterations']}\n"
-                tasks += f"\noptimize('{self.qm['theory'].lower()}')"
+                setters += f" g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n"
+                tasks += f"\noptimize('{self.molecule.theory.lower()}')"
 
             if hessian:
                 append_to_log('Writing PSI4 Hessian matrix calculation input', 'minor')
                 setters += ' hessian_write on\n'
 
-                tasks += f"\nenergy, wfn = frequency('{self.qm['theory'].lower()}', return_wfn=True)"
+                tasks += f"\nenergy, wfn = frequency('{self.molecule.theory.lower()}', return_wfn=True)"
 
                 tasks += '\nwfn.hessian().print_out()\n\n'
 
@@ -114,16 +111,16 @@ class PSI4(Engines):
                 overage = get_overage(self.molecule.name)
                 setters += " CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage)
                 setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
-                tasks += f"grad, wfn = gradient('{self.qm['theory'].lower()}', return_wfn=True)\ncubeprop(wfn)"
+                tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
 
             if fchk:
                 append_to_log('Writing PSI4 input file to generate fchk file')
-                tasks += f"\ngrad, wfn = gradient('{self.qm['theory'].lower()}', return_wfn=True)"
+                tasks += f"\ngrad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)"
                 tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
                 tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
 
             # TODO If overage cannot be made to work, delete and just use Gaussian.
-            # if self.qm['solvent']:
+            # if self.molecule.solvent:
             #     setters += ' pcm true\n pcm_scf_type total\n'
             #     tasks += '\n\npcm = {'
             #     tasks += '\n units = Angstrom\n Medium {\n  SolverType = IEFPCM\n  Solvent = Chloroform\n }'
@@ -133,18 +130,17 @@ class PSI4(Engines):
             setters += '}\n'
 
             if not execute:
-                setters += f'set_num_threads({self.qm["threads"]})\n'
+                setters += f'set_num_threads({self.molecule.threads})\n'
 
             input_file.write(setters)
             input_file.write(tasks)
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sub_run(f'psi4 input.dat -n {self.qm["threads"]}', shell=True, stdout=log, stderr=log)
+                sub_run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log)
 
-            # After running check for normal termination
-            log = open('output.dat', 'r').read()
-            return True if '*** Psi4 exiting successfully.' in log else False
+            # After running, check for normal termination
+            return True if '*** Psi4 exiting successfully.' in open('output.dat', 'r').read() else False
         else:
             return False
 
@@ -320,33 +316,33 @@ class PSI4(Engines):
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
-            file.write(f'memory {self.qm["memory"]} GB\n\nmolecule {self.molecule.name} {{\n {self.charge} {self.multiplicity} \n')
+            file.write(f'memory {self.molecule.theory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
             for atom in molecule:
                 file.write(f'  {atom[0]:2}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
-            file.write(f" units angstrom\n no_reorient\n}}\nset basis {self.qm['basis']}\n")
+            file.write(f" units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n")
 
             if threads:
-                file.write(f"set_num_threads({self.qm['threads']})")
-            file.write(f"\n\ngradient('{self.qm['theory']}')\n")
+                file.write(f"set_num_threads({self.molecule.theory})")
+            file.write(f"\n\ngradient('{self.molecule.theory}')\n")
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.qm["threads"]}',
+                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.molecule.theory}',
                         shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
 class Chargemol(Engines):
 
-    def __init__(self, molecule, config_file):
+    def __init__(self, molecule):
 
-        super().__init__(molecule, config_file)
+        super().__init__(molecule)
 
     def generate_input(self, execute=True):
         """Given a DDEC version (from the defaults), this function writes the job file for chargemol and executes it."""
 
-        if (self.qm['ddec_version'] != 6) and (self.qm['ddec_version'] != 3):
+        if (self.molecule.ddec_version != 6) and (self.molecule.ddec_version != 3):
             append_to_log(message='Invalid or unsupported DDEC version given, running with default version 6.',
                           msg_type='warning')
 
@@ -360,17 +356,18 @@ class Chargemol(Engines):
             charge_file.write('\n\n<periodicity along A, B and C vectors>\n.false.\n.false.\n.false.')
             charge_file.write('\n</periodicity along A, B and C vectors>')
 
-            charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.descriptions["chargemol"]}/atomic_densities/')
+            charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.molecule.chargemol}/atomic_densities/')
             charge_file.write('\n</atomic densities directory complete path>')
 
-            charge_file.write(f'\n\n<charge type>\nDDEC{self.qm["ddec_version"]}\n</charge type>')
+            charge_file.write(f'\n\n<charge type>\nDDEC{self.molecule.ddec_version}\n</charge type>')
 
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
         if execute:
             with open('log.txt', 'w+') as log:
+                # TODO path.join()?
                 control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
-                sub_run(f'{self.descriptions["chargemol"]}/{control_path}', shell=True, stdout=log, stderr=log)
+                sub_run(f'{self.molecule.chargemol}/{control_path}', shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -380,14 +377,14 @@ class Gaussian(Engines):
     Also used to extract Hessian matrices; optimised structures; frequencies; etc.
     """
 
-    def __init__(self, molecule, config_dict):
+    def __init__(self, molecule):
 
-        super().__init__(molecule, config_dict)
+        super().__init__(molecule)
 
         self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD'}
 
-        if self.functional_dict.get(self.qm['theory'].lower(), None) is not None:
-            self.qm['theory'] = self.functional_dict[self.qm['theory'].lower()]
+        if self.functional_dict.get(self.molecule.theory.lower(), None) is not None:
+            self.molecule.theory = self.functional_dict[self.molecule.theory.lower()]
 
         self.convergence_dict = {'GAU': '',
                                  'GAU_TIGHT': 'tight',
@@ -412,17 +409,17 @@ class Gaussian(Engines):
 
         with open(f'gj_{self.molecule.name}.com', 'w+') as input_file:
 
-            input_file.write(f'%Mem={self.qm["memory"]}GB\n%NProcShared={self.qm["threads"]}\n%Chk=lig\n')
+            input_file.write(f'%Mem={self.molecule.memory}GB\n%NProcShared={self.molecule.threads}\n%Chk=lig\n')
 
-            commands = f'# {self.qm["theory"]}/{self.qm["basis"]} SCF=XQC '
+            commands = f'# {self.molecule.theory}/{self.molecule.basis} SCF=XQC '
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
             if optimise:
-                convergence = self.convergence_dict.get(self.qm["convergence"], "")
+                convergence = self.convergence_dict.get(self.molecule.convergence, "")
                 if convergence != "":
                     convergence = f', {convergence}'
                 # Set the convergence and the iteration cap for the optimisation
-                commands += f'opt(MaxCycles={self.qm["iterations"]} {convergence}) '
+                commands += f'opt(MaxCycles={self.molecule.iterations} {convergence}) '
 
             if hessian:
                 commands += 'freq '
@@ -436,7 +433,7 @@ class Gaussian(Engines):
             if restart:
                 commands += 'geom=check'
 
-            commands += f'\n\n{self.molecule.name}\n\n{self.charge} {self.multiplicity}\n'
+            commands += f'\n\n{self.molecule.name}\n\n{self.molecule.charge} {self.molecule.multiplicity}\n'
 
             input_file.write(commands)
 
@@ -464,6 +461,7 @@ class Gaussian(Engines):
             # After running check for normal termination
             log = open(f'gj_{self.molecule.name}.log', 'r').read()
             return True if 'Normal termination of Gaussian' in log else False
+
         else:
             return False
 
@@ -519,7 +517,7 @@ class Gaussian(Engines):
             start_end = []
             # Look for the output stream
             for i, line in enumerate(lines):
-                if f'R{self.qm["theory"]}\{self.qm["basis"]}' in line:
+                if f'R{self.molecule.theory}\{self.molecule.basis}' in line:
                     start_end.append(i)
                 elif '\\@' in line:
                     start_end.append(i)
@@ -535,7 +533,7 @@ class Gaussian(Engines):
             molecule = []
             output = output.split("\\\\")
             for string in output:
-                if string.startswith(f'{self.charge},{self.multiplicity}\\'):
+                if string.startswith(f'{self.molecule.charge},{self.molecule.multiplicity}\\'):
                     # Remove the charge and multiplicity from the string
                     molecule = string.split("\\")[1:]
 
@@ -591,9 +589,9 @@ class Gaussian(Engines):
 @for_all_methods(timer_logger)
 class ONETEP(Engines):
 
-    def __init__(self, molecule, config_dict):
+    def __init__(self, molecule):
 
-        super().__init__(molecule, config_dict)
+        super().__init__(molecule)
 
     def generate_input(self, input_type='input', density=False):
         """ONETEP takes a xyz input file."""
@@ -629,9 +627,9 @@ class ONETEP(Engines):
 @for_all_methods(timer_logger)
 class QCEngine(Engines):
 
-    def __init__(self, molecule, config_dict):
+    def __init__(self, molecule):
 
-        super().__init__(molecule, config_dict)
+        super().__init__(molecule)
 
     def generate_qschema(self, input_type='input'):
         """
@@ -641,7 +639,7 @@ class QCEngine(Engines):
         :return: The qcelemental qschema
         """
 
-        mol_data = f'{self.charge} {self.multiplicity}\n'
+        mol_data = f'{self.molecule.charge} {self.molecule.multiplicity}\n'
 
         for coord in self.molecule.molecule[input_type]:
             for item in coord:
@@ -669,11 +667,11 @@ class QCEngine(Engines):
             psi4_task = qcel.models.ResultInput(
                 molecule=mol,
                 driver=driver,
-                model={'method': self.qm['theory'], 'basis': self.qm['basis']},
+                model={'method': self.molecule.theory, 'basis': self.molecule.basis},
                 keywords={'scf_type': 'df'},
             )
 
-            ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
+            ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.molecule.memory, 'ncores': self.molecule.threads})
 
             if driver == 'hessian':
                 hess_size = 3 * len(self.molecule.molecule[input_type])
@@ -692,23 +690,24 @@ class QCEngine(Engines):
                 "schema_version": 1,
                 "keywords": {
                     "coordsys": "tric",
-                    "maxiter": self.qm['iterations'],
+                    "maxiter": self.molecule.iterations,
                     "program": "psi4",
-                    "convergence_set": self.qm['convergence'],
+                    "convergence_set": self.molecule.convergence,
                 },
                 "input_specification": {
                     "schema_name": "qcschema_input",
                     "schema_version": 1,
                     "driver": 'gradient',
-                    "model": {'method': self.qm['theory'], 'basis': self.qm['basis']},
+                    "model": {'method': self.molecule.theory, 'basis': self.molecule.basis},
                     "keywords": {},
                 },
                 "initial_molecule": mol,
             }
             # TODO hide the output stream so it does not spoil the terminal printing
             # return_dict=True seems to be default False in newer versions. Ergo docs are wrong again.
-            ret = qcng.compute_procedure(geo_task, 'geometric', return_dict=True,
-                                         local_options={'memory': self.qm['memory'], 'ncores': self.qm['threads']})
+            ret = qcng.compute_procedure(
+                geo_task, 'geometric', return_dict=True,
+                local_options={'memory': self.molecule.memory, 'ncores': self.molecule.threads})
             return ret
 
         else:
@@ -730,6 +729,7 @@ class RDKit:
         elif file_type == 'mol2':
             mol = MolFromMol2File(filename, removeHs=False)
 
+        print(mol)
         return molecule
 
     @staticmethod
@@ -849,8 +849,8 @@ class Babel:
         :return: None
         """
 
-        input_type = str(input_file).split(".")[1]
-        output_type = str(output_file).split(".")[1]
+        input_type = str(input_file).split(".")[-1]
+        output_type = str(output_file).split(".")[-1]
 
         with open('babel.txt', 'w+') as log:
             sub_run(f'babel -i{input_type} {input_file} -o{output_type} {output_file}',
