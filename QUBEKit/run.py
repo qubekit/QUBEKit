@@ -578,6 +578,8 @@ class Execute:
     def parametrise(molecule):
         """Perform initial molecule parametrisation using OpenFF, Antechamber or XML."""
 
+        append_to_log('Starting parametrisation')
+
         # First copy the pdb and any other files into the folder
         copy(f'../{molecule.filename}', f'{molecule.filename}')
 
@@ -596,7 +598,7 @@ class Execute:
         # Perform the parametrisation
         param_dict[molecule.parameter_engine](molecule)
 
-        append_to_log(f'Parametrised molecule with {molecule.parameter_engine}')
+        append_to_log(f'Finishing parametrisation of molecule with {molecule.parameter_engine}')
 
         return molecule
 
@@ -610,6 +612,8 @@ class Execute:
 
         Geometric / OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
         """
+
+        append_to_log('Starting mm_optimisation')
 
         # Check which method we want then do the optimisation
         # TODO if we don't want geometric we can do a quick native openmm full optimisation?
@@ -636,7 +640,7 @@ class Execute:
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
 
-        append_to_log(f'mm_optimised the molecule with {self.molecule.mm_opt_method}')
+        append_to_log(f'Finishing mm_optimisation of the molecule with {self.molecule.mm_opt_method}')
 
         return molecule
 
@@ -644,7 +648,7 @@ class Execute:
         """Optimise the molecule with or without geometric."""
 
         # TODO This has gotten kinda gross, can we trim it and maybe move some logic back into engines.py?
-
+        append_to_log('Starting qm_optimisation')
         qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
 
         if molecule.geometric and molecule.bonds_engine == 'psi4':
@@ -681,7 +685,7 @@ class Execute:
             molecule.molecule['qm'], molecule.qm_energy = qm_engine.optimised_structure()
             molecule.write_xyz(input_type='qm', name='opt')
 
-        append_to_log(f'qm_optimised structure calculated{" with geometric" if molecule.geometric else ""}')
+        append_to_log(f'Finishing qm_optimisation of molecule using{" geometric and" if molecule.geometric else molecule.bonds_engine}')
 
         return molecule
 
@@ -690,6 +694,7 @@ class Execute:
 
         # TODO Because of QCEngine, nothing is being put into the hessian folder anymore
 
+        append_to_log('Starting hessian calculation')
         molecule.get_bond_lengths(input_type='qm')
 
         # Check what engine we want to use
@@ -702,7 +707,7 @@ class Execute:
             qceng = QCEngine(molecule)
             molecule.hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
 
-        append_to_log(f'Hessian calculated using {molecule.bonds_engine}')
+        append_to_log(f'Finishing Hessian calculation using {molecule.bonds_engine}')
 
         return molecule
 
@@ -710,15 +715,19 @@ class Execute:
     def mod_sem(molecule):
         """Modified Seminario for bonds and angles."""
 
+        append_to_log('Starting mod_Seminario method')
+
         mod_sem = ModSeminario(molecule)
         mod_sem.modified_seminario_method()
 
-        append_to_log('Mod_Seminario method complete')
+        append_to_log('Finishing Mod_Seminario method')
 
         return molecule
 
     def density(self, molecule):
         """Perform density calculation with the qm engine."""
+
+        append_to_log('Starting density calculation')
 
         if molecule.density_engine == 'onetep':
             molecule.write_xyz(input_type='qm')
@@ -733,7 +742,7 @@ class Execute:
             # Do normal density calculation
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
             qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent)
-            append_to_log('Density analysis complete')
+            append_to_log('Finishing Density calculation')
 
         return molecule
 
@@ -744,11 +753,12 @@ class Execute:
         # TODO add option to use chargemol on onetep cube files.
         # TODO Proper pathing
 
+        append_to_log('Starting charge partitioning')
         copy(f'../6_density/{molecule.name}.wfx', f'{molecule.name}.wfx')
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
 
-        append_to_log(f'Charge analysis completed with Chargemol and DDEC{molecule.ddec_version}')
+        append_to_log(f'Finishing Charge partitioning with Chargemol and DDEC{molecule.ddec_version}')
 
         return molecule
 
@@ -756,17 +766,21 @@ class Execute:
     def lennard_jones(molecule):
         """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
+        append_to_log('Starting Lennard-Jones parameter calculation')
+
         os.system('cp ../7_charges/DDEC* .')
         lj = LennardJones(molecule)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
-        append_to_log('Lennard-Jones parameters calculated')
+        append_to_log('Finishing Lennard-Jones parameter calculation')
 
         return molecule
 
     @staticmethod
     def torsion_scan(molecule):
         """Perform torsion scan."""
+
+        append_to_log('Starting torsion_scans')
 
         scan = TorsionScan(molecule)
 
@@ -779,7 +793,7 @@ class Execute:
 
         scan.start_scan()
 
-        append_to_log('Torsion_scans complete')
+        append_to_log('Finishing torsion_scans')
 
         return molecule
 
@@ -787,10 +801,12 @@ class Execute:
     def torsion_optimise(molecule):
         """Perform torsion optimisation."""
 
+        append_to_log('Starting torsion_optimisations')
+
         opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
         opt.run()
 
-        append_to_log('Torsion_optimisations complete')
+        append_to_log('Finishing torsion_optimisations')
 
         return molecule
 

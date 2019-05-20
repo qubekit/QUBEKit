@@ -316,14 +316,14 @@ class PSI4(Engines):
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
-            file.write(f'memory {self.molecule.theory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
+            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
             for atom in molecule:
                 file.write(f'  {atom[0]:2}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
             file.write(f" units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n")
 
             if threads:
-                file.write(f"set_num_threads({self.molecule.theory})")
+                file.write(f"set_num_threads({self.molecule.threads})")
             file.write(f"\n\ngradient('{self.molecule.theory}')\n")
 
         if execute:

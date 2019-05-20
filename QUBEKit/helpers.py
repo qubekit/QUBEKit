@@ -297,10 +297,17 @@ def append_to_log(message, msg_type='major'):
     Used for significant stages in the program such as when a stage has finished.
     """
 
-    if 'QUBEKit_log.txt' in os.listdir('.'):
-        log_file = 'QUBEKit_log.txt'
-    else:
-        log_file = '../QUBEKit_log.txt'
+    # Starting in the current directory walk back looking for the log file
+    # Stop at the first file found this should be our file
+    search_dir = os.getcwd()
+    while True:
+        if 'QUBEKit_log.txt' in os.listdir(search_dir):
+            log_file = os.path.abspath(os.path.join(search_dir, 'QUBEKit_log.txt'))
+            break
+
+        # Else we have to split the search path
+        else:
+            search_dir = os.path.split(search_dir)[0]
 
     # Check if the message is a blank string to avoid adding blank lines and unnecessary separators
     if message:
@@ -353,6 +360,7 @@ def pretty_progress():
                 # If the molecule name isn't found, there's something wrong with the log file
                 # To avoid errors, just skip over that file and tell the user.
                 print(f'Cannot locate molecule in {file}\nIs it a valid QUBEKit-made log file?\n')
+                continue
 
         # Create ordered dictionary based on the log file info
         info[name] = populate_progress_dict(file)
@@ -369,14 +377,16 @@ def pretty_progress():
         'red': '\033[1;31m',
         'green': '\033[1;32m',
         'orange': '\033[1;33m',
-        'blue': '\033[1;34m'
+        'blue': '\033[1;34m',
+        'purple': '\033[1;35m'
     }
 
     print('Displaying progress of all analyses in current directory.')
     print(f'Progress key: {colours["green"]}\u2713{end} = Done;', end=' ')
     print(f'{colours["blue"]}S{end} = Skipped;', end=' ')
     print(f'{colours["red"]}E{end} = Error;', end=' ')
-    print(f'{colours["orange"]}~{end} = Queued')
+    print(f'{colours["orange"]}R{end} = Running;', end=' ')
+    print(f'{colours["purple"]}~{end} = Queued')
 
     header_string = '{:15}' + '{:>10}' * 10
     print(header_string.format(
@@ -401,8 +411,11 @@ def pretty_progress():
             elif var_in == 'E':
                 print(f'{colours["red"]}{var_in:>9}{end}', end=' ')
 
-            elif var_in == '~':
+            elif var_in == 'R':
                 print(f'{colours["orange"]}{var_in:>9}{end}', end=' ')
+
+            elif var_in == '~':
+                print(f'{colours["purple"]}{var_in:>9}{end}', end=' ')
 
         print('')
 
@@ -418,17 +431,19 @@ def populate_progress_dict(file_name):
     """
 
     # Indicators in the log file which show a stage has completed
-    search_terms = ['PARAMETRISE', 'MM_OPT', 'QM_OPT', 'HESSIAN', 'MOD_SEM', 'DENSITY', 'CHARGE', 'LENNARD',
+    search_terms = ['PARAMETRISATION', 'MM_OPT', 'QM_OPT', 'HESSIAN', 'MOD_SEM', 'DENSITY', 'CHARGE', 'LENNARD',
                     'TORSION_S', 'TORSION_O']
 
     progress = OrderedDict((k, '~') for k in search_terms)
+
+    restart_log = False
 
     with open(file_name, 'r') as file:
         for line in file:
 
             # Reset progress when restarting (set all progress to incomplete)
             if 'Continuing log file' in line:
-                progress = OrderedDict((k, '~') for k in search_terms)
+                restart_log = True
 
             # Look for the specific search terms
             for term in search_terms:
@@ -436,8 +451,11 @@ def populate_progress_dict(file_name):
                     # If you find a search term, check if it's skipped (S)
                     if 'SKIP' in line:
                         progress[term] = 'S'
-                    # If it's found and not skipped, it must be done (tick)
-                    else:
+                    # If we have restarted then we need to
+                    elif 'STARTING' in line:
+                        progress[term] = 'R'
+                    # If its finishing tag is present it is done (tick)
+                    elif 'FINISHING' in line:
                         progress[term] = u'\u2713'
                     last_success = term
 
@@ -451,8 +469,18 @@ def populate_progress_dict(file_name):
                     term = search_terms[search_terms.index(last_success)]
                 # If errored immediately, then last_success won't have been defined yet
                 except UnboundLocalError:
-                    term = 'PARAMETRISE'
+                    term = 'PARAMETRISATION'
                 progress[term] = 'E'
+
+    # Now we need to check if there was a restart and clear the progress of everything after the running step
+    if restart_log:
+        for term, stage in progress.items():
+            if stage == 'R':
+                restart_term = search_terms.index(term)
+                break
+
+        for term in search_terms[restart_term + 1:]:
+            progress[term] = '~'
 
     return progress
 
