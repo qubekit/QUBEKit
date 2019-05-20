@@ -728,6 +728,8 @@ class RDKit:
             mol = MolFromPDBFile(filename, removeHs=False)
         elif file_type == 'mol2':
             mol = MolFromMol2File(filename, removeHs=False)
+        else:
+            mol = None
 
         print(mol)
         return molecule
@@ -848,6 +850,8 @@ class Babel:
         :param output_file: Output file name, file type is found by splitting the name by .
         :return: None
         """
+
+        # TODO Name output_file automatically? Supply output_type instead?
 
         input_type = str(input_file).split(".")[-1]
         output_type = str(output_file).split(".")[-1]

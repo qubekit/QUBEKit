@@ -206,8 +206,8 @@ See [QUBEKit Commands: Custom Start and End Points (single molecule)](https://gi
 ### QUBEKit Commands: Logging
 
 Each time QUBEKit runs, a new working directory containing a log file will be created.
-The name of the directory will contain the run number provided via the terminal command `-log` 
-(or the default run number in the configs if a `-log` command is not provided).
+The name of the directory will contain the run number or name provided via the terminal command `-log` 
+(or the run number or name from the configs if a `-log` command is not provided).
 This log file will store which methods were called, how long they took, and any docstring for them (if it exists).
 The log file will also contain information regarding the config options used, as well as the commands given and much more.
 The log file updates in real time and contains far more information than is printed to the terminal during a run.
@@ -254,7 +254,7 @@ importantly, different config files can be supplied for each molecule.
 
 * If the config column is not filled, the default config is used.
 * The smiles string column only needs to be filled if a pdb is not supplied.
-* Leaving the start column empty will start the program from the beginning.
+* Leaving the restart column empty will start the program from the beginning.
 * Leaving the end column empty will end the program after a full analysis.
 
 A bulk analysis is called with the command:
@@ -292,7 +292,7 @@ For example (csv row order does not matter, and you do not need to include smile
         bulk_example.csv
 
     bulk_example.csv:
-        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        name,charge,multiplicity,config,smiles,torsion_order,restart,end
         methane,0,1,default_config,C,,,
         benzene,0,1,default_config,,,,
         ethane,0,1,default_config,,,,
@@ -393,7 +393,7 @@ There will however be a clear marker in the log file, indicating when an analysi
 Using a similar example as above, two molecules are analysed with DDEC6, then restarted for analysis with DDEC3:
 
     first_run.csv:
-        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        name,charge,multiplicity,config,smiles,torsion_order,restart,end
         ethane,0,1,ddec6_config,,,,charges
         benzene,0,1,ddec6_config,,,,charges
     
@@ -403,7 +403,7 @@ Using a similar example as above, two molecules are analysed with DDEC6, then re
     
     
     second_run.csv:
-        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        name,charge,multiplicity,config,smiles,torsion_order,restart,end
         ethane,0,1,ddec3_config,,,density,charges
         benzene,0,1,ddec3_config,,,density,charges
     
@@ -520,7 +520,7 @@ Generate a blank csv file with a relevant name:
 Fill in each row like so:
 
     density.csv:
-        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        name,charge,multiplicity,config,smiles,torsion_order,restart,end
         methane,0,1,master_config.ini,,,,density
         ethane,0,1,master_config.ini,,,,density
         propane,0,1,master_config.ini,,,,density
@@ -540,7 +540,7 @@ Generate a blank csv with the name `simple_alkanes`:
 Fill in the csv file like so:
 
     simple_alkanes.csv:
-        name,charge,multiplicity,config,smiles string,torsion order,start,end
+        name,charge,multiplicity,config,smiles,torsion_order,restart,end
         methane,0,1,master_config.ini,C,,,
         ethane,0,1,master_config.ini,CC,,,
         propane,0,1,master_config.ini,CCC,,,
