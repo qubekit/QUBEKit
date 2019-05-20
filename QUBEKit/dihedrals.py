@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# TODO
+#  Remove commented code
+#  Remove Pymol dependency
+
 from QUBEKit.decorators import timer_logger, for_all_methods
 from QUBEKit.engines import PSI4, OpenMM
 
@@ -395,7 +399,7 @@ class TorsionOptimiser:
     def update_tor_vec(self, x):
         """Update the tor_types dict with the parameter vector."""
 
-        x = round(x, decimals=4)
+        x = round(x, ndigits=4)
 
         # Update the param vector for the right torsions by slicing the vector every 4 places
         for key, val in self.tor_types.items():

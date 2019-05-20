@@ -127,10 +127,7 @@ def exception_logger(func):
             logger.exception(f'An exception occurred with: {func.__qualname__}')
             print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
 
-            if 'QUBEKit_log.txt' in os.listdir("."):
-                log_file = 'QUBEKit_log.txt'
-            else:
-                log_file = '../QUBEKit_log.txt'
+            log_file = f'{"" if "QUBEKit_log.txt" in os.listdir(".") else "../"}QUBEKit_log.txt'
 
             with open(log_file, 'r') as log:
 

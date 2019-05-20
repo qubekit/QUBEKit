@@ -1,5 +1,7 @@
-# TODO Are self.molecule.input and self.molecule.filename always the same? Can we remove one?
-# TODO Squash unnecessary arguments into self.molecule. Args such as torsion_options.
+# TODO
+#  Are self.molecule.input and self.molecule.filename always the same? Can we remove one?
+#  Squash unnecessary arguments into self.molecule. Args such as torsion_options.
+#  Switch to normal dicts rather than Ordered; all dicts are now ordered in newer versions.
 
 from QUBEKit.decorators import exception_logger
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
@@ -50,13 +52,14 @@ class ArgsAndConfigs:
         self.args = self.parse_commands()
 
         # If it's a bulk run, handle it separately
+        # TODO Add .sdf as possible bulk_run, not just .csv
         if self.args.bulk_run:
             self.handle_bulk()
 
         if self.args.restart:
             self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
         else:
-            # TODO Handle smiles for single molecules
+            # TODO Handle smiles for single molecules not just bulk
             self.file = self.args.input
 
         # Initialise molecule
@@ -113,6 +116,8 @@ class ArgsAndConfigs:
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when setup is called."""
 
+                # TODO Add exit option instead of raising KeyError? choice == 4: sys.exit()?
+
                 choice = int(input('You can now edit config files using QUBEKit, choose an option to continue:\n'
                                    '1) Edit a config file\n'
                                    '2) Create a new master template\n'
@@ -167,7 +172,6 @@ class ArgsAndConfigs:
                 """This function is executed when Torsion maker is called."""
                 # load in the ligand molecule
                 mol = Ligand(values)
-                # Make fake config data
 
                 # Prompt the user for the scan order
                 scanner = TorsionScan(mol)
@@ -306,7 +310,7 @@ class ArgsAndConfigs:
             # Now that all configs are stored correctly: execute.
             Execute(self.molecule)
 
-        # TODO Print some nice end message?
+        sys.exit('Bulk analysis complete.\nUse QUBEKit -progress to view the completion progress of your molecules')
 
 
 class Execute:

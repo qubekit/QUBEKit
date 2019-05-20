@@ -17,6 +17,8 @@ class Configure:
     settings as strings, all numbers must then be cast before use.
     """
 
+    # TODO Remove/merge the separate sections qm, fitting, descriptions?
+
     home = Path.home()
     config_folder = f'{home}/QUBEKit_configs/'
     master_file = 'master_config.ini'
@@ -145,6 +147,7 @@ class Configure:
         fitting['l_pen'] = float(fitting['l_pen'])
 
         # return qm, fitting, descriptions
+        # TODO Fix this monstrosity
         return {**dict(qm), **dict(fitting), **dict(descriptions)}
 
     @staticmethod
@@ -266,7 +269,7 @@ def mol_data_from_csv(csv_name):
 def generate_bulk_csv(csv_name):
     """
     Generates a csv with name "csv_name" with minimal information inside.
-    Contains only headers and a row of defaults and populates all of the name fileds where available.
+    Contains only headers and a row of defaults and populates all of the named files where available.
     """
 
     files = []
@@ -489,7 +492,8 @@ def unpickle():
 
     # unpickle the pickle jar
     # try to load a pickle file make sure to get all objects
-    with open('.QUBEKit_states', 'rb') as jar:
+    pickle_file = f'{"" if ".QUBEKit_states" in os.listdir(".") else "../"}.QUBEKit_states'
+    with open(pickle_file, 'rb') as jar:
         while True:
             try:
                 mol = pickle.load(jar)
