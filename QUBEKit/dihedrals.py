@@ -31,17 +31,17 @@ class TorsionScan:
     grid_space                  The distance between the scan points on the surface
     """
 
-    def __init__(self, molecule, config_dict, native_opt=False, verbose=False, constraints_made=False):
+    def __init__(self, molecule, native_opt=False, verbose=False, constraints_made=False):
 
         # engine info
-        self.qm_engine = PSI4(molecule, config_dict)
-        self.grid_space = self.qm_engine.fitting['increment']
+        self.qm_engine = PSI4(molecule)
         self.native_opt = native_opt
         self.verbose = verbose
 
         # molecule
-        self.scan_mol = molecule
+        self.molecule = molecule
         self.constraints_made = constraints_made
+        self.grid_space = molecule.increment
 
         # working dir
         self.home = os.getcwd()
@@ -58,16 +58,16 @@ class TorsionScan:
         Else the use can supply a torsiondrive style QUBE_torsions.txt file that we can extract the parameters from.
         """
 
-        if self.scan_mol.scan_order:
-            return self.scan_mol
+        if self.molecule.scan_order:
+            return self.molecule
 
-        elif self.scan_mol.rotatable is None:
+        elif self.molecule.rotatable is None:
             print('No rotatable torsions found in the molecule')
-            self.scan_mol.scan_order = []
+            self.molecule.scan_order = []
 
-        elif len(self.scan_mol.rotatable) == 1:
+        elif len(self.molecule.rotatable) == 1:
             print('One rotatable torsion found')
-            self.scan_mol.scan_order = self.scan_mol.rotatable
+            self.molecule.scan_order = self.molecule.rotatable
 
         # If we have a QUBE_torsions.txt file get the scan order from there
         elif file:
@@ -76,24 +76,24 @@ class TorsionScan:
             for line in torsions[2:]:
                 torsion = line.split()
                 core = (int(torsion[1]), int(torsion[2]))
-                if core in self.scan_mol.rotatable:
+                if core in self.molecule.rotatable:
                     scan_order.append(core)
-                elif reversed(tuple(core)) in self.scan_mol.rotatable:
+                elif reversed(tuple(core)) in self.molecule.rotatable:
                     scan_order.append(reversed(tuple(core)))
 
-            self.scan_mol.scan_order = scan_order
+            self.molecule.scan_order = scan_order
 
         else:
             # Get the rotatable dihedrals from the molecule
-            rotatable = list(self.scan_mol.rotatable)
+            rotatable = list(self.molecule.rotatable)
             print('Please select the central bonds round which you wish to scan in the order to be scanned')
             print('Torsion number   Central-Bond   Representative Dihedral')
             for i, bond in enumerate(rotatable):
                 print(f'  {i + 1}                    {bond[0]}-{bond[1]}             '
-                      f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][0] - 1]}-'
-                      f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][1] - 1]}-'
-                      f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][2] - 1]}-'
-                      f'{self.scan_mol.atom_names[self.scan_mol.dihedrals[bond][0][3] - 1]}')
+                      f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][0] - 1]}-'
+                      f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][1] - 1]}-'
+                      f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][2] - 1]}-'
+                      f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][3] - 1]}')
 
             scans = list(input('>'))  # Enter as a space separated list
             scans[:] = [scan for scan in scans if scan != ' ']  # remove all spaces from the scan list
@@ -102,7 +102,7 @@ class TorsionScan:
             # Add the rotatable dihedral keys to an array
             for scan in scans:
                 scan_order.append(rotatable[int(scan) - 1])
-            self.scan_mol.scan_order = scan_order
+            self.molecule.scan_order = scan_order
 
     def qm_scan_input(self, scan):
         """Function takes the rotatable dihedrals requested and writes a scan input file for torsiondrive."""
@@ -110,7 +110,7 @@ class TorsionScan:
         with open('dihedrals.txt', 'w+') as out:
 
             out.write('# dihedral definition by atom indices starting from 0\n# i     j     k     l\n')
-            scan_di = self.scan_mol.dihedrals[scan][0]
+            scan_di = self.molecule.dihedrals[scan][0]
             out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}\n')
 
         # TODO need to add PSI4 redundant mode selector
@@ -125,7 +125,7 @@ class TorsionScan:
         """Generates a command string to run torsiondrive based on the input commands for QM and MM."""
 
         # add the first basic command elements for QM
-        cmd_qm = f'torsiondrive-launch {self.scan_mol.name}.psi4in dihedrals.txt '
+        cmd_qm = f'torsiondrive-launch {self.molecule.name}.psi4in dihedrals.txt '
 
         if self.grid_space:
             cmd_qm += f'-g {self.grid_space} '
@@ -156,7 +156,7 @@ class TorsionScan:
                 if 'Energy ' in line:
                     scan_energy.append(float(line.split()[3]))
 
-            self.scan_mol.qm_scan_energy[scan] = np.array(scan_energy)
+            self.molecule.qm_scan_energy[scan] = np.array(scan_energy)
 
     def start_scan(self):
         """Makes a folder and writes a new a dihedral input file for each scan and runs the scan."""
@@ -168,7 +168,7 @@ class TorsionScan:
         #   We must also make sure that we don't exceed the core limit when we do this!
         #   e.g. user gives 6 cores for QM and we run two drives that takes 12 cores!
 
-        for scan in self.scan_mol.scan_order:
+        for scan in self.molecule.scan_order:
             try:
                 os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
             except FileExistsError:
@@ -216,17 +216,16 @@ class TorsionOptimiser:
     vn_bounds:              The absolute upper limit on Vn parameters (moving past this has a heavy penalty)
     """
 
-    def __init__(self, molecule, config_dict, weight_mm=True, use_force=False, step_size=0.02, error_tol=1e-5,
+    def __init__(self, molecule, weight_mm=True, use_force=False, step_size=0.02, error_tol=1e-5,
                  x_tol=1e-5, refinement='Steep', vn_bounds=20):
 
         # configurations
-        self.qm, self.fitting, self.descriptions = config_dict[1:]
-        self.l_pen = self.fitting['l_pen']
-        self.t_weight = self.fitting['t_weight']
+        self.l_pen = self.molecule.l_pen
+        self.t_weight = self.molecule.t_weight
         self.weight_mm = weight_mm
         self.step_size = step_size
         self.methods = {'NM': 'Nelder-Mead', 'BFGS': 'BFGS', None: None}
-        self.method = self.methods[self.fitting['opt_method']]
+        self.method = self.methods[self.molecule.opt_method]
         self.error_tol = error_tol
         self.x_tol = x_tol
         self.use_Force = use_force
@@ -235,7 +234,7 @@ class TorsionOptimiser:
 
         # QUBEKit objects
         self.molecule = molecule
-        self.qm_engine = PSI4(molecule, config_dict)
+        self.qm_engine = PSI4(molecule)
 
         # TorsionOptimiser starting parameters
         # QM scan energies {(scan): [array of qm energies]}
@@ -993,6 +992,7 @@ class TorsionOptimiser:
         py_cmd.load(mm_coords, object='MM_scan')
         py_cmd.load(qm_coords, object='QM_scan')
         rmsd = py_cmd.align('MM_scan', 'QM_scan')[0]
+
         # Remove the objects from the pymol instance
         py_cmd.delete('MM_scan')
         py_cmd.delete('QM_scan')
@@ -1097,6 +1097,7 @@ class TorsionOptimiser:
         # self.mm_energy /= 4.184 # convert from kj to kcal
 
         # Make the angle array
+        # TODO How does the qm_engine have a fitting argument? Should it be self.molecule.increment?
         angles = [x for x in range(-165, 195, self.qm_engine.fitting['increment'])]
         plt.plot(angles, self.qm_energy, 'o', label='QM')
         for pos, scan in enumerate(energies):

@@ -1,6 +1,5 @@
-#!/usr/bin/env python
-
-# TODO Get rid of linux-specific commands
+# TODO Are self.molecule.input and self.molecule.filename always the same? Can we remove one?
+# TODO Squash unnecessary arguments into self.molecule. Args such as torsion_options.
 
 from QUBEKit.decorators import exception_logger
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
@@ -26,139 +25,63 @@ import argparse
 printf = partial(print, flush=True)
 
 
-class Main:
+class ArgsAndConfigs:
     """
-    Interprets commands from the terminal.
-    Stores defaults or executes relevant functions.
-    Will also create log and working directory where needed.
-    See README.md for detailed discussion of QUBEKit commands or method docstrings for specifics of their functionality.
+    This class will be called once for any individual or bulk run.
+    As such, this class needs to:
+        * Parse all commands from terminal
+        * If individual:
+            * Initialise molecule
+            * Using proper config file (from terminal command or default)
+            * Store all configs from file into Molecule object
+            * Store any config changes from terminal into Molecule object
+            * Call Execute (which handles: working dir, logging, order, etc; see docstring for info)
+
+        * If bulk:
+            * For each molecule:
+                * Initialise molecule
+                * Using proper config file (from terminal command or default)
+                * Store all configs from file
+                * Store any config changes from terminal
+                * Call Execute
     """
 
     def __init__(self):
-
-        self.file = None
-        self.log_file = 'QUBEKit_log.txt'
-
-        self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, '
-                             'view the log file.\nOur documentation (README.md) '
-                             'also contains help on handling the various commands for QUBEKit.\n')
-
-        # Call order of the analysing methods.
-        # Slices of this dict are taken when changing the start and end points of analyses.
-        self.order = OrderedDict([('parametrise', self.parametrise),
-                                  ('mm_optimise', self.mm_optimise),
-                                  ('qm_optimise', self.qm_optimise),
-                                  ('hessian', self.hessian),
-                                  ('mod_sem', self.mod_sem),
-                                  ('density', self.density),
-                                  ('charges', self.charges),
-                                  ('lennard_jones', self.lennard_jones),
-                                  ('torsion_scan', self.torsion_scan),
-                                  ('torsion_optimise', self.torsion_optimise),
-                                  ('finalise', self.finalise)])
-
-        self.immutable_order = list(self.order)
-
-        # TODO Make QCEngine optional? i.e. don't run it automatically when psi4 is selected.
-        self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
-
-        # Argparse will only return if we are doing a QUBEKit run bulk or normal
         self.args = self.parse_commands()
 
-        self.constraints_file = ''
-
-        # Look through the command line options and apply bulk and restart settings
-        self.check_options()
-
-        # Configs:
-        self.defaults_dict = {'charge': self.args.charge,
-                              'multiplicity': self.args.multiplicity,
-                              'config': self.args.config_file}
-
-        self.configs = {'qm': {}, 'fitting': {}, 'descriptions': {}}
-
-        # Find which config is being used and store arguments accordingly
-        if self.args.config_file == 'default_config':
-            if not Configure.check_master():
-                # Press any key to continue
-                input('You must set up a master config to use QUBEKit and change the chargemol path; '
-                      'press enter to edit master config. \n'
-                      'You are free to change it later, with whichever editor you prefer.')
-
-                Configure.ini_writer('master_config.ini')
-                Configure.ini_edit('master_config.ini')
-
-        self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
-        self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
-
-        # Update the configs with any command line options
-        self.config_update()
-
-        self.continue_log() if self.args.restart is not None else self.create_log()
-
-        # Starting a single run so print the message
-        printf(self.start_up_msg)
-
-        self.execute()
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.__dict__!r})'
-
-    def check_options(self):
-        """
-        Read through the command line and handle options which affect the main execute
-        like restart or start a bulk run.
-        """
-
-        # Run the bulk command and exit the code on completion
+        # If it's a bulk run, handle it separately
         if self.args.bulk_run:
-            self.bulk_execute()
+            self.handle_bulk()
 
-        # check if we just want to do the torsion test?
-        elif self.args.torsion_test:
-            # get the file
-            self.file = self.args.input
-            self.order = OrderedDict([('parametrise', self.parametrise), ('torsion_test', self.torsion_test),
-                                      ('finalise', self.finalise)])
-
-        # If not bulk must be main single run
         if self.args.restart:
             self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
         else:
+            # TODO Handle smiles for single molecules
             self.file = self.args.input
 
-        # Check the end points for a normal run
-        start_point = self.args.restart if self.args.restart is not None else 'parametrise'
-        end_point = self.args.end if self.args.end is not None else 'finalise'
-        skip_list = self.args.skip if self.args.skip is not None else []
+        # Initialise molecule
+        self.molecule = Ligand(self.file)
 
-        # Create list of all keys
-        stages = list(self.order)
+        # Find which config file is being used
+        self.molecule.config = self.args.config_file
 
-        # Cut out the keys before the start_point and after the end_point
-        # Add finalise back in if it's removed (finalise should always be called).
-        stages = stages[stages.index(start_point):stages.index(end_point)] + ['finalise']
+        # Handle configs which are in a file
+        file_configs = Configure.load_config(self.molecule.config)
+        for name, val in file_configs.items():
+            setattr(self.molecule, name, val)
 
-        # Redefine self.order to only contain the key, val pairs from stages
-        self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
+        # Although these may be None always, they need be explicitly set anyway.
+        setattr(self.molecule, 'restart', None)
+        setattr(self.molecule, 'end', None)
+        setattr(self.molecule, 'skip', None)
 
-        for pair in self.order.items():
-            if pair[0] in skip_list:
-                self.order[pair[0]] = self.skip
-            else:
-                self.order[pair[0]] = pair[1]
+        # Handle configs which are changed by terminal commands
+        for name, val in vars(self.args).items():
+            if val is not None:
+                setattr(self.molecule, name, val)
 
-    def config_update(self):
-        """Update the config setting using the argparse options from the command line."""
-
-        for key, value in vars(self.args).items():
-            if value is not None:
-                if key in self.qm:
-                    self.qm[key] = value
-                elif key in self.fitting:
-                    self.fitting[key] = value
-                elif key in self.descriptions:
-                    self.descriptions[key] = value
+        # Now that all configs are stored correctly: execute.
+        Execute(self.molecule)
 
     @staticmethod
     def parse_commands():
@@ -245,14 +168,9 @@ class Main:
                 # load in the ligand molecule
                 mol = Ligand(values)
                 # Make fake config data
-                configs = {'charge': 0, 'multiplicity': 1,
-                              'config': 'default'}
 
-                qm, fitting, descriptions ={'theory': 'wB97XD'}, {'increment': 15}, {}
-                all_configs = [configs, qm, fitting, descriptions]
-
-                # now promt the user for the scan order
-                scanner = TorsionScan(mol, all_configs)
+                # Prompt the user for the scan order
+                scanner = TorsionScan(mol)
                 scanner.find_scan_order()
 
                 # Write out the scan file
@@ -269,19 +187,9 @@ class Main:
             """Convert a string to a bool for argparse use when casting to bool"""
             return True if string.lower() in ['true', 't', 'yes', 'y'] else False
 
-        # Extract the intro the readme. this is based on the title "What is QUBEKit" and the following paragraph
-        # which starts with "Users who ... "
+        # TODO Get intro (in a nice way) from the README.md
+        # TODO Add command-line args for every possible config change
         intro = ''
-        # with open(f'{"" if os.path.exists("../README.md") else "../"}../README.md') as readme:
-        #     flag = False
-        #     for line in readme:
-        #         if 'Users who' in line:
-        #             flag = False
-        #         if flag:
-        #             intro += line
-        #         if '## What is QUBEKit' in line:
-        #             flag = True
-
         parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
                                          description=intro)
 
@@ -289,6 +197,7 @@ class Main:
         parser.add_argument('-c', '--charge', default=0, type=int, help='Enter the charge of the molecule, default 0.')
         parser.add_argument('-m', '--multiplicity', default=1, type=int, help='Enter the multiplicity of the '
                                                                               'molecule, default 1.')
+        parser.add_argument('-threads', '--threads', type=int, help='')
         parser.add_argument('-ddec', '--ddec_version', choices=[3, 6], type=int,
                             help='Enter the ddec version for charge partitioning, does not effect ONETEP partitioning.')
         parser.add_argument('-geo', '--geometric', choices=[True, False], type=string_to_bool,
@@ -301,7 +210,7 @@ class Main:
                             help='Enter the name of the QM code to calculate the electron density of the molecule.')
         parser.add_argument('-solvent', '--solvent', choices=[True, False], type=string_to_bool,
                             help='Enter whether or not you would like to use a solvent.')
-        # maybe separate into known solvents and IPCM constants?
+        # Maybe separate into known solvents and IPCM constants?
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
                             help='Enter the convergence criteria for the optimisation.')
         parser.add_argument('-param', '--parameter_engine', choices=['xml', 'antechamber', 'openff'],
@@ -319,16 +228,17 @@ class Main:
         parser.add_argument('-restart', '--restart', choices=['parametrise', 'mm_optimise', 'qm_optimise', 'hessian',
                                                               'mod_sem', 'density', 'charges', 'lennard_jones',
                                                               'torsion_scan', 'torsion_optimise'],
-                            help='Enter the restart point of a QUBEKit job.')
+                            default=None, help='Enter the restart point of a QUBEKit job.')
         parser.add_argument('-end', '-end', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem', 'density',
                                                      'charges', 'lennard_jones', 'torsion_scan', 'torsion_optimise',
-                                                     'finalise'], help='Enter the end point of the QUBEKit job.')
+                                                     'finalise'],
+                            default=None, help='Enter the end point of the QUBEKit job.')
         parser.add_argument('-progress', '--progress', nargs='?', const=True,
                             help='Get the current progress of a QUBEKit single or bulk job.', action=ProgressAction)
         parser.add_argument('-skip', '--skip', nargs='+', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem',
                                                                    'density', 'charges', 'lennard_jones',
                                                                    'torsion_scan', 'torsion_optimise', 'finalise'],
-                            help='Option to skip certain stages of the execution.')
+                            default=None, help='Option to skip certain stages of the execution.')
         parser.add_argument('-tor_test', '--torsion_test', default=False, choices=[True, False], type=string_to_bool,
                             help='Enter True if you would like to run a torsion test on the chosen torsions.')
         parser.add_argument('-tor_make', '--torsion_maker', action=TorsionMakerAction,
@@ -349,70 +259,131 @@ class Main:
 
         return parser.parse_args()
 
-    def bulk_execute(self):
-        """Run a bulk QUBEKit job in serial mode."""
-
-        # TODO look at worker queues to maximise resource usage
-
-        printf(self.start_up_msg)
+    def handle_bulk(self):
+        """
+        Getting and setting configs for bulk runs is a little different, requiring this method.
+        The configs are taken from the .csv, then the .ini, then the terminal.
+        This is repeated for each molecule in the bulk run.
+        """
 
         csv_file = self.args.bulk_run
+        # mol_data_from_csv handles defaults if no argument is given
         bulk_data = mol_data_from_csv(csv_file)
 
         names = list(bulk_data)
 
-        # Store a copy of self.order which will not be mutated.
-        # This allows self.order to be built up after each run.
-        temp = self.order
-
         for name in names:
-            printf(f'\nAnalysing: {name}\n')
+            printf(f'Analysing: {name}\n')
 
-            # Get the start and end points from the csv file, otherwise use defaults.
-            start_point = bulk_data[name]['start'] if bulk_data[name]['start'] else 'parametrise'
-            end_point = bulk_data[name]['end'] if bulk_data[name]['end'] else 'finalise'
+            # Get pdb from smiles or name if no smiles is given
+            if bulk_data[name]['smiles'] is not None:
+                smiles_string = bulk_data[name]['smiles']
+                self.file = RDKit.smiles_to_pdb(smiles_string, name)
 
-            torsion_options = bulk_data[name]['torsion order']
-            stages = list(temp)
-
-            # Set stages to be the keys of self.order which will be executed (finalise is always executed).
-            stages = stages[stages.index(start_point):stages.index(end_point)] + ['finalise']
-            self.order = OrderedDict(pair for pair in temp.items() if pair[0] in set(stages))
-
-            # Configs
-            self.defaults_dict = bulk_data[name]
-            self.qm, self.fitting, self.descriptions = Configure.load_config(self.defaults_dict['config'])
-            self.all_configs = [self.defaults_dict, self.qm, self.fitting, self.descriptions]
-
-            # If starting from the beginning, create log and pdb file then execute as normal for each run
-            if start_point == 'parametrise':
-
-                if bulk_data[name]['smiles string'] is not None:
-                    smiles_string = bulk_data[name]['smiles string']
-                    self.file = RDKit.smiles_to_pdb(smiles_string, name)
-
-                else:
-                    self.file = f'{name}.pdb'
-
-                self.create_log()
-
-            # If starting from the middle somewhere, FIND (not create) the folder, and log and pdb files, then execute
             else:
-                for root, dirs, files in os.walk('.', topdown=True):
-                    for dir_name in dirs:
-                        if dir_name.startswith(f'QUBEKit_{name}'):
-                            os.chdir(dir_name)
+                self.file = f'{name}.pdb'
 
-                # These are the files in the active directory, search for the pdb.
-                self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
+            # Initialise molecule, ready to add configs to it
+            self.molecule = Ligand(self.file)
 
-                self.continue_log()
+            # Read each row in bulk data and set it to the molecule object
+            for key, val in bulk_data[name].items():
+                setattr(self.molecule, key, val)
 
-            # if we have a torsion order add it here
-            self.execute(torsion_options)
-            os.chdir('../')
+            setattr(self.molecule, 'skip', [])
 
-        sys.exit('\nFinished bulk run. Use the command -progress to view which stages have completed.')
+            # Using the config file from the .csv, gather the .ini file configs
+            file_configs = Configure.load_config(self.molecule.config)
+            for key, val in file_configs.items():
+                setattr(self.molecule, key, val)
+
+            # TODO Maybe remove? Do we actually want bulk analyses editable via terminal commands?
+            # Handle configs which are changed by terminal commands
+            for key, val in vars(self.args).items():
+                if val is not None:
+                    setattr(self.molecule, key, val)
+
+            # Now that all configs are stored correctly: execute.
+            Execute(self.molecule)
+
+        # TODO Print some nice end message?
+
+
+class Execute:
+    """
+    This class will be called for each INDIVIDUAL run.
+    ArgsAndConfigs will handle bulk runs, calling this class as and when necessary.
+
+    As such, this class needs to handle for each run:
+        * Create and / or move into working dir
+        * Create log file (may be skipped if restarting
+        * Write to log file what is happening at the start of execution
+        * Execute any stages required, in the correct order
+        * Store info to log file
+        * Return results
+    """
+
+    def __init__(self, molecule):
+
+        # At this point, molecule should contain all of the config options from
+        # the defaults, config file and terminal commands.
+        self.molecule = molecule
+
+        self.start_up_msg = ('If QUBEKit ever breaks or you would like to view timings and loads of other info, '
+                             'view the log file.\nOur documentation (README.md) '
+                             'also contains help on handling the various commands for QUBEKit.\n')
+
+        self.order = OrderedDict([('parametrise', self.parametrise),
+                                  ('mm_optimise', self.mm_optimise),
+                                  ('qm_optimise', self.qm_optimise),
+                                  ('hessian', self.hessian),
+                                  ('mod_sem', self.mod_sem),
+                                  ('density', self.density),
+                                  ('charges', self.charges),
+                                  ('lennard_jones', self.lennard_jones),
+                                  ('torsion_scan', self.torsion_scan),
+                                  ('torsion_optimise', self.torsion_optimise),
+                                  ('finalise', self.finalise)])
+
+        # Keep this for pickling
+        self.immutable_order = list(self.order)
+
+        self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'onetep': ONETEP}
+
+        printf(self.start_up_msg)
+
+        # If restart is None, then the analysis has not been started previously
+        self.create_log() if self.molecule.restart is None else self.continue_log()
+
+        self.redefine_order()
+
+        self.run()
+
+    def redefine_order(self):
+        """
+        If any order changes are required (restarting, new end point, skipping stages), it is does here.
+        Creates a new self.order based on self.molecule's configs.
+        """
+
+        start = self.molecule.restart if self.molecule.restart is not None else 'parametrise'
+        end = self.molecule.end if self.molecule.end is not None else 'finalise'
+        skip = self.molecule.skip if self.molecule.skip is not None else []
+
+        # Create list of all keys
+        stages = list(self.order)
+
+        # Cut out the keys before the start_point and after the end_point
+        # Add finalise back in if it's removed (finalise should always be called).
+        stages = stages[stages.index(start):stages.index(end)] + ['finalise']
+
+        # Redefine self.order to only contain the key, val pairs from stages
+        self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
+
+        for pair in self.order.items():
+            if pair[0] in skip:
+                self.order[pair[0]] = self.skip
+            else:
+                self.order[pair[0]] = pair[1]
 
     def create_log(self):
         """
@@ -422,13 +393,16 @@ class Main:
             - helpers.append_to_log() is called;
             - helpers.pretty_print() is called with to_file set to True;
             - decorators.exception_logger_decorator() wraps a function / method which throws an exception.
+
+        Also makes backups if the working directory already exists.
         """
 
         date = datetime.now().strftime('%Y_%m_%d')
 
         # Define name of working directory.
         # This is formatted as 'QUBEKit_molecule name_yyyy_mm_dd_log_string'.
-        dir_name = f'QUBEKit_{self.file[:-4]}_{date}_{self.descriptions["log"]}'
+
+        dir_name = f'QUBEKit_{self.molecule.name}_{date}_{self.molecule.log}'
 
         # Back up stuff:
         #   If you can't make a dir because it exists, back it up.
@@ -455,25 +429,19 @@ class Main:
         # Finally, having made any necessary backups, move files and change to working dir.
         finally:
             # Copy active pdb into new directory.
-            abspath = os.path.abspath(self.file)
-            copy(abspath, f'{dir_name}/{self.file}')
+            abspath = os.path.abspath(self.molecule.filename)
+            copy(abspath, f'{dir_name}/{self.molecule.filename}')
             os.chdir(dir_name)
 
-        # TODO Better handling of constraints files; what if we have more than one?
-        for root, dirs, files in os.walk('.', topdown=True):
-            for file in files:
-                if 'constraints.txt' in file:
-                    self.constraints_file = os.path.abspath(f'{root}/{file}')
-
         # Find external files
-        copy_files = [f'{self.file[:-4]}.xml', 'QUBE_torsions.txt']
+        copy_files = [f'{self.molecule.name}.xml', 'QUBE_torsions.txt']
         for file in copy_files:
             try:
                 copy(f'../{file}', file)
             except FileNotFoundError:
                 pass
 
-        with open(self.log_file, 'w+') as log_file:
+        with open('QUBEKit_log.txt', 'w+') as log_file:
             log_file.write(f'Beginning log file; the time is: {datetime.now()}\n\n\n')
 
         self.log_configs()
@@ -484,33 +452,69 @@ class Main:
         rather than creating a new one.
         """
 
-        with open(self.log_file, 'a+') as log_file:
+        with open('QUBEKit_log.txt', 'a+') as log_file:
             log_file.write(f'\n\nContinuing log file from previous execution; the time is: {datetime.now()}\n\n\n')
 
         self.log_configs()
 
     def log_configs(self):
-        """
-        Writes the runtime and file-based defaults to a log file.
-        Adds some fluff like the molecule name and time.
-        """
+        """Writes the runtime and file-based defaults to a log file."""
 
-        with open(self.log_file, 'a+') as log_file:
+        with open('QUBEKit_log.txt', 'a+') as log_file:
 
-            log_file.write(f'Analysing: {self.file[:-4]}\n\n')
+            log_file.write(f'Analysing: {self.molecule.name}\n\n')
 
-            log_file.write('The runtime defaults are:\n\n')
-            for key, val in vars(self.args).items():
+            log_file.write('The runtime defaults and config options are:\n\n')
+            for key, val in self.molecule.__dict__.items():
                 if val is not None:
                     log_file.write(f'{key}: {val}\n')
             log_file.write('\n')
 
-            log_file.write('The config file defaults being used are:\n\n')
-            for config in self.all_configs[1:]:
-                for key, var in config.items():
-                    log_file.write(f'{key}: {var}\n')
-                log_file.write('\n')
-            log_file.write('\n')
+    @exception_logger
+    def run(self, torsion_options=None):
+        """
+        Calls all the relevant classes and methods for the full QM calculation in the correct order.
+        Exceptions are added to log (if raised) using the decorator.
+        """
+
+        if 'parametrise' in self.order:
+            if torsion_options is not None:
+                torsion_options = torsion_options.split(',')
+                self.molecule = self.store_torsions(self.molecule, torsion_options)
+            self.molecule.pickle(state='parametrise')
+
+        stage_dict = {
+            'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
+            'mm_optimise': ['Partially optimising with MM', 'Partial optimisation complete'],
+            'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimisation complete'],
+            'hessian': ['Calculating Hessian matrix', 'Hessian matrix calculated and confirmed to be symmetric'],
+            'mod_sem': ['Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated'],
+            'density': [f'Performing density calculation with {self.molecule.density_engine}',
+                        'Density calculation complete'],
+            'charges': [f'Chargemol calculating charges using DDEC{self.molecule.ddec_version}', 'Charges calculated'],
+            'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
+            'torsion_scan': ['Performing QM-constrained optimisation with Torsiondrive',
+                             'Torsiondrive finished and QM results saved'],
+            'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
+            'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
+            'pause': ['Pausing analysis', 'Analysis paused!'],
+            'skip': ['Skipping section', 'Section skipped'],
+            'torsion_test': ['Testing torsion single point energies', 'Torsion testing complete']}
+
+        # do the first stage in the order
+        key = list(self.order)[0]
+        next_key = self.stage_wrapper(key, stage_dict[key][0], stage_dict[key][1], torsion_options)
+
+        # cannot use for loop as we mutate the dictionary during the loop
+        while True:
+            if next_key is None:
+                break
+            else:
+                next_key = self.stage_wrapper(next_key, stage_dict[next_key][0], stage_dict[next_key][1])
+
+            if next_key == 'pause':
+                self.pause()
+                break
 
     def stage_wrapper(self, start_key, begin_log_msg='', fin_log_msg='', torsion_options=None):
         """
@@ -520,7 +524,9 @@ class Main:
         If it is:
             - Unpickle the ligand object at the start_key stage
             - Write to the log that something's about to be done (if specified)
+            - Make and/or move into the working directory for that stage
             - Do the thing
+            - Move back out of the working directory for that stage
             - Write to the log that something's been done (if specified)
             - Pickle the ligand object again with the next_key marker as its stage
         """
@@ -564,7 +570,8 @@ class Main:
             mol.pickle(state=next_key)
             return next_key
 
-    def parametrise(self, molecule):
+    @staticmethod
+    def parametrise(molecule):
         """Perform initial molecule parametrisation using OpenFF, Antechamber or XML."""
 
         # First copy the pdb and any other files into the folder
@@ -579,13 +586,13 @@ class Main:
             pass
 
         # If we are using xml we have to move it
-        if self.fitting['parameter_engine'] == 'xml':
+        if molecule.parameter_engine == 'xml':
             copy(f'../{molecule.name}.xml', f'{molecule.name}.xml')
 
         # Perform the parametrisation
-        param_dict[self.fitting['parameter_engine']](molecule)
+        param_dict[molecule.parameter_engine](molecule)
 
-        append_to_log(f'Parametrised molecule with {self.fitting["parameter_engine"]}')
+        append_to_log(f'Parametrised molecule with {molecule.parameter_engine}')
 
         return molecule
 
@@ -602,14 +609,15 @@ class Main:
 
         # Check which method we want then do the optimisation
         # TODO if we don't want geometric we can do a quick native openmm full optimisation?
-        if self.args.mm_opt_method == 'openmm':
+        if self.molecule.mm_opt_method == 'openmm':
             # Make the inputs
             molecule.write_pdb(input_type='input')
             molecule.write_parameters()
             # Run geometric
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {self.qm["iterations"]}  --pdb {molecule.name}.pdb '
-                        f'--openmm {molecule.name}.xml {self.constraints_file}', shell=True, stdout=log, stderr=log)
+                sub_run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations}  --pdb '
+                        f'{molecule.name}.pdb --openmm {molecule.name}.xml {self.molecule.constraints_file}',
+                        shell=True, stdout=log, stderr=log)
 
             # This will continue even if we don't converge this is fine
             # Read the xyz traj and store the frames
@@ -618,25 +626,27 @@ class Main:
             molecule.molecule['mm'] = molecule.molecule['traj'][-1]
 
         else:
-            #TODO change to qcengine as this can already be done
+            # TODO change to qcengine as this can already be done
 
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
-            molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.args.mm_opt_method])
+            molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
 
-        append_to_log(f'mm_optimised the molecule with {self.args.mm_opt_method}')
+        append_to_log(f'mm_optimised the molecule with {self.molecule.mm_opt_method}')
 
         return molecule
 
     def qm_optimise(self, molecule):
         """Optimise the molecule with or without geometric."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
+        # TODO This has gotten kinda gross, can we trim it and maybe move some logic back into engines.py?
 
-        if self.qm['geometric'] and self.qm['bonds_engine'] == 'psi4':
+        qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
+
+        if molecule.geometric and molecule.bonds_engine == 'psi4':
 
             # Optimise the structure using QCEngine with geometric and psi4
-            qceng = QCEngine(molecule, self.all_configs)
+            qceng = QCEngine(molecule)
             result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
             # Check if converged and get the geometry
             if result['success']:
@@ -657,17 +667,17 @@ class Main:
             # Check the exit status of the job; if failed restart the job up to 2 times
             restart_count = 1
             while not converged and restart_count < 3:
-                append_to_log(f'{self.qm["bonds_engine"]} optimisation failed; restarting', msg_type='minor')
+                append_to_log(f'{molecule.bonds_engine} optimisation failed; restarting', msg_type='minor')
                 converged = qm_engine.generate_input(input_type='mm', optimise=True, restart=True)
                 restart_count += 1
 
             if not converged:
-                sys.exit(f'{self.qm["bonds_engine"]} optimisation did not converge after 3 restarts; check log file.')
+                sys.exit(f'{molecule.bonds_engine} optimisation did not converge after 3 restarts; check log file.')
 
             molecule.molecule['qm'], molecule.qm_energy = qm_engine.optimised_structure()
             molecule.write_xyz(input_type='qm', name='opt')
 
-        append_to_log(f'qm_optimised structure calculated{" with geometric" if self.qm["geometric"] else ""}')
+        append_to_log(f'qm_optimised structure calculated{" with geometric" if molecule.geometric else ""}')
 
         return molecule
 
@@ -679,23 +689,24 @@ class Main:
         molecule.get_bond_lengths(input_type='qm')
 
         # Check what engine we want to use
-        if self.qm['bonds_engine'] == 'g09':
-            qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
+        if molecule.bonds_engine == 'g09':
+            qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
             qm_engine.generate_input(input_type='qm', hessian=True)
             molecule.hessian = qm_engine.hessian()
 
         else:
-            qceng = QCEngine(molecule, self.all_configs)
+            qceng = QCEngine(molecule)
             molecule.hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
 
-        append_to_log(f'Hessian calculated using {self.qm["bonds_engine"]}')
+        append_to_log(f'Hessian calculated using {molecule.bonds_engine}')
 
         return molecule
 
-    def mod_sem(self, molecule):
+    @staticmethod
+    def mod_sem(molecule):
         """Modified Seminario for bonds and angles."""
 
-        mod_sem = ModSeminario(molecule, self.all_configs)
+        mod_sem = ModSeminario(molecule)
         mod_sem.modified_seminario_method()
 
         append_to_log('Mod_Seminario method complete')
@@ -705,9 +716,9 @@ class Main:
     def density(self, molecule):
         """Perform density calculation with the qm engine."""
 
-        if self.qm['density_engine'] == 'onetep':
+        if molecule.density_engine == 'onetep':
             molecule.write_xyz(input_type='qm')
-            # If we use onetep we have to stop after this step
+            # If we use ONETEP we have to stop after this step
             append_to_log('Density analysis file made for ONETEP')
 
             # Now we have to edit the order to end here.
@@ -716,39 +727,44 @@ class Main:
 
         else:
             # Do normal density calculation
-            qm_engine = self.engine_dict[self.qm['density_engine']](molecule, self.all_configs)
-            qm_engine.generate_input(input_type='qm', density=True, solvent=self.qm['solvent'])
+            qm_engine = self.engine_dict[molecule.density_engine](molecule)
+            qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent)
             append_to_log('Density analysis complete')
 
         return molecule
 
-    def charges(self, molecule):
+    @staticmethod
+    def charges(molecule):
         """Perform DDEC calculation with Chargemol."""
 
         # TODO add option to use chargemol on onetep cube files.
+        # TODO Proper pathing
+
         copy(f'../6_density/{molecule.name}.wfx', f'{molecule.name}.wfx')
-        c_mol = Chargemol(molecule, self.all_configs)
+        c_mol = Chargemol(molecule)
         c_mol.generate_input()
 
-        append_to_log(f'Charge analysis completed with Chargemol and DDEC{self.qm["ddec_version"]}')
+        append_to_log(f'Charge analysis completed with Chargemol and DDEC{molecule.ddec_version}')
 
         return molecule
 
-    def lennard_jones(self, molecule):
+    @staticmethod
+    def lennard_jones(molecule):
         """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
         os.system('cp ../7_charges/DDEC* .')
-        lj = LennardJones(molecule, self.all_configs)
+        lj = LennardJones(molecule)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
         append_to_log('Lennard-Jones parameters calculated')
 
         return molecule
 
-    def torsion_scan(self, molecule):
+    @staticmethod
+    def torsion_scan(molecule):
         """Perform torsion scan."""
 
-        scan = TorsionScan(molecule, self.all_configs)
+        scan = TorsionScan(molecule)
 
         # Try to find a scan file; if none provided and more than one torsion detected: prompt user
         try:
@@ -763,11 +779,11 @@ class Main:
 
         return molecule
 
-    def torsion_optimise(self, molecule):
+    @staticmethod
+    def torsion_optimise(molecule):
         """Perform torsion optimisation."""
 
-        opt = TorsionOptimiser(molecule, self.all_configs, refinement=self.fitting['refinement_method'],
-                               vn_bounds=self.fitting['tor_limit'])
+        opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
         opt.run()
 
         append_to_log('Torsion_optimisations complete')
@@ -785,7 +801,7 @@ class Main:
         molecule.write_pdb()
         molecule.write_parameters()
 
-        # get the molecule descriptors from rdkit
+        # get the molecule descriptors from RDKit
         molecule.descriptors = RDKit.rdkit_descriptors(molecule.filename)
 
         pretty_print(molecule, to_file=True)
@@ -838,77 +854,20 @@ class Main:
     def torsion_test(self, molecule):
         """Take the molecule and do the torsion test method."""
 
-        qm_engine = self.engine_dict[self.qm['bonds_engine']](molecule, self.all_configs)
-        opt = TorsionOptimiser(molecule, qm_engine, self.all_configs, combination=molecule.combination,
-                               refinement=self.fitting['refinement_method'], vn_bounds=self.fitting['tor_limit'])
+        qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
+        opt = TorsionOptimiser(molecule, qm_engine, refinement=molecule.refinement_method,
+                               vn_bounds=molecule.tor_limit)
 
         # test the torsions!
         opt.torsion_test()
 
         print('Torsion testing done!')
 
-    @exception_logger
-    def execute(self, torsion_options=None):
-        """
-        Calls all the relevant classes and methods for the full QM calculation in the correct order.
-        Exceptions are added to log (if raised).
-        Will also add the extra options dictionary to the molecule.
-        """
-
-        # split the torsion list
-        if torsion_options is not None:
-            torsion_options = torsion_options.split(',')
-
-        # Check if starting from the beginning; if so:
-        if 'parametrise' in self.order:
-            # Initialise ligand object fully before pickling it
-            molecule = Ligand(self.file)
-            molecule.constraints_file = self.constraints_file
-
-            # If there are extra options add them to the molecule
-            if torsion_options is not None:
-                molecule = self.store_torsions(molecule, torsion_options)
-            molecule.pickle(state='parametrise')
-
-        # Perform each key stage sequentially adding short messages (if given) to terminal to show progress.
-        # Longer messages should be written inside the key stages' methods using helpers.append_to_log().
-        # See PSI4 class in engines for an example of where this is used.
-
-        # The stage keys and messages
-        stage_dict = {
-            'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
-            'mm_optimise': ['Partially optimising with MM', 'Partial optimisation complete'],
-            'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimisation complete'],
-            'hessian': ['Calculating Hessian matrix', 'Hessian matrix calculated and confirmed to be symmetric'],
-            'mod_sem': ['Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated'],
-            'density': [f'Performing density calculation with {self.qm["density_engine"]}',
-                        'Density calculation complete'],
-            'charges': [f'Chargemol calculating charges using DDEC{self.qm["ddec_version"]}', 'Charges calculated'],
-            'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
-            'torsion_scan': ['Performing QM-constrained optimisation with Torsiondrive',
-                             'Torsiondrive finished and QM results saved'],
-            'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
-            'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
-            'pause': ['Pausing analysis', 'Analysis paused!'],
-            'skip': ['Skipping section', 'Section skipped'],
-            'torsion_test': ['Testing torsion single point energies', 'Torsion testing complete']}
-
-        # do the first stage in the order
-        key = list(self.order)[0]
-        next_key = self.stage_wrapper(key, stage_dict[key][0], stage_dict[key][1], torsion_options)
-
-        # cannot use for loop as we mutate the dictionary during the loop
-        while True:
-            if next_key is None:
-                break
-            else:
-                next_key = self.stage_wrapper(next_key, stage_dict[next_key][0], stage_dict[next_key][1])
-
-            if next_key == 'pause':
-                self.pause()
-                break
-
 
 def main():
-    """This just stops the __repr__ automatically being called when the class is called."""
-    Main()
+    ArgsAndConfigs()
+
+
+if __name__ == '__main__':
+
+    main()

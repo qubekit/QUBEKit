@@ -59,7 +59,7 @@ For example, loops and variable declarations should be surrounded by empty lines
     
     start = 0
     for count, line in enumerate(input_file):
-        if 'value' in line:
+        if search_word in line:
             start = count
     return count
     
@@ -68,7 +68,7 @@ For example, loops and variable declarations should be surrounded by empty lines
     start = 0
     
     for count, line in enumerate(input_file):
-        if 'value' in line:
+        if search_word in line:
             start = count
     
     return count
@@ -76,10 +76,11 @@ For example, loops and variable declarations should be surrounded by empty lines
 This is especially important for highly-nested loops. "Paragraphing" should be used to separate
 according to each "thought" or segment. Partitioning like this significantly improves readability.
 
-Following PEP8, continuation over new lines should be achieved using parentheses, rather than slashes.
+Following PEP8, continuation over new lines should be achieved using parentheses, rather than backslashes.
 
 Imports should be as specific as is reasonable, to avoid excessive module loading.
 If possible, avoid using imports altogether. Never use `import *` (even if it's what another package recommends).
+Longer import names should be abbreviated. A common example is `import numpy as np`.
 
     # Terrible
     from math import *
@@ -128,7 +129,7 @@ Object naming examples:
     # Variables
     var_name = True
     
-If variable type is not obvious, a comment should be used to avoid confusion.
+If variable type is important and not obvious, a comment should be used to avoid confusion.
 (Don't use the type hints)
     
     # returns a 2d numpy array
@@ -240,8 +241,8 @@ Due to the formatting of the input/output and job files, it is often appropriate
 Sometimes, splitting a line can be less readable than simply running a few characters over, particularly in highly indented sections of code.
 For example:
 
-    subprocess.call(f'geometric-optimize --psi4 {self.molecule_name}.psi4in --nt {self.qm['threads']}', 
-                    shell=True, stdout=log)
+    subprocess.run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in --nt {self.molecule.threads}', 
+                   shell=True, stdout=log)
 
 Splitting the string in this line would add confusion as to which arguments are parsed where and how the string formatting is carried out.
 This is also relevant when dealing with highly nested sections of code. We have no hard limit on line length.

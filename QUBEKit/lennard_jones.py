@@ -12,10 +12,9 @@ import numpy as np
 @for_all_methods(timer_logger)
 class LennardJones:
 
-    def __init__(self, molecule, config_dict):
+    def __init__(self, molecule):
 
         self.molecule = molecule
-        self.defaults_dict, self.qm, self.fitting, self.descriptions = config_dict
 
         # self.ddec_data is the DDEC molecule data in the format:
         # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', 'vol']
@@ -43,10 +42,10 @@ class LennardJones:
         All vals are float except atom number (int) and atom type (str).
         """
 
-        if self.qm['ddec_version'] == 6:
+        if self.molecule.ddec_version == 6:
             net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
 
-        elif self.qm['ddec_version'] == 3:
+        elif self.molecule.ddec_version == 3:
             net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
 
         else:
@@ -79,7 +78,7 @@ class LennardJones:
             self.ddec_data.append([int(a_number), a_type] + [float(datum) for datum in data])
 
         charges = [atom[5] for atom in self.ddec_data]
-        check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
+        check_net_charge(charges, ideal_net=self.molecule.charge)
 
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
 
@@ -124,7 +123,7 @@ class LennardJones:
             raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
             
         charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
-        check_net_charge(charges, ideal_net=self.defaults_dict['charge'])
+        check_net_charge(charges, ideal_net=self.molecule.charge)
 
         # Add the AIM-Valence and the AIM-Core to get V^AIM
         volumes = [float(line.split()[2]) + float(line.split()[3]) for line in lines[vol_pos: vol_pos + len(self.ddec_data)]]
@@ -369,10 +368,10 @@ class LennardJones:
         returns non_bonded_force for the XML creator in Ligand class.
         """
 
-        if self.qm['charges_engine'] == 'chargemol':
+        if self.molecule.charges_engine == 'chargemol':
             self.extract_params_chargemol()
 
-        elif self.qm['charges_engine'] == 'onetep':
+        elif self.molecule.charges_engine == 'onetep':
             self.extract_params_onetep()
 
         else:
@@ -391,7 +390,7 @@ class LennardJones:
         self.apply_symmetrisation()
 
         # Find extra site positions in local coords if present and tweak the charges of the parent
-        if self.qm['charges_engine'] == 'onetep':
+        if self.molecule.charges_engine == 'onetep':
             self.extract_extra_sites()
 
         return self.non_bonded_force

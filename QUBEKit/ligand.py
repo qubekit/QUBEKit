@@ -15,10 +15,43 @@ import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
 
 
-class Molecule:
+class Defaults:
+
+    def __init__(self):
+
+        self.theory = 'wb97x-d'
+        self.basis = '6-311++G(d,p)'
+        self.vib_scaling = 0.991
+        self.threads = 6
+        self.memory = 6
+        self.convergence = 'GAU_TIGHT'
+        self.iterations = 100
+        self.bonds_engine = 'psi4'
+        self.density_engine = 'g09'
+        self.charges_engine = 'chargemol'
+        self.ddec_version = 6
+        self.geometric = True
+        self.solvent = True
+
+        self.dih_start = -165
+        self.increment = 15
+        self.dih_end = 180
+        self.t_weight = 'infinity'
+        self.opt_method = 'BFGS'
+        self.refinement_method = 'SP'
+        self.tor_limit = 20
+        self.div_index = 0
+        self.parameter_engine = 'openff'
+        self.l_pen = 0.0
+
+        self.chargemol = '/home/b8009890/Programs/chargemol_09_26_2017_unchanged'
+        self.log = 'CHR'
+
+
+class Molecule(Defaults):
     """Base class for ligands and proteins."""
 
-    def __init__(self, filename, smiles_string=None):
+    def __init__(self, filename):
         """
         # Namings
         filename                str; Full filename e.g. methane.pdb
@@ -72,12 +105,14 @@ class Molecule:
         state                   str; Describes the stage the analysis is in for pickling and unpickling
         """
 
+        super().__init__()
+
         # Namings
         self.filename = filename
         self.name = filename.split(".")[0]
         # Also check if we have a full path in the name
         self.name = self.name.split("/")[-1]
-        self.smiles = smiles_string
+        self.smiles = None
 
         # Structure
         self.molecule = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
@@ -93,6 +128,8 @@ class Molecule:
         self.angle_values = None
         self.symm_hs = None
         self.qm_energy = None
+        self.charge = 0
+        self.multiplicity = 1
 
         # XML Info
         self.xml_tree = None
@@ -109,6 +146,8 @@ class Molecule:
 
         # QUBEKit internals
         self.state = None
+        self.config = 'master_config.ini'
+        self.constraints_file = ''
 
         # Atomic weight dict
         self.element_dict = {
@@ -728,7 +767,7 @@ class Molecule:
 
 class Ligand(Molecule):
 
-    def __init__(self, filename, smiles_string=None):
+    def __init__(self, filename):
         """
         scan_order              A list of the dihedral cores to be scanned in the scan order
         parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
@@ -740,7 +779,7 @@ class Ligand(Molecule):
                                 the abspath of the constraint.txt file (constrains the execution of geometric)
         """
 
-        super().__init__(filename, smiles_string)
+        super().__init__(filename)
 
         self.scan_order = None
         self.parameter_engine = None
