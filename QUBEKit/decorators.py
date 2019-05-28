@@ -42,6 +42,8 @@ def timer_logger(orig_func):
         t1 = time()
 
         log_file_path = '../QUBEKit_log.txt'
+        if log_file_path not in os.listdir('.'):
+            return orig_func(*args, **kwargs)
 
         with open(log_file_path, 'a+') as log_file:
             log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
@@ -107,9 +109,11 @@ def logger_format():
 def exception_logger(func):
     """
     Decorator which logs exceptions to QUBEKit_log file if one occurs.
-    Do not apply this decorator to a function / method unless a log file exists in the working dir.
+    Do not apply this decorator to a function / method unless a log file will exist in the working dir.
     On exception, the full stack trace is printed to the log file,
     as well as the Ligand class objects which are taken from the pickle file.
+
+    Currently, only Execute.run is decorated like this, as it will always have a log file.
     """
 
     @wraps(func)

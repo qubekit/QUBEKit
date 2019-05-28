@@ -41,7 +41,7 @@ class Parametrisation:
     Residues : dictionary of residue names indexed by the order they appear.
 
     HarmonicBondForce : dictionary of equilibrium distances and force constants stored under the bond tuple.
-                {(0, 1): [eqr=456, fc=984375]}
+                        {(0, 1): [eqr=456, fc=984375]}
 
     HarmonicAngleForce : dictionary of equilibrium  angles and force constant stored under the angle tuple.
 
@@ -184,12 +184,10 @@ class Parametrisation:
                 copy(pdb_path, 'in.pdb')
 
                 # Call Antechamber
-                # TODO Handle non-zero charge with -nc command
-
                 cmd = f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {fftype} -c bcc'
 
-                if self.molecule.charge == 1:
-                    cmd += ' -nc 1'
+                if self.molecule.charge != 0:
+                    cmd += f' -nc {self.molecule.charge}'
 
                 with open('ante_log.txt', 'w+') as log:
                     sub_run(cmd, shell=True, stdout=log, stderr=log)
@@ -491,6 +489,7 @@ class BOSS(Parametrisation):
 
     # TODO make sure order is consistent with PDB.
     def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
+
         super().__init__(molecule, input_file, fftype)
 
         self.boss_cmd()

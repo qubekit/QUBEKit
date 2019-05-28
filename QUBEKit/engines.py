@@ -7,7 +7,7 @@
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-from subprocess import run as sub_run
+import subprocess as sp
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -137,7 +137,7 @@ class PSI4(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sub_run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log)
+                sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log)
 
             # After running, check for normal termination
             return True if '*** Psi4 exiting successfully.' in open('output.dat', 'r').read() else False
@@ -201,6 +201,7 @@ class PSI4(Engines):
 
             # Cache the unit conversion.
             conversion = 627.509391 / (0.529 ** 2)
+            # Element-wise multiplication
             hess_matrix *= conversion
 
             check_symmetry(hess_matrix)
@@ -328,8 +329,8 @@ class PSI4(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.molecule.theory}',
-                        shell=True, stdout=log, stderr=log)
+                sp.run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.molecule.theory}',
+                       shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -367,7 +368,7 @@ class Chargemol(Engines):
             with open('log.txt', 'w+') as log:
                 # TODO path.join()?
                 control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
-                sub_run(f'{self.molecule.chargemol}/{control_path}', shell=True, stdout=log, stderr=log)
+                sp.run(f'{self.molecule.chargemol}/{control_path}', shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -455,8 +456,8 @@ class Gaussian(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sub_run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
-                        shell=True, stdout=log, stderr=log)
+                sp.run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
+                       shell=True, stdout=log, stderr=log)
 
             # After running check for normal termination
             log = open(f'gj_{self.molecule.name}.log', 'r').read()
@@ -470,7 +471,7 @@ class Gaussian(Engines):
 
         # Make the fchk file first
         with open('formchck.log', 'w+') as formlog:
-            sub_run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
+            sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
         with open('lig.fchk', 'r') as fchk:
 
@@ -585,7 +586,7 @@ class Gaussian(Engines):
 
         return np.array(freqs)
 
-# TODO do we need this class anymore it only makes an xyz file?
+# TODO do we need this class anymore it only makes an xyz file? Maybe move calculate_hull to helpers
 @for_all_methods(timer_logger)
 class ONETEP(Engines):
 
@@ -758,7 +759,7 @@ class RDKit:
         print(AllChem.MolToMolBlock(mol_hydrogens), file=open(f'{name}.mol', 'w+'))
         AllChem.MolToPDBFile(mol_hydrogens, f'{name}.pdb')
 
-        return mol_hydrogens
+        return f'{name}.pdb'
 
     @staticmethod
     def mm_optimise(pdb_file, ff='MMF'):
@@ -772,12 +773,13 @@ class RDKit:
         force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
 
         mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol_name = pdb_file[:-4]
 
         force_fields[ff](mol)
 
-        AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
+        AllChem.MolToPDBFile(mol, f'{mol_name}_rdkit_optimised.pdb')
 
-        return f'{pdb_file[:-4]}_rdkit_optimised.pdb'
+        return f'{mol_name}_rdkit_optimised.pdb'
 
     @staticmethod
     def rdkit_descriptors(pdb_file):
@@ -857,8 +859,8 @@ class Babel:
         output_type = str(output_file).split(".")[-1]
 
         with open('babel.txt', 'w+') as log:
-            sub_run(f'babel -i{input_type} {input_file} -o{output_type} {output_file}',
-                    shell=True, stderr=log, stdout=log)
+            sp.run(f'babel -i{input_type} {input_file} -o{output_type} {output_file}',
+                   shell=True, stderr=log, stdout=log)
 
 
 @for_all_methods(timer_logger)
