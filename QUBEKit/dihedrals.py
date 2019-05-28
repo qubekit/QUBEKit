@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # TODO
-#  Remove commented code
+#  Remove unused commented-out code
 #  Remove Pymol dependency
 
 from QUBEKit.decorators import timer_logger, for_all_methods
@@ -11,7 +11,7 @@ from collections import OrderedDict
 from copy import deepcopy
 import os
 from shutil import rmtree
-from subprocess import run as sub_run
+import subprocess as sp
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -196,7 +196,7 @@ class TorsionScan:
             # now make the scan input files
             self.qm_scan_input(scan)
             with open('log.txt', 'w+') as log:
-                sub_run(self.cmd, shell=True, stdout=log, stderr=log)
+                sp.run(self.cmd, shell=True, stdout=log, stderr=log)
             self.get_energy(scan)
             os.chdir(self.home)
 
@@ -1215,7 +1215,7 @@ class TorsionOptimiser:
                 if self.constraints_made:
                     os.system('mv ../constraints.txt .')
                 self.write_dihedrals()
-                sub_run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt {self.molecule.constraints_made}',
+                sp.run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt {self.molecule.constraints_made}',
                         shell=True, stderr=log, stdout=log)
                 positions = self.get_coords(engine='torsiondrive')
             elif engine == 'geometric':
@@ -1223,7 +1223,7 @@ class TorsionOptimiser:
                     os.system('mv ../constraints.txt .')
                 else:
                     self.make_constraints()
-                sub_run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml qube_constraints.txt',
+                sp.run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml qube_constraints.txt',
                         shell=True, stdout=log, stderr=log)
                 positions = TorsionOptimiser.get_coords('geometric')
             else:

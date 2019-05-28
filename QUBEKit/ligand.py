@@ -930,7 +930,7 @@ class Protein(Molecule):
         if len(self.topology.edges) == 0:
             print('No connections found!')
 
-        # TODO What if there are two of the same residue back to back?
+        # TODO What if there are two or more of the same residue back to back?
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
