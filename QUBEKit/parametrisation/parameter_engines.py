@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.engines import Babel
@@ -78,7 +78,7 @@ class Parametrisation:
         # Try to gather the AtomTypes first
         for i, atom in enumerate(self.molecule.atom_names):
             self.molecule.AtomTypes[i] = [atom, 'QUBE_' + str(800 + i),
-                                          str(self.molecule.molecule['input'][i][0]) + str(800 + i),
+                                          str(self.molecule.coords['input'][i][0]) + str(800 + i),
                                           self.molecule.mol2_types[i]]
 
         in_root = parse_tree('serialised.xml').getroot()
@@ -301,7 +301,7 @@ class XMLProtein(Parametrisation):
         # Try to gather the AtomTypes first
         for i, atom in enumerate(self.molecule.atom_names):
             self.molecule.AtomTypes[i] = [atom, 'QUBE_' + str(i),
-                                          str(self.molecule.molecule['input'][i][0]) + str(i)]
+                                          str(self.molecule.coords['input'][i][0]) + str(i)]
 
         input_xml_file = 'serialised.xml'
         in_root = parse_tree(input_xml_file).getroot()

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from collections import OrderedDict
 from configparser import ConfigParser
@@ -232,20 +232,20 @@ def mol_data_from_csv(csv_name):
 
         mol_confs = csv.DictReader(csv_file)
 
-    rows = []
-    for row in mol_confs:
+        rows = []
+        for row in mol_confs:
 
-        # Converts to ordinary dict rather than ordered.
-        row = dict(row)
-        # If there is no config given assume its the default
-        row['charge'] = int(float(row['charge'])) if row['charge'] else 0
-        row['multiplicity'] = int(float(row['multiplicity'])) if row['multiplicity'] else 1
-        row['config'] = row['config'] if row['config'] else 'default_config'
-        row['smiles'] = row['smiles'] if row['smiles'] else None
-        row['torsion_order'] = row['torsion_order'] if row['torsion_order'] else None
-        row['restart'] = row['restart'] if row['restart'] else 'parametrise'
-        row['end'] = row['end'] if row['end'] else 'finalise'
-        rows.append(row)
+            # Converts to ordinary dict rather than ordered.
+            row = dict(row)
+            # If there is no config given assume its the default
+            row['charge'] = int(float(row['charge'])) if row['charge'] else 0
+            row['multiplicity'] = int(float(row['multiplicity'])) if row['multiplicity'] else 1
+            row['config'] = row['config'] if row['config'] else 'default_config'
+            row['smiles'] = row['smiles'] if row['smiles'] else None
+            row['torsion_order'] = row['torsion_order'] if row['torsion_order'] else None
+            row['restart'] = row['restart'] if row['restart'] else None
+            row['end'] = row['end'] if row['end'] else 'finalise'
+            rows.append(row)
 
     # Creates the nested dictionaries with the names as the keys
     final = {row['name']: row for row in rows}

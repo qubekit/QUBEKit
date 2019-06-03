@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TODO
 #  Are self.molecule.input and self.molecule.filename always the same? Can we remove one?
@@ -53,6 +53,7 @@ class ArgsAndConfigs:
     """
 
     def __init__(self):
+
         self.args = self.parse_commands()
 
         # If it's a bulk run, handle it separately
@@ -79,7 +80,7 @@ class ArgsAndConfigs:
         for name, val in file_configs.items():
             setattr(self.molecule, name, val)
 
-        # Although these may be None always, they need be explicitly set anyway.
+        # Although these may be None always, they need to be explicitly set anyway.
         setattr(self.molecule, 'restart', None)
         setattr(self.molecule, 'end', None)
         setattr(self.molecule, 'skip', None)
@@ -161,6 +162,9 @@ class ArgsAndConfigs:
 
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when Torsion maker is called."""
+
+                # TODO Should this be here?
+
                 # load in the ligand molecule
                 mol = Ligand(values)
 
@@ -633,7 +637,7 @@ class Execute:
             # Read the xyz traj and store the frames
             molecule.read_xyz(f'{molecule.name}_optim.xyz')
             # Store the last from the traj as the mm optimised structure
-            molecule.molecule['mm'] = molecule.molecule['traj'][-1]
+            molecule.coords['mm'] = molecule.coords['traj'][-1]
 
         else:
             # TODO change to qcengine as this can already be done
@@ -664,7 +668,7 @@ class Execute:
                 # Load all of the frames into the molecules trajectory holder
                 molecule.read_geometric_traj(result['trajectory'])
                 # store the last frame as the qm optimised structure
-                molecule.molecule['qm'] = molecule.molecule['traj'][-1]
+                molecule.coords['qm'] = molecule.coords['traj'][-1]
                 # Write out the trajectory file
                 molecule.write_xyz(input_type='traj', name=f'{molecule.name}_opt')
                 molecule.write_xyz(input_type='qm', name='opt')
@@ -685,7 +689,7 @@ class Execute:
             if not converged:
                 sys.exit(f'{molecule.bonds_engine} optimisation did not converge after 3 restarts; check log file.')
 
-            molecule.molecule['qm'], molecule.qm_energy = qm_engine.optimised_structure()
+            molecule.coords['qm'], molecule.qm_energy = qm_engine.optimised_structure()
             molecule.write_xyz(input_type='qm', name='opt')
 
         append_to_log(f'qm_optimised structure calculated{" with geometric" if molecule.geometric else ""}')

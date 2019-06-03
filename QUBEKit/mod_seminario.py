@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Module to implement the Modified Seminario Method
 Originally written by Alice E. A. Allen, TCM, University of Cambridge
@@ -81,8 +83,8 @@ class ModSemMaths:
 
         if sum(u_n):
             # Scalings are set to 1.
-            k_theta, theta_0 = ModSemMaths.f_c_a_special_case(u_ab, u_cb, [bond_len_ab, bond_len_bc], [eigenvals_ab, eigenvals_cb],
-                                                              [eigenvecs_ab, eigenvecs_cb])
+            k_theta, theta_0 = ModSemMaths.f_c_a_special_case(
+                u_ab, u_cb, [bond_len_ab, bond_len_bc], [eigenvals_ab, eigenvals_cb], [eigenvecs_ab, eigenvecs_cb])
 
         else:
             u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
@@ -106,7 +108,11 @@ class ModSemMaths:
 
     @staticmethod
     def f_c_a_special_case(u_ab, u_cb, bond_lens, eigenvals, eigenvecs):
-        """Force constant angle special case, for example nitrile groups."""
+        """
+        Force constant angle special case, for example nitrile groups.
+        This is for when the bond is linear, and therefore cannot be sampled around in the same way.
+        The perpendicular vector is not defined for a linear bond.
+        """
 
         # Number of samples around the bond.
         n_samples = 200
@@ -140,19 +146,18 @@ class ModSeminario:
 
         self.molecule = molecule
         self.atom_names = self.molecule.atom_names
-        # Load the configs using the config_file name.
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def modified_seminario_method(self):
         """
-        Calculate the new bond and angle terms after being passed the symmetric Hessian and optimised
-        molecule coordinates.
+        Calculate the new bond and angle terms after being passed the symmetric Hessian and
+        optimised molecule coordinates.
         """
 
-        coords = [atom[j + 1] for atom in self.molecule.molecule['qm'] for j in range(3)]
-        size_mol = len(self.molecule.molecule['qm'])
+        coords = [atom[j + 1] for atom in self.molecule.coords['qm'] for j in range(3)]
+        size_mol = len(self.molecule.coords['qm'])
         coords = np.reshape(coords, (size_mol, 3))
         hessian = self.molecule.hessian
 

@@ -23,7 +23,7 @@ class TestProteins(unittest.TestCase):
         self.molecule.AtomTypes()
 
         # Check all atoms are found in pdb file
-        self.assertEqual(len(self.molecule.molecule), 31)
+        self.assertEqual(len(self.molecule.coords), 31)
 
         # Check that each bond has an associated HarmonicBondForce
         self.assertEqual(sorted(self.molecule.bond_lengths), sorted(self.molecule.HarmonicBondForce))

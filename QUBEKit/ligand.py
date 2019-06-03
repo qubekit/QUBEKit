@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TODO Add remaining xml methods for Protein class
 
@@ -59,7 +59,7 @@ class Molecule(Defaults):
         smiles                  str; equal to the smiles_string if one is provided
 
         # Structure
-        molecule                Dict of lists where the keys are the input type (mm, qm, etc) and the vals are
+        coords                  Dict of lists where the keys are the input type (mm, qm, etc) and the vals are
                                 lists of lists where the inner lists are the atom name, followed by the coords
                                 e.g. {'mm': [['C', 1.045, 2.456, 1.564], ...], ...}
         topology                Graph class object. Contains connection information for molecule
@@ -115,7 +115,7 @@ class Molecule(Defaults):
         self.smiles = None
 
         # Structure
-        self.molecule = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
+        self.coords = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
         self.topology = None
         self.angles = None
         self.dihedrals = None
@@ -258,7 +258,7 @@ class Molecule(Defaults):
                         self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
 
         # put the object back into the correct place
-        self.molecule[input_type] = molecule
+        self.coords[input_type] = molecule
 
     def read_mol2(self, name, input_type='input'):
         """
@@ -320,7 +320,7 @@ class Molecule(Defaults):
                 self.topology.add_edge(int(line.split()[1]), int(line.split()[2]))
 
         # put the object back into the correct place
-        self.molecule[input_type] = molecule
+        self.coords[input_type] = molecule
 
     def read_geometric_traj(self, trajectory):
         """
@@ -335,7 +335,7 @@ class Molecule(Defaults):
             geometry = np.array(frame['molecule']['geometry']) * 0.529177210
             for i, atom in enumerate(frame['molecule']['symbols']):
                 opt_traj.append([atom, geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
-            self.molecule['traj'].append(opt_traj)
+            self.coords['traj'].append(opt_traj)
 
     def find_impropers(self):
         """
@@ -384,7 +384,7 @@ class Molecule(Defaults):
 
         bond_lengths = {}
 
-        molecule = self.molecule[input_type]
+        molecule = self.coords[input_type]
 
         for edge in self.topology.edges:
             atom1 = np.array(molecule[int(edge[0]) - 1][1:])
@@ -460,7 +460,7 @@ class Molecule(Defaults):
 
             dih_phis = {}
 
-            molecule = self.molecule[input_type]
+            molecule = self.coords[input_type]
 
             for key in self.dihedrals.keys():
                 for torsion in self.dihedrals[key]:
@@ -482,7 +482,7 @@ class Molecule(Defaults):
 
         angle_values = {}
 
-        molecule = self.molecule[input_type]
+        molecule = self.coords[input_type]
 
         for angle in self.angles:
             x1 = np.array(molecule[int(angle[0]) - 1][1:])
@@ -537,8 +537,8 @@ class Molecule(Defaults):
         for key, val in self.AtomTypes.items():
             ET.SubElement(AtomTypes, "Type", attrib={
                 'name': val[1], 'class': val[2],
-                'element': self.molecule['input'][key][0],
-                'mass': str(self.element_dict[self.molecule['input'][key][0].upper()])})
+                'element': self.coords['input'][key][0],
+                'mass': str(self.element_dict[self.coords['input'][key][0].upper()])})
 
             ET.SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
 
@@ -628,15 +628,15 @@ class Molecule(Defaults):
 
         with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
 
-            if len(self.molecule[input_type]) / len(self.atom_names) == 1:
+            if len(self.coords[input_type]) / len(self.atom_names) == 1:
                 message = 'xyz file generated with QUBEKit'
                 end = ''
-                trajectory = [self.molecule[input_type]]
+                trajectory = [self.coords[input_type]]
 
             else:
                 message = f'QUBEKit xyz trajectory FRAME '
                 end = 1
-                trajectory = self.molecule[input_type]
+                trajectory = self.coords[input_type]
 
             # Write out each frame
             for frame in trajectory:
@@ -658,8 +658,8 @@ class Molecule(Defaults):
 
         with open(f'{self.name}.gro', 'w+') as gro_file:
             gro_file.write(f'NEW {self.name.upper()} GRO FILE\n')
-            gro_file.write(f'{len(self.molecule[input_type]):>5}\n')
-            for pos, atom in enumerate(self.molecule[input_type], 1):
+            gro_file.write(f'{len(self.coords[input_type]):>5}\n')
+            for pos, atom in enumerate(self.coords[input_type], 1):
                 # 'mol number''mol name'  'atom name'   'atom count'   'x coord'   'y coord'   'z coord'
                 # 1WATER  OW1    1   0.126   1.624   1.679
                 gro_file.write(f'    1{self.name.upper()}  {atom[0]}{pos}   {pos}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
@@ -709,14 +709,14 @@ class Molecule(Defaults):
         methyl_hs = []
         amine_hs = []
         methyl_amine_nitride_cores = []
-        for pos, atom_coords in enumerate(self.molecule['input']):
+        for pos, atom_coords in enumerate(self.coords['input']):
             if atom_coords[0] == 'C' or atom_coords[0] == 'N':
 
                 hs = []
                 for atom in self.topology.neighbors(pos + 1):
                     if len(list(self.topology.neighbors(atom))) == 1:
                         # now make sure it is a hydrogen (as halogens could be caught here)
-                        if self.molecule['input'][atom - 1][0] == 'H':
+                        if self.coords['input'][atom - 1][0] == 'H':
                             hs.append(atom)
                 if atom_coords[0] == 'C' and len(hs) == 3:
                     methyl_hs.append(hs)
@@ -814,7 +814,7 @@ class Ligand(Molecule):
         try:
             with open(name, 'r') as xyz_file:
                 # get the number of atoms
-                n_atoms = len(self.molecule['input'])
+                n_atoms = len(self.coords['input'])
                 for line in xyz_file:
                     line = line.split()
                     # skip frame heading lines
@@ -827,7 +827,7 @@ class Ligand(Molecule):
                         # we have collected the molecule now store the frame
                         traj_molecules.append(molecule)
                         molecule = []
-            self.molecule[input_type] = traj_molecules
+            self.coords[input_type] = traj_molecules
 
         except FileNotFoundError:
             raise FileNotFoundError(
@@ -844,7 +844,7 @@ class Ligand(Molecule):
         Only for small molecules, not standard residues. No size limit.
         """
 
-        molecule = self.molecule[input_type]
+        molecule = self.coords[input_type]
 
         with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 
@@ -934,12 +934,12 @@ class Protein(Molecule):
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
-        self.molecule[input_type] = protein
+        self.coords[input_type] = protein
 
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
 
-        molecule = self.molecule['input']
+        molecule = self.coords['input']
 
         with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 
@@ -947,10 +947,10 @@ class Protein(Molecule):
             pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
             # pdb_file.write(f'COMPND    {self.name:<20}\n')
             # we have to transform the atom name while writing out the pdb file
-            for i, atom in enumerate(molecule):
+            for i, atom in enumerate(molecule, 1):
                 # TODO conditional printing
                 pdb_file.write(
-                    f'HETATM{i+1:>5}{atom[0] + str(i+1):>5} QUP     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+                    f'HETATM{i:>5}{atom[0] + i:>5} QUP     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
