@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TODO
 #  Remove unused commented-out code
@@ -92,8 +92,8 @@ class TorsionScan:
             rotatable = list(self.molecule.rotatable)
             print('Please select the central bonds round which you wish to scan in the order to be scanned')
             print('Torsion number   Central-Bond   Representative Dihedral')
-            for i, bond in enumerate(rotatable):
-                print(f'  {i + 1}                    {bond[0]}-{bond[1]}             '
+            for i, bond in enumerate(rotatable, 1):
+                print(f'  {i}                    {bond[0]}-{bond[1]}             '
                       f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][0] - 1]}-'
                       f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][1] - 1]}-'
                       f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][2] - 1]}-'
@@ -1240,7 +1240,7 @@ class TorsionOptimiser:
 
         sp_energy = []
         # reset the temp entry in the moleule
-        self.molecule.molecule['temp'] = self.molecule.molecule['input']
+        self.molecule.coords['temp'] = self.molecule.coords['input']
         # for each coordinate in the system we need to write a qm input file and get the single point energy
         try:
             rmtree(f'Single_points')
@@ -1256,7 +1256,7 @@ class TorsionOptimiser:
             for y, coord in enumerate(x):
                 for z, pos in enumerate(coord):
                     # convert from nanometers in openmm to Angs in QM and store in the temp position in the molecule
-                    self.qm_engine.molecule.molecule['temp'][y][z + 1] = pos * 10
+                    self.qm_engine.molecule.coords['temp'][y][z + 1] = pos * 10
 
             # Write the new coordinate file and run the calculation
             self.qm_engine.generate_input(input_type='temp', energy=True)

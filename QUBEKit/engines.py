@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. Maybe add path checking for Chargemol?
@@ -73,7 +73,7 @@ class PSI4(Engines):
         :return: The completion status of the job True if successful False if not run or failed
         """
 
-        molecule = self.molecule.molecule[input_type]
+        molecule = self.molecule.coords[input_type]
 
         setters = ''
         tasks = ''
@@ -150,7 +150,7 @@ class PSI4(Engines):
         Molecule is a numpy array of size N x N.
         """
 
-        hess_size = 3 * len(self.molecule.molecule['input'])
+        hess_size = 3 * len(self.molecule.coords['input'])
 
         # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
@@ -245,7 +245,7 @@ class PSI4(Engines):
 
             opt_struct = []
 
-            for row in range(len(self.molecule.molecule['input'])):
+            for row in range(len(self.molecule.coords['input'])):
 
                 # Append the first 4 columns of each row, converting to float as necessary.
                 struct_row = [lines[start_of_vals + row].split()[0]]
@@ -294,7 +294,7 @@ class PSI4(Engines):
                 raise EOFError('Cannot locate modes in output.dat file.')
 
             # Barring the first (and sometimes last) line, dat file has 6 values per row.
-            end_of_vals = start_of_vals + (3 * len(self.molecule.molecule['input'])) // 6
+            end_of_vals = start_of_vals + (3 * len(self.molecule.coords['input'])) // 6
 
             structures = lines[start_of_vals][24:].replace("'", "").split()
             structures = structures[6:]
@@ -313,7 +313,7 @@ class PSI4(Engines):
         and run geometric optimisation.
         """
 
-        molecule = self.molecule.molecule[input_type]
+        molecule = self.molecule.coords[input_type]
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
@@ -406,7 +406,7 @@ class Gaussian(Engines):
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
 
-        molecule = self.molecule.molecule[input_type]
+        molecule = self.molecule.coords[input_type]
 
         with open(f'gj_{self.molecule.name}.com', 'w+') as input_file:
 
@@ -491,7 +491,7 @@ class Gaussian(Engines):
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
                 hessian_list.extend([float(num) * 627.509391 / (0.529 ** 2) for num in line.strip('\n').split()])
 
-        hess_size = 3 * len(self.molecule.molecule['input'])
+        hess_size = 3 * len(self.molecule.coords['input'])
 
         hessian = np.zeros((hess_size, hess_size))
 
@@ -545,7 +545,7 @@ class Gaussian(Engines):
                 opt_struct.append([atom[0], float(atom[1]), float(atom[2]), float(atom[3])])
 
             # print(opt_struct)
-            # assert len(opt_struct) == len(self.molecule.molecule['input'])
+            # assert len(opt_struct) == len(self.molecule.coords['input'])
             # exit()
             #
             # opt_coords_pos = []
@@ -555,14 +555,14 @@ class Gaussian(Engines):
             #
             # start_pos = opt_coords_pos[-1]
             #
-            # num_atoms = len(self.molecule.molecule['input'])
+            # num_atoms = len(self.molecule.coords['input'])
             #
             # opt_struct = []
             #
             # for pos, line in enumerate(lines[start_pos: start_pos + num_atoms]):
             #
             #     vals = line.split()[-3:]
-            #     vals = [self.molecule.molecule['input'][pos][0]] + [float(i) for i in vals]
+            #     vals = [self.molecule.coords['input'][pos][0]] + [float(i) for i in vals]
             #     opt_struct.append(vals)
 
         return opt_struct, energy
@@ -609,7 +609,7 @@ class ONETEP(Engines):
         Then make a 3d plot of the points and hull.
         """
 
-        coords = np.array([atom[1:] for atom in self.molecule.molecule['input']])
+        coords = np.array([atom[1:] for atom in self.molecule.coords['input']])
 
         hull = ConvexHull(coords)
 
@@ -642,7 +642,7 @@ class QCEngine(Engines):
 
         mol_data = f'{self.molecule.charge} {self.molecule.multiplicity}\n'
 
-        for coord in self.molecule.molecule[input_type]:
+        for coord in self.molecule.coords[input_type]:
             for item in coord:
                 mol_data += f'{item} '
             mol_data += '\n'
@@ -675,7 +675,7 @@ class QCEngine(Engines):
             ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.molecule.memory, 'ncores': self.molecule.threads})
 
             if driver == 'hessian':
-                hess_size = 3 * len(self.molecule.molecule[input_type])
+                hess_size = 3 * len(self.molecule.coords[input_type])
                 hessian = np.reshape(ret.return_result, (hess_size, hess_size)) * 627.509391 / (0.529 ** 2)
                 check_symmetry(hessian)
 

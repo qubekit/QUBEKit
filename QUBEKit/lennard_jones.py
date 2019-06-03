@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.helpers import check_net_charge
@@ -100,7 +100,7 @@ class LennardJones:
         """
 
         # We know this from the molecule object self.molecule try to get the info from there
-        for pos, atom in enumerate(self.molecule.molecule['input']):
+        for pos, atom in enumerate(self.molecule.coords['input']):
             self.ddec_data.append([pos + 1] + [atom[i] for i in range(4)])
 
         # TODO Just move the ddec.onetep file instead? Handle this in run file?
@@ -176,7 +176,7 @@ class LennardJones:
 
         # Creates Nonbondedforce dict for later xml creation.
         # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
-        # This follows the usual ordering of the atoms such as in molecule.molecule.
+        # This follows the usual ordering of the atoms such as in molecule.coords.
 
         for pos, atom in enumerate(self.ddec_data):
 
@@ -203,7 +203,7 @@ class LennardJones:
         # Create dictionary which stores the atom number and its type:
         # atoms = {1: 'C', 2: 'C', 3: 'H', 4: 'H', ...}
         # (+1 because topology indices count from 1, not 0)
-        positions = {self.molecule.molecule['input'].index(atom) + 1: atom[0] for atom in self.molecule.molecule['input']}
+        positions = {self.molecule.coords['input'].index(atom) + 1: atom[0] for atom in self.molecule.coords['input']}
 
         # Loop through pairs in topology
         # Create new pair list with atom types and positions using the dictionary:
@@ -326,9 +326,9 @@ class LennardJones:
                             closet_atoms.append(list(self.molecule.topology.neighbors(closet_atoms[0]))[-1])
 
                         # Get the xyz coordinates of the reference atoms
-                        parent_pos = np.array(self.molecule.molecule['qm'][parent - 1][1:])
-                        close_a = np.array(self.molecule.molecule['qm'][closet_atoms[0] - 1][1:])
-                        close_b = np.array(self.molecule.molecule['qm'][closet_atoms[1] - 1][1:])
+                        parent_pos = np.array(self.molecule.coords['qm'][parent - 1][1:])
+                        close_a = np.array(self.molecule.coords['qm'][closet_atoms[0] - 1][1:])
+                        close_b = np.array(self.molecule.coords['qm'][closet_atoms[1] - 1][1:])
 
                         # work out the local coordinates site using rules from the OpenMM guide
                         orig = w1o * parent_pos + w2o * close_a + close_b * w3o

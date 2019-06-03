@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from QUBEKit.helpers import pretty_print, unpickle
 

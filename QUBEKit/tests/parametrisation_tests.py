@@ -31,7 +31,7 @@ class ParametrisationTest(unittest.TestCase):
         self.assertEqual(len(self.molecule.PeriodicTorsionForce),
                          len(self.molecule.dih_phis) + len(self.molecule.improper_torsions))
 
-        self.assertEqual(len(self.molecule.molecule['input']), len(self.molecule.NonbondedForce))
+        self.assertEqual(len(self.molecule.coords['input']), len(self.molecule.NonbondedForce))
 
     def test_OpenFF(self):
         # try to parametrise using OpenFF
@@ -45,7 +45,7 @@ class ParametrisationTest(unittest.TestCase):
         self.assertEqual(len(self.molecule.PeriodicTorsionForce),
                          len(self.molecule.dih_phis) + len(self.molecule.improper_torsions))
 
-        self.assertEqual(len(self.molecule.molecule['input']), len(self.molecule.NonbondedForce))
+        self.assertEqual(len(self.molecule.coords['input']), len(self.molecule.NonbondedForce))
 
     @classmethod
     def tearDownClass(cls):
