@@ -54,8 +54,8 @@ class PSI4(Engines):
         super().__init__(molecule)
 
         self.functional_dict = {'pbepbe': 'PBE', 'wb97xd': 'wB97X-D'}
-        if self.functional_dict.get(self.molecule.theory.lower(), None) is not None:
-            self.molecule.theory = self.functional_dict[self.molecule.theory.lower()]
+        # Search for functional in dict, if it's not there, just leave the theory as it is.
+        self.molecule.theory = self.functional_dict.get(self.molecule.theory, self.molecule.theory)
 
     # TODO add restart from log method
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
@@ -81,11 +81,12 @@ class PSI4(Engines):
         # input.dat is the PSI4 input file.
         with open('input.dat', 'w+') as input_file:
             # opening tag is always writen
-            input_file.write(f"memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n{self.molecule.charge} {self.molecule.multiplicity} \n")
+            input_file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n'
+                             f'{self.molecule.charge} {self.molecule.multiplicity} \n')
             # molecule is always printed
             for atom in molecule:
                 input_file.write(f' {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
-            input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n")
+            input_file.write(f' units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n')
 
             if energy:
                 append_to_log('Writing psi4 energy calculation input')
@@ -93,7 +94,7 @@ class PSI4(Engines):
 
             if optimise:
                 append_to_log('Writing PSI4 optimisation input', 'minor')
-                setters += f" g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n"
+                setters += f' g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n'
                 tasks += f"\noptimize('{self.molecule.theory.lower()}')"
 
             if hessian:
@@ -109,8 +110,8 @@ class PSI4(Engines):
                 setters += " cubeprop_tasks ['density']\n"
 
                 overage = get_overage(self.molecule.name)
-                setters += " CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage)
-                setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
+                setters += ' CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n'.format(overage)
+                setters += ' CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n'
                 tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
 
             if fchk:
@@ -227,10 +228,10 @@ class PSI4(Engines):
             # Will contain index of all the lines containing '==> Geometry'.
             geo_pos_list = []
             for count, line in enumerate(lines):
-                if "==> Geometry" in line:
+                if '==> Geometry' in line:
                     geo_pos_list.append(count)
 
-                elif "**** Optimization is complete!" in line:
+                elif '**** Optimization is complete!' in line:
                     opt_pos = count
                     opt_steps = int(line.split()[5])
 
@@ -317,19 +318,19 @@ class PSI4(Engines):
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
-            file.write(f'memory {self.molecule.theory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
+            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
             for atom in molecule:
                 file.write(f'  {atom[0]:2}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
-            file.write(f" units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n")
+            file.write(f' units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n')
 
             if threads:
-                file.write(f"set_num_threads({self.molecule.theory})")
+                file.write(f'set_num_threads({self.molecule.threads})')
             file.write(f"\n\ngradient('{self.molecule.theory}')\n")
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sp.run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.molecule.theory}',
+                sp.run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.molecule.threads}',
                        shell=True, stdout=log, stderr=log)
 
 
@@ -383,9 +384,7 @@ class Gaussian(Engines):
         super().__init__(molecule)
 
         self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD'}
-
-        if self.functional_dict.get(self.molecule.theory.lower(), None) is not None:
-            self.molecule.theory = self.functional_dict[self.molecule.theory.lower()]
+        self.molecule.theory = self.functional_dict.get(self.molecule.theory, self.molecule.theory)
 
         self.convergence_dict = {'GAU': '',
                                  'GAU_TIGHT': 'tight',
@@ -514,35 +513,40 @@ class Gaussian(Engines):
 
             lines = log_file.readlines()
 
-            output = ''
-            start_end = []
-            # Look for the output stream
-            for i, line in enumerate(lines):
-                if f'R{self.molecule.theory}\{self.molecule.basis}' in line:
-                    start_end.append(i)
-                elif '\\@' in line:
-                    start_end.append(i)
+        output = ''
+        start, end, energy = None, None, None
+        # Look for the output stream
+        # TODO Escape sequence warnings. Just use r'' for search strings with \ in them
+        for pos, line in enumerate(lines):
+            if f'R{self.molecule.theory}\{self.molecule.basis}' in line:
+                start = pos
 
-                elif 'SCF Done' in line:
-                    energy = float(line.split()[4])
+            elif '@' in line:
+                end = pos
 
-            # now add the lines to the output stream
-            for i in range(start_end[0], start_end[1]):
-                output += lines[i].strip()
+            elif 'SCF Done' in line:
+                energy = float(line.split()[4])
 
-            # Split the string by the double slash to now find the molecule input
-            molecule = []
-            output = output.split("\\\\")
-            for string in output:
-                if string.startswith(f'{self.molecule.charge},{self.molecule.multiplicity}\\'):
-                    # Remove the charge and multiplicity from the string
-                    molecule = string.split("\\")[1:]
+        if any(i is None for i in [start, end, energy]):
+            raise EOFError('Cannot locate optimised structure in file.')
 
-            # Store the coords back into the molecule array
-            opt_struct = []
-            for atom in molecule:
-                atom = atom.split(",")
-                opt_struct.append([atom[0], float(atom[1]), float(atom[2]), float(atom[3])])
+        # now add the lines to the output stream
+        for line in range(start, end):
+            output += lines[line].strip()
+
+        # Split the string by the double slash to now find the molecule input
+        molecule = []
+        output = output.split('\\\\')
+        for string in output:
+            if string.startswith(f'{self.molecule.charge},{self.molecule.multiplicity}\\'):
+                # Remove the charge and multiplicity from the string
+                molecule = string.split('\\')[1:]
+
+        # Store the coords back into the molecule array
+        opt_struct = []
+        for atom in molecule:
+            atom = atom.split(',')
+            opt_struct.append([atom[0], float(atom[1]), float(atom[2]), float(atom[3])])
 
             # print(opt_struct)
             # assert len(opt_struct) == len(self.molecule.coords['input'])
@@ -608,6 +612,8 @@ class ONETEP(Engines):
         Generate the smallest convex hull which encloses the molecule.
         Then make a 3d plot of the points and hull.
         """
+
+        # TODO Move to helpers? Not ONETEP specific
 
         coords = np.array([atom[1:] for atom in self.molecule.coords['input']])
 
@@ -687,22 +693,22 @@ class QCEngine(Engines):
         # Call geometric with psi4 to optimise a molecule
         elif engine == 'geometric':
             geo_task = {
-                "schema_name": "qcschema_optimization_input",
-                "schema_version": 1,
-                "keywords": {
-                    "coordsys": "tric",
-                    "maxiter": self.molecule.iterations,
-                    "program": "psi4",
-                    "convergence_set": self.molecule.convergence,
+                'schema_name': 'qcschema_optimization_input',
+                'schema_version': 1,
+                'keywords': {
+                    'coordsys': 'tric',
+                    'maxiter': self.molecule.iterations,
+                    'program': 'psi4',
+                    'convergence_set': self.molecule.convergence,
                 },
-                "input_specification": {
-                    "schema_name": "qcschema_input",
-                    "schema_version": 1,
-                    "driver": 'gradient',
-                    "model": {'method': self.molecule.theory, 'basis': self.molecule.basis},
-                    "keywords": {},
+                'input_specification': {
+                    'schema_name': 'qcschema_input',
+                    'schema_version': 1,
+                    'driver': 'gradient',
+                    'model': {'method': self.molecule.theory, 'basis': self.molecule.basis},
+                    'keywords': {},
                 },
-                "initial_molecule": mol,
+                'initial_molecule': mol,
             }
             # TODO hide the output stream so it does not spoil the terminal printing
             # return_dict=True seems to be default False in newer versions. Ergo docs are wrong again.

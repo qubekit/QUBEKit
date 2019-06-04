@@ -93,6 +93,9 @@ class ArgsAndConfigs:
         # Now that all configs are stored correctly: execute.
         Execute(self.molecule)
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
+
     @staticmethod
     def parse_commands():
         """
@@ -369,6 +372,9 @@ class Execute:
         self.redefine_order()
 
         self.run()
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def redefine_order(self):
         """
@@ -704,7 +710,7 @@ class Execute:
 
         molecule.get_bond_lengths(input_type='qm')
 
-        # Check what engine we want to use
+        # Check what engine to use
         if molecule.bonds_engine == 'g09':
             qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
             qm_engine.generate_input(input_type='qm', hessian=True)
@@ -734,15 +740,14 @@ class Execute:
 
         if molecule.density_engine == 'onetep':
             molecule.write_xyz(input_type='qm')
-            # If we use ONETEP we have to stop after this step
+            # If using ONETEP, stop after this step
             append_to_log('Density analysis file made for ONETEP')
 
-            # Now we have to edit the order to end here.
+            # Edit the order to end here
             self.order = OrderedDict([('density', self.density), ('charges', self.skip), ('lennard_jones', self.skip),
                                       ('torsion_scan', self.torsion_scan), ('pause', self.pause)])
 
         else:
-            # Do normal density calculation
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
             qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent)
             append_to_log('Density analysis complete')
@@ -809,15 +814,13 @@ class Execute:
     @staticmethod
     def finalise(molecule):
         """
-        Make the xml and pdb file print the ligand object to terminal (in abbreviated form) and to the log file
-        after getting the rdkit descriptors.
+        Make the xml and pdb file; get the RDKit descriptors;
+        print the ligand object to terminal (in abbreviated form) and to the log file (unabbreviated).
         """
 
-        # write the pdb file and xml file to the folder
         molecule.write_pdb()
         molecule.write_parameters()
 
-        # get the molecule descriptors from RDKit
         molecule.descriptors = RDKit.rdkit_descriptors(molecule.filename)
 
         pretty_print(molecule, to_file=True)
@@ -870,11 +873,10 @@ class Execute:
     def torsion_test(self, molecule):
         """Take the molecule and do the torsion test method."""
 
+        # TODO Should we use anything other than PSI4 here? Why is bonds_engine the torsion engine?
         qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
-        opt = TorsionOptimiser(molecule, qm_engine, refinement=molecule.refinement_method,
-                               vn_bounds=molecule.tor_limit)
+        opt = TorsionOptimiser(molecule, qm_engine, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
 
-        # test the torsions!
         opt.torsion_test()
 
         printf('Torsion testing done!')
