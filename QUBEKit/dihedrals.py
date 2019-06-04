@@ -1216,15 +1216,15 @@ class TorsionOptimiser:
                     os.system('mv ../constraints.txt .')
                 self.write_dihedrals()
                 sp.run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt {self.molecule.constraints_made}',
-                        shell=True, stderr=log, stdout=log)
+                       shell=True, stderr=log, stdout=log)
                 positions = self.get_coords(engine='torsiondrive')
             elif engine == 'geometric':
                 if self.constraints_made:
                     os.system('mv ../constraints.txt .')
                 else:
                     self.make_constraints()
-                sp.run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb --openmm state.xml qube_constraints.txt',
-                        shell=True, stdout=log, stderr=log)
+                sp.run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb '
+                       '--openmm state.xml qube_constraints.txt', shell=True, stdout=log, stderr=log)
                 positions = TorsionOptimiser.get_coords('geometric')
             else:
                 raise NotImplementedError

@@ -316,9 +316,9 @@ For example (csv row order does not matter, and you do not need to include smile
 
     bulk_example.csv:
         name,charge,multiplicity,config,smiles,torsion_order,restart,end
-        methane,0,1,default_config,C,,,
-        benzene,0,1,default_config,,,,
-        ethane,0,1,default_config,,,,
+        methane,,,default_config,C,,,
+        benzene,,,default_config,,,,
+        ethane,,,default_config,,,,
 
 ### QUBEKit Commands: Custom Start and End Points (single molecule)
 
@@ -481,28 +481,28 @@ All commands can be viewed by calling `QUBEKit -h`. Below is an explanation of w
 * Enable or disable GeomeTRIC (bool): 
 `-geo true` or `-geo false`
 
-* Change DDEC version (int, 3 or 6): 
+* Change DDEC version (int; 3 or 6): 
 `-ddec 3` or `-ddec 6`
 
 * Enable or disable the solvent model (bool): 
 `-solvent true` or `-solvent false`
 
-* Change the method for initial parametrisation (str, openff, xml or antechamber): 
+* Change the method for initial parametrisation (str; openff, xml or antechamber): 
 `-param openff`, `-param xml`, `-param antechamber`
 
-* Change the log file name and directory label (str, any):
+* Change the log file name and directory label (str; any):
 `-log Example123`
 
-* Change the functional being used (str, any valid psi4/g09 functional):
+* Change the functional being used (str; any valid psi4/g09 functional):
 `-func B3LYP`
 
-* Change the basis set (str, any valid psi4/g09 basis set):
+* Change the basis set (str; any valid psi4/g09 basis set):
 `-basis 6-31G`
 
-* Change the allocated amount of memory (int, do not exceed computer's limits!):
+* Change the amount of memory allocated (int; do not exceed computer's limits!):
 `-memory 4`
 
-* Change the allocated number of threads (int, do not exceed computer's limits!):
+* Change the number of threads allocated (int; do not exceed computer's limits!):
 `-threads 4`
 
 ---

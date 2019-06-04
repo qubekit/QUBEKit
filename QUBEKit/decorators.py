@@ -41,6 +41,8 @@ def timer_logger(orig_func):
         start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         t1 = time()
 
+        # TODO Write to abspath
+
         log_file_path = '../QUBEKit_log.txt'
         if log_file_path not in os.listdir('.'):
             return orig_func(*args, **kwargs)
