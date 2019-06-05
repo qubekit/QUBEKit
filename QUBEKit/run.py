@@ -453,6 +453,9 @@ class Execute:
             copy(abspath, f'{dir_name}/{self.molecule.filename}')
             os.chdir(dir_name)
 
+            # Set a home directory
+            self.molecule.home = os.getcwd()
+
         # Find external files
         copy_files = [f'{self.molecule.name}.xml', 'QUBE_torsions.txt']
         for file in copy_files:

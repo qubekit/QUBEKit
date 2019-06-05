@@ -41,10 +41,10 @@ def timer_logger(orig_func):
         start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         t1 = time()
 
-        # TODO Write to abspath
-
-        log_file_path = '../QUBEKit_log.txt'
-        if log_file_path not in os.listdir('.'):
+        # Find the log file path using the function that's being decorated
+        if len(args) >= 1 and hasattr(args[0], 'molecule'):
+            log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
+        else:
             return orig_func(*args, **kwargs)
 
         with open(log_file_path, 'a+') as log_file:

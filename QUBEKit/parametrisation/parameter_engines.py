@@ -513,7 +513,3 @@ class BOSS(Parametrisation):
         """
 
         pass
-
-
-class Default:
-    pass
