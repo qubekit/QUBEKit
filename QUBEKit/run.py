@@ -309,7 +309,6 @@ class ArgsAndConfigs:
             for key, val in file_configs.items():
                 setattr(self.molecule, key, val)
 
-            # TODO Maybe remove? Do we actually want bulk analyses editable via terminal commands?
             # Handle configs which are changed by terminal commands
             for key, val in vars(self.args).items():
                 if val is not None:
@@ -317,6 +316,8 @@ class ArgsAndConfigs:
 
             # Now that all configs are stored correctly: execute.
             Execute(self.molecule)
+
+            os.chdir('../')
 
         sys.exit('Bulk analysis complete.\nUse QUBEKit -progress to view the completion progress of your molecules')
 
@@ -391,7 +392,7 @@ class Execute:
 
         # Cut out the keys before the start_point and after the end_point
         # Add finalise back in if it's removed (finalise should always be called).
-        stages = stages[stages.index(start):stages.index(end)] + ['finalise']
+        stages = stages[stages.index(start):stages.index(end) + 1] + ['finalise']
 
         # Redefine self.order to only contain the key, val pairs from stages
         self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
