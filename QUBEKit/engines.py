@@ -254,7 +254,7 @@ class PSI4(Engines):
 
                 opt_struct.append(struct_row)
 
-        return opt_struct, opt_energy
+        return np.array(opt_struct), opt_energy
 
     @staticmethod
     def get_energy():
@@ -544,28 +544,7 @@ class Gaussian(Engines):
                 atom = atom.split(",")
                 opt_struct.append([float(atom[1]), float(atom[2]), float(atom[3])])
 
-            # print(opt_struct)
-            # assert len(opt_struct) == len(self.molecule.molecule['input'])
-            # exit()
-            #
-            # opt_coords_pos = []
-            # for pos, line in enumerate(lines):
-            #     if 'Input orientation' in line:
-            #         opt_coords_pos.append(pos + 5)
-            #
-            # start_pos = opt_coords_pos[-1]
-            #
-            # num_atoms = len(self.molecule.molecule['input'])
-            #
-            # opt_struct = []
-            #
-            # for pos, line in enumerate(lines[start_pos: start_pos + num_atoms]):
-            #
-            #     vals = line.split()[-3:]
-            #     vals = [self.molecule.molecule['input'][pos][0]] + [float(i) for i in vals]
-            #     opt_struct.append(vals)
-
-        return opt_struct, energy
+        return np.array(opt_struct), energy
 
     def all_modes(self):
         """Extract the frequencies from the Gaussian log file."""
@@ -729,8 +708,10 @@ class RDKit:
         # Try and read the file
         if filename.suffix == '.pdb':
             mol = MolFromPDBFile(filename.name, removeHs=False)
-            # Try and find the partial charges
-            rdPartialCharges.ComputeGasteigerCharges(mol)
+            try:
+                rdPartialCharges.ComputeGasteigerCharges(mol)
+            except RuntimeError:
+                print('RDKit could not assign the partial charges')
         elif filename.suffix == '.mol2':
             mol = MolFromMol2File(filename.name, removeHs=False)
         elif filename.suffix == '.mol':
@@ -767,7 +748,7 @@ class RDKit:
         return mol_hydrogens
 
     @staticmethod
-    def mm_optimise(pdb_file, ff='MMF'):
+    def mm_optimise(filename, ff='MMF'):
         """
         Perform rough preliminary optimisation to speed up later optimisations.
         :param pdb_file: The name of the input pdb file
@@ -775,25 +756,26 @@ class RDKit:
         :return: The name of the optimised pdb file that is made
         """
 
-        force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
+        # Get the rdkit molecule
+        mol = RDKit.read_file(filename)
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
 
         force_fields[ff](mol)
 
-        AllChem.MolToPDBFile(mol, f'{pdb_file[:-4]}_rdkit_optimised.pdb')
+        AllChem.MolToPDBFile(mol, f'{filename.stem}_rdkit_optimised.pdb')
 
-        return f'{pdb_file[:-4]}_rdkit_optimised.pdb'
+        return f'{filename.stem}_rdkit_optimised.pdb'
 
     @staticmethod
-    def rdkit_descriptors(pdb_file):
+    def rdkit_descriptors(filename):
         """
         Use RDKit Descriptors to extract properties and store in Descriptors dictionary.
         :param pdb_file: The molecule input file
         :return: Descriptors dictionary
         """
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol = RDKit.read_file(filename)
         # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
         descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(mol),
                        'H-bond donors': Descriptors.NumHDonors(mol),
@@ -804,40 +786,40 @@ class RDKit:
         return descriptors
 
     @staticmethod
-    def get_smiles(pdb_file):
+    def get_smiles(filename):
         """
         Use RDKit to load in the pdb file of the molecule and get the smiles code.
         :param pdb_file: The molecule input file
         :return: The smiles string
         """
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol = RDKit.read_file(filename)
 
         return MolToSmiles(mol, isomericSmiles=True, allHsExplicit=True)
 
     @staticmethod
-    def get_smarts(pdb_file):
+    def get_smarts(filename):
         """
         Use RDKit to get the smarts string of the molecule.
         :param pdb_file: The molecule input file
         :return: The smarts string
         """
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol = RDKit.read_file(filename)
 
         return MolToSmarts(mol)
 
     @staticmethod
-    def get_mol(pdb_file):
+    def get_mol(filename):
         """
         Use RDKit to generate a mol file.
         :param pdb_file: The molecule input file
         :return: The name of the mol file made
         """
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol = RDKit.read_file(filename)
 
-        mol_name = f'{pdb_file[:-4]}.mol'
+        mol_name = f'{filename.steam}.mol'
         MolToMolFile(mol, mol_name)
 
         return mol_name

@@ -157,7 +157,7 @@ class Molecule(Defaults):
         self.angles = None
         self.dihedrals = None
         self.improper_torsions = None
-        self.rotatable = None       # TODO Rotatable is getting set to [] even when there are rotatables
+        self.rotatable = None
         self.bond_lengths = None
         self.dih_phis = None
         self.angle_values = None
@@ -256,7 +256,8 @@ class Molecule(Defaults):
             self.mol_from_rdkit(rdkit_mol)
 
         except AttributeError:
-            print('error so using default')
+            # AttributeError:  errors when reading the input file
+            print('RDKit error was found, resorting to standard file readers')
             # Try and read using QUBEKit readers they only get the connections if present
             if self.filename.suffix == '.pdb':
                 self.read_pdb(self.filename)
@@ -446,7 +447,7 @@ class Molecule(Defaults):
             geometry = np.array(frame['molecule']['geometry']) * 0.529177210
             for i, atom in enumerate(frame['molecule']['symbols']):
                 opt_traj.append([geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
-            self.molecule['traj'].append(opt_traj)
+            self.molecule['traj'].append(np.array(opt_traj))
 
     def find_impropers(self):
         """
@@ -843,7 +844,7 @@ class Molecule(Defaults):
         # now modify the rotatable list to remove methyl and amine/ nitrile torsions
         # these are already well represented in most FF's
         remove_list = []
-        if self.rotatable:
+        if self.rotatable is not None:
             rotatable = self.rotatable
             for key in rotatable:
                 if key[0] in methyl_amine_nitride_cores or key[1] in methyl_amine_nitride_cores:
@@ -853,7 +854,10 @@ class Molecule(Defaults):
             for torsion in remove_list:
                 rotatable.remove(torsion)
 
-            self.rotatable = rotatable
+            if rotatable:
+                self.rotatable = rotatable
+            else:
+                self.rotatable = None
 
     def update(self, input_type='input'):
         """

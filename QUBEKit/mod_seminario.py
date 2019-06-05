@@ -139,7 +139,7 @@ class ModSeminario:
     def __init__(self, molecule):
 
         self.molecule = molecule
-        self.atom_names = self.molecule.atom_names
+        self.atoms = self.molecule.atoms
         # Load the configs using the config_file name.
 
     def __repr__(self):
@@ -151,8 +151,8 @@ class ModSeminario:
         molecule coordinates.
         """
 
-        coords = [atom[j + 1] for atom in self.molecule.molecule['qm'] for j in range(3)]
-        size_mol = len(self.molecule.molecule['qm'])
+        coords = [atom[j] for atom in self.molecule.molecule['qm'] for j in range(3)]
+        size_mol = len(self.atoms)
         coords = np.reshape(coords, (size_mol, 3))
         hessian = self.molecule.hessian
 
@@ -190,13 +190,13 @@ class ModSeminario:
         for coord in range(len(coords)):
             central_atoms_angles.append([])
             for count, angle in enumerate(angle_list):
-                if coord == angle[1] - 1:
+                if coord == angle[1]:
                     # For angle abc, atoms a, c are written to array
-                    ac_array = [angle[0] - 1, angle[2] - 1, count]
+                    ac_array = [angle[0], angle[2], count]
                     central_atoms_angles[coord].append(ac_array)
 
                     # For angle abc, atoms c a are written to array
-                    ca_array = [angle[2] - 1, angle[0] - 1, count]
+                    ca_array = [angle[2], angle[0], count]
                     central_atoms_angles[coord].append(ca_array)
 
         # Sort rows by atom number
@@ -258,7 +258,7 @@ class ModSeminario:
         with open('Modified_Seminario_Angles.txt', 'w+') as angle_file:
 
             for i, angle in enumerate(angle_list):
-                angles = [angle[0] - 1, angle[1] - 1, angle[2] - 1]
+                angles = [angle[0], angle[1], angle[2]]
                 scalings = [scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1]]
 
                 # Ensures that there is no difference when the ordering is changed.
@@ -269,10 +269,10 @@ class ModSeminario:
                 k_theta[i] = (self.molecule.vib_scaling ** 2) * ((ab_k_theta + ba_k_theta) / 2)
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
-                angle_file.write(f'{i}  {self.atom_names[angle[0] - 1]}-{self.atom_names[angle[1] - 1]}-{self.atom_names[angle[2] - 1]}  ')
+                angle_file.write(f'{i}  {self.atoms[angle[0]].name}-{self.atoms[angle[1]].name}-{self.atoms[angle[2]].name}  ')
                 angle_file.write(f'{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n')
 
-                unique_values_angles.append([self.atom_names[angle[0] - 1], self.atom_names[angle[1] - 1], self.atom_names[angle[2] - 1], k_theta[i], theta_0[i], 1])
+                unique_values_angles.append([self.atoms[angle[0]].name, self.atoms[angle[1]].name, self.atoms[angle[2]].name, k_theta[i], theta_0[i], 1])
 
         return unique_values_angles
 
@@ -289,19 +289,19 @@ class ModSeminario:
         with open('Modified_Seminario_Bonds.txt', 'w+') as bond_file:
 
             for pos, bond in enumerate(bond_list):
-                ab = ModSemMaths.force_constant_bond(bond[0] - 1, bond[1] - 1, eigenvals, eigenvecs, coords)
-                ba = ModSemMaths.force_constant_bond(bond[1] - 1, bond[0] - 1, eigenvals, eigenvecs, coords)
+                ab = ModSemMaths.force_constant_bond(bond[0], bond[1], eigenvals, eigenvecs, coords)
+                ba = ModSemMaths.force_constant_bond(bond[1], bond[0], eigenvals, eigenvecs, coords)
 
                 # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
                 k_b[pos] = np.real((ab + ba) / 2) * (self.molecule.vib_scaling ** 2)
 
-                bond_len_list[pos] = bond_lens[bond[0] - 1, bond[1] - 1]
-                bond_file.write(f'{self.atom_names[bond[0] - 1]}-{self.atom_names[bond[1] - 1]}  ')
+                bond_len_list[pos] = bond_lens[bond[0], bond[1]]
+                bond_file.write(f'{self.atoms[bond[0]].name}-{self.atoms[bond[1]].name}  ')
                 bond_file.write(f'{k_b[pos]:.3f}   {bond_len_list[pos]:.3f}   {bond[0]}   {bond[1]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicBondForce[(bond[0] - 1, bond[1] - 1)] = [str(bond_len_list[pos] / 10), str(conversion * k_b[pos])]
+                self.molecule.HarmonicBondForce[(bond[0], bond[1])] = [str(bond_len_list[pos] / 10), str(conversion * k_b[pos])]
 
-                unique_values_bonds.append([self.atom_names[bond[0] - 1], self.atom_names[bond[1] - 1], k_b[pos], bond_len_list[pos], 1])
+                unique_values_bonds.append([self.atoms[bond[0]].name, self.atoms[bond[1]].name, k_b[pos], bond_len_list[pos], 1])
 
         return unique_values_bonds

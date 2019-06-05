@@ -57,7 +57,11 @@ class ArgsAndConfigs:
             self.handle_bulk()
 
         if self.args.restart:
-            self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
+            # Find the file this could also be a mol2 file
+            try:
+                self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
+            except IndexError:
+                self.file = [file for file in os.listdir(os.getcwd()) if '.mol2' in file][0]
         else:
             # TODO Handle smiles for single molecules not just bulk
             self.file = self.args.input
@@ -599,7 +603,7 @@ class Execute:
         param_dict[molecule.parameter_engine](molecule)
 
         append_to_log(f'Finishing parametrisation of molecule with {molecule.parameter_engine}')
-        print(molecule)
+
         return molecule
 
     def mm_optimise(self, molecule):
@@ -616,7 +620,6 @@ class Execute:
         append_to_log('Starting mm_optimisation')
 
         # Check which method we want then do the optimisation
-        # TODO if we don't want geometric we can do a quick native openmm full optimisation?
         if self.molecule.mm_opt_method == 'openmm':
             # Make the inputs
             molecule.write_pdb(input_type='input')
@@ -647,7 +650,6 @@ class Execute:
     def qm_optimise(self, molecule):
         """Optimise the molecule with or without geometric."""
 
-        # TODO This has gotten kinda gross, can we trim it and maybe move some logic back into engines.py?
         append_to_log('Starting qm_optimisation')
         qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
 
@@ -782,6 +784,9 @@ class Execute:
 
         append_to_log('Starting torsion_scans')
 
+        molecule.find_rotatable_dihedrals()
+        molecule.symmetrise_from_topo()
+
         scan = TorsionScan(molecule)
 
         # Try to find a scan file; if none provided and more than one torsion detected: prompt user
@@ -822,7 +827,7 @@ class Execute:
         molecule.write_parameters()
 
         # get the molecule descriptors from RDKit
-        molecule.descriptors = RDKit.rdkit_descriptors(molecule.filename)
+        molecule.descriptors = RDKit.rdkit_descriptors(f'{molecule.name}.pdb')
 
         pretty_print(molecule, to_file=True)
         pretty_print(molecule)
