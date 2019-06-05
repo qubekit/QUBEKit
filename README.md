@@ -275,10 +275,19 @@ This will automatically generate the file with the appropriate column headers.
 The csv config file will be put into wherever you ran the command from.
 When writing to the csv file, append rows after the header row, rather than overwriting it.
 
+If you want to limit the number of molecules per csv file, simply add an argument to the command.
+For example, if you have 23 pdb files and want to analyse them 12 at a time, use the command:
+
+    QUBEKit -csv example.csv 12
+    
+This will generate two csv files, one with 12 molecules inside, the other with the remaining 11.
+You can then fill in the rest of the csv as desired, or run immediately with the defaults.
+
 Before running a bulk analysis, fill in each column for each molecule*; 
 importantly, different config files can be supplied for each molecule.
 
-*Only the name column needs to be filled, any empty columns will simply use the default values:
+*Only the name column needs to be filled (which is filled automatically with the generated csv),
+any empty columns will simply use the default values:
 
 * If the charge column is empty, charge will be set to 0;
 * If the multiplicity column is empty, multiplicity will be set to 1; 

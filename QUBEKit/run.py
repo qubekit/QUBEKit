@@ -148,7 +148,7 @@ class ArgsAndConfigs:
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when csv is called."""
 
-                generate_bulk_csv(values)
+                generate_bulk_csv(*values)
                 sys.exit()
 
         class ProgressAction(argparse.Action):
@@ -260,7 +260,7 @@ class ArgsAndConfigs:
         groups.add_argument('-bulk', '--bulk_run',
                             help='Enter the name of the csv file to run as bulk, bulk will use smiles unless it finds '
                                  'a molecule file with the same name.')
-        groups.add_argument('-csv', '--csv_filename', action=CSVAction,
+        groups.add_argument('-csv', '--csv_filename', action=CSVAction, nargs='*',
                             help='Enter the name of the csv file you would like to create for bulk runs.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
         groups.add_argument('-log', '--log', type=str,
