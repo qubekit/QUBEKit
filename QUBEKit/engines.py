@@ -464,11 +464,8 @@ class Gaussian(Engines):
                        shell=True, stdout=log, stderr=log)
 
             # After running check for normal termination
-            log = open(f'gj_{self.molecule.name}.log', 'r').read()
-            return True if 'Normal termination of Gaussian' in log else False
-
-        else:
-            return False
+            if 'Normal termination of Gaussian' in open(f'gj_{self.molecule.name}.log', 'r').read():
+                return True
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
@@ -656,9 +653,7 @@ class QCEngine(Engines):
                 mol_data += f'{item} '
             mol_data += '\n'
 
-        mol = qcel.models.Molecule.from_data(mol_data)
-
-        return mol
+        return qcel.models.Molecule.from_data(mol_data)
 
     def call_qcengine(self, engine, driver, input_type):
         """
@@ -715,10 +710,9 @@ class QCEngine(Engines):
                 'initial_molecule': mol,
             }
             # TODO hide the output stream so it does not spoil the terminal printing
-            # return_dict=True seems to be default False in newer versions. Ergo docs are wrong again.
             ret = qcng.compute_procedure(
-                geo_task, 'geometric', return_dict=True,
-                local_options={'memory': self.molecule.memory, 'ncores': self.molecule.threads})
+                geo_task, 'geometric', return_dict=True, local_options={'memory': self.molecule.memory,
+                                                                        'ncores': self.molecule.threads})
             return ret
 
         else:
