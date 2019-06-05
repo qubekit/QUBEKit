@@ -85,7 +85,8 @@ class PSI4(Engines):
                              f'{self.molecule.charge} {self.molecule.multiplicity} \n')
             # molecule is always printed
             for atom in molecule:
-                input_file.write(f' {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
+                input_file.write(f' {atom[0]}    '
+                                 f'{float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
             input_file.write(f' units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n')
 
             if energy:
@@ -318,7 +319,8 @@ class PSI4(Engines):
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
-            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
+            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} '
+                       f'{self.molecule.multiplicity} \n')
             for atom in molecule:
                 file.write(f'  {atom[0]:2}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
 
@@ -330,8 +332,8 @@ class PSI4(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sp.run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.molecule.threads}',
-                       shell=True, stdout=log, stderr=log)
+                sp.run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} '
+                       f'--nt {self.molecule.threads}', shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -358,7 +360,8 @@ class Chargemol(Engines):
             charge_file.write('\n\n<periodicity along A, B and C vectors>\n.false.\n.false.\n.false.')
             charge_file.write('\n</periodicity along A, B and C vectors>')
 
-            charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.molecule.chargemol}/atomic_densities/')
+            charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.molecule.chargemol}'
+                              f'/atomic_densities/')
             charge_file.write('\n</atomic densities directory complete path>')
 
             charge_file.write(f'\n\n<charge type>\nDDEC{self.molecule.ddec_version}\n</charge type>')
@@ -368,7 +371,8 @@ class Chargemol(Engines):
         if execute:
             with open('log.txt', 'w+') as log:
                 # TODO path.join()?
-                control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
+                control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/' \
+                               'Chargemol_09_26_2017_linux_serial job_control.txt'
                 sp.run(f'{self.molecule.chargemol}/{control_path}', shell=True, stdout=log, stderr=log)
 
 
@@ -440,7 +444,8 @@ class Gaussian(Engines):
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
                 for atom in molecule:
-                    input_file.write(f'{atom[0]} {float(atom[1]): .10f} {float(atom[2]): .10f} {float(atom[3]): .10f}\n')
+                    input_file.write(f'{atom[0]} '
+                                     f'{float(atom[1]): .10f} {float(atom[2]): .10f} {float(atom[3]): .10f}\n')
 
             if solvent:
                 # Adds the epsilon and cavity params
@@ -613,8 +618,6 @@ class ONETEP(Engines):
         Then make a 3d plot of the points and hull.
         """
 
-        # TODO Move to helpers? Not ONETEP specific
-
         coords = np.array([atom[1:] for atom in self.molecule.coords['input']])
 
         hull = ConvexHull(coords)
@@ -678,7 +681,8 @@ class QCEngine(Engines):
                 keywords={'scf_type': 'df'},
             )
 
-            ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.molecule.memory, 'ncores': self.molecule.threads})
+            ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.molecule.memory,
+                                                                 'ncores': self.molecule.threads})
 
             if driver == 'hessian':
                 hess_size = 3 * len(self.molecule.coords[input_type])
