@@ -26,16 +26,16 @@ class Configure:
     # QUBEKit config file allows users to reset the global variables
 
     qm = {
-        'theory': 'B3LYP',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
+        'theory': 'wB97XD',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
         'basis': '6-311++G(d,p)',       # Basis set
-        'vib_scaling': '0.991',         # Associated scaling to the theory
-        'threads': '6',                 # Number of processors used in Gaussian09; affects the bonds and dihedral scans
+        'vib_scaling': '0.957',         # Associated scaling to the theory
+        'threads': '2',                 # Number of processors used in Gaussian09; affects the bonds and dihedral scans
         'memory': '2',                  # Amount of memory (in GB); specified in the Gaussian09 scripts
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
         'iterations': '350',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
         'density_engine': 'onetep',     # Engine used to calculate the electron density
-        'charges_engine': 'chargemol',  # Engine used for charge partitioning
+        'charges_engine': 'onetep',  # Engine used for charge partitioning
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
@@ -50,7 +50,7 @@ class Configure:
         'refinement_method': 'SP',      # The type of QUBE refinement that should be done SP: single point energies
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array
-        'parameter_engine': 'openff',   # Method used for initial parametrisation
+        'parameter_engine': 'xml',   # Method used for initial parametrisation
         'l_pen': '0.0',                 # The regularisation penalty
     }
 

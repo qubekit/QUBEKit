@@ -8,6 +8,7 @@ from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 from subprocess import run as sub_run
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -17,7 +18,7 @@ from scipy.spatial import ConvexHull
 import qcengine as qcng
 import qcelemental as qcel
 
-from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile, MolFromMol2File
+from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile, MolFromMol2File, MolFromMolFile, rdPartialCharges
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 
 from simtk.openmm import app
@@ -83,8 +84,8 @@ class PSI4(Engines):
             # opening tag is always writen
             input_file.write(f"memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n{self.molecule.charge} {self.molecule.multiplicity} \n")
             # molecule is always printed
-            for atom in molecule:
-                input_file.write(f' {atom[0]}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
+            for i, atom in enumerate(molecule):
+                input_file.write(f' {self.molecule.atoms[i].element}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n')
             input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n")
 
             if energy:
@@ -247,7 +248,7 @@ class PSI4(Engines):
             for row in range(len(self.molecule.molecule['input'])):
 
                 # Append the first 4 columns of each row, converting to float as necessary.
-                struct_row = [lines[start_of_vals + row].split()[0]]
+                struct_row = []
                 for indx in range(3):
                     struct_row.append(float(lines[start_of_vals + row].split()[indx + 1]))
 
@@ -293,7 +294,7 @@ class PSI4(Engines):
                 raise EOFError('Cannot locate modes in output.dat file.')
 
             # Barring the first (and sometimes last) line, dat file has 6 values per row.
-            end_of_vals = start_of_vals + (3 * len(self.molecule.molecule['input'])) // 6
+            end_of_vals = start_of_vals + (3 * len(self.molecule.atoms)) // 6
 
             structures = lines[start_of_vals][24:].replace("'", "").split()
             structures = structures[6:]
@@ -317,8 +318,8 @@ class PSI4(Engines):
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
             file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
-            for atom in molecule:
-                file.write(f'  {atom[0]:2}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
+            for i, atom in enumerate(molecule):
+                file.write(f'  {self.molecule.atoms[i].element:2}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f}\n')
 
             file.write(f" units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n")
 
@@ -439,8 +440,8 @@ class Gaussian(Engines):
 
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
-                for atom in molecule:
-                    input_file.write(f'{atom[0]} {float(atom[1]): .10f} {float(atom[2]): .10f} {float(atom[3]): .10f}\n')
+                for i, atom in enumerate(molecule):
+                    input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} {float(atom[2]): .10f}\n')
 
             if solvent:
                 # Adds the epsilon and cavity params
@@ -490,7 +491,7 @@ class Gaussian(Engines):
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
                 hessian_list.extend([float(num) * 627.509391 / (0.529 ** 2) for num in line.strip('\n').split()])
 
-        hess_size = 3 * len(self.molecule.molecule['input'])
+        hess_size = 3 * len(self.molecule.atoms)
 
         hessian = np.zeros((hess_size, hess_size))
 
@@ -519,7 +520,7 @@ class Gaussian(Engines):
             for i, line in enumerate(lines):
                 if f'R{self.molecule.theory}\{self.molecule.basis}' in line:
                     start_end.append(i)
-                elif '\\@' in line:
+                elif '@' in line:
                     start_end.append(i)
 
                 elif 'SCF Done' in line:
@@ -541,7 +542,7 @@ class Gaussian(Engines):
             opt_struct = []
             for atom in molecule:
                 atom = atom.split(",")
-                opt_struct.append([atom[0], float(atom[1]), float(atom[2]), float(atom[3])])
+                opt_struct.append([float(atom[1]), float(atom[2]), float(atom[3])])
 
             # print(opt_struct)
             # assert len(opt_struct) == len(self.molecule.molecule['input'])
@@ -641,7 +642,8 @@ class QCEngine(Engines):
 
         mol_data = f'{self.molecule.charge} {self.molecule.multiplicity}\n'
 
-        for coord in self.molecule.molecule[input_type]:
+        for i, coord in enumerate(self.molecule.molecule[input_type]):
+            mol_data += f'{self.molecule.atoms[i].element} '
             for item in coord:
                 mol_data += f'{item} '
             mol_data += '\n'
@@ -674,7 +676,7 @@ class QCEngine(Engines):
             ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.molecule.memory, 'ncores': self.molecule.threads})
 
             if driver == 'hessian':
-                hess_size = 3 * len(self.molecule.molecule[input_type])
+                hess_size = 3 * len(self.molecule.atoms)
                 hessian = np.reshape(ret.return_result, (hess_size, hess_size)) * 627.509391 / (0.529 ** 2)
                 check_symmetry(hessian)
 
@@ -721,18 +723,22 @@ class RDKit:
     @staticmethod
     def read_file(filename):
 
-        molecule = []
+        # This handles splitting the paths
+        filename = Path(filename)
 
-        file_type = filename.split('.')[-1]
-        if file_type == 'pdb':
-            mol = MolFromPDBFile(filename, removeHs=False)
-        elif file_type == 'mol2':
-            mol = MolFromMol2File(filename, removeHs=False)
+        # Try and read the file
+        if filename.suffix == '.pdb':
+            mol = MolFromPDBFile(filename.name, removeHs=False)
+            # Try and find the partial charges
+            rdPartialCharges.ComputeGasteigerCharges(mol)
+        elif filename.suffix == '.mol2':
+            mol = MolFromMol2File(filename.name, removeHs=False)
+        elif filename.suffix == '.mol':
+            mol = MolFromMolFile(filename.name, removeHs=False)
         else:
             mol = None
 
-        print(mol)
-        return molecule
+        return mol
 
     @staticmethod
     def smiles_to_pdb(smiles_string, name=None):

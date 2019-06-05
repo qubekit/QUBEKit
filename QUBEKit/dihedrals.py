@@ -948,6 +948,7 @@ class TorsionOptimiser:
                     to_fit.remove(dihedral[::-1])
             i += 1
 
+        # TODO drop
         # now that we have grouped by param vectors we need to compare the gaff atom types that make up the torsions
         # then if they are different we need to further split the torsions
         # first construct the dictionary of type strings

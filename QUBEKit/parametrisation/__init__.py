@@ -1,7 +1,7 @@
 # TODO Are these relative imports OK on travis?
 
 # Import all of the core engines (shouldn't cause issues)
-from .parameter_engines import XML, XMLProtein, AnteChamber, BOSS
+from .parameter_engines import XML, XMLProtein, AnteChamber
 
 # try to import the extras
 try:

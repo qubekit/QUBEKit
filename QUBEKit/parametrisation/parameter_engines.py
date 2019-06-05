@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.engines import Babel
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -10,7 +9,8 @@ from shutil import copy
 from subprocess import run as sub_run
 from tempfile import TemporaryDirectory
 
-from xml.etree.ElementTree import parse as parse_tree
+import xml.etree.ElementTree as ET
+from xml.dom.minidom import parseString
 from simtk.openmm import app, XmlSerializer
 
 
@@ -55,11 +55,10 @@ class Parametrisation:
         self.molecule = molecule
         self.input_file = input_file
         self.fftype = fftype
-        self.atom_types = {}
         self.combination = 'amber'
 
+        # could be a problem for boron compounds
         # TODO Set back to None if there are none
-        self.molecule.mol2_types = {}
         self.molecule.AtomTypes = {}
         self.molecule.HarmonicBondForce = {}
         self.molecule.HarmonicAngleForce = {}
@@ -76,12 +75,11 @@ class Parametrisation:
         """
 
         # Try to gather the AtomTypes first
-        for i, atom in enumerate(self.molecule.atom_names):
-            self.molecule.AtomTypes[i] = [atom, 'QUBE_' + str(800 + i),
-                                          str(self.molecule.molecule['input'][i][0]) + str(800 + i),
-                                          self.molecule.mol2_types[i]]
+        for atom in self.molecule.atoms:
+            self.molecule.AtomTypes[atom.index] = [atom.name, 'QUBE_' + str(000 + atom.index),
+                                                   str(atom.element) + str(000 + atom.index)]
 
-        in_root = parse_tree('serialised.xml').getroot()
+        in_root = ET.parse('serialised.xml').getroot()
 
         # Extract all bond data
         for Bond in in_root.iter('Bond'):
@@ -124,10 +122,8 @@ class Parametrisation:
         if self.molecule.dihedrals is not None:
             for tor_list in self.molecule.dihedrals.values():
                 for torsion in tor_list:
-                    # change the indexing to check if they match
-                    param = tuple(torsion[i] - 1 for i in range(4))
-                    if param not in self.molecule.PeriodicTorsionForce and tuple(reversed(param)) not in self.molecule.PeriodicTorsionForce:
-                        self.molecule.PeriodicTorsionForce[param] = [['1', '0', '0'], ['2', '0', '3.141592653589793'], ['3', '0', '0'], ['4', '0', '3.141592653589793']]
+                    if torsion not in self.molecule.PeriodicTorsionForce and tuple(reversed(torsion)) not in self.molecule.PeriodicTorsionForce:
+                        self.molecule.PeriodicTorsionForce[torsion] = [['1', '0', '0'], ['2', '0', '3.141592653589793'], ['3', '0', '0'], ['4', '0', '3.141592653589793']]
 
         # Now we need to fill in all blank phases of the Torsions
         for key, val in self.molecule.PeriodicTorsionForce.items():
@@ -149,11 +145,11 @@ class Parametrisation:
             for improper in self.molecule.improper_torsions:
                 for key, val in self.molecule.PeriodicTorsionForce.items():
                     # for each improper find the corresponding torsion parameters and save
-                    if sorted(key) == sorted(tuple([x - 1 for x in improper])):
+                    if sorted(key) == sorted(improper):
                         # if they match tag the dihedral
                         self.molecule.PeriodicTorsionForce[key].append('Improper')
                         # replace the key with the strict improper order first atom is center
-                        improper_torsions[tuple([x - 1 for x in improper])] = val
+                        improper_torsions[improper] = val
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
         # Remake the torsion store in the ligand
@@ -164,87 +160,100 @@ class Parametrisation:
             for key, val in improper_torsions.items():
                 self.molecule.PeriodicTorsionForce[key] = val
 
-    def get_gaff_types(self, fftype='gaff', file=None):
-        """
-        Convert the pdb file into a mol2 antechamber file and get the gaff atom types and bonds if we need them.
-        """
-
-        # TODO Instead of file argument, just look for a mol2 file?
-
-        # call Antechamber to convert if we don't have the mol2 file
-        if file is None:
-            cwd = os.getcwd()
-
-            pdb_path = os.path.abspath(self.molecule.filename)
-            mol2_path = os.path.abspath(f'{self.molecule.name}.mol2')
-
-            # Do this in a temp directory as it produces a lot of files
-            with TemporaryDirectory() as temp:
-                os.chdir(temp)
-                copy(pdb_path, 'in.pdb')
-
-                # Call Antechamber
-                # TODO Handle non-zero charge with -nc command
-
-                cmd = f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {fftype} -c bcc'
-
-                if self.molecule.charge == 1:
-                    cmd += ' -nc 1'
-
-                with open('ante_log.txt', 'w+') as log:
-                    sub_run(cmd, shell=True, stdout=log, stderr=log)
-
-                # Ensure command worked
-                try:
-                    # Copy the gaff mol2 and antechamber file back
-                    copy('out.mol2', mol2_path)
-                    copy('ante_log.txt', cwd)
-                except FileNotFoundError:
-                    # If the molecule contains boron we expect this so use RDKit
-                    print('using OpenBabel')
-                    mol2_file = f'{self.molecule.name}.mol2'
-                    Babel.convert('in.pdb', mol2_file)
-                    copy(mol2_file, mol2_path)
-
-                os.chdir(cwd)
-        else:
-            mol2_path = file
-
-        # Check if the pdb file had connections if not we should remake the file
-        remake = True if self.molecule.bond_lengths is None else False
-
-        # Get the gaff atom types and bonds in case we don't have this info
-        self.molecule.read_mol2(mol2_path)
-
-        # Check if the molecule has bond lengths if not call the update method
-        if remake:
-            self.molecule.update()
-
-            # Now we need to rewrite the pdb file to have the conect terms
-            # Back up the old pdb file
-            os.rename(self.molecule.filename, 'backup.pdb')
-            # Rewrite the pdb file with the conect terms
-            self.molecule.write_pdb(input_type='input')
-
 
 @for_all_methods(timer_logger)
 class XML(Parametrisation):
     """Read in the parameters for a molecule from an XML file and store them into the molecule."""
 
-    def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS', mol2_file=None):
+    def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
 
         super().__init__(molecule, input_file, fftype)
 
-        self.get_gaff_types(fftype='gaff', file=mol2_file)
+        # self.check_xml()
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
         self.molecule.combination = 'opls'
 
+    def check_xml(self):
+        """
+        This function will check through the xml provided
+        and ensure that the connections between the mol2/pdb match the xml this is only for boron compounds
+        :return: edited xml file
+        """
+
+        re_write = False
+
+        # First parse the xml file
+        in_root = ET.parse(self.molecule.name + '.xml').getroot()
+
+        # Now record all of the bonds in the file
+        bonds = []
+        for Bond in in_root.iter('Bond'):
+            # There are two Bond entries and we want the first type
+            try:
+                bonds.append((int(Bond.get('from')), int(Bond.get('to'))))
+            except TypeError:
+                break
+
+        # Now make sure the amount of bonds match
+        if self.molecule.bond_lengths is not None and len(self.molecule.bond_lengths) != len(bonds):
+            for bond in self.molecule.bond_lengths:
+                zeroed_bond = (bond[0] - 1, bond[1] - 1)
+                if zeroed_bond not in bonds and tuple(reversed(zeroed_bond)) not in bonds:
+                    print(f'Warning parameters missing for bond {self.molecule.atom_names[zeroed_bond[0]]}-'
+                          f'{self.molecule.atom_names[zeroed_bond[1]]}, adding estimate')
+
+                    re_write = True
+
+                    # Now add the bond tag and parameter tags
+                    bond_root = in_root.find('Residues/Residue')
+                    ET.SubElement(bond_root, 'Bond', attrib={'from': str(zeroed_bond[0]), 'to': str(zeroed_bond[1])})
+
+                    # Now add the general parameters these will be replaced by the seminario method anyway
+                    param_root = in_root.find('HarmonicBondForce')
+                    ET.SubElement(param_root, 'Bond', attrib={'class1': f'{self.molecule.molecule["input"][zeroed_bond[0]][0]}{800 + zeroed_bond[0]}',
+                                                              'class2': f'{self.molecule.molecule["input"][zeroed_bond[1]][0]}{800 + zeroed_bond[1]}',
+                                                              'length': str(0.140000), 'k': str(392459.200000)})
+
+        # Record all of the angle parameters
+        angles = []
+        for Angle in in_root.iter('Angle'):
+            angles.append((int(Angle.get('class1')[-2:]), int(Angle.get('class2')[-2:]), int(Angle.get('class3')[-2:])))
+
+        # Now we add an angle parameter if it is missing
+        if self.molecule.angles is not None and len(self.molecule.angles) != len(angles):
+            for angle in self.molecule.angles:
+                zeroed_angle = (angle[0] - 1, angle[1] - 1, angle[2] - 1)
+                if zeroed_angle not in angles and tuple(reversed(zeroed_angle)) not in angles:
+                    print(f'Warning parameters missing for angle {self.molecule.atom_names[zeroed_angle[0]]}-'
+                          f'{self.molecule.atom_names[zeroed_angle[1]]}-{self.molecule.atom_names[zeroed_angle[2]]}'
+                          f', adding estimate')
+
+                    re_write = True
+
+                    # Now add the general angle parameters
+                    angle_root = in_root.find('HarmonicAngleForce')
+                    ET.SubElement(angle_root, 'Angle', attrib={'class1': f'{self.molecule.molecule["input"][zeroed_angle[0]][0]}{800 + zeroed_angle[0]}',
+                                                               'class2': f'{self.molecule.molecule["input"][zeroed_angle[1]][0]}{800 + zeroed_angle[1]}',
+                                                               'class3': f'{self.molecule.molecule["input"][zeroed_angle[2]][0]}{800 + zeroed_angle[2]}',
+                                                               'angle': str(2.094395), 'k': str(527.184000)})
+
+        # No dihedrals added as they are added during reading the serialised system
+
+        if re_write:
+            # Now we need to remove the old XML and write the new one!
+            print('Rewriting the xml with missing parameters')
+            os.remove(f'{self.molecule.name}.xml')
+            messy = ET.tostring(in_root, 'utf-8')
+            pretty_xml_string = parseString(messy).toprettyxml(indent="")
+            with open(f'{self.molecule.name}.xml', 'w+') as xml:
+                xml.write(pretty_xml_string)
+
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
 
-        pdb = app.PDBFile(self.molecule.filename)
+        pdb = app.PDBFile(f'{self.molecule.name}.pdb')
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
         if self.input_file:
@@ -301,12 +310,11 @@ class XMLProtein(Parametrisation):
         """
 
         # Try to gather the AtomTypes first
-        for i, atom in enumerate(self.molecule.atom_names):
-            self.molecule.AtomTypes[i] = [atom, 'QUBE_' + str(i),
-                                          str(self.molecule.molecule['input'][i][0]) + str(i)]
+        for atom in self.molecule.atoms:
+            self.molecule.AtomTypes[atom.index] = [atom.name, 'QUBE_' + str(atom.index), atom.name]
 
         input_xml_file = 'serialised.xml'
-        in_root = parse_tree(input_xml_file).getroot()
+        in_root = ET.parse(input_xml_file).getroot()
 
         # Extract all bond data
         for Bond in in_root.iter('Bond'):
@@ -393,7 +401,7 @@ class AnteChamber(Parametrisation):
     then build and export the xml tree object.
     """
 
-    def __init__(self, molecule, input_file=None, fftype='gaff', mol2_file=None):
+    def __init__(self, molecule, input_file=None, fftype='gaff'):
 
         super().__init__(molecule, input_file, fftype)
 
@@ -420,13 +428,33 @@ class AnteChamber(Parametrisation):
         # file paths when moving in and out of temp locations
         cwd = os.getcwd()
         mol2 = os.path.abspath(f'{self.molecule.name}.mol2')
+        pdb_path = os.path.abspath(f'{self.molecule.name}.pdb')
         frcmod_file = os.path.abspath(f'{self.molecule.name}.frcmod')
         prmtop_file = os.path.abspath(f'{self.molecule.name}.prmtop')
         inpcrd_file = os.path.abspath(f'{self.molecule.name}.inpcrd')
         ant_log = os.path.abspath('Antechamber.log')
 
         # Call Antechamber
-        self.get_gaff_types(fftype=self.fftype)
+        # Do this in a temp directory as it produces a lot of files
+        with TemporaryDirectory() as temp:
+            os.chdir(temp)
+            copy(pdb_path, 'in.pdb')
+
+            # Call Antechamber
+            cmd = f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc -nc {self.molecule.charge}'
+
+            with open('ante_log.txt', 'w+') as log:
+                sub_run(cmd, shell=True, stdout=log, stderr=log)
+
+            # Ensure command worked
+            try:
+                # Copy the gaff mol2 and antechamber file back
+                copy('out.mol2', mol2)
+                copy('ante_log.txt', cwd)
+            except FileNotFoundError:
+                print('Antechamber could not convert this file type is it a valid pdb?')
+
+            os.chdir(cwd)
 
         # Work in temp directory due to the amount of files made by antechamber
         with TemporaryDirectory() as temp:
@@ -482,38 +510,10 @@ class AnteChamber(Parametrisation):
         self.inpcrd = f'{self.molecule.name}.inpcrd'
 
 
-@for_all_methods(timer_logger)
-class BOSS(Parametrisation):
-    """
-    This class uses the BOSS software to parametrise a molecule using the CM1A/OPLS FF.
-    The parameters are then stored in the parameter dictionaries.
-    """
+class OPLSServer(Parametrisation):
+    """Is it possible to contact the ligpargen server and get the pdb and xml file for a molecule?"""
 
-    # TODO make sure order is consistent with PDB.
-    def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
-        super().__init__(molecule, input_file, fftype)
-
-        self.boss_cmd()
-        self.gather_parameters()
-        self.molecule.parameter_engine = 'BOSS ' + self.fftype
-        self.molecule.combination = 'opls'
-
-    def boss_cmd(self):
-        """
-        This method is used to call the required BOSS scripts.
-        1 The zmat file with CM1A charges is first generated for the molecule keeping the same pdb order.
-        2 A single point calculation is done.
-        """
-
-        pass
-
-    def gather_parameters(self):
-        """
-        This method parses the BOSS out file and collects the parameters ready to pass them
-        to build tree.
-        """
-
-        pass
+    pass
 
 
 class Default:

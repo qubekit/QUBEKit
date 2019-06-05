@@ -15,10 +15,9 @@ class OpenFF(Parametrisation):
     A serialised XML is then stored in the parameter dictionaries.
     """
 
-    def __init__(self, molecule, input_file=None, fftype='frost', mol2_file=None):
+    def __init__(self, molecule, input_file=None, fftype='frost'):
         super().__init__(molecule, input_file, fftype)
 
-        self.get_gaff_types(mol2_file)
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
@@ -28,10 +27,11 @@ class OpenFF(Parametrisation):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 
         # Load the molecule using openforcefield
-        pdb_file = app.PDBFile(self.molecule.filename)
+        pdb_file = app.PDBFile(f'{self.molecule.name}.pdb')
 
         # Now we need the connection info try using smiles string from rdkit
-        molecule = Molecule.from_smiles(RDKit.get_smiles(self.molecule.filename))
+        molecule = Molecule.from_smiles(RDKit.get_smiles(f'{self.molecule.name}.pdb'))
+        print(molecule)
 
         # Make the openMM system
         omm_topology = pdb_file.topology

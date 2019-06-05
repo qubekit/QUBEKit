@@ -580,8 +580,8 @@ class Execute:
 
         append_to_log('Starting parametrisation')
 
-        # First copy the pdb and any other files into the folder
-        copy(f'../{molecule.filename}', f'{molecule.filename}')
+        # Write the PDB file this covers us if we have a mol2 or xyz input file
+        molecule.write_pdb()
 
         # Parametrisation options:
         param_dict = {'antechamber': AnteChamber, 'xml': XML}
@@ -599,7 +599,7 @@ class Execute:
         param_dict[molecule.parameter_engine](molecule)
 
         append_to_log(f'Finishing parametrisation of molecule with {molecule.parameter_engine}')
-
+        print(molecule)
         return molecule
 
     def mm_optimise(self, molecule):

@@ -36,13 +36,13 @@
 [QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python 3.6+ based force field derivation toolkit for Linux operating systems.
 Our aims are to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
 QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
-QUBEKit aims to use as few parameters as possible while also being highly customisable.
+QUBEKit aims to avoid fitting to experimental data where possible while also being highly customisable.
 
 Users who have used QUBEKit to derive any new force field parameters should cite the following papers:
 
 * [Biomolecular Force Field Parameterization via Atoms-in-Molecule Electron Density Partitioning](https://pubs.acs.org/doi/abs/10.1021/acs.jctc.6b00027)
 * [Harmonic Force Constants for Molecular Mechanics Force Fields via Hessian Matrix Projection](https://pubs.acs.org/doi/10.1021/acs.jctc.7b00785)
-
+* [QUBEKit: Automating the Derivation of Force Field Parameters from Quantum Mechanics](https://pubs.acs.org/doi/10.1021/acs.jcim.8b00767) 
 ### In Development
 
 QUBEKit should currently be considered a work in progress.
