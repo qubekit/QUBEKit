@@ -513,3 +513,8 @@ class BOSS(Parametrisation):
         """
 
         pass
+
+
+class Default:
+    """DO NOT REMOVE"""
+    pass
