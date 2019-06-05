@@ -662,28 +662,29 @@ class Execute:
 
         # TODO This has gotten kinda gross, can we trim it and maybe move some logic back into engines.py?
 
-        # TODO We initialise the PSI4 engine even if we're using QCEngine?
-        qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
-
         if molecule.geometric and molecule.bonds_engine == 'psi4':
 
-            # Optimise the structure using QCEngine with geometric and psi4
             qceng = QCEngine(molecule)
             result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
-            # Check if converged and get the geometry
+
             if result['success']:
-                # Load all of the frames into the molecules trajectory holder
+
+                # Load all of the frames into the molecule's trajectory holder
                 molecule.read_geometric_traj(result['trajectory'])
+
                 # store the last frame as the qm optimised structure
                 molecule.coords['qm'] = molecule.coords['traj'][-1]
+
                 # Write out the trajectory file
                 molecule.write_xyz(input_type='traj', name=f'{molecule.name}_opt')
                 molecule.write_xyz(input_type='qm', name='opt')
 
             else:
+                print(result)
                 sys.exit('Molecule not optimised.')
 
         else:
+            qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
             converged = qm_engine.generate_input(input_type='mm', optimise=True)
 
             # Check the exit status of the job; if failed restart the job up to 2 times
