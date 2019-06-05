@@ -44,7 +44,7 @@ install:
       echo "ERROR: No match for PROG ($PROG)."
       exit 1
     fi
-  - conda activate test
+  - source activate test
   - python setup.py install
 
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
