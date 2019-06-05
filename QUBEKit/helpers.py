@@ -4,6 +4,7 @@ from collections import OrderedDict
 from configparser import ConfigParser
 from contextlib import contextmanager
 import csv
+import math
 import os
 from pathlib import Path
 import pickle
@@ -259,10 +260,13 @@ def mol_data_from_csv(csv_name):
     return final
 
 
-def generate_bulk_csv(csv_name):
+def generate_bulk_csv(csv_name, max_execs=None):
     """
     Generates a csv with name "csv_name" with minimal information inside.
     Contains only headers and a row of defaults and populates all of the named files where available.
+    max_execs determines the max number of executions per csv file.
+    For example, 10 pdb files with a value of max_execs=6 will generate two csv files,
+    one containing 6 of those files, the other with the remaining 4.
     """
 
     if csv_name[-4:] != '.csv':
@@ -274,14 +278,33 @@ def generate_bulk_csv(csv_name):
         if file.endswith('.pdb'):
             files.append(file[:-4])
 
-    with open(csv_name, 'w') as csv_file:
+    # If max number of pdbs per file is unspecified, just put them all in one file.
+    if max_execs is None:
+        with open(csv_name, 'w') as csv_file:
 
-        file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
-        for file in files:
-            file_writer.writerow([file, 0, 1, '', '', '', '', ''])
+            file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
+            for file in files:
+                file_writer.writerow([file, 0, 1, '', '', '', '', ''])
+        print(f'{csv_name} generated.', flush=True)
 
-    print(f'{csv_name} generated.', flush=True)
+    try:
+        max_execs = int(max_execs)
+    except ValueError:
+        raise ValueError('Number of executions per bulk csv must be an int greater than 1.')
+
+    # If max number of pdbs per file is specified, spread them across several csv files.
+    num_csvs = math.ceil(len(files) / max_execs)
+
+    for csv_count in range(num_csvs):
+        with open(f'{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv', 'w') as csv_file:
+            file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
+
+            for file in files[csv_count * max_execs: (csv_count + 1) * max_execs]:
+                file_writer.writerow([file, 0, 1, '', '', '', '', ''])
+
+        print(f'{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv generated.', flush=True)
 
 
 def append_to_log(message, msg_type='major'):
