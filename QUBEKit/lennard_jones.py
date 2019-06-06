@@ -226,11 +226,11 @@ class LennardJones:
             for pair in polars:
                 if 'H' == pair[0].element or 'H' == pair[1].element:
                     if 'H' == pair[0].element:
-                        polar_h_pos = pair[0].index
-                        polar_son_pos = pair[1].index
+                        polar_h_pos = pair[0].atom_index
+                        polar_son_pos = pair[1].atom_index
                     else:
-                        polar_h_pos = pair[1].index
-                        polar_son_pos = pair[0].index
+                        polar_h_pos = pair[1].atom_index
+                        polar_son_pos = pair[0].atom_index
 
                     # Calculate the new b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
                     self.ddec_data[polar_son_pos][-2] += self.ddec_data[polar_h_pos][-2]

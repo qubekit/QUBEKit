@@ -482,17 +482,19 @@ class Gaussian(Engines):
 
         log = open(f'gj_{self.molecule.name}.log', 'r').read()
         if 'Normal termination of Gaussian' in log:
-            result = {'success': True}
+            return {'success': True}
 
         elif 'Problem with the distance matrix.' in log:
-            result = {'success': False,
-                      'error': 'Distance matrix'}
+            return {'success': False,
+                    'error': 'Distance matrix'}
 
         elif 'Error termination in NtrErr' in log:
-            result = {'success': False,
-                      'error': 'FileIO'}
+            return {'success': False,
+                    'error': 'FileIO'}
 
-        return result
+        else:
+            return {'success': False,
+                    'error': 'Unknown'}
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
@@ -654,7 +656,7 @@ class QCEngine(Engines):
 
         mol_data = f'{self.molecule.charge} {self.molecule.multiplicity}\n'
 
-        for i, coord in enumerate(self.molecule.molecule[input_type]):
+        for i, coord in enumerate(self.molecule.coords[input_type]):
             mol_data += f'{self.molecule.atoms[i].element} '
             for item in coord:
                 mol_data += f'{item} '
