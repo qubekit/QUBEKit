@@ -459,12 +459,37 @@ class Gaussian(Engines):
                 sub_run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
                         shell=True, stdout=log, stderr=log)
 
-            # After running check for normal termination
-            log = open(f'gj_{self.molecule.name}.log', 'r').read()
-            return True if 'Normal termination of Gaussian' in log else False
+            # Now check the exit status of the job
+            result = self.check_for_errors()
+
+            return result
 
         else:
-            return False
+
+            result = {'success': False,
+                      'error': 'Not run'}
+
+            return result
+
+    def check_for_errors(self):
+        """
+        Read the output file and check for normal termination and any errors.
+        :return: A dictionary of the success status and any problems
+        """
+
+        log = open(f'gj_{self.molecule.name}.log', 'r').read()
+        if 'Normal termination of Gaussian' in log:
+            result = {'success': True}
+
+        elif 'Problem with the distance matrix.' in log:
+            result = {'success': False,
+                      'error': 'Distance matrix'}
+
+        elif 'Error termination in NtrErr' in log:
+            result = {'success': False,
+                      'error': 'FileIO'}
+
+        return result
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
@@ -751,7 +776,7 @@ class RDKit:
     def mm_optimise(filename, ff='MMF'):
         """
         Perform rough preliminary optimisation to speed up later optimisations.
-        :param pdb_file: The name of the input pdb file
+        :param filename: The name of the input file
         :param ff: The Force field to be used either MMF or UFF
         :return: The name of the optimised pdb file that is made
         """
@@ -771,7 +796,7 @@ class RDKit:
     def rdkit_descriptors(filename):
         """
         Use RDKit Descriptors to extract properties and store in Descriptors dictionary.
-        :param pdb_file: The molecule input file
+        :param filename: The molecule input file
         :return: Descriptors dictionary
         """
 
@@ -789,7 +814,7 @@ class RDKit:
     def get_smiles(filename):
         """
         Use RDKit to load in the pdb file of the molecule and get the smiles code.
-        :param pdb_file: The molecule input file
+        :param filename: The molecule input file
         :return: The smiles string
         """
 
@@ -801,7 +826,7 @@ class RDKit:
     def get_smarts(filename):
         """
         Use RDKit to get the smarts string of the molecule.
-        :param pdb_file: The molecule input file
+        :param filename: The molecule input file
         :return: The smarts string
         """
 
@@ -813,7 +838,7 @@ class RDKit:
     def get_mol(filename):
         """
         Use RDKit to generate a mol file.
-        :param pdb_file: The molecule input file
+        :param filename: The molecule input file
         :return: The name of the mol file made
         """
 
@@ -823,6 +848,23 @@ class RDKit:
         MolToMolFile(mol, mol_name)
 
         return mol_name
+
+    @staticmethod
+    def generate_conformers(filename, conformer_no=10):
+        """
+        Generate a set of x conformers of the molecule
+        :param conformer_no: The amount of conformers made for the molecule
+        :param filename: The name of the input file
+        :return: A list of conformer position arrays
+        """
+
+        mol = RDKit.read_file(filename)
+
+        cons = AllChem.EmbedMultipleConfs(mol, numConfs=conformer_no)
+        positions = cons.GetConformers()
+        coords = [conformer.GetPositions() for conformer in positions]
+
+        return coords
 
 
 @for_all_methods(timer_logger)

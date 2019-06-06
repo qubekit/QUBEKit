@@ -657,7 +657,11 @@ class Execute:
 
             # Optimise the structure using QCEngine with geometric and psi4
             qceng = QCEngine(molecule)
-            result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
+            # See if the structure is there if not we did not optimise
+            if molecule.molecule['mm']:
+                result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
+            else:
+                result = qceng.call_qcengine('geometric', 'gradient', input_type='input')
             # Check if converged and get the geometry
             if result['success']:
                 # Load all of the frames into the molecules trajectory holder
@@ -668,24 +672,40 @@ class Execute:
                 molecule.write_xyz(input_type='traj', name=f'{molecule.name}_opt')
                 molecule.write_xyz(input_type='qm', name='opt')
 
+                return molecule
+
             else:
+                # TODO catch the qcengine error here
                 sys.exit('Molecule not optimised.')
 
-        else:
-            converged = qm_engine.generate_input(input_type='mm', optimise=True)
+        elif molecule.molecule['mm']:
+            result = qm_engine.generate_input(input_type='mm', optimise=True)
 
-            # Check the exit status of the job; if failed restart the job up to 2 times
-            restart_count = 1
-            while not converged and restart_count < 3:
-                append_to_log(f'{molecule.bonds_engine} optimisation failed; restarting', msg_type='minor')
-                converged = qm_engine.generate_input(input_type='mm', optimise=True, restart=True)
-                restart_count += 1
+        # Check the exit status of the job; if failed restart the job up to 2 times
+        restart_count = 1
+        while not result['success'] and restart_count < 3:
+            append_to_log(f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
+                          msg_type='minor')
+            # Now we should handle the errors that we have in the results
+            # 1) If we have a file read error just start again
+            if result['error'] == 'FileIO':
+                result = qm_engine.generate_input(input_type='mm', optimise=True, restart=True)
+            # 2) If we have a distance matrix error we should start from a different structure try the input
+            elif result['error'] == 'Distance matrix' and restart_count == 1:
+                result = qm_engine.generate_input(input_type='input', optimise=True)
+            # 3) If we have already tried the starting structure generate a conformer and try again
+            elif result['error'] == 'Distance matrix':
+                molecule.write_pdb()
+                molecule.molecule['mm'] = RDKit.generate_conformers(f'{molecule.name}.pdb')[0]
+                result = qm_engine.generate_input(input_type='mm', optimise=True)
 
-            if not converged:
-                sys.exit(f'{molecule.bonds_engine} optimisation did not converge after 3 restarts; check log file.')
+            restart_count += 1
 
-            molecule.molecule['qm'], molecule.qm_energy = qm_engine.optimised_structure()
-            molecule.write_xyz(input_type='qm', name='opt')
+        if not result['success']:
+            sys.exit(f'{molecule.bonds_engine} optimisation did not converge after 3 restarts; last error {result["error"]}')
+
+        molecule.molecule['qm'], molecule.qm_energy = qm_engine.optimised_structure()
+        molecule.write_xyz(input_type='qm', name='opt')
 
         append_to_log(f'Finishing qm_optimisation of molecule using{" geometric and" if molecule.geometric else molecule.bonds_engine}')
 
