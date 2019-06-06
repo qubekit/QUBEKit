@@ -7,6 +7,7 @@ from datetime import datetime
 from itertools import groupby
 import pickle
 import re
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
@@ -14,21 +15,23 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
 
+from QUBEKit.engines import RDKit
+
 
 class Defaults:
 
     def __init__(self):
 
-        self.theory = 'wb97x-d'
+        self.theory = 'wB97XD'
         self.basis = '6-311++G(d,p)'
-        self.vib_scaling = 0.991
-        self.threads = 6
-        self.memory = 6
+        self.vib_scaling = 0.957
+        self.threads = 2
+        self.memory = 2
         self.convergence = 'GAU_TIGHT'
-        self.iterations = 100
+        self.iterations = 350
         self.bonds_engine = 'psi4'
-        self.density_engine = 'g09'
-        self.charges_engine = 'chargemol'
+        self.density_engine = 'onetep'
+        self.charges_engine = 'onetep'
         self.ddec_version = 6
         self.geometric = True
         self.solvent = True
@@ -41,11 +44,47 @@ class Defaults:
         self.refinement_method = 'SP'
         self.tor_limit = 20
         self.div_index = 0
-        self.parameter_engine = 'openff'
+        self.parameter_engine = 'xml'
         self.l_pen = 0.0
 
         self.chargemol = '/home/b8009890/Programs/chargemol_09_26_2017_unchanged'
         self.log = 'CHR'
+
+
+class Atom:
+    """Class to hold all of the atomic information"""
+
+    def __init__(self, atomic_number, index, atom_name='', partial_charge=None, formal_charge=None):
+
+        # Atomic weight dict
+        self.mass_dict = {
+            1: 1.008000,  # Group 1
+            5: 10.811000,  # Group 3
+            6: 12.011000,  # Group 4
+            7: 14.007000, 15: 30.973762,  # Group 5
+            8: 15.999000, 16: 32.060000,  # Group 6
+            9: 18.998403, 17: 35.450000, 35: 79.904000, 53: 126.904470  # Group 7
+        }
+
+        # Atomic number dict
+        self.element_dict = {
+            1: 'H',  # Group 1
+            5: 'B',  # Group 3
+            6: 'C',  # Group 4
+            7: 'N', 15: 'P',  # Group 5
+            8: 'O', 16: 'S',  # Group 6
+            9: 'F', 17: 'Cl', 35: 'Br', 53: 'I'  # Group 7
+        }
+
+        self.atomic_number = atomic_number
+        self.name = atom_name
+        self.index = index
+        self.mass = self.mass_dict[atomic_number]
+        self.partial_charge = partial_charge
+        self.formal_charge = formal_charge
+        self.type = None
+        self.bonds = []
+        self.element = self.element_dict[atomic_number]
 
 
 class Molecule(Defaults):
@@ -68,7 +107,6 @@ class Molecule(Defaults):
                                 e.g. {(1,2): [(3, 1, 2, 6), (3, 1, 2, 7)]}
         improper_torsions
         rotatable               List of dihedral core tuples [(1,2)]
-        atom_names              List of the atom names taken from the pdb file
         bond_lengths            Dictionary of bond lengths stored under the bond tuple
                                 e.g. {(1, 3): 1.115341203992107} (angstroms)
         dih_phis                Dictionary of the dihedral angles measured in the molecule object stored under the
@@ -108,10 +146,8 @@ class Molecule(Defaults):
         super().__init__()
 
         # Namings
-        self.filename = filename
-        self.name = filename.split(".")[0]
-        # Also check if we have a full path in the name
-        self.name = self.name.split("/")[-1]
+        self.filename = Path(filename)
+        self.name = self.filename.stem
         self.smiles = None
 
         # Structure
@@ -120,9 +156,7 @@ class Molecule(Defaults):
         self.angles = None
         self.dihedrals = None
         self.improper_torsions = None
-        self.rotatable = None       # TODO Rotatable is getting set to [] even when there are rotatables
-        self.atom_names = None
-        self.mol2_types = None
+        self.rotatable = None
         self.bond_lengths = None
         self.dih_phis = None
         self.angle_values = None
@@ -149,14 +183,14 @@ class Molecule(Defaults):
         self.config = 'master_config.ini'
         self.constraints_file = ''
 
-        # Atomic weight dict
+        # Atomic number dict
         self.element_dict = {
-            'H': 1.008000,   # Group 1
-            'B': 10.811000,  # Group 3
-            'C': 12.011000,  # Group 4
-            'N': 14.007000, 'P': 30.973762,  # Group 5
-            'O': 15.999000, 'S': 32.060000,  # Group 6
-            'F': 18.998403, 'CL': 35.450000, 'BR': 79.904000, 'I': 126.904470   # Group 7
+            'H': 1,   # Group 1
+            'B': 5,  # Group 3
+            'C': 6,  # Group 4
+            'N': 7, 'P': 15,  # Group 5
+            'O': 8, 'S': 16,  # Group 6
+            'F': 9, 'CL': 17, 'BR': 35, 'I': 53   # Group 7
         }
 
     def __repr__(self):
@@ -209,12 +243,67 @@ class Molecule(Defaults):
         return return_str
 
     def read_file(self):
-        """The base file reader used upon instancing the class; it will decide which file reader to use."""
+        """The base file reader used upon instancing the class; it will decide which file reader to use
+         based on the file suffix."""
 
-        if self.filename.split(".")[1] == 'pdb':
-            self.read_pdb(self.filename)
-        elif self.filename.split(".")[1] == 'mol2':
-            self.read_mol2(self.filename)
+        # Try and load the file using RDKit this should ensure that we always have the connection info
+        try:
+            rdkit_mol = RDKit.read_file(self.filename.name)
+            # Now extract the molecule from RDKit
+            self.mol_from_rdkit(rdkit_mol)
+
+        except AttributeError:
+            # AttributeError:  errors when reading the input file
+            print('RDKit error was found, resorting to standard file readers')
+            # Try and read using QUBEKit readers they only get the connections if present
+            if self.filename.suffix == '.pdb':
+                self.read_pdb(self.filename)
+            elif self.filename.suffix == '.mol2':
+                self.read_mol2(self.filename)
+
+    # TODO add mol file reader
+    def mol_from_rdkit(self, rdkit_molecule, input_type='input'):
+        """
+        Unpack a RDKit molecule into the QUBEKit ligand
+        :param rdkit_molecule: The rdkit molecule instance
+        :param input_type: Where the coordintes should be stored
+        :return: The ligand object with the internal structures
+        """
+
+        self.topology = nx.Graph()
+        self.atoms = []
+
+        # Collect the atom names and bonds
+        for atom in rdkit_molecule.GetAtoms():
+            # Collect info about each atom
+            try:
+                # PDB file extraction
+                atom_name = atom.GetMonomerInfo().GetName().strip()
+                partial_charge = atom.GetProp('_GasteigerCharge')
+            except AttributeError:
+                # Mol2 file extraction
+                atom_name = atom.GetProp('_TriposAtomName')
+                partial_charge = atom.GetProp('_TriposPartialCharge')
+            atomic_number = atom.GetAtomicNum()
+            index = atom.GetIdx()
+
+            # Instance the basic qube_atom
+            qube_atom = Atom(atomic_number, index, atom_name, partial_charge, atom.GetFormalCharge())
+            qube_atom.type = atom.GetSmarts()
+
+            # Add the atoms as nodes
+            self.topology.add_node(atom.GetIdx())
+
+            # Add the bonds
+            for bonded in atom.GetNeighbors():
+                self.topology.add_edge(atom.GetIdx(), bonded.GetIdx())
+                qube_atom.bonds.append(bonded.GetIdx())
+
+            # Now at the atom to the molecule
+            self.atoms.append(qube_atom)
+
+        # Now get the coordinates and store in the right location
+        self.molecule[input_type] = rdkit_molecule.GetConformer().GetPositions()
 
     def read_pdb(self, filename, input_type='input'):
         """
@@ -230,50 +319,60 @@ class Molecule(Defaults):
 
         molecule = []
         self.topology = nx.Graph()
-        self.atom_names = []
+        self.atoms = []
 
         # atom counter used for graph node generation
-        atom_count = 1
+        atom_count = 0
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
+                # start collecting the atom class info
                 element = str(line[76:78])
                 element = re.sub('[0-9]+', '', element)
                 element = element.strip()
-                self.atom_names.append(str(line.split()[2]))
+                atom_name = str(line.split()[2])
 
                 # If the element column is missing from the pdb, extract the element from the name.
                 if not element:
                     element = str(line.split()[2])[:-1]
                     element = re.sub('[0-9]+', '', element)
 
+                atomic_number = self.element_dict[element]
+                # Now instance the qube atom
+                qube_atom = Atom(atomic_number, atom_count, atom_name)
+                self.atoms.append(qube_atom)
+
                 # Also add the atom number as the node in the graph
                 self.topology.add_node(atom_count)
                 atom_count += 1
-                molecule.append([element, float(line[30:38]), float(line[38:46]), float(line[46:54])])
+                molecule.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
 
             if 'CONECT' in line:
+                atom_index = int(line.split()[1]) - 1
                 # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
                 for i in range(2, len(line.split())):
                     if int(line.split()[i]) != 0:
-                        self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
+                        bonded_index = int(line.split()[i]) - 1
+                        self.topology.add_edge(atom_index, bonded_index)
+                        self.atoms[atom_index].bonds.append(bonded_index)
+                        self.atoms[bonded_index].bonds.append(atom_index)
 
         # put the object back into the correct place
-        self.coords[input_type] = molecule
+        self.coords[input_type] = np.array(molecule)
 
     def read_mol2(self, name, input_type='input'):
         """
         Read an input mol2 file and extract the atom names, positions, atom types and bonds.
+        :param name: The mol2 file name
         :param input_type: Assign the structure to right holder, input, mm, qm, temp or traj.
         :return: The object back into the right place.
         """
 
         molecule = []
         self.topology = nx.Graph()
-        self.atom_names = []
-        self.mol2_types = []
+        self.atoms = []
 
         # atom counter used for graph node generation
-        atom_count = 1
+        atom_count = 0
 
         with open(name, 'r') as mol2:
             lines = mol2.readlines()
@@ -301,10 +400,12 @@ class Molecule(Defaults):
 
                 if element.upper() not in self.element_dict:
                     element = element[0]
-                molecule.append([element, float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
+
+                atomic_number = self.element_dict[element]
+                molecule.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
 
                 # Collect the atom names
-                self.atom_names.append(str(line.split()[1]))
+                atom_name = str(line.split()[1])
 
                 # Add the nodes to the topology object
                 self.topology.add_node(atom_count)
@@ -313,14 +414,22 @@ class Molecule(Defaults):
                 # Get the atom types
                 atom_type = line.split()[5]
                 atom_type = atom_type.replace(".", "")
-                self.mol2_types.append(atom_type)
+
+                # Make the qube_atom
+                qube_atom = Atom(atomic_number, atom_count, atom_name)
+                qube_atom.type = atom_type
+
+                self.atoms.append(qube_atom)
 
             if bonds:
                 # Add edges to the topology network
-                self.topology.add_edge(int(line.split()[1]), int(line.split()[2]))
+                atom_index, bonded_index = int(line.split()[1]) - 1, int(line.split()[2]) - 1
+                self.topology.add_edge(atom_index, bonded_index)
+                self.atoms[atom_index].bonds.append(bonded_index)
+                self.atoms[bonded_index].bonds.append(atom_index)
 
         # put the object back into the correct place
-        self.coords[input_type] = molecule
+        self.coords[input_type] = np.array(molecule)
 
     def read_geometric_traj(self, trajectory):
         """
@@ -334,8 +443,8 @@ class Molecule(Defaults):
             # Convert coordinates from bohr to angstroms
             geometry = np.array(frame['molecule']['geometry']) * 0.529177210
             for i, atom in enumerate(frame['molecule']['symbols']):
-                opt_traj.append([atom, geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
-            self.coords['traj'].append(opt_traj)
+                opt_traj.append([geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
+            self.coords['traj'].append(np.array(opt_traj))
 
     def find_impropers(self):
         """
@@ -387,8 +496,8 @@ class Molecule(Defaults):
         molecule = self.coords[input_type]
 
         for edge in self.topology.edges:
-            atom1 = np.array(molecule[int(edge[0]) - 1][1:])
-            atom2 = np.array(molecule[int(edge[1]) - 1][1:])
+            atom1 = molecule[edge[0]]
+            atom2 = molecule[edge[1]]
             bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
 
         # Check if the dictionary is full then store else leave as None
@@ -465,7 +574,7 @@ class Molecule(Defaults):
             for key in self.dihedrals.keys():
                 for torsion in self.dihedrals[key]:
                     # Calculate the dihedral angle in the molecule using the molecule data array.
-                    x1, x2, x3, x4 = [np.array(molecule[int(torsion[i]) - 1][1:]) for i in range(4)]
+                    x1, x2, x3, x4 = [molecule[torsion[i]] for i in range(4)]
                     b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
                     t1 = np.linalg.norm(b2) * np.dot(b1, np.cross(b2, b3))
                     t2 = np.dot(np.cross(b1, b2), np.cross(b2, b3))
@@ -485,9 +594,9 @@ class Molecule(Defaults):
         molecule = self.coords[input_type]
 
         for angle in self.angles:
-            x1 = np.array(molecule[int(angle[0]) - 1][1:])
-            x2 = np.array(molecule[int(angle[1]) - 1][1:])
-            x3 = np.array(molecule[int(angle[2]) - 1][1:])
+            x1 = molecule[angle[0]]
+            x2 = molecule[angle[1]]
+            x3 = molecule[angle[2]]
             b1, b2 = x1 - x2, x3 - x2
             cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
             angle_values[angle] = np.degrees(np.arccos(cosine_angle))
@@ -537,8 +646,8 @@ class Molecule(Defaults):
         for key, val in self.AtomTypes.items():
             ET.SubElement(AtomTypes, "Type", attrib={
                 'name': val[1], 'class': val[2],
-                'element': self.coords['input'][key][0],
-                'mass': str(self.element_dict[self.coords['input'][key][0].upper()])})
+                'element': self.atoms[key].element,
+                'mass': str(self.atoms[key].mass)})
 
             ET.SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
 
@@ -600,7 +709,7 @@ class Molecule(Defaults):
 
                 # Add the local coords site info
                 ET.SubElement(Residue, "VirtualSite", attrib={
-                    'type': 'localCoords', 'index': str(key + len(self.atom_names)),
+                    'type': 'localCoords', 'index': str(key + len(self.atoms)),
                     'atom1': str(val[0][0]), 'atom2': str(val[0][1]), 'atom3': str(val[0][2]),
                     'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0', 'wx1': '-1.0', 'wx2': '1.0', 'wx3': '0.0',
                     'wy1': '-1.0', 'wy2': '0.0', 'wy3': '1.0',
@@ -628,7 +737,7 @@ class Molecule(Defaults):
 
         with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
 
-            if len(self.coords[input_type]) / len(self.atom_names) == 1:
+            if len(self.coords[input_type]) / len(self.atoms) == 1:
                 message = 'xyz file generated with QUBEKit'
                 end = ''
                 trajectory = [self.coords[input_type]]
@@ -641,11 +750,11 @@ class Molecule(Defaults):
             # Write out each frame
             for frame in trajectory:
 
-                xyz_file.write(f'{len(self.atom_names)}\n')
+                xyz_file.write(f'{len(self.atoms)}\n')
                 xyz_file.write(f'{message}{end}\n')
 
-                for atom in frame:
-                    xyz_file.write(f'{atom[0]}       {atom[1]: .10f}   {atom[2]: .10f}   {atom[3]: .10f} \n')
+                for i, atom in enumerate(frame):
+                    xyz_file.write(f'{self.atoms[i].element}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f} \n')
 
                 try:
                     end += 1
@@ -709,30 +818,30 @@ class Molecule(Defaults):
         methyl_hs = []
         amine_hs = []
         methyl_amine_nitride_cores = []
-        for pos, atom_coords in enumerate(self.coords['input']):
-            if atom_coords[0] == 'C' or atom_coords[0] == 'N':
+        for atom in self.atoms:
+            if atom.element == 'C' or atom.element == 'N':
 
                 hs = []
-                for atom in self.topology.neighbors(pos + 1):
-                    if len(list(self.topology.neighbors(atom))) == 1:
+                for bonded in self.topology.neighbors(atom.index):
+                    if len(list(self.topology.neighbors(bonded))) == 1:
                         # now make sure it is a hydrogen (as halogens could be caught here)
-                        if self.coords['input'][atom - 1][0] == 'H':
-                            hs.append(atom)
-                if atom_coords[0] == 'C' and len(hs) == 3:
+                        if self.atoms[bonded].element == 'H':
+                            hs.append(bonded)
+                if atom.element == 'C' and len(hs) == 3:
                     methyl_hs.append(hs)
-                    methyl_amine_nitride_cores.append(pos + 1)
-                if atom_coords[0] == 'N' and len(hs) == 2:
+                    methyl_amine_nitride_cores.append(atom.index)
+                if atom.element == 'N' and len(hs) == 2:
                     amine_hs.append(hs)
-                    methyl_amine_nitride_cores.append(pos + 1)
-                if atom_coords[0] == 'N' and len(hs) == 1:
-                    methyl_amine_nitride_cores.append(pos + 1)
+                    methyl_amine_nitride_cores.append(atom.index)
+                if atom.element == 'N' and len(hs) == 1:
+                    methyl_amine_nitride_cores.append(atom.index)
 
         self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs}
 
         # now modify the rotatable list to remove methyl and amine/ nitrile torsions
         # these are already well represented in most FF's
         remove_list = []
-        if self.rotatable:
+        if self.rotatable is not None:
             rotatable = self.rotatable
             for key in rotatable:
                 if key[0] in methyl_amine_nitride_cores or key[1] in methyl_amine_nitride_cores:
@@ -742,7 +851,10 @@ class Molecule(Defaults):
             for torsion in remove_list:
                 rotatable.remove(torsion)
 
-            self.rotatable = rotatable
+            if rotatable:
+                self.rotatable = rotatable
+            else:
+                self.rotatable = None
 
     def update(self, input_type='input'):
         """
@@ -752,7 +864,7 @@ class Molecule(Defaults):
 
         # using the new harmonic bond force dict we can add the bond edges to the topology graph
         for key in self.HarmonicBondForce:
-            self.topology.add_edge(key[0] + 1, key[1] + 1)
+            self.topology.add_edge(key[0], key[1])
 
         self.find_angles()
         self.find_dihedrals()
@@ -822,10 +934,10 @@ class Ligand(Molecule):
                         next(xyz_file)
                         continue
                     else:
-                        molecule.append([line[0], float(line[1]), float(line[2]), float(line[3])])
+                        molecule.append([float(line[1]), float(line[2]), float(line[3])])
                     if len(molecule) == n_atoms:
                         # we have collected the molecule now store the frame
-                        traj_molecules.append(molecule)
+                        traj_molecules.append(np.array(molecule))
                         molecule = []
             self.coords[input_type] = traj_molecules
 
@@ -853,13 +965,13 @@ class Ligand(Molecule):
             pdb_file.write(f'COMPND    {self.name:<20}\n')
             for i, atom in enumerate(molecule):
                 pdb_file.write(
-                    f'HETATM{i+1:>5} {self.atom_names[i]:>4} UNL     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+                    f'HETATM{i+1:>5} {self.atoms[i].name:>4} UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}  1.00  0.00          {self.atoms[i].element:2}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(nx.neighbors(self.topology, node)))
                 if len(bonded) > 1:
-                    pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+                    pdb_file.write(f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')
 
@@ -885,13 +997,13 @@ class Protein(Molecule):
 
         protein = []
         self.topology = nx.Graph()
-        self.atom_names = []
         self.residues = []
         self.Residues = []
         self.pdb_names = []
+        self.atoms = []
 
         # atom counter used for graph node generation
-        atom_count = 1
+        atom_count = 0
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
                 element = str(line[76:78])
@@ -909,7 +1021,11 @@ class Protein(Molecule):
                 else:
                     element = element[0]
 
-                self.atom_names.append(f'{element}{atom_count}')
+                atom_name = f'{element}{atom_count}'
+                qube_atom = Atom(self.element_dict[element], atom_count, atom_name)
+
+                self.atoms.append(qube_atom)
+
                 self.pdb_names.append(str(line.split()[2]))
 
                 # also get the residue order from the pdb file so we can rewrite the file
@@ -918,7 +1034,7 @@ class Protein(Molecule):
                 # Also add the atom number as the node in the graph
                 self.topology.add_node(atom_count)
                 atom_count += 1
-                protein.append([element, float(line[30:38]), float(line[38:46]), float(line[46:54])])
+                protein.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
 
             if 'CONECT' in line:
                 # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
@@ -934,7 +1050,7 @@ class Protein(Molecule):
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
-        self.coords[input_type] = protein
+        self.coords[input_type] = np.array(protein)
 
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
@@ -947,15 +1063,15 @@ class Protein(Molecule):
             pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
             # pdb_file.write(f'COMPND    {self.name:<20}\n')
             # we have to transform the atom name while writing out the pdb file
-            for i, atom in enumerate(molecule, 1):
+            for i, atom in enumerate(molecule):
                 # TODO conditional printing
                 pdb_file.write(
-                    f'HETATM{i:>5}{atom[0] + i:>5} QUP     1{atom[1]:12.3f}{atom[2]:8.3f}{atom[3]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+                    f'HETATM{i+1:>5}{self.atoms[i].name:>5} QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}  1.00  0.00          {atom[0]:2}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(nx.neighbors(self.topology, node)))
                 if len(bonded) > 1:
-                    pdb_file.write(f'CONECT{node:5}{"".join(f"{x:5}" for x in bonded)}\n')
+                    pdb_file.write(f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')

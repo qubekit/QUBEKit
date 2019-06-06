@@ -62,7 +62,11 @@ class ArgsAndConfigs:
             self.handle_bulk()
 
         if self.args.restart:
-            self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
+            # Find the file this could also be a mol2 file
+            try:
+                self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
+            except IndexError:
+                self.file = [file for file in os.listdir(os.getcwd()) if '.mol2' in file][0]
         else:
             if self.args.smiles:
                 self.file = RDKit.smiles_to_pdb(self.args.smiles)
@@ -598,8 +602,10 @@ class Execute:
     def parametrise(molecule):
         """Perform initial molecule parametrisation using OpenFF, Antechamber or XML."""
 
-        # First copy the pdb and any other files into the folder
-        copy(f'../{molecule.filename}', f'{molecule.filename}')
+        append_to_log('Starting parametrisation')
+
+        # Write the PDB file this covers us if we have a mol2 or xyz input file
+        molecule.write_pdb()
 
         # Parametrisation options:
         param_dict = {'antechamber': AnteChamber, 'xml': XML}
@@ -616,7 +622,7 @@ class Execute:
         # Perform the parametrisation
         param_dict[molecule.parameter_engine](molecule)
 
-        append_to_log(f'Parametrised molecule with {molecule.parameter_engine}')
+        append_to_log(f'Finishing parametrisation of molecule with {molecule.parameter_engine}')
 
         return molecule
 
@@ -631,8 +637,9 @@ class Execute:
         Geometric / OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
         """
 
+        append_to_log('Starting mm_optimisation')
+
         # Check which method we want then do the optimisation
-        # TODO if we don't want geometric we can do a quick native openmm full optimisation?
         if self.molecule.mm_opt_method == 'openmm':
             # Make the inputs
             molecule.write_pdb(input_type='input')
@@ -656,20 +663,25 @@ class Execute:
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
 
-        append_to_log(f'mm_optimised the molecule with {self.molecule.mm_opt_method}')
+        append_to_log(f'Finishing mm_optimisation of the molecule with {self.molecule.mm_opt_method}')
 
         return molecule
 
     def qm_optimise(self, molecule):
         """Optimise the molecule with or without geometric."""
 
-        # TODO This has gotten kinda gross, can we trim it and maybe move some logic back into engines.py?
+        append_to_log('Starting qm_optimisation')
+        qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
 
         if molecule.geometric and molecule.bonds_engine == 'psi4':
 
             qceng = QCEngine(molecule)
-            result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
-
+            # See if the structure is there if not we did not optimise
+            if molecule.molecule['mm']:
+                result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
+            else:
+                result = qceng.call_qcengine('geometric', 'gradient', input_type='input')
+            # Check if converged and get the geometry
             if result['success']:
 
                 # Load all of the frames into the molecule's trajectory holder
@@ -682,28 +694,43 @@ class Execute:
                 molecule.write_xyz(input_type='traj', name=f'{molecule.name}_opt')
                 molecule.write_xyz(input_type='qm', name='opt')
 
+                return molecule
+
             else:
+                # TODO catch the qcengine error here
                 print(result)
                 sys.exit('Molecule not optimised.')
 
-        else:
-            qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
-            converged = qm_engine.generate_input(input_type='mm', optimise=True)
+        elif molecule.coords['mm']:
+            result = qm_engine.generate_input(input_type='mm', optimise=True)
 
-            # Check the exit status of the job; if failed restart the job up to 2 times
-            restart_count = 1
-            while not converged and restart_count < 3:
-                append_to_log(f'{molecule.bonds_engine} optimisation failed; restarting', msg_type='minor')
-                converged = qm_engine.generate_input(input_type='mm', optimise=True, restart=True)
-                restart_count += 1
+        # Check the exit status of the job; if failed restart the job up to 2 times
+        restart_count = 1
+        while not result['success'] and restart_count < 3:
+            append_to_log(f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
+                          msg_type='minor')
+            # Now we should handle the errors that we have in the results
+            # 1) If we have a file read error just start again
+            if result['error'] == 'FileIO':
+                result = qm_engine.generate_input(input_type='mm', optimise=True, restart=True)
+            # 2) If we have a distance matrix error we should start from a different structure try the input
+            elif result['error'] == 'Distance matrix' and restart_count == 1:
+                result = qm_engine.generate_input(input_type='input', optimise=True)
+            # 3) If we have already tried the starting structure generate a conformer and try again
+            elif result['error'] == 'Distance matrix':
+                molecule.write_pdb()
+                molecule.molecule['mm'] = RDKit.generate_conformers(f'{molecule.name}.pdb')[0]
+                result = qm_engine.generate_input(input_type='mm', optimise=True)
 
-            if not converged:
-                sys.exit(f'{molecule.bonds_engine} optimisation did not converge after 3 restarts; check log file.')
+            restart_count += 1
 
-            molecule.coords['qm'], molecule.qm_energy = qm_engine.optimised_structure()
-            molecule.write_xyz(input_type='qm', name='opt')
+        if not result['success']:
+            sys.exit(f'{molecule.bonds_engine} optimisation did not converge after 3 restarts; last error {result["error"]}')
 
-        append_to_log(f'qm_optimised structure calculated{" with geometric" if molecule.geometric else ""}')
+        molecule.coords['qm'], molecule.qm_energy = qm_engine.optimised_structure()
+        molecule.write_xyz(input_type='qm', name='opt')
+
+        append_to_log(f'Finishing qm_optimisation of molecule using{" geometric and" if molecule.geometric else molecule.bonds_engine}')
 
         return molecule
 
@@ -713,6 +740,7 @@ class Execute:
         # TODO Because of QCEngine, nothing is being put into the hessian folder anymore
         #   Need a way of writing QCEngine output to log file; still waiting on documentation ...
 
+        append_to_log('Starting hessian calculation')
         molecule.get_bond_lengths(input_type='qm')
 
         # Check what engine to use
@@ -725,7 +753,7 @@ class Execute:
             qceng = QCEngine(molecule)
             molecule.hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
 
-        append_to_log(f'Hessian calculated using {molecule.bonds_engine}')
+        append_to_log(f'Finishing Hessian calculation using {molecule.bonds_engine}')
 
         return molecule
 
@@ -733,15 +761,19 @@ class Execute:
     def mod_sem(molecule):
         """Modified Seminario for bonds and angles."""
 
+        append_to_log('Starting mod_Seminario method')
+
         mod_sem = ModSeminario(molecule)
         mod_sem.modified_seminario_method()
 
-        append_to_log('Mod_Seminario method complete')
+        append_to_log('Finishing Mod_Seminario method')
 
         return molecule
 
     def density(self, molecule):
         """Perform density calculation with the qm engine."""
+
+        append_to_log('Starting density calculation')
 
         if molecule.density_engine == 'onetep':
             molecule.write_xyz(input_type='qm')
@@ -755,7 +787,7 @@ class Execute:
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
             qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent)
-            append_to_log('Density analysis complete')
+            append_to_log('Finishing Density calculation')
 
         return molecule
 
@@ -766,11 +798,12 @@ class Execute:
         # TODO add option to use chargemol on onetep cube files.
         # TODO Proper pathing
 
+        append_to_log('Starting charge partitioning')
         copy(f'../6_density/{molecule.name}.wfx', f'{molecule.name}.wfx')
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
 
-        append_to_log(f'Charge analysis completed with Chargemol and DDEC{molecule.ddec_version}')
+        append_to_log(f'Finishing Charge partitioning with Chargemol and DDEC{molecule.ddec_version}')
 
         return molecule
 
@@ -778,17 +811,24 @@ class Execute:
     def lennard_jones(molecule):
         """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
+        append_to_log('Starting Lennard-Jones parameter calculation')
+
         os.system('cp ../7_charges/DDEC* .')
         lj = LennardJones(molecule)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
-        append_to_log('Lennard-Jones parameters calculated')
+        append_to_log('Finishing Lennard-Jones parameter calculation')
 
         return molecule
 
     @staticmethod
     def torsion_scan(molecule):
         """Perform torsion scan."""
+
+        append_to_log('Starting torsion_scans')
+
+        molecule.find_rotatable_dihedrals()
+        molecule.symmetrise_from_topo()
 
         scan = TorsionScan(molecule)
 
@@ -801,7 +841,7 @@ class Execute:
 
         scan.start_scan()
 
-        append_to_log('Torsion_scans complete')
+        append_to_log('Finishing torsion_scans')
 
         return molecule
 
@@ -809,10 +849,12 @@ class Execute:
     def torsion_optimise(molecule):
         """Perform torsion optimisation."""
 
+        append_to_log('Starting torsion_optimisations')
+
         opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
         opt.run()
 
-        append_to_log('Torsion_optimisations complete')
+        append_to_log('Finishing torsion_optimisations')
 
         return molecule
 
@@ -826,7 +868,7 @@ class Execute:
         molecule.write_pdb()
         molecule.write_parameters()
 
-        molecule.descriptors = RDKit.rdkit_descriptors(molecule.filename)
+        molecule.descriptors = RDKit.rdkit_descriptors(f'{molecule.name}.pdb')
 
         pretty_print(molecule, to_file=True)
         pretty_print(molecule)

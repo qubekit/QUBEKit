@@ -26,11 +26,11 @@ class TestLigands(unittest.TestCase):
         # Make sure the pdb reader has been used
 
         # Check all atoms are found
-        self.assertEqual(10, len(self.molecule_pdb.coords['input']))
+        self.assertEqual(10, len(self.molecule_pdb.atoms))
 
         # Check atom names and coords are extracted for each atom in the molecule
         for atom in self.molecule_pdb.coords['input']:
-            self.assertEqual(4, len(atom))
+            self.assertEqual(3, len(atom))
 
     def test_mol2_reader(self):
         # Make sure the mol2 reader has been used
@@ -40,12 +40,12 @@ class TestLigands(unittest.TestCase):
 
         # Check atom names and coords are extracted for each atom in the molecule
         for atom in self.molecule_mol2.coords['input']:
-            self.assertEqual(4, len(atom))
+            self.assertEqual(3, len(atom))
 
     def test_bonds(self):
 
         # check we have found the bonds in the connections table
-        bonds = [(1, 5), (1, 6), (1, 7), (1, 2), (2, 3), (2, 4), (4, 8), (4, 9), (4, 10)]
+        bonds = [(0, 4), (0, 5), (0, 6), (0, 1), (1, 2), (1, 3), (3, 7), (3, 8), (3, 9)]
         self.assertEqual(bonds, list(self.molecule_pdb.topology.edges))
         self.assertEqual(bonds, list(self.molecule_mol2.topology.edges))
 
@@ -56,8 +56,8 @@ class TestLigands(unittest.TestCase):
     def test_angles(self):
 
         # check that we have found all angles in the molecule
-        angles = [(2, 1, 5), (2, 1, 6), (2, 1, 7), (5, 1, 6), (5, 1, 7), (6, 1, 7), (1, 2, 3), (1, 2, 4),
-                  (3, 2, 4), (2, 4, 8), (2, 4, 9), (2, 4, 10), (8, 4, 9), (8, 4, 10), (9, 4, 10)]
+        angles = [(1, 0, 4), (1, 0, 5), (1, 0, 6), (4, 0, 5), (4, 0, 6), (5, 0, 6), (0, 1, 2), (0, 1, 3), (2, 1, 3),
+                  (1, 3, 7), (1, 3, 8), (1, 3, 9), (7, 3, 8), (7, 3, 9), (8, 3, 9)]
 
         self.assertEqual(angles, list(self.molecule_pdb.angles))
         self.assertEqual(angles, list(self.molecule_mol2.angles))
@@ -69,8 +69,8 @@ class TestLigands(unittest.TestCase):
     def test_dihedrals(self):
 
         # check the dihedral angles in the molecule
-        dihedrals = {(1, 2): [(5, 1, 2, 3), (5, 1, 2, 4), (6, 1, 2, 3), (6, 1, 2, 4), (7, 1, 2, 3), (7, 1, 2, 4)],
-                     (2, 4): [(1, 2, 4, 8), (1, 2, 4, 9), (1, 2, 4, 10), (3, 2, 4, 8), (3, 2, 4, 9), (3, 2, 4, 10)]}
+        dihedrals = {(0, 1): [(4, 0, 1, 2), (4, 0, 1, 3), (5, 0, 1, 2), (5, 0, 1, 3), (6, 0, 1, 2), (6, 0, 1, 3)],
+                     (1, 3): [(0, 1, 3, 7), (0, 1, 3, 8), (0, 1, 3, 9), (2, 1, 3, 7), (2, 1, 3, 8), (2, 1, 3, 9)]}
         self.assertEqual(dihedrals, self.molecule_pdb.dihedrals)
         self.assertEqual(dihedrals, self.molecule_mol2.dihedrals)
 
@@ -79,7 +79,7 @@ class TestLigands(unittest.TestCase):
         self.assertEqual(12, len(self.molecule_mol2.dih_phis))
 
         # check the improper dihedrals found
-        impropers = [(2, 1, 3, 4)]
+        impropers = [(1, 0, 2, 3)]
         self.assertEqual(impropers, self.molecule_pdb.improper_torsions)
         self.assertEqual(impropers, self.molecule_mol2.improper_torsions)
 

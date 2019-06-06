@@ -92,12 +92,12 @@ class TorsionScan:
             rotatable = list(self.molecule.rotatable)
             print('Please select the central bonds round which you wish to scan in the order to be scanned')
             print('Torsion number   Central-Bond   Representative Dihedral')
-            for i, bond in enumerate(rotatable, 1):
-                print(f'  {i}                    {bond[0]}-{bond[1]}             '
-                      f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][0] - 1]}-'
-                      f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][1] - 1]}-'
-                      f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][2] - 1]}-'
-                      f'{self.molecule.atom_names[self.molecule.dihedrals[bond][0][3] - 1]}')
+            for i, bond in enumerate(rotatable):
+                print(f'  {i + 1}                    {bond[0]}-{bond[1]}             '
+                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][0]].name}-'
+                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][1]].name}-'
+                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][2]].name}-'
+                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][3]].name}')
 
             scans = list(input('>'))  # Enter as a space separated list
             scans[:] = [scan for scan in scans if scan != ' ']  # remove all spaces from the scan list
@@ -113,7 +113,8 @@ class TorsionScan:
 
         with open('dihedrals.txt', 'w+') as out:
 
-            out.write('# dihedral definition by atom indices starting from 0\n# i     j     k     l\n')
+            out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering\n'
+                      '# i     j     k     l\n')
             scan_di = self.molecule.dihedrals[scan][0]
             out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}\n')
 
@@ -249,6 +250,10 @@ class TorsionOptimiser:
     def __init__(self, molecule, weight_mm=True, use_force=False, step_size=0.02, error_tol=1e-5,
                  x_tol=1e-5, refinement='Steep', vn_bounds=20):
 
+        # QUBEKit objects
+        self.molecule = molecule
+        self.qm_engine = PSI4(molecule)
+
         # configurations
         self.l_pen = self.molecule.l_pen
         self.t_weight = self.molecule.t_weight
@@ -261,10 +266,6 @@ class TorsionOptimiser:
         self.use_Force = use_force
         self.abs_bounds = vn_bounds
         self.refinement = refinement
-
-        # QUBEKit objects
-        self.molecule = molecule
-        self.qm_engine = PSI4(molecule)
 
         # TorsionOptimiser starting parameters
         self.energy_dict = molecule.qm_scan_energy
@@ -348,25 +349,6 @@ class TorsionOptimiser:
                         scan_coords.append(tups)
         return scan_coords
 
-    # def openmm_system(self):
-    #     """Initialise the OpenMM system we will use to evaluate the energies."""
-    #
-    #     # Load the initial coords into the system and initialise
-    #     self.molecule.write_pdb(input_type='input', name=self.molecule.name)
-    #     pdb = app.PDBFile(f'{self.molecule.name}.pdb')
-    #     forcefield = app.ForceField(f'{self.molecule.name}.xml')
-    #     modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
-    #     self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
-    #
-    #     if self.combination == 'opls':
-    #         self.opls_lj()
-    #
-    #     temperature = 298.15 * unit.kelvin
-    #     integrator = mm.LangevinIntegrator(temperature, 5 / unit.picoseconds, 0.001 * unit.picoseconds)
-    #
-    #     self.simulation = app.Simulation(modeller.topology, self.system, integrator)
-    #     self.simulation.context.setPositions(modeller.positions)
-
     def initial_energies(self):
         """Calculate the initial energies using the input xml."""
 
@@ -412,20 +394,6 @@ class TorsionOptimiser:
         # Update the param vector for the right torsions by slicing the vector every 4 places
         for key, val in self.tor_types.items():
             val[1] = x[key * 4:key * 4 + 4]
-
-    # def get_energy(self, position):
-    #     """Return the MM calculated energy of the structure."""
-    #
-    #     # update the positions of the system
-    #     self.simulation.context.setPositions(position)
-    #
-    #     # Get the energy from the new state
-    #     state = self.simulation.context.getState(getEnergy=True, getForces=self.use_Force)
-    #
-    #     energy = float(str(state.getPotentialEnergy())[:-6])
-    #
-    #     # Convert from kJ to kcal
-    #     return energy / 4.184
 
     def objective(self, x):
         """Return the output of the objective function."""
@@ -904,7 +872,7 @@ class TorsionOptimiser:
 
         # Get a list of which dihedrals parameters are to be varied
         # Convert to be indexed from 0
-        to_fit = [(tor[0] - 1, tor[1] - 1, tor[2] - 1, tor[3] - 1) for tor in list(self.molecule.dihedrals[self.scan])]
+        to_fit = [(tor[0], tor[1], tor[2], tor[3]) for tor in list(self.molecule.dihedrals[self.scan])]
 
         # Check which ones have the same parameters and how many torsion vectors we need
         self.tor_types = OrderedDict()
@@ -956,14 +924,14 @@ class TorsionOptimiser:
                     to_fit.remove(dihedral[::-1])
             i += 1
 
-        # now that we have grouped by param vectors we need to compare the gaff atom types that make up the torsions
+        # Now that we have grouped by param vectors we need to compare the atom types that make up the torsions
         # then if they are different we need to further split the torsions
         # first construct the dictionary of type strings
         torsion_string_dict = {}
         for index, tor_info in self.tor_types.items():
             for j, torsion in enumerate(tor_info[0]):
                 # get the tuple of the torsion string
-                tor_tup = tuple(self.molecule.AtomTypes[torsion[i]][3] for i in range(4))
+                tor_tup = tuple(self.moleculeatoms[torsion[i]].type for i in range(4))
                 # check if its in the torsion string dict
                 try:
                     torsion_string_dict[tor_tup][0].append(torsion)
@@ -1109,8 +1077,7 @@ class TorsionOptimiser:
         # self.mm_energy /= 4.184 # convert from kj to kcal
 
         # Make the angle array
-        # TODO How does the qm_engine have a fitting argument? Should it be self.molecule.increment?
-        angles = [x for x in range(-165, 195, self.qm_engine.fitting['increment'])]
+        angles = [x for x in range(-165, 195, self.molecule.increment)]
         plt.plot(angles, self.qm_energy, 'o', label='QM')
         for pos, scan in enumerate(energies):
             self.mm_energy = np.array(scan)
@@ -1136,7 +1103,7 @@ class TorsionOptimiser:
         initial_energy = self.initial_energy - min(self.initial_energy)
 
         # Construct the angle array
-        angles = [x for x in range(-165, 195, self.qm_engine.fitting['increment'])]
+        angles = [x for x in range(-165, 195, self.molecule.increment)]
         points = [x for x in range(len(self.qm_energy))] if len(self.qm_energy) > len(angles) else None
 
         if points is not None:
@@ -1290,64 +1257,3 @@ class TorsionOptimiser:
                         self.molecule.PeriodicTorsionForce[dihedral][vn][1] = str(val[1][vn])
                     except KeyError:
                         self.molecule.PeriodicTorsionForce[tuple(reversed(dihedral))][vn][1] = str(val[1][vn])
-
-    # def opls_lj(self):
-    #     """
-    #     This function changes the standard OpenMM combination rules to use OPLS, execp and normal pairs are only
-    #     required if their are virtual sites in the molecule.
-    #     """
-    #
-    #     # Get the system information from the openmm system
-    #     forces = {self.system.getForce(index).__class__.__name__: self.system.getForce(index) for index in
-    #               range(self.system.getNumForces())}
-    #     # Use the nondonded_force to get the same rules
-    #     nonbonded_force = forces['NonbondedForce']
-    #     lorentz = mm.CustomNonbondedForce(
-    #         'epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0')
-    #     lorentz.setNonbondedMethod(nonbonded_force.getNonbondedMethod())
-    #     lorentz.addPerParticleParameter('sigma')
-    #     lorentz.addPerParticleParameter('epsilon')
-    #     lorentz.setCutoffDistance(nonbonded_force.getCutoffDistance())
-    #     self.system.addForce(lorentz)
-    #
-    #     l_j_set = {}
-    #     # For each particle, calculate the combination list again
-    #     for index in range(nonbonded_force.getNumParticles()):
-    #         charge, sigma, epsilon = nonbonded_force.getParticleParameters(index)
-    #         l_j_set[index] = (sigma, epsilon, charge)
-    #         lorentz.addParticle([sigma, epsilon])
-    #         nonbonded_force.setParticleParameters(index, charge, 0, 0)
-    #
-    #     for i in range(nonbonded_force.getNumExceptions()):
-    #         (p1, p2, q, sig, eps) = nonbonded_force.getExceptionParameters(i)
-    #         # ALL THE 12,13 and 14 interactions are EXCLUDED FROM CUSTOM NONBONDED FORCE
-    #         lorentz.addExclusion(p1, p2)
-    #         if eps._value != 0.0:
-    #             charge = 0.5 * (l_j_set[p1][2] * l_j_set[p2][2])
-    #             sig14 = sqrt(l_j_set[p1][0] * l_j_set[p2][0])
-    #             nonbonded_force.setExceptionParameters(i, p1, p2, charge, sig14, eps)
-    #         # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
-    #         # Old method which needs updating
-    #         # if excep_pairs:
-    #         #     for x in range(len(excep_pairs)):  # scale 14 interactions
-    #         #         if p1 == excep_pairs[x, 0] and p2 == excep_pairs[x, 1] or p2 == excep_pairs[x, 0] and p1 == \
-    #         #                 excep_pairs[x, 1]:
-    #         #             charge1, sigma1, epsilon1 = nonbonded_force.getParticleParameters(p1)
-    #         #             charge2, sigma2, epsilon2 = nonbonded_force.getParticleParameters(p2)
-    #         #             q = charge1 * charge2 * 0.5
-    #         #             sig14 = sqrt(sigma1 * sigma2) * 0.5
-    #         #             eps = sqrt(epsilon1 * epsilon2) * 0.5
-    #         #             nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
-    #         #
-    #         # if normal_pairs:
-    #         #     for x in range(len(normal_pairs)):
-    #         #         if p1 == normal_pairs[x, 0] and p2 == normal_pairs[x, 1] or p2 == normal_pairs[x, 0] and p1 == \
-    #         #                 normal_pairs[x, 1]:
-    #         #             charge1, sigma1, epsilon1 = nonbonded_force.getParticleParameters(p1)
-    #         #             charge2, sigma2, epsilon2 = nonbonded_force.getParticleParameters(p2)
-    #         #             q = charge1 * charge2
-    #         #             sig14 = sqrt(sigma1 * sigma2)
-    #         #             eps = sqrt(epsilon1 * epsilon2)
-    #         #             nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
-    #
-    #     return self.system

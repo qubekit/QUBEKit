@@ -200,28 +200,22 @@ class LennardJones:
         May be removed / heavily changed if we switch away from atom typing and use SMARTS.
         """
 
-        # Create dictionary which stores the atom number and its type:
-        # atoms = {1: 'C', 2: 'C', 3: 'H', 4: 'H', ...}
-        # (+1 because topology indices count from 1, not 0)
-        positions = {self.molecule.coords['input'].index(atom) + 1: atom[0] for atom in self.molecule.coords['input']}
-
         # Loop through pairs in topology
-        # Create new pair list with atom types and positions using the dictionary:
-        # new_pairs = [('1C', '3H'), ('1C', '4H'), ('1C', '5H') ...]
+        # Create new pair list with the atoms
         new_pairs = []
         for pair in self.molecule.topology.edges:
-            new_pair = (str(pair[0]) + positions[pair[0]], str(pair[1]) + positions[pair[1]])
+            new_pair = (self.molecule.atoms[pair[0]], self.molecule.atoms[pair[1]])
             new_pairs.append(new_pair)
 
         # Find all the polar hydrogens and store their positions / atom numbers
         polars = []
         for pair in new_pairs:
-            if 'O' in pair[0] or 'N' in pair[0] or 'S' in pair[0]:
-                if 'H' in pair[1]:
+            if 'O' == pair[0].element or 'N' == pair[0].element or 'S' == pair[0].element:
+                if 'H' == pair[1].element:
                     polars.append(pair)
 
-            if 'O' in pair[1] or 'N' in pair[1] or 'S' in pair[1]:
-                if 'H' in pair[0]:
+            if 'O' == pair[1].element or 'N' == pair[1].element or 'S' == pair[1].element:
+                if 'H' == pair[0].element:
                     polars.append(pair)
 
         # Find square root of all b_i values so that they can be added easily according to paper's formula.
@@ -230,13 +224,13 @@ class LennardJones:
 
         if polars:
             for pair in polars:
-                if 'H' in pair[0] or 'H' in pair[1]:
-                    if 'H' in pair[0]:
-                        polar_h_pos = int(pair[0][:-1]) - 1
-                        polar_son_pos = int(pair[1][:-1]) - 1
+                if 'H' == pair[0].element or 'H' == pair[1].element:
+                    if 'H' == pair[0].element:
+                        polar_h_pos = pair[0].index
+                        polar_son_pos = pair[1].index
                     else:
-                        polar_h_pos = int(pair[1][:-1]) - 1
-                        polar_son_pos = int(pair[0][:-1]) - 1
+                        polar_h_pos = pair[1].index
+                        polar_son_pos = pair[0].index
 
                     # Calculate the new b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
                     self.ddec_data[polar_son_pos][-2] += self.ddec_data[polar_h_pos][-2]
@@ -270,16 +264,16 @@ class LennardJones:
             charges, sigmas, epsilons = [], [], []
             for atom_set in sym_set:
                 for atom in atom_set:
-                    charges.append(float(self.non_bonded_force[atom - 1][0]))
-                    sigmas.append(float(self.non_bonded_force[atom - 1][1]))
-                    epsilons.append(float(self.non_bonded_force[atom - 1][2]))
+                    charges.append(float(self.non_bonded_force[atom][0]))
+                    sigmas.append(float(self.non_bonded_force[atom][1]))
+                    epsilons.append(float(self.non_bonded_force[atom][2]))
 
                 # calculate the average values to be used in symmetry
                 charge, sigma, epsilon = sum(charges) / len(charges), sum(sigmas) / len(sigmas), sum(epsilons) / len(epsilons)
 
                 # Loop through the atoms again and store the new values
                 for atom in atom_set:
-                    self.non_bonded_force[atom - 1] = [str(charge), str(sigma), str(epsilon)]
+                    self.non_bonded_force[atom] = [str(charge), str(sigma), str(epsilon)]
 
     def extract_extra_sites(self):
         """
@@ -317,7 +311,7 @@ class LennardJones:
                         # get the virtual site coords
                         v_pos = np.array([float(pos_site.split()[x]) for x in range(1, 4)])
                         # get parent index number for the topology network
-                        parent = i + 1 - sites_no
+                        parent = i - sites_no
                         # get the two closest atoms to the parent
                         closet_atoms = list(self.molecule.topology.neighbors(parent))
                         if len(closet_atoms) < 2:
@@ -326,9 +320,9 @@ class LennardJones:
                             closet_atoms.append(list(self.molecule.topology.neighbors(closet_atoms[0]))[-1])
 
                         # Get the xyz coordinates of the reference atoms
-                        parent_pos = np.array(self.molecule.coords['qm'][parent - 1][1:])
-                        close_a = np.array(self.molecule.coords['qm'][closet_atoms[0] - 1][1:])
-                        close_b = np.array(self.molecule.coords['qm'][closet_atoms[1] - 1][1:])
+                        parent_pos = self.molecule.coords['qm'][parent]
+                        close_a = self.molecule.coords['qm'][closet_atoms[0]]
+                        close_b = self.molecule.coords['qm'][closet_atoms[1]]
 
                         # work out the local coordinates site using rules from the OpenMM guide
                         orig = w1o * parent_pos + w2o * close_a + close_b * w3o
@@ -347,7 +341,7 @@ class LennardJones:
                         charge = float(pos_site.split()[4])
 
                         # store the site info [(parent top no, a, b), (p1, p2, p3), charge]]
-                        sites[sites_no] = [(parent - 1, closet_atoms[0] - 1, closet_atoms[1] - 1), (p1 / 10, p2 / 10, p3 / 10), charge]
+                        sites[sites_no] = [(parent, closet_atoms[0], closet_atoms[1]), (p1 / 10, p2 / 10, p3 / 10), charge]
                         sites_no += 1
 
         self.molecule.sites = sites

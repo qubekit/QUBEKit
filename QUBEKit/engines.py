@@ -8,6 +8,7 @@ from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
 import subprocess as sp
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -17,7 +18,7 @@ from scipy.spatial import ConvexHull
 import qcengine as qcng
 import qcelemental as qcel
 
-from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile, MolFromMol2File
+from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile, MolFromMol2File, MolFromMolFile, rdPartialCharges
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 
 from simtk.openmm import app
@@ -84,10 +85,9 @@ class PSI4(Engines):
             input_file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n'
                              f'{self.molecule.charge} {self.molecule.multiplicity} \n')
             # molecule is always printed
-            for atom in molecule:
-                input_file.write(f' {atom[0]}    '
-                                 f'{float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f} \n')
-            input_file.write(f' units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n')
+            for i, atom in enumerate(molecule):
+                input_file.write(f' {self.molecule.atoms[i].element}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n')
+            input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n")
 
             if energy:
                 append_to_log('Writing psi4 energy calculation input')
@@ -152,7 +152,7 @@ class PSI4(Engines):
         Molecule is a numpy array of size N x N.
         """
 
-        hess_size = 3 * len(self.molecule.coords['input'])
+        hess_size = 3 * len(self.molecule.atoms)
 
         # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
@@ -247,16 +247,16 @@ class PSI4(Engines):
 
             opt_struct = []
 
-            for row in range(len(self.molecule.coords['input'])):
+            for row in range(len(self.molecule.atoms)):
 
                 # Append the first 4 columns of each row, converting to float as necessary.
-                struct_row = [lines[start_of_vals + row].split()[0]]
+                struct_row = []
                 for indx in range(3):
                     struct_row.append(float(lines[start_of_vals + row].split()[indx + 1]))
 
                 opt_struct.append(struct_row)
 
-        return opt_struct, opt_energy
+        return np.array(opt_struct), opt_energy
 
     @staticmethod
     def get_energy():
@@ -296,7 +296,7 @@ class PSI4(Engines):
                 raise EOFError('Cannot locate modes in output.dat file.')
 
             # Barring the first (and sometimes last) line, dat file has 6 values per row.
-            end_of_vals = start_of_vals + (3 * len(self.molecule.coords['input'])) // 6
+            end_of_vals = start_of_vals + (3 * len(self.molecule.atoms)) // 6
 
             structures = lines[start_of_vals][24:].replace("'", "").split()
             structures = structures[6:]
@@ -319,10 +319,9 @@ class PSI4(Engines):
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
-            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} '
-                       f'{self.molecule.multiplicity} \n')
-            for atom in molecule:
-                file.write(f'  {atom[0]:2}    {float(atom[1]): .10f}  {float(atom[2]): .10f}  {float(atom[3]): .10f}\n')
+            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
+            for i, atom in enumerate(molecule):
+                file.write(f'  {self.molecule.atoms[i].element:2}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f}\n')
 
             file.write(f' units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n')
 
@@ -443,9 +442,9 @@ class Gaussian(Engines):
 
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
-                for atom in molecule:
-                    input_file.write(f'{atom[0]} '
-                                     f'{float(atom[1]): .10f} {float(atom[2]): .10f} {float(atom[3]): .10f}\n')
+                for i, atom in enumerate(molecule):
+                    input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} '
+                                     f'{float(atom[2]): .10f}\n')
 
             if solvent:
                 # Adds the epsilon and cavity params
@@ -463,9 +462,37 @@ class Gaussian(Engines):
                 sp.run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
                        shell=True, stdout=log, stderr=log)
 
-            # After running check for normal termination
-            if 'Normal termination of Gaussian' in open(f'gj_{self.molecule.name}.log', 'r').read():
-                return True
+            # Now check the exit status of the job
+            result = self.check_for_errors()
+
+            return result
+
+        else:
+
+            result = {'success': False,
+                      'error': 'Not run'}
+
+            return result
+
+    def check_for_errors(self):
+        """
+        Read the output file and check for normal termination and any errors.
+        :return: A dictionary of the success status and any problems
+        """
+
+        log = open(f'gj_{self.molecule.name}.log', 'r').read()
+        if 'Normal termination of Gaussian' in log:
+            result = {'success': True}
+
+        elif 'Problem with the distance matrix.' in log:
+            result = {'success': False,
+                      'error': 'Distance matrix'}
+
+        elif 'Error termination in NtrErr' in log:
+            result = {'success': False,
+                      'error': 'FileIO'}
+
+        return result
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
@@ -492,7 +519,7 @@ class Gaussian(Engines):
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
                 hessian_list.extend([float(num) * 627.509391 / (0.529 ** 2) for num in line.strip('\n').split()])
 
-        hess_size = 3 * len(self.molecule.coords['input'])
+        hess_size = 3 * len(self.molecule.atoms)
 
         hessian = np.zeros((hess_size, hess_size))
 
@@ -544,34 +571,13 @@ class Gaussian(Engines):
                 # Remove the charge and multiplicity from the string
                 molecule = string.split('\\')[1:]
 
-        # Store the coords back into the molecule array
-        opt_struct = []
-        for atom in molecule:
-            atom = atom.split(',')
-            opt_struct.append([atom[0], float(atom[1]), float(atom[2]), float(atom[3])])
+            # Store the coords back into the molecule array
+            opt_struct = []
+            for atom in molecule:
+                atom = atom.split(",")
+                opt_struct.append([float(atom[1]), float(atom[2]), float(atom[3])])
 
-            # print(opt_struct)
-            # assert len(opt_struct) == len(self.molecule.coords['input'])
-            # exit()
-            #
-            # opt_coords_pos = []
-            # for pos, line in enumerate(lines):
-            #     if 'Input orientation' in line:
-            #         opt_coords_pos.append(pos + 5)
-            #
-            # start_pos = opt_coords_pos[-1]
-            #
-            # num_atoms = len(self.molecule.coords['input'])
-            #
-            # opt_struct = []
-            #
-            # for pos, line in enumerate(lines[start_pos: start_pos + num_atoms]):
-            #
-            #     vals = line.split()[-3:]
-            #     vals = [self.molecule.coords['input'][pos][0]] + [float(i) for i in vals]
-            #     opt_struct.append(vals)
-
-        return opt_struct, energy
+        return np.array(opt_struct), energy
 
     def all_modes(self):
         """Extract the frequencies from the Gaussian log file."""
@@ -648,7 +654,8 @@ class QCEngine(Engines):
 
         mol_data = f'{self.molecule.charge} {self.molecule.multiplicity}\n'
 
-        for coord in self.molecule.coords[input_type]:
+        for i, coord in enumerate(self.molecule.molecule[input_type]):
+            mol_data += f'{self.molecule.atoms[i].element} '
             for item in coord:
                 mol_data += f'{item} '
             mol_data += '\n'
@@ -680,7 +687,7 @@ class QCEngine(Engines):
                                                                  'ncores': self.molecule.threads})
 
             if driver == 'hessian':
-                hess_size = 3 * len(self.molecule.coords[input_type])
+                hess_size = 3 * len(self.molecule.atoms)
                 hessian = np.reshape(ret.return_result, (hess_size, hess_size)) * 627.509391 / (0.529 ** 2)
                 check_symmetry(hessian)
 
@@ -726,18 +733,24 @@ class RDKit:
     @staticmethod
     def read_file(filename):
 
-        molecule = []
+        # This handles splitting the paths
+        filename = Path(filename)
 
-        file_type = filename.split('.')[-1]
-        if file_type == 'pdb':
-            mol = MolFromPDBFile(filename, removeHs=False)
-        elif file_type == 'mol2':
-            mol = MolFromMol2File(filename, removeHs=False)
+        # Try and read the file
+        if filename.suffix == '.pdb':
+            mol = MolFromPDBFile(filename.name, removeHs=False)
+            try:
+                rdPartialCharges.ComputeGasteigerCharges(mol)
+            except RuntimeError:
+                print('RDKit could not assign the partial charges')
+        elif filename.suffix == '.mol2':
+            mol = MolFromMol2File(filename.name, removeHs=False)
+        elif filename.suffix == '.mol':
+            mol = MolFromMolFile(filename.name, removeHs=False)
         else:
             mol = None
 
-        print(mol)
-        return molecule
+        return mol
 
     @staticmethod
     def smiles_to_pdb(smiles_string, name=None):
@@ -766,34 +779,34 @@ class RDKit:
         return f'{name}.pdb'
 
     @staticmethod
-    def mm_optimise(pdb_file, ff='MMF'):
+    def mm_optimise(filename, ff='MMF'):
         """
         Perform rough preliminary optimisation to speed up later optimisations.
-        :param pdb_file: The name of the input pdb file
+        :param filename: The name of the input file
         :param ff: The Force field to be used either MMF or UFF
         :return: The name of the optimised pdb file that is made
         """
 
-        force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
+        # Get the rdkit molecule
+        mol = RDKit.read_file(filename)
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
-        mol_name = pdb_file[:-4]
+        force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
 
         force_fields[ff](mol)
 
-        AllChem.MolToPDBFile(mol, f'{mol_name}_rdkit_optimised.pdb')
+        AllChem.MolToPDBFile(mol, f'{filename.stem}_rdkit_optimised.pdb')
 
-        return f'{mol_name}_rdkit_optimised.pdb'
+        return f'{filename.stem}_rdkit_optimised.pdb'
 
     @staticmethod
-    def rdkit_descriptors(pdb_file):
+    def rdkit_descriptors(filename):
         """
         Use RDKit Descriptors to extract properties and store in Descriptors dictionary.
-        :param pdb_file: The molecule input file
+        :param filename: The molecule input file
         :return: Descriptors dictionary
         """
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol = RDKit.read_file(filename)
         # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
         descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(mol),
                        'H-bond donors': Descriptors.NumHDonors(mol),
@@ -804,43 +817,60 @@ class RDKit:
         return descriptors
 
     @staticmethod
-    def get_smiles(pdb_file):
+    def get_smiles(filename):
         """
         Use RDKit to load in the pdb file of the molecule and get the smiles code.
-        :param pdb_file: The molecule input file
+        :param filename: The molecule input file
         :return: The smiles string
         """
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol = RDKit.read_file(filename)
 
         return MolToSmiles(mol, isomericSmiles=True, allHsExplicit=True)
 
     @staticmethod
-    def get_smarts(pdb_file):
+    def get_smarts(filename):
         """
         Use RDKit to get the smarts string of the molecule.
-        :param pdb_file: The molecule input file
+        :param filename: The molecule input file
         :return: The smarts string
         """
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol = RDKit.read_file(filename)
 
         return MolToSmarts(mol)
 
     @staticmethod
-    def get_mol(pdb_file):
+    def get_mol(filename):
         """
         Use RDKit to generate a mol file.
-        :param pdb_file: The molecule input file
+        :param filename: The molecule input file
         :return: The name of the mol file made
         """
 
-        mol = MolFromPDBFile(pdb_file, removeHs=False)
+        mol = RDKit.read_file(filename)
 
-        mol_name = f'{pdb_file[:-4]}.mol'
+        mol_name = f'{filename.steam}.mol'
         MolToMolFile(mol, mol_name)
 
         return mol_name
+
+    @staticmethod
+    def generate_conformers(filename, conformer_no=10):
+        """
+        Generate a set of x conformers of the molecule
+        :param conformer_no: The amount of conformers made for the molecule
+        :param filename: The name of the input file
+        :return: A list of conformer position arrays
+        """
+
+        mol = RDKit.read_file(filename)
+
+        cons = AllChem.EmbedMultipleConfs(mol, numConfs=conformer_no)
+        positions = cons.GetConformers()
+        coords = [conformer.GetPositions() for conformer in positions]
+
+        return coords
 
 
 @for_all_methods(timer_logger)

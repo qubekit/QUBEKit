@@ -105,6 +105,10 @@ These packages are on different conda channels, hence needing the extra argument
 
 `conda install -c conda-forge geometric` 
 
+* [OpenMM](http://openmm.org/)
+
+`conda install -c omnia openmm`
+
 * [RDKit](http://rdkit.org/)
 
 `conda install -c rdkit rdkit`
@@ -116,6 +120,14 @@ These packages are on different conda channels, hence needing the extra argument
 * [QCEngine](https://pypi.org/project/qcengine/)
 
 `pip install qcengine`
+
+* [TorsionDrive](https://github.com/lpwgroup/torsiondrive)
+
+
+    https://github.com/lpwgroup/torsiondrive.git
+    cd <install location>
+    python setup.py install
+
 
 **GUI Requirements**
 
