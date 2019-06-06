@@ -677,7 +677,7 @@ class Execute:
 
             qceng = QCEngine(molecule)
             # See if the structure is there if not we did not optimise
-            if molecule.molecule['mm']:
+            if molecule.coords['mm'].any():
                 result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
             else:
                 result = qceng.call_qcengine('geometric', 'gradient', input_type='input')
@@ -701,7 +701,7 @@ class Execute:
                 print(result)
                 sys.exit('Molecule not optimised.')
 
-        elif molecule.coords['mm']:
+        elif molecule.coords['mm'].any():
             result = qm_engine.generate_input(input_type='mm', optimise=True)
 
         # Check the exit status of the job; if failed restart the job up to 2 times
@@ -719,7 +719,7 @@ class Execute:
             # 3) If we have already tried the starting structure generate a conformer and try again
             elif result['error'] == 'Distance matrix':
                 molecule.write_pdb()
-                molecule.molecule['mm'] = RDKit.generate_conformers(f'{molecule.name}.pdb')[0]
+                molecule.coords['mm'] = RDKit.generate_conformers(f'{molecule.name}.pdb')[0]
                 result = qm_engine.generate_input(input_type='mm', optimise=True)
 
             restart_count += 1
@@ -905,8 +905,8 @@ class Execute:
             scan_order = []
             for torsion in torsions_list:
                 tor = tuple(atom for atom in torsion.split('-'))
-                # convert the string names to the index names and get the core indexed from 1 to match the topology
-                core = (molecule.atom_names.index(tor[1]) + 1, molecule.atom_names.index(tor[2]) + 1)
+                # convert the string names to the index
+                core = (molecule.get_atom_with_name(tor[1]).atom_index , molecule.get_atom_with_name(tor[2]).atom_index)
 
                 if core in molecule.rotatable:
                     scan_order.append(core)

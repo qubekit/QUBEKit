@@ -76,8 +76,8 @@ class Parametrisation:
 
         # Try to gather the AtomTypes first
         for atom in self.molecule.atoms:
-            self.molecule.AtomTypes[atom.index] = [atom.name, 'QUBE_' + str(000 + atom.index),
-                                                   str(atom.element) + str(000 + atom.index)]
+            self.molecule.AtomTypes[atom.atom_index] = [atom.name, 'QUBE_' + str(000 + atom.atom_index),
+                                                   str(atom.element) + str(000 + atom.atom_index)]
 
         in_root = ET.parse('serialised.xml').getroot()
 
@@ -212,8 +212,8 @@ class XML(Parametrisation):
 
                     # Now add the general parameters these will be replaced by the seminario method anyway
                     param_root = in_root.find('HarmonicBondForce')
-                    ET.SubElement(param_root, 'Bond', attrib={'class1': f'{self.molecule.molecule["input"][zeroed_bond[0]][0]}{800 + zeroed_bond[0]}',
-                                                              'class2': f'{self.molecule.molecule["input"][zeroed_bond[1]][0]}{800 + zeroed_bond[1]}',
+                    ET.SubElement(param_root, 'Bond', attrib={'class1': f'{self.molecule.coords["input"][zeroed_bond[0]][0]}{800 + zeroed_bond[0]}',
+                                                              'class2': f'{self.molecule.coords["input"][zeroed_bond[1]][0]}{800 + zeroed_bond[1]}',
                                                               'length': str(0.140000), 'k': str(392459.200000)})
 
         # Record all of the angle parameters
@@ -234,9 +234,9 @@ class XML(Parametrisation):
 
                     # Now add the general angle parameters
                     angle_root = in_root.find('HarmonicAngleForce')
-                    ET.SubElement(angle_root, 'Angle', attrib={'class1': f'{self.molecule.molecule["input"][zeroed_angle[0]][0]}{800 + zeroed_angle[0]}',
-                                                               'class2': f'{self.molecule.molecule["input"][zeroed_angle[1]][0]}{800 + zeroed_angle[1]}',
-                                                               'class3': f'{self.molecule.molecule["input"][zeroed_angle[2]][0]}{800 + zeroed_angle[2]}',
+                    ET.SubElement(angle_root, 'Angle', attrib={'class1': f'{self.molecule.coords["input"][zeroed_angle[0]][0]}{800 + zeroed_angle[0]}',
+                                                               'class2': f'{self.molecule.coords["input"][zeroed_angle[1]][0]}{800 + zeroed_angle[1]}',
+                                                               'class3': f'{self.molecule.coords["input"][zeroed_angle[2]][0]}{800 + zeroed_angle[2]}',
                                                                'angle': str(2.094395), 'k': str(527.184000)})
 
         # No dihedrals added as they are added during reading the serialised system
@@ -311,7 +311,7 @@ class XMLProtein(Parametrisation):
 
         # Try to gather the AtomTypes first
         for atom in self.molecule.atoms:
-            self.molecule.AtomTypes[atom.index] = [atom.name, 'QUBE_' + str(atom.index), atom.name]
+            self.molecule.AtomTypes[atom.atom_index] = [atom.name, 'QUBE_' + str(atom.atom_index), atom.name]
 
         input_xml_file = 'serialised.xml'
         in_root = ET.parse(input_xml_file).getroot()

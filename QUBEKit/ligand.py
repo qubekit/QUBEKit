@@ -78,7 +78,7 @@ class Atom:
 
         self.atomic_number = atomic_number
         self.name = atom_name
-        self.index = index
+        self.atom_index = index
         self.mass = self.mass_dict[atomic_number]
         self.partial_charge = partial_charge
         self.formal_charge = formal_charge
@@ -158,6 +158,7 @@ class Molecule(Defaults):
         self.improper_torsions = None
         self.rotatable = None
         self.bond_lengths = None
+        self.atoms = None
         self.dih_phis = None
         self.angle_values = None
         self.symm_hs = None
@@ -303,7 +304,7 @@ class Molecule(Defaults):
             self.atoms.append(qube_atom)
 
         # Now get the coordinates and store in the right location
-        self.molecule[input_type] = rdkit_molecule.GetConformer().GetPositions()
+        self.coords[input_type] = rdkit_molecule.GetConformer().GetPositions()
 
     def read_pdb(self, filename, input_type='input'):
         """
@@ -430,6 +431,21 @@ class Molecule(Defaults):
 
         # put the object back into the correct place
         self.coords[input_type] = np.array(molecule)
+
+    def get_atom_with_name(self, name):
+        """
+        Search through the molecule for an atom with that name and return it when found
+        :param name: The name of the atom we are looking for
+        :return: The QUBE Atom object with the name
+        """
+
+        for atom in self.atoms:
+            if atom.name == name:
+
+                return atom
+
+        else:
+            raise AttributeError('No atom found with that name.')
 
     def read_geometric_traj(self, trajectory):
         """
@@ -822,19 +838,19 @@ class Molecule(Defaults):
             if atom.element == 'C' or atom.element == 'N':
 
                 hs = []
-                for bonded in self.topology.neighbors(atom.index):
+                for bonded in self.topology.neighbors(atom.atom_index):
                     if len(list(self.topology.neighbors(bonded))) == 1:
                         # now make sure it is a hydrogen (as halogens could be caught here)
                         if self.atoms[bonded].element == 'H':
                             hs.append(bonded)
                 if atom.element == 'C' and len(hs) == 3:
                     methyl_hs.append(hs)
-                    methyl_amine_nitride_cores.append(atom.index)
+                    methyl_amine_nitride_cores.append(atom.atom_index)
                 if atom.element == 'N' and len(hs) == 2:
                     amine_hs.append(hs)
-                    methyl_amine_nitride_cores.append(atom.index)
+                    methyl_amine_nitride_cores.append(atom.atom_index)
                 if atom.element == 'N' and len(hs) == 1:
-                    methyl_amine_nitride_cores.append(atom.index)
+                    methyl_amine_nitride_cores.append(atom.atom_index)
 
         self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs}
 
