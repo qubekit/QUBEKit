@@ -41,29 +41,28 @@ def timer_logger(orig_func):
         start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         t1 = time()
 
-        # Find the log file path using the function that's being decorated
+        # All this does is check if the decorated function has a molecule attribute;
+        # if it does, the function must therefore have a home path which can be used to write to the log file.
         if len(args) >= 1 and hasattr(args[0], 'molecule'):
             log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
-        else:
-            return orig_func(*args, **kwargs)
 
-        with open(log_file_path, 'a+') as log_file:
-            log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
-            log_file.write(f'Docstring for {orig_func.__qualname__}:\n     {orig_func.__doc__}\n\n')
+            with open(log_file_path, 'a+') as log_file:
+                log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
+                log_file.write(f'Docstring for {orig_func.__qualname__}:\n     {orig_func.__doc__}\n\n')
 
-            time_taken = time() - t1
+                time_taken = time() - t1
 
-            mins, secs = divmod(time_taken, 60)
-            hours, mins = divmod(mins, 60)
+                mins, secs = divmod(time_taken, 60)
+                hours, mins = divmod(mins, 60)
 
-            secs, remain = str(float(secs)).split('.')
+                secs, remain = str(float(secs)).split('.')
 
-            time_taken = f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}'
-            end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                time_taken = f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}'
+                end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-            log_file.write(f'{orig_func.__qualname__} finished in {time_taken} at {end_time}.\n\n')
-            # Add some separation space between function / method logs.
-            log_file.write(f'{"-" * 50}\n\n')
+                log_file.write(f'{orig_func.__qualname__} finished in {time_taken} at {end_time}.\n\n')
+                # Add some separation space between function / method logs.
+                log_file.write(f'{"-" * 50}\n\n')
 
         return orig_func(*args, **kwargs)
     return wrapper
