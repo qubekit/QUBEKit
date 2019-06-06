@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TODO Add remaining xml methods for Protein class
 
@@ -98,7 +98,7 @@ class Molecule(Defaults):
         smiles                  str; equal to the smiles_string if one is provided
 
         # Structure
-        molecule                Dict of lists where the keys are the input type (mm, qm, etc) and the vals are
+        coords                  Dict of lists where the keys are the input type (mm, qm, etc) and the vals are
                                 lists of lists where the inner lists are the atom name, followed by the coords
                                 e.g. {'mm': [['C', 1.045, 2.456, 1.564], ...], ...}
         topology                Graph class object. Contains connection information for molecule
@@ -151,8 +151,7 @@ class Molecule(Defaults):
         self.smiles = None
 
         # Structure
-        self.molecule = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
-        self.atoms = None
+        self.coords = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
         self.topology = None
         self.angles = None
         self.dihedrals = None
@@ -161,10 +160,8 @@ class Molecule(Defaults):
         self.bond_lengths = None
         self.dih_phis = None
         self.angle_values = None
-        self.elements = None
         self.symm_hs = None
         self.qm_energy = None
-        self.partial_charges = None
         self.charge = 0
         self.multiplicity = 1
 
@@ -360,7 +357,7 @@ class Molecule(Defaults):
                         self.atoms[bonded_index].bonds.append(atom_index)
 
         # put the object back into the correct place
-        self.molecule[input_type] = np.array(molecule)
+        self.coords[input_type] = np.array(molecule)
 
     def read_mol2(self, name, input_type='input'):
         """
@@ -432,7 +429,7 @@ class Molecule(Defaults):
                 self.atoms[bonded_index].bonds.append(atom_index)
 
         # put the object back into the correct place
-        self.molecule[input_type] = np.array(molecule)
+        self.coords[input_type] = np.array(molecule)
 
     def read_geometric_traj(self, trajectory):
         """
@@ -447,7 +444,7 @@ class Molecule(Defaults):
             geometry = np.array(frame['molecule']['geometry']) * 0.529177210
             for i, atom in enumerate(frame['molecule']['symbols']):
                 opt_traj.append([geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
-            self.molecule['traj'].append(np.array(opt_traj))
+            self.coords['traj'].append(np.array(opt_traj))
 
     def find_impropers(self):
         """
@@ -496,7 +493,7 @@ class Molecule(Defaults):
 
         bond_lengths = {}
 
-        molecule = self.molecule[input_type]
+        molecule = self.coords[input_type]
 
         for edge in self.topology.edges:
             atom1 = molecule[edge[0]]
@@ -572,7 +569,7 @@ class Molecule(Defaults):
 
             dih_phis = {}
 
-            molecule = self.molecule[input_type]
+            molecule = self.coords[input_type]
 
             for key in self.dihedrals.keys():
                 for torsion in self.dihedrals[key]:
@@ -594,7 +591,7 @@ class Molecule(Defaults):
 
         angle_values = {}
 
-        molecule = self.molecule[input_type]
+        molecule = self.coords[input_type]
 
         for angle in self.angles:
             x1 = molecule[angle[0]]
@@ -740,15 +737,15 @@ class Molecule(Defaults):
 
         with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
 
-            if len(self.molecule[input_type]) / len(self.atoms) == 1:
+            if len(self.coords[input_type]) / len(self.atoms) == 1:
                 message = 'xyz file generated with QUBEKit'
                 end = ''
-                trajectory = [self.molecule[input_type]]
+                trajectory = [self.coords[input_type]]
 
             else:
                 message = f'QUBEKit xyz trajectory FRAME '
                 end = 1
-                trajectory = self.molecule[input_type]
+                trajectory = self.coords[input_type]
 
             # Write out each frame
             for frame in trajectory:
@@ -770,8 +767,8 @@ class Molecule(Defaults):
 
         with open(f'{self.name}.gro', 'w+') as gro_file:
             gro_file.write(f'NEW {self.name.upper()} GRO FILE\n')
-            gro_file.write(f'{len(self.molecule[input_type]):>5}\n')
-            for pos, atom in enumerate(self.molecule[input_type], 1):
+            gro_file.write(f'{len(self.coords[input_type]):>5}\n')
+            for pos, atom in enumerate(self.coords[input_type], 1):
                 # 'mol number''mol name'  'atom name'   'atom count'   'x coord'   'y coord'   'z coord'
                 # 1WATER  OW1    1   0.126   1.624   1.679
                 gro_file.write(f'    1{self.name.upper()}  {atom[0]}{pos}   {pos}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
@@ -929,7 +926,7 @@ class Ligand(Molecule):
         try:
             with open(name, 'r') as xyz_file:
                 # get the number of atoms
-                n_atoms = len(self.molecule['input'])
+                n_atoms = len(self.coords['input'])
                 for line in xyz_file:
                     line = line.split()
                     # skip frame heading lines
@@ -942,7 +939,7 @@ class Ligand(Molecule):
                         # we have collected the molecule now store the frame
                         traj_molecules.append(np.array(molecule))
                         molecule = []
-            self.molecule[input_type] = traj_molecules
+            self.coords[input_type] = traj_molecules
 
         except FileNotFoundError:
             raise FileNotFoundError(
@@ -959,7 +956,7 @@ class Ligand(Molecule):
         Only for small molecules, not standard residues. No size limit.
         """
 
-        molecule = self.molecule[input_type]
+        molecule = self.coords[input_type]
 
         with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 
@@ -1049,16 +1046,16 @@ class Protein(Molecule):
         if len(self.topology.edges) == 0:
             print('No connections found!')
 
-        # TODO What if there are two of the same residue back to back?
+        # TODO What if there are two or more of the same residue back to back?
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
-        self.molecule[input_type] = np.array(protein)
+        self.coords[input_type] = np.array(protein)
 
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
 
-        molecule = self.molecule['input']
+        molecule = self.coords['input']
 
         with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 

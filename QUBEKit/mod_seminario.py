@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Module to implement the Modified Seminario Method
 Originally written by Alice E. A. Allen, TCM, University of Cambridge
@@ -81,8 +83,8 @@ class ModSemMaths:
 
         if sum(u_n):
             # Scalings are set to 1.
-            k_theta, theta_0 = ModSemMaths.f_c_a_special_case(u_ab, u_cb, [bond_len_ab, bond_len_bc], [eigenvals_ab, eigenvals_cb],
-                                                              [eigenvecs_ab, eigenvecs_cb])
+            k_theta, theta_0 = ModSemMaths.f_c_a_special_case(
+                u_ab, u_cb, [bond_len_ab, bond_len_bc], [eigenvals_ab, eigenvals_cb], [eigenvecs_ab, eigenvecs_cb])
 
         else:
             u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
@@ -106,7 +108,11 @@ class ModSemMaths:
 
     @staticmethod
     def f_c_a_special_case(u_ab, u_cb, bond_lens, eigenvals, eigenvecs):
-        """Force constant angle special case, for example nitrile groups."""
+        """
+        Force constant angle special case, for example nitrile groups.
+        This is for when the bond is linear, and therefore cannot be sampled around in the same way.
+        The perpendicular vector is not defined for a linear bond.
+        """
 
         # Number of samples around the bond.
         n_samples = 200
@@ -140,18 +146,17 @@ class ModSeminario:
 
         self.molecule = molecule
         self.atoms = self.molecule.atoms
-        # Load the configs using the config_file name.
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     def modified_seminario_method(self):
         """
-        Calculate the new bond and angle terms after being passed the symmetric Hessian and optimised
-        molecule coordinates.
+        Calculate the new bond and angle terms after being passed the symmetric Hessian and
+        optimised molecule coordinates.
         """
 
-        coords = [atom[j] for atom in self.molecule.molecule['qm'] for j in range(3)]
+        coords = [atom[j] for atom in self.molecule.coords['qm'] for j in range(3)]
         size_mol = len(self.atoms)
         coords = np.reshape(coords, (size_mol, 3))
         hessian = self.molecule.hessian
@@ -258,12 +263,11 @@ class ModSeminario:
         with open('Modified_Seminario_Angles.txt', 'w+') as angle_file:
 
             for i, angle in enumerate(angle_list):
-                angles = [angle[0], angle[1], angle[2]]
                 scalings = [scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1]]
 
                 # Ensures that there is no difference when the ordering is changed.
-                ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(*angles, bond_lens, eigenvals, eigenvecs, coords, scalings)
-                ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(*angles[::-1], bond_lens, eigenvals, eigenvecs, coords, scalings[::-1])
+                ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(*angle, bond_lens, eigenvals, eigenvecs, coords, scalings)
+                ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(*angle[::-1], bond_lens, eigenvals, eigenvecs, coords, scalings[::-1])
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
                 k_theta[i] = (self.molecule.vib_scaling ** 2) * ((ab_k_theta + ba_k_theta) / 2)
@@ -289,18 +293,18 @@ class ModSeminario:
         with open('Modified_Seminario_Bonds.txt', 'w+') as bond_file:
 
             for pos, bond in enumerate(bond_list):
-                ab = ModSemMaths.force_constant_bond(bond[0], bond[1], eigenvals, eigenvecs, coords)
-                ba = ModSemMaths.force_constant_bond(bond[1], bond[0], eigenvals, eigenvecs, coords)
+                ab = ModSemMaths.force_constant_bond(*bond, eigenvals, eigenvecs, coords)
+                ba = ModSemMaths.force_constant_bond(*bond[::-1], eigenvals, eigenvecs, coords)
 
                 # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
                 k_b[pos] = np.real((ab + ba) / 2) * (self.molecule.vib_scaling ** 2)
 
-                bond_len_list[pos] = bond_lens[bond[0], bond[1]]
+                bond_len_list[pos] = bond_lens[*bond]
                 bond_file.write(f'{self.atoms[bond[0]].name}-{self.atoms[bond[1]].name}  ')
                 bond_file.write(f'{k_b[pos]:.3f}   {bond_len_list[pos]:.3f}   {bond[0]}   {bond[1]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicBondForce[(bond[0], bond[1])] = [str(bond_len_list[pos] / 10), str(conversion * k_b[pos])]
+                self.molecule.HarmonicBondForce[bond] = [str(bond_len_list[pos] / 10), str(conversion * k_b[pos])]
 
                 unique_values_bonds.append([self.atoms[bond[0]].name, self.atoms[bond[1]].name, k_b[pos], bond_len_list[pos], 1])
 

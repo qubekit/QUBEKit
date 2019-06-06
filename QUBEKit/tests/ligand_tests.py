@@ -29,17 +29,17 @@ class TestLigands(unittest.TestCase):
         self.assertEqual(10, len(self.molecule_pdb.atoms))
 
         # Check atom names and coords are extracted for each atom in the molecule
-        for atom in self.molecule_pdb.molecule['input']:
+        for atom in self.molecule_pdb.coords['input']:
             self.assertEqual(3, len(atom))
 
     def test_mol2_reader(self):
         # Make sure the mol2 reader has been used
 
         # Check all atoms are found
-        self.assertEqual(10, len(self.molecule_mol2.atoms))
+        self.assertEqual(10, len(self.molecule_mol2.coords['input']))
 
         # Check atom names and coords are extracted for each atom in the molecule
-        for atom in self.molecule_mol2.molecule['input']:
+        for atom in self.molecule_mol2.coords['input']:
             self.assertEqual(3, len(atom))
 
     def test_bonds(self):

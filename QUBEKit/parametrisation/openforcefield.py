@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.parametrisation.parameter_engines import Parametrisation
 from QUBEKit.engines import RDKit

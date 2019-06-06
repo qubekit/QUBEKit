@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 
@@ -41,7 +41,7 @@ class Parametrisation:
     Residues : dictionary of residue names indexed by the order they appear.
 
     HarmonicBondForce : dictionary of equilibrium distances and force constants stored under the bond tuple.
-                {(0, 1): [eqr=456, fc=984375]}
+                        {(0, 1): [eqr=456, fc=984375]}
 
     HarmonicAngleForce : dictionary of equilibrium  angles and force constant stored under the angle tuple.
 
@@ -510,11 +510,6 @@ class AnteChamber(Parametrisation):
         self.inpcrd = f'{self.molecule.name}.inpcrd'
 
 
-class OPLSServer(Parametrisation):
-    """Is it possible to contact the ligpargen server and get the pdb and xml file for a molecule?"""
-
-    pass
-
-
 class Default:
+    """DO NOT REMOVE"""
     pass

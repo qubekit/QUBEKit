@@ -1,9 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from collections import OrderedDict
 from configparser import ConfigParser
 from contextlib import contextmanager
 import csv
+import math
 import os
 from pathlib import Path
 import pickle
@@ -17,13 +18,11 @@ class Configure:
     settings as strings, all numbers must then be cast before use.
     """
 
-    # TODO Remove/merge the separate sections qm, fitting, descriptions?
+    # TODO Remove / merge the separate sections qm, fitting, descriptions?
 
     home = Path.home()
     config_folder = f'{home}/QUBEKit_configs/'
     master_file = 'master_config.ini'
-
-    # QUBEKit config file allows users to reset the global variables
 
     qm = {
         'theory': 'wB97XD',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
@@ -87,6 +86,9 @@ class Configure:
         'log': ';Default string for the names of the working directories'
     }
 
+    # TODO Why is this static? Shouldn't we just use self.qm, self.fitting etc
+    #  instead of Configure.qm, Configure.fitting?
+
     @staticmethod
     def load_config(config_file='default_config'):
         """This method loads and returns the selected config file."""
@@ -127,17 +129,10 @@ class Configure:
         # TODO Properly handle all command line / config arguments (not just geometric)
 
         # Now cast the bools
-        if qm['geometric'].lower() == 'true':
-            qm['geometric'] = True
-
-        else:
-            qm['geometric'] = False
-
-        if qm['solvent'].lower() == 'true':
-            qm['solvent'] = True
-
-        else:
-            qm['solvent'] = False
+        # TODO Storing this boolean might be a bit risky; may be better to just store a string until
+        #  config parsing begins in run.py
+        qm['geometric'] = True if qm['geometric'].lower() == 'true' else False
+        qm['solvent'] = True if qm['solvent'].lower() == 'true' else False
 
         # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
@@ -147,7 +142,7 @@ class Configure:
         fitting['l_pen'] = float(fitting['l_pen'])
 
         # return qm, fitting, descriptions
-        # TODO Fix this monstrosity
+        # TODO Fix this monstrosity; shouldn't need to cast to dict() but something must be broken
         return {**dict(qm), **dict(fitting), **dict(descriptions)}
 
     @staticmethod
@@ -243,52 +238,73 @@ def mol_data_from_csv(csv_name):
 
             # Converts to ordinary dict rather than ordered.
             row = dict(row)
+            # If there is no config given assume its the default
             row['charge'] = int(float(row['charge'])) if row['charge'] else 0
             row['multiplicity'] = int(float(row['multiplicity'])) if row['multiplicity'] else 1
-            # If there is no config given assume its the default
             row['config'] = row['config'] if row['config'] else 'default_config'
-            # Converts empty string to None (looks a bit weird, I know) otherwise leaves it alone.
             row['smiles'] = row['smiles'] if row['smiles'] else None
             row['torsion_order'] = row['torsion_order'] if row['torsion_order'] else None
-            row['restart'] = row['restart'] if row['restart'] else 'parametrise'
+            row['restart'] = row['restart'] if row['restart'] else None
             row['end'] = row['end'] if row['end'] else 'finalise'
             rows.append(row)
 
-        # Creates the nested dictionaries with the names as the keys
-        final = {row['name']: row for row in rows}
+    # Creates the nested dictionaries with the names as the keys
+    final = {row['name']: row for row in rows}
 
-        # Removes the names from the sub-dictionaries:
-        # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
-        # ---> {'methane': {'charge': 0, ...}, ...}
-        for val in final.values():
-            del val['name']
+    # Removes the names from the sub-dictionaries:
+    # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
+    # ---> {'methane': {'charge': 0, ...}, ...}
+    for val in final.values():
+        del val['name']
 
-        return final
+    return final
 
 
-def generate_bulk_csv(csv_name):
+def generate_bulk_csv(csv_name, max_execs=None):
     """
     Generates a csv with name "csv_name" with minimal information inside.
     Contains only headers and a row of defaults and populates all of the named files where available.
+    max_execs determines the max number of executions per csv file.
+    For example, 10 pdb files with a value of max_execs=6 will generate two csv files,
+    one containing 6 of those files, the other with the remaining 4.
     """
 
+    if csv_name[-4:] != '.csv':
+        raise TypeError('Invalid or unspecified file type. File must be .csv')
+
+    # Find any local pdb files to write sample configs
     files = []
     for file in os.listdir("."):
         if file.endswith('.pdb'):
             files.append(file[:-4])
 
-    if csv_name[-4:] != '.csv':
-        raise TypeError('Invalid or unspecified file type. File must be .csv')
+    # If max number of pdbs per file is unspecified, just put them all in one file.
+    if max_execs is None:
+        with open(csv_name, 'w') as csv_file:
 
-    with open(csv_name, 'w') as csv_file:
+            file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
+            for file in files:
+                file_writer.writerow([file, 0, 1, '', '', '', '', ''])
+        print(f'{csv_name} generated.', flush=True)
 
-        file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
-        for file in files:
-            file_writer.writerow([file, 0, 1, '', '', '', '', ''])
+    try:
+        max_execs = int(max_execs)
+    except ValueError:
+        raise ValueError('Number of executions per bulk csv must be an int greater than 1.')
 
-    print(f'{csv_name} generated.')
-    return
+    # If max number of pdbs per file is specified, spread them across several csv files.
+    num_csvs = math.ceil(len(files) / max_execs)
+
+    for csv_count in range(num_csvs):
+        with open(f'{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv', 'w') as csv_file:
+            file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
+
+            for file in files[csv_count * max_execs: (csv_count + 1) * max_execs]:
+                file_writer.writerow([file, 0, 1, '', '', '', '', ''])
+
+        print(f'{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv generated.', flush=True)
 
 
 def append_to_log(message, msg_type='major'):
@@ -359,8 +375,7 @@ def pretty_progress():
             else:
                 # If the molecule name isn't found, there's something wrong with the log file
                 # To avoid errors, just skip over that file and tell the user.
-                print(f'Cannot locate molecule in {file}\nIs it a valid QUBEKit-made log file?\n')
-                continue
+                print(f'Cannot locate molecule name in {file}\nIs it a valid, QUBEKit-made log file?\n')
 
         # Create ordered dictionary based on the log file info
         info[name] = populate_progress_dict(file)

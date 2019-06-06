@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TODO Expand the functional_dict for PSI4 and Gaussian classes to "most" functionals.
 # TODO Add better error handling for missing info. Maybe add path checking for Chargemol?
@@ -7,7 +7,7 @@
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-from subprocess import run as sub_run
+import subprocess as sp
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -55,8 +55,8 @@ class PSI4(Engines):
         super().__init__(molecule)
 
         self.functional_dict = {'pbepbe': 'PBE', 'wb97xd': 'wB97X-D'}
-        if self.functional_dict.get(self.molecule.theory.lower(), None) is not None:
-            self.molecule.theory = self.functional_dict[self.molecule.theory.lower()]
+        # Search for functional in dict, if it's not there, just leave the theory as it is.
+        self.molecule.theory = self.functional_dict.get(self.molecule.theory, self.molecule.theory)
 
     # TODO add restart from log method
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
@@ -74,7 +74,7 @@ class PSI4(Engines):
         :return: The completion status of the job True if successful False if not run or failed
         """
 
-        molecule = self.molecule.molecule[input_type]
+        molecule = self.molecule.coords[input_type]
 
         setters = ''
         tasks = ''
@@ -82,7 +82,8 @@ class PSI4(Engines):
         # input.dat is the PSI4 input file.
         with open('input.dat', 'w+') as input_file:
             # opening tag is always writen
-            input_file.write(f"memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n{self.molecule.charge} {self.molecule.multiplicity} \n")
+            input_file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n'
+                             f'{self.molecule.charge} {self.molecule.multiplicity} \n')
             # molecule is always printed
             for i, atom in enumerate(molecule):
                 input_file.write(f' {self.molecule.atoms[i].element}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n')
@@ -94,7 +95,7 @@ class PSI4(Engines):
 
             if optimise:
                 append_to_log('Writing PSI4 optimisation input', 'minor')
-                setters += f" g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n"
+                setters += f' g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n'
                 tasks += f"\noptimize('{self.molecule.theory.lower()}')"
 
             if hessian:
@@ -110,8 +111,8 @@ class PSI4(Engines):
                 setters += " cubeprop_tasks ['density']\n"
 
                 overage = get_overage(self.molecule.name)
-                setters += " CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n".format(overage)
-                setters += " CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n"
+                setters += ' CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n'.format(overage)
+                setters += ' CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n'
                 tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
 
             if fchk:
@@ -138,7 +139,7 @@ class PSI4(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sub_run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log)
+                sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log)
 
             # After running, check for normal termination
             return True if '*** Psi4 exiting successfully.' in open('output.dat', 'r').read() else False
@@ -151,7 +152,7 @@ class PSI4(Engines):
         Molecule is a numpy array of size N x N.
         """
 
-        hess_size = 3 * len(self.molecule.molecule['input'])
+        hess_size = 3 * len(self.molecule.atoms)
 
         # output.dat is the psi4 output file.
         with open('output.dat', 'r') as file:
@@ -202,6 +203,7 @@ class PSI4(Engines):
 
             # Cache the unit conversion.
             conversion = 627.509391 / (0.529 ** 2)
+            # Element-wise multiplication
             hess_matrix *= conversion
 
             check_symmetry(hess_matrix)
@@ -227,10 +229,10 @@ class PSI4(Engines):
             # Will contain index of all the lines containing '==> Geometry'.
             geo_pos_list = []
             for count, line in enumerate(lines):
-                if "==> Geometry" in line:
+                if '==> Geometry' in line:
                     geo_pos_list.append(count)
 
-                elif "**** Optimization is complete!" in line:
+                elif '**** Optimization is complete!' in line:
                     opt_pos = count
                     opt_steps = int(line.split()[5])
 
@@ -245,7 +247,7 @@ class PSI4(Engines):
 
             opt_struct = []
 
-            for row in range(len(self.molecule.molecule['input'])):
+            for row in range(len(self.molecule.atoms)):
 
                 # Append the first 4 columns of each row, converting to float as necessary.
                 struct_row = []
@@ -313,7 +315,7 @@ class PSI4(Engines):
         and run geometric optimisation.
         """
 
-        molecule = self.molecule.molecule[input_type]
+        molecule = self.molecule.coords[input_type]
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
@@ -321,16 +323,16 @@ class PSI4(Engines):
             for i, atom in enumerate(molecule):
                 file.write(f'  {self.molecule.atoms[i].element:2}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f}\n')
 
-            file.write(f" units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n")
+            file.write(f' units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n')
 
             if threads:
-                file.write(f"set_num_threads({self.molecule.threads})")
+                file.write(f'set_num_threads({self.molecule.threads})')
             file.write(f"\n\ngradient('{self.molecule.theory}')\n")
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sub_run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} --nt {self.molecule.theory}',
-                        shell=True, stdout=log, stderr=log)
+                sp.run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} '
+                       f'--nt {self.molecule.threads}', shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -357,7 +359,8 @@ class Chargemol(Engines):
             charge_file.write('\n\n<periodicity along A, B and C vectors>\n.false.\n.false.\n.false.')
             charge_file.write('\n</periodicity along A, B and C vectors>')
 
-            charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.molecule.chargemol}/atomic_densities/')
+            charge_file.write(f'\n\n<atomic densities directory complete path>\n{self.molecule.chargemol}'
+                              f'/atomic_densities/')
             charge_file.write('\n</atomic densities directory complete path>')
 
             charge_file.write(f'\n\n<charge type>\nDDEC{self.molecule.ddec_version}\n</charge type>')
@@ -367,8 +370,9 @@ class Chargemol(Engines):
         if execute:
             with open('log.txt', 'w+') as log:
                 # TODO path.join()?
-                control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/Chargemol_09_26_2017_linux_serial job_control.txt'
-                sub_run(f'{self.molecule.chargemol}/{control_path}', shell=True, stdout=log, stderr=log)
+                control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/' \
+                               'Chargemol_09_26_2017_linux_serial job_control.txt'
+                sp.run(f'{self.molecule.chargemol}/{control_path}', shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -383,9 +387,7 @@ class Gaussian(Engines):
         super().__init__(molecule)
 
         self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD'}
-
-        if self.functional_dict.get(self.molecule.theory.lower(), None) is not None:
-            self.molecule.theory = self.functional_dict[self.molecule.theory.lower()]
+        self.molecule.theory = self.functional_dict.get(self.molecule.theory, self.molecule.theory)
 
         self.convergence_dict = {'GAU': '',
                                  'GAU_TIGHT': 'tight',
@@ -406,7 +408,7 @@ class Gaussian(Engines):
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
 
-        molecule = self.molecule.molecule[input_type]
+        molecule = self.molecule.coords[input_type]
 
         with open(f'gj_{self.molecule.name}.com', 'w+') as input_file:
 
@@ -441,7 +443,8 @@ class Gaussian(Engines):
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
                 for i, atom in enumerate(molecule):
-                    input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} {float(atom[2]): .10f}\n')
+                    input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} '
+                                     f'{float(atom[2]): .10f}\n')
 
             if solvent:
                 # Adds the epsilon and cavity params
@@ -456,8 +459,8 @@ class Gaussian(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sub_run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
-                        shell=True, stdout=log, stderr=log)
+                sp.run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
+                       shell=True, stdout=log, stderr=log)
 
             # Now check the exit status of the job
             result = self.check_for_errors()
@@ -496,7 +499,7 @@ class Gaussian(Engines):
 
         # Make the fchk file first
         with open('formchck.log', 'w+') as formlog:
-            sub_run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
+            sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
         with open('lig.fchk', 'r') as fchk:
 
@@ -539,29 +542,34 @@ class Gaussian(Engines):
 
             lines = log_file.readlines()
 
-            output = ''
-            start_end = []
-            # Look for the output stream
-            for i, line in enumerate(lines):
-                if f'R{self.molecule.theory}\{self.molecule.basis}' in line:
-                    start_end.append(i)
-                elif '@' in line:
-                    start_end.append(i)
+        output = ''
+        start, end, energy = None, None, None
+        # Look for the output stream
+        # TODO Escape sequence warnings. Just use r'' for search strings with \ in them
+        for pos, line in enumerate(lines):
+            if f'R{self.molecule.theory}\{self.molecule.basis}' in line:
+                start = pos
 
-                elif 'SCF Done' in line:
-                    energy = float(line.split()[4])
+            elif '@' in line:
+                end = pos
 
-            # now add the lines to the output stream
-            for i in range(start_end[0], start_end[1]):
-                output += lines[i].strip()
+            elif 'SCF Done' in line:
+                energy = float(line.split()[4])
 
-            # Split the string by the double slash to now find the molecule input
-            molecule = []
-            output = output.split("\\\\")
-            for string in output:
-                if string.startswith(f'{self.molecule.charge},{self.molecule.multiplicity}\\'):
-                    # Remove the charge and multiplicity from the string
-                    molecule = string.split("\\")[1:]
+        if any(i is None for i in [start, end, energy]):
+            raise EOFError('Cannot locate optimised structure in file.')
+
+        # now add the lines to the output stream
+        for line in range(start, end):
+            output += lines[line].strip()
+
+        # Split the string by the double slash to now find the molecule input
+        molecule = []
+        output = output.split('\\\\')
+        for string in output:
+            if string.startswith(f'{self.molecule.charge},{self.molecule.multiplicity}\\'):
+                # Remove the charge and multiplicity from the string
+                molecule = string.split('\\')[1:]
 
             # Store the coords back into the molecule array
             opt_struct = []
@@ -590,7 +598,7 @@ class Gaussian(Engines):
 
         return np.array(freqs)
 
-# TODO do we need this class anymore it only makes an xyz file?
+# TODO do we need this class anymore it only makes an xyz file? Maybe move calculate_hull to helpers
 @for_all_methods(timer_logger)
 class ONETEP(Engines):
 
@@ -613,7 +621,7 @@ class ONETEP(Engines):
         Then make a 3d plot of the points and hull.
         """
 
-        coords = np.array([atom[1:] for atom in self.molecule.molecule['input']])
+        coords = np.array([atom[1:] for atom in self.molecule.coords['input']])
 
         hull = ConvexHull(coords)
 
@@ -652,9 +660,7 @@ class QCEngine(Engines):
                 mol_data += f'{item} '
             mol_data += '\n'
 
-        mol = qcel.models.Molecule.from_data(mol_data)
-
-        return mol
+        return qcel.models.Molecule.from_data(mol_data)
 
     def call_qcengine(self, engine, driver, input_type):
         """
@@ -677,7 +683,8 @@ class QCEngine(Engines):
                 keywords={'scf_type': 'df'},
             )
 
-            ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.molecule.memory, 'ncores': self.molecule.threads})
+            ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.molecule.memory,
+                                                                 'ncores': self.molecule.threads})
 
             if driver == 'hessian':
                 hess_size = 3 * len(self.molecule.atoms)
@@ -692,28 +699,27 @@ class QCEngine(Engines):
         # Call geometric with psi4 to optimise a molecule
         elif engine == 'geometric':
             geo_task = {
-                "schema_name": "qcschema_optimization_input",
-                "schema_version": 1,
-                "keywords": {
-                    "coordsys": "tric",
-                    "maxiter": self.molecule.iterations,
-                    "program": "psi4",
-                    "convergence_set": self.molecule.convergence,
+                'schema_name': 'qcschema_optimization_input',
+                'schema_version': 1,
+                'keywords': {
+                    'coordsys': 'tric',
+                    'maxiter': self.molecule.iterations,
+                    'program': 'psi4',
+                    'convergence_set': self.molecule.convergence,
                 },
-                "input_specification": {
-                    "schema_name": "qcschema_input",
-                    "schema_version": 1,
-                    "driver": 'gradient',
-                    "model": {'method': self.molecule.theory, 'basis': self.molecule.basis},
-                    "keywords": {},
+                'input_specification': {
+                    'schema_name': 'qcschema_input',
+                    'schema_version': 1,
+                    'driver': 'gradient',
+                    'model': {'method': self.molecule.theory, 'basis': self.molecule.basis},
+                    'keywords': {},
                 },
-                "initial_molecule": mol,
+                'initial_molecule': mol,
             }
             # TODO hide the output stream so it does not spoil the terminal printing
-            # return_dict=True seems to be default False in newer versions. Ergo docs are wrong again.
             ret = qcng.compute_procedure(
-                geo_task, 'geometric', return_dict=True,
-                local_options={'memory': self.molecule.memory, 'ncores': self.molecule.threads})
+                geo_task, 'geometric', return_dict=True, local_options={'memory': self.molecule.memory,
+                                                                        'ncores': self.molecule.threads})
             return ret
 
         else:
@@ -770,7 +776,7 @@ class RDKit:
         print(AllChem.MolToMolBlock(mol_hydrogens), file=open(f'{name}.mol', 'w+'))
         AllChem.MolToPDBFile(mol_hydrogens, f'{name}.pdb')
 
-        return mol_hydrogens
+        return f'{name}.pdb'
 
     @staticmethod
     def mm_optimise(filename, ff='MMF'):
@@ -887,8 +893,8 @@ class Babel:
         output_type = str(output_file).split(".")[-1]
 
         with open('babel.txt', 'w+') as log:
-            sub_run(f'babel -i{input_type} {input_file} -o{output_type} {output_file}',
-                    shell=True, stderr=log, stdout=log)
+            sp.run(f'babel -i{input_type} {input_file} -o{output_type} {output_file}',
+                   shell=True, stderr=log, stdout=log)
 
 
 @for_all_methods(timer_logger)

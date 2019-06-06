@@ -1,6 +1,5 @@
-# !/usr/bin/env python
+# !/usr/bin/env python3
 
-from datetime import datetime
 import os
 from pathlib import Path
 from setuptools import setup, find_packages
@@ -28,7 +27,7 @@ setup(
             'QUBEKit-gui = QUBEKit.GUI.gui:main'
         ]
     },
-    version=datetime.now().strftime('%Y.%m.%d'),
+    version='2.2.0',
     license='MIT',
     classifiers=[
         'Intended Audience :: Science/Research',

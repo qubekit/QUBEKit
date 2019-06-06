@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from QUBEKit.ligand import Protein
 from QUBEKit.parametrisation import XMLProtein
@@ -51,10 +51,11 @@ def main():
             # this updates the bonded info that is now in the object
 
             # finally we need the non-bonded parameters from onetep
-            # fake configs as this will always be true
             # TODO should we also have the ability to get DDEC6 charges from the cube file?
-            configs = [{'charge': 0}, {'charges_engine': 'onetep', 'density_engine': 'onetep'}, {}, {}]
-            lj = LennardJones(pro, config_dict=configs)
+            pro.charge = 0
+            pro.charges_engine = 'onetep'
+            pro.density_engine = 'onetep'
+            lj = LennardJones(pro)
             pro.NonbondedForce = lj.calculate_non_bonded_force()
 
             # now we write out the final parameters

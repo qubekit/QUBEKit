@@ -16,7 +16,7 @@
 * [Installation](https://github.com/qubekit/QUBEKit#installation)
     * [Requirements](https://github.com/qubekit/QUBEKit#requirements)
 * [Help](https://github.com/qubekit/QUBEKit#help)
-    * [Before You Start: Config Files](https://github.com/qubekit/QUBEKit#before-you-start-config-files)
+    * [Config Files](https://github.com/qubekit/QUBEKit#before-you-start-config-files)
     * [QUBEKit Commands](https://github.com/qubekit/QUBEKit#qubekit-commands-running-jobs)
         * [Running Jobs](https://github.com/qubekit/QUBEKit#qubekit-commands-running-jobs)
         * [Some Examples](https://github.com/qubekit/QUBEKit#qubekit-commands-some-examples)
@@ -40,8 +40,10 @@ QUBEKit aims to avoid fitting to experimental data where possible while also bei
 
 Users who have used QUBEKit to derive any new force field parameters should cite the following papers:
 
+* [QUBEKit: Automating the Derivation of Force Field Parameters from Quantum Mechanics](https://pubs.acs.org/doi/full/10.1021/acs.jcim.8b00767)
 * [Biomolecular Force Field Parameterization via Atoms-in-Molecule Electron Density Partitioning](https://pubs.acs.org/doi/abs/10.1021/acs.jctc.6b00027)
 * [Harmonic Force Constants for Molecular Mechanics Force Fields via Hessian Matrix Projection](https://pubs.acs.org/doi/10.1021/acs.jctc.7b00785)
+
 ### In Development
 
 QUBEKit should currently be considered a work in progress.
@@ -53,7 +55,7 @@ We welcome any suggestions for additions or changes.
 ## Installation
 
 To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*.
-Git has our latest version which will likely have newer features but may not stable.
+Git has our latest version which will likely have newer features but may not be stable.
 
     git clone https://github.com/qubekit/QUBEKit.git
     cd <install location>
@@ -115,6 +117,10 @@ These packages are on different conda channels, hence needing the extra argument
 
 `conda install -c omnia openforcefield`
 
+* [QCEngine](https://pypi.org/project/qcengine/)
+
+`pip install qcengine`
+
 * [TorsionDrive](https://github.com/lpwgroup/torsiondrive)
 
 
@@ -151,7 +157,7 @@ You should now be able to use QUBEKit straight away from the command line or as 
 Below is general help for most of the commands available in QUBEKit.
 There is some short help available through the terminal (invoked with `-h`) but all necessary long-form help is within this document.
 
-### Before you start: Config files
+### Config files
 
 QUBEKit has a lot of settings which are used in production and changing these can result in very different force field parameters.
 The settings are controlled using ini style config files which are easy to edit.
@@ -166,7 +172,7 @@ To do this use the command `QUBEKit -setup` where you will then be presented wit
 
 Choose option two to set up a new template which will be used every time you run QUBEKit 
 (unless you supply the name of another ini file in the configs folder).
-The only parameter that **must** be changed for QUBEKit to run is the Chargemol path in the descriptions section.
+The only parameter that ***must*** be changed for QUBEKit to run is the Chargemol path in the descriptions section.
 This option is what controls where the Chargemol code is accessed from on your PC.
 It should be the location of the Chargemol home directory, plus the name of the Chargemol folder itself to account for version differences:
 
@@ -174,12 +180,32 @@ It should be the location of the Chargemol home directory, plus the name of the 
     
 Following this, feel free to change any of the other options such as the basis set.
 
+QUBEKit ***does*** have a full suite of defaults built in. 
+You do not necessarily need to create and manage an ini config file; everything can be done through the terminal commands.
+To make things easier to keep track of changes however, we recommend you do use a config file, 
+or several depending on the analysis you're doing.
+
+You can change which config file is being used at runtime using the command:
+
+    -config <config file name>.ini
+    
+Otherwise, the default will be used.
+
 ### QUBEKit Commands: Running Jobs
 
+Running a job entirely on defaults, is as simple as typing `-i` for input, followed by the pdb file name, for example:
+
+    QUBEKit -i methane.pdb
+    
+This will perform a start-to-finish analysis on the `methane.pdb` file using the default config ini file.
+For anything more complex, you will need to add more commands.
+
+---
+
 Given a list of commands, such as: `-setup`, `-progress` some are taken as single word commands.
-Others however, such as changing defaults: (`-c` `0`), (`-m` `1`), are taken as tuple commands.
+Others however, such as changing defaults: (`-c 0`), (`-m 1`), are taken as tuple commands.
 The first command of tuple commands is always preceded by a `-`, while the latter commands are not: (`-skip` `density` `charges`).
-(An error is raised for hanging commands e.g. `-c`, `1` or `-sm`.)
+(An error is raised for 'hanging' commands e.g. `-c`, `1` or `-sm`.)
 
 All commands can be provided in any order, as long as tuple commands are paired together.
 **All configuration commands are optional**. If nothing at all is given, the program will run entirely with defaults.
@@ -190,6 +216,9 @@ All commands should be given in lower case with two main exceptions;
 you may use whatever case you like for the name of files (e.g. `-i DMSO.pdb`) or the name of the directory (e.g. `-log Run013`).
 
 ### QUBEKit Commands: Some Examples
+
+(A full list of the possible command line arguments is given below in the 
+[Cook Book](https://github.com/qubekit/QUBEKit#cook-book) section. This section covers some simple examples)
 
 Running a full analysis on molecule.pdb with a non-default charge of 1, the default charge engine (Chargemol) and with GeomeTRIC off:
 Note, ordering does not matter as long as tuples commands (`-c` `1`) are together.
@@ -258,22 +287,31 @@ This will automatically generate the file with the appropriate column headers.
 The csv config file will be put into wherever you ran the command from.
 When writing to the csv file, append rows after the header row, rather than overwriting it.
 
+If you want to limit the number of molecules per csv file, simply add an argument to the command.
+For example, if you have 23 pdb files and want to analyse them 12 at a time, use the command:
+
+    QUBEKit -csv example.csv 12
+    
+This will generate two csv files, one with 12 molecules inside, the other with the remaining 11.
+You can then fill in the rest of the csv as desired, or run immediately with the defaults.
+
 Before running a bulk analysis, fill in each column for each molecule*; 
 importantly, different config files can be supplied for each molecule.
 
-*Not all columns need to be filled:
+*Only the name column needs to be filled (which is filled automatically with the generated csv),
+any empty columns will simply use the default values:
 
-* If the config column is not filled, the default config is used.
-* The smiles string column only needs to be filled if a pdb is not supplied.
-* Leaving the restart column empty will start the program from the beginning.
+* If the charge column is empty, charge will be set to 0;
+* If the multiplicity column is empty, multiplicity will be set to 1; 
+* If the config column is empty, the default config is used;
+* The smiles string column only needs to be filled if a pdb is *not* supplied;
+* Leaving the restart column empty will start the program from the beginning;
 * Leaving the end column empty will end the program after a full analysis.
 
-A bulk analysis is called with the command:
+A bulk analysis is called with the `-bulk` command, followed by the name of the csv file:
 
     QUBEKit -bulk example.csv
     
-where example.csv is the csv file containing all the information described above.
-
 Any pdb files should all be in the same place: where you're running QUBEKit from.
 Upon executing this bulk command, QUBEKit will work through the rows in the csv file.
 Each molecule will be given its own directory and log file (the same as single molecule analyses).
@@ -293,7 +331,7 @@ It is therefore recommended to manually edit the config files rather than doing,
     
 Be aware that the names of the pdb files are used as keys to find the configs.
 So, each pdb being analysed should have a corresponding row in the csv file with the correct name
-(not relevant if using smiles strings).
+(if using smiles strings, the name column will just be the name given to the created pdb file).
 
 For example (csv row order does not matter, and you do not need to include smiles strings when a pdb is provided; column order *does* matter):
 
@@ -304,9 +342,9 @@ For example (csv row order does not matter, and you do not need to include smile
 
     bulk_example.csv:
         name,charge,multiplicity,config,smiles,torsion_order,restart,end
-        methane,0,1,default_config,C,,,
-        benzene,0,1,default_config,,,,
-        ethane,0,1,default_config,,,,
+        methane,,,default_config,C,,,
+        benzene,,,default_config,,,,
+        ethane,,,default_config,,,,
 
 ### QUBEKit Commands: Custom Start and End Points (single molecule)
 
@@ -375,7 +413,7 @@ or if you're just not interested in certain time-consuming results.
 `-skip` takes at least one argument and on use will completely skip over the provided stage(s).
 Say you are not interested in calculating bonds and angles, and simply want the charges; the command:
 
-`QUBEKit -i acetone.pdb -skip hessian mod_sem` 
+    QUBEKit -i acetone.pdb -skip hessian mod_sem
 
 will skip over the Hessian matrix calculation which is necessary for the modified Seminario method (skipping that too).
 QUBEKit will then go on to calculate density, charges and so on.
@@ -383,7 +421,9 @@ QUBEKit will then go on to calculate density, charges and so on.
 **Beware skipping steps which are required for other stages of the analysis.**
 
 Just like the other commands, `-skip` can be used in conjunction with other commands like config changing, 
-and `-end` or `-restart`.
+and `-end` or `-restart`. Using the same example above, you can stop having calculated charges:
+
+    QUBEKit -i acetone.pdb -skip hessian mod_sem -end charges
 
 **`-skip` is not available for `-bulk` commands and probably never will be. 
 This is to keep bulk commands reasonably simple. 
@@ -405,8 +445,8 @@ Using a similar example as above, two molecules are analysed with DDEC6, then re
 
     first_run.csv:
         name,charge,multiplicity,config,smiles,torsion_order,restart,end
-        ethane,0,1,ddec6_config,,,,charges
-        benzene,0,1,ddec6_config,,,,charges
+        ethane,,,ddec6_config,,,,charges
+        benzene,,,ddec6_config,,,,charges
     
     QUBEKit -bulk first_run.csv
     
@@ -415,8 +455,8 @@ Using a similar example as above, two molecules are analysed with DDEC6, then re
     
     second_run.csv:
         name,charge,multiplicity,config,smiles,torsion_order,restart,end
-        ethane,0,1,ddec3_config,,,density,charges
-        benzene,0,1,ddec3_config,,,density,charges
+        ethane,,,ddec3_config,,,density,charges
+        benzene,,,ddec3_config,,,density,charges
     
     QUBEKit -bulk second_run.csv
 
@@ -462,32 +502,42 @@ this means they may try to take more than is available, leading to a crash.
 
     QUBEKit -i molecule.pdb
 
-Optional commands:
+All commands can be viewed by calling `QUBEKit -h`. Below is an explanation of what all these commands are:
 
-* Enable or disable GeomeTRIC: 
+* Enable or disable GeomeTRIC (bool): 
 `-geo true` or `-geo false`
 
-* Change DDEC version: 
+* Change DDEC version (int; 3 or 6): 
 `-ddec 3` or `-ddec 6`
 
-* Enable or disable the solvent model: 
+* Enable or disable the solvent model (bool): 
 `-solvent true` or `-solvent false`
 
-* Change the method for initial parametrisation: 
+* Change the method for initial parametrisation (str; openff, xml or antechamber): 
 `-param openff`, `-param xml`, `-param antechamber`
 
-* Change the log file name and directory label:
+* Change the log file name and directory label (str; any):
 `-log Example123`
 
-* Change the functional being used:
+* Change the functional being used (str; any valid psi4/g09 functional):
 `-func B3LYP`
 
-* Change the basis set:
+* Change the basis set (str; any valid psi4/g09 basis set):
 `-basis 6-31G`
+
+* Change the amount of memory allocated (int; do not exceed computer's limits!):
+`-memory 4`
+
+* Change the number of threads allocated (int; do not exceed computer's limits!):
+`-threads 4`
+
+---
 
 **Complete analysis of ethane from its smiles string using DDEC3, OpenFF and no solvent (`-log` command labels the analysis):**
 
     QUBEKit -sm CC -ddec 3 -param openff -solvent false -log ethane_example
+
+---
 
 **Analyse benzene from its pdb file until the charges are calculated; use DDEC3:**
 
@@ -511,6 +561,8 @@ Here we're restarting from density and finishing on charges:
 
 This will still produce an xml in the `finalise` folder.
 
+---
+
 **Analyse methanol from its smiles string both with and without a solvent:**
 
     QUBEKit -sm CO -solvent true -log Methanol_Solvent
@@ -521,7 +573,9 @@ This will still produce an xml in the `finalise` folder.
     cd QUBEKit_methanol_2019_01_01_Methanol_No_Solvent
 
     QUBEKit -solvent false -restart density
-    
+
+---
+
 **Calculate the density for methane, ethane and propane using their pdbs:**
 
 Generate a blank csv file with a relevant name:
@@ -532,15 +586,17 @@ Fill in each row like so:
 
     density.csv:
         name,charge,multiplicity,config,smiles,torsion_order,restart,end
-        methane,0,1,master_config.ini,,,,density
-        ethane,0,1,master_config.ini,,,,density
-        propane,0,1,master_config.ini,,,,density
+        methane,,,master_config.ini,,,,density
+        ethane,,,master_config.ini,,,,density
+        propane,,,master_config.ini,,,,density
 
 Run the analysis:
 
     QUBEKit -bulk density.csv
     
 Note, you can add more commands to the execution but it is recommended that changes are made to the config files instead.
+
+---
 
 **Running the same analysis but using the smiles strings instead; this time do a complete analysis:**
 
@@ -552,17 +608,19 @@ Fill in the csv file like so:
 
     simple_alkanes.csv:
         name,charge,multiplicity,config,smiles,torsion_order,restart,end
-        methane,0,1,master_config.ini,C,,,
-        ethane,0,1,master_config.ini,CC,,,
-        propane,0,1,master_config.ini,CCC,,,
+        methane,,,master_config.ini,C,,,
+        ethane,,,master_config.ini,CC,,,
+        propane,,,master_config.ini,CCC,,,
 
 Run the analysis:
 
     QUBEKit -bulk simple_alkanes.csv
-    
+
+---
+
 **Just calculating charges for acetone:**
 
-Skip hessian which is only needed for mod_sem which calculates the bonds and angles.
-Then end after the charge calculation. 
+Skip hessian and mod_sem, the two stages used to calculate the bonds and angles,
+then end the analysis after the charge calculation.
 
     QUBEKit -i acetone.pdb -skip hessian mod_sem -end charges

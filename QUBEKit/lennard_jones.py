@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.helpers import check_net_charge
@@ -100,7 +100,7 @@ class LennardJones:
         """
 
         # We know this from the molecule object self.molecule try to get the info from there
-        for pos, atom in enumerate(self.molecule.molecule['input']):
+        for pos, atom in enumerate(self.molecule.coords['input']):
             self.ddec_data.append([pos + 1] + [atom[i] for i in range(4)])
 
         # TODO Just move the ddec.onetep file instead? Handle this in run file?
@@ -151,8 +151,8 @@ class LennardJones:
             'F': [18.2, 9.5, 1.58],
             'P': [84.6, 185, 2.00],
             'S': [75.2, 134.0, 2.00],
-            'CL': [65.1, 94.6, 1.88],
-            'BR': [95.7, 162.0, 1.96],
+            'Cl': [65.1, 94.6, 1.88],
+            'Br': [95.7, 162.0, 1.96],
         }
 
         for pos, atom in enumerate(self.ddec_data):
@@ -176,7 +176,7 @@ class LennardJones:
 
         # Creates Nonbondedforce dict for later xml creation.
         # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
-        # This follows the usual ordering of the atoms such as in molecule.molecule.
+        # This follows the usual ordering of the atoms such as in molecule.coords.
 
         for pos, atom in enumerate(self.ddec_data):
 
@@ -320,9 +320,9 @@ class LennardJones:
                             closet_atoms.append(list(self.molecule.topology.neighbors(closet_atoms[0]))[-1])
 
                         # Get the xyz coordinates of the reference atoms
-                        parent_pos = self.molecule.molecule['qm'][parent]
-                        close_a = self.molecule.molecule['qm'][closet_atoms[0]]
-                        close_b = self.molecule.molecule['qm'][closet_atoms[1]]
+                        parent_pos = self.molecule.coords['qm'][parent]
+                        close_a = self.molecule.coords['qm'][closet_atoms[0]]
+                        close_b = self.molecule.coords['qm'][closet_atoms[1]]
 
                         # work out the local coordinates site using rules from the OpenMM guide
                         orig = w1o * parent_pos + w2o * close_a + close_b * w3o
