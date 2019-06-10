@@ -76,8 +76,8 @@ class Parametrisation:
 
         # Try to gather the AtomTypes first
         for atom in self.molecule.atoms:
-            self.molecule.AtomTypes[atom.index] = [atom.name, 'QUBE_' + str(000 + atom.index),
-                                                   str(atom.element) + str(000 + atom.index)]
+            self.molecule.AtomTypes[atom.atom_index] = [atom.name, 'QUBE_' + str(000 + atom.atom_index),
+                                                   str(atom.element) + str(000 + atom.atom_index)]
 
         in_root = ET.parse('serialised.xml').getroot()
 
@@ -311,7 +311,7 @@ class XMLProtein(Parametrisation):
 
         # Try to gather the AtomTypes first
         for atom in self.molecule.atoms:
-            self.molecule.AtomTypes[atom.index] = [atom.name, 'QUBE_' + str(atom.index), atom.name]
+            self.molecule.AtomTypes[atom.atom_index] = [atom.name, 'QUBE_' + str(atom.atom_index), atom.name]
 
         input_xml_file = 'serialised.xml'
         in_root = ET.parse(input_xml_file).getroot()

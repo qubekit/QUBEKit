@@ -905,8 +905,8 @@ class Execute:
             scan_order = []
             for torsion in torsions_list:
                 tor = tuple(atom for atom in torsion.split('-'))
-                # convert the string names to the index names and get the core indexed from 1 to match the topology
-                core = (molecule.atom_names.index(tor[1]) + 1, molecule.atom_names.index(tor[2]) + 1)
+                # convert the string names to the index
+                core = (molecule.get_atom_with_name(tor[1]).atom_index , molecule.get_atom_with_name(tor[2]).atom_index)
 
                 if core in molecule.rotatable:
                     scan_order.append(core)
