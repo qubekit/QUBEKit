@@ -299,7 +299,7 @@ class ModSeminario:
                 # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
                 k_b[pos] = np.real((ab + ba) / 2) * (self.molecule.vib_scaling ** 2)
 
-                bond_len_list[pos] = bond_lens[*bond]
+                bond_len_list[pos] = bond_lens[bond]
                 bond_file.write(f'{self.atoms[bond[0]].name}-{self.atoms[bond[1]].name}  ')
                 bond_file.write(f'{k_b[pos]:.3f}   {bond_len_list[pos]:.3f}   {bond[0]}   {bond[1]}\n')
 
