@@ -7,8 +7,9 @@
 from QUBEKit.helpers import get_overage, check_symmetry, append_to_log
 from QUBEKit.decorators import for_all_methods, timer_logger
 
-import subprocess as sp
+import os
 from pathlib import Path
+import subprocess as sp
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -74,10 +75,53 @@ class PSI4(Engines):
         :return: The completion status of the job True if successful False if not run or failed
         """
 
-        molecule = self.molecule.coords[input_type]
-
         setters = ''
         tasks = ''
+
+        if energy:
+            append_to_log('Writing psi4 energy calculation input')
+            tasks += f"\nenergy  = energy('{self.molecule.theory}')"
+
+        if optimise:
+            append_to_log('Writing PSI4 optimisation input', 'minor')
+            setters += f' g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n'
+            tasks += f"\noptimize('{self.molecule.theory.lower()}')"
+
+        if hessian:
+            append_to_log('Writing PSI4 Hessian matrix calculation input', 'minor')
+            setters += ' hessian_write on\n'
+
+            tasks += f"\nenergy, wfn = frequency('{self.molecule.theory.lower()}', return_wfn=True)"
+
+            tasks += '\nwfn.hessian().print_out()\n\n'
+
+        if density:
+            append_to_log('Writing PSI4 density calculation input', 'minor')
+            setters += " cubeprop_tasks ['density']\n"
+
+            overage = get_overage(self.molecule.name)
+            setters += ' CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n'.format(overage)
+            setters += ' CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n'
+            tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
+
+        if fchk:
+            append_to_log('Writing PSI4 input file to generate fchk file')
+            tasks += f"\ngrad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)"
+            tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
+            tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
+
+        # TODO If overage cannot be made to work, delete and just use Gaussian.
+        # if self.molecule.solvent:
+        #     setters += ' pcm true\n pcm_scf_type total\n'
+        #     tasks += '\n\npcm = {'
+        #     tasks += '\n units = Angstrom\n Medium {\n  SolverType = IEFPCM\n  Solvent = Chloroform\n }'
+        #     tasks += '\n Cavity {\n  RadiiSet = UFF\n  Type = GePol\n  Scaling = False\n  Area = 0.3\n  Mode = Implicit'
+        #     tasks += '\n }\n}'
+
+        setters += '}\n'
+
+        if not execute:
+            setters += f'set_num_threads({self.molecule.threads})\n'
 
         # input.dat is the PSI4 input file.
         with open('input.dat', 'w+') as input_file:
@@ -85,54 +129,10 @@ class PSI4(Engines):
             input_file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n'
                              f'{self.molecule.charge} {self.molecule.multiplicity} \n')
             # molecule is always printed
-            for i, atom in enumerate(molecule):
+            for i, atom in enumerate(self.molecule.coords[input_type]):
                 input_file.write(f' {self.molecule.atoms[i].element}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n')
+
             input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n")
-
-            if energy:
-                append_to_log('Writing psi4 energy calculation input')
-                tasks += f"\nenergy  = energy('{self.molecule.theory}')"
-
-            if optimise:
-                append_to_log('Writing PSI4 optimisation input', 'minor')
-                setters += f' g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n'
-                tasks += f"\noptimize('{self.molecule.theory.lower()}')"
-
-            if hessian:
-                append_to_log('Writing PSI4 Hessian matrix calculation input', 'minor')
-                setters += ' hessian_write on\n'
-
-                tasks += f"\nenergy, wfn = frequency('{self.molecule.theory.lower()}', return_wfn=True)"
-
-                tasks += '\nwfn.hessian().print_out()\n\n'
-
-            if density:
-                append_to_log('Writing PSI4 density calculation input', 'minor')
-                setters += " cubeprop_tasks ['density']\n"
-
-                overage = get_overage(self.molecule.name)
-                setters += ' CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n'.format(overage)
-                setters += ' CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n'
-                tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
-
-            if fchk:
-                append_to_log('Writing PSI4 input file to generate fchk file')
-                tasks += f"\ngrad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)"
-                tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
-                tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
-
-            # TODO If overage cannot be made to work, delete and just use Gaussian.
-            # if self.molecule.solvent:
-            #     setters += ' pcm true\n pcm_scf_type total\n'
-            #     tasks += '\n\npcm = {'
-            #     tasks += '\n units = Angstrom\n Medium {\n  SolverType = IEFPCM\n  Solvent = Chloroform\n }'
-            #     tasks += '\n Cavity {\n  RadiiSet = UFF\n  Type = GePol\n  Scaling = False\n  Area = 0.3\n  Mode = Implicit'
-            #     tasks += '\n }\n}'
-
-            setters += '}\n'
-
-            if not execute:
-                setters += f'set_num_threads({self.molecule.threads})\n'
 
             input_file.write(setters)
             input_file.write(tasks)
@@ -264,17 +264,11 @@ class PSI4(Engines):
 
         # open the psi4 log file
         with open('output.dat', 'r') as log:
-            lines = log.readlines()
-
-        # find the total converged energy
-        for line in lines:
-            if 'Total Energy =' in line:
-                energy = float(line.split()[3])
-                break
-        else:
-            raise EOFError('Cannot find energy in output.dat file.')
-
-        return energy
+            for line in log:
+                if 'Total Energy =' in line:
+                    return float(line.split()[3])
+            else:
+                raise EOFError('Cannot find energy in output.dat file.')
 
     def all_modes(self):
         """Extract all modes from the psi4 output file."""
@@ -320,6 +314,7 @@ class PSI4(Engines):
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
             file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
+
             for i, atom in enumerate(molecule):
                 file.write(f'  {self.molecule.atoms[i].element:2}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f}\n')
 
@@ -327,6 +322,7 @@ class PSI4(Engines):
 
             if threads:
                 file.write(f'set_num_threads({self.molecule.threads})')
+
             file.write(f"\n\ngradient('{self.molecule.theory}')\n")
 
         if execute:
@@ -369,10 +365,10 @@ class Chargemol(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                # TODO path.join()?
+                # TODO Check if windows
                 control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/' \
                                'Chargemol_09_26_2017_linux_serial job_control.txt'
-                sp.run(f'{self.molecule.chargemol}/{control_path}', shell=True, stdout=log, stderr=log)
+                sp.run(os.path.join(self.molecule.chargemol, control_path), shell=True, stdout=log, stderr=log)
 
 
 @for_all_methods(timer_logger)
@@ -463,16 +459,10 @@ class Gaussian(Engines):
                        shell=True, stdout=log, stderr=log)
 
             # Now check the exit status of the job
-            result = self.check_for_errors()
-
-            return result
+            return self.check_for_errors()
 
         else:
-
-            result = {'success': False,
-                      'error': 'Not run'}
-
-            return result
+            return {'success': False, 'error': 'Not run'}
 
     def check_for_errors(self):
         """
@@ -480,21 +470,21 @@ class Gaussian(Engines):
         :return: A dictionary of the success status and any problems
         """
 
-        log = open(f'gj_{self.molecule.name}.log', 'r').read()
-        if 'Normal termination of Gaussian' in log:
-            return {'success': True}
+        with open(f'gj_{self.molecule.name}.log', 'r') as log:
+            for line in log:
+                if 'Normal termination of Gaussian' in line:
+                    return {'success': True}
 
-        elif 'Problem with the distance matrix.' in log:
-            return {'success': False,
-                    'error': 'Distance matrix'}
+                elif 'Problem with the distance matrix.' in line:
+                    return {'success': False,
+                            'error': 'Distance matrix'}
 
-        elif 'Error termination in NtrErr' in log:
-            return {'success': False,
-                    'error': 'FileIO'}
-
-        else:
-            return {'success': False,
-                    'error': 'Unknown'}
+                elif 'Error termination in NtrErr' in line:
+                    return {'success': False,
+                            'error': 'FileIO'}
+                else:
+                    return {'success': False,
+                            'error': 'Unknown'}
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""

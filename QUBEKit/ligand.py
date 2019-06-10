@@ -867,10 +867,7 @@ class Molecule(Defaults):
             for torsion in remove_list:
                 rotatable.remove(torsion)
 
-            if rotatable:
-                self.rotatable = rotatable
-            else:
-                self.rotatable = None
+            self.rotatable = rotatable if rotatable else None
 
     def update(self, input_type='input'):
         """
@@ -921,7 +918,7 @@ class Ligand(Molecule):
 
         self.read_file()
         # Make sure we have the topology before we calculate the properties
-        if bool(self.topology.edges):
+        if self.topology.edges:
             self.find_angles()
             self.find_dihedrals()
             self.find_rotatable_dihedrals()
@@ -996,6 +993,7 @@ class Protein(Molecule):
     """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
     def __init__(self, filename):
+
         super().__init__(filename)
 
         self.pdb_names = None
