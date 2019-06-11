@@ -142,14 +142,18 @@ class PSI4(Engines):
                 sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log)
 
             # After running, check for normal termination
-            return True if '*** Psi4 exiting successfully.' in open('output.dat', 'r').read() else False
-        else:
-            return False
+            with open('output.dat', 'r') as output:
+                for line in output:
+                    if '*** Psi4 exiting successfully.' in line:
+                        return True
+
+        return False
 
     def hessian(self):
         """
-        Parses the Hessian from the output.dat file (from psi4) into a numpy array.
-        Molecule is a numpy array of size N x N.
+        Parses the Hessian from the output.dat file (from psi4) into a numpy array;
+        performs check to ensure it is symmetric;
+        has some basic error handling for if the file is missing data etc.
         """
 
         hess_size = 3 * len(self.molecule.atoms)

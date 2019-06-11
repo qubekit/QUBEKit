@@ -124,9 +124,11 @@ These packages are on different conda channels, hence needing the extra argument
 * [TorsionDrive](https://github.com/lpwgroup/torsiondrive)
 
 
-    https://github.com/lpwgroup/torsiondrive.git
-    cd <install location>
-    python setup.py install
+```
+https://github.com/lpwgroup/torsiondrive.git
+cd <install location>
+python setup.py install
+```
 
 
 **GUI Requirements**
@@ -138,6 +140,8 @@ These packages are on different conda channels, hence needing the extra argument
 * [PyQtWebEngine 5.12.1](https://pypi.org/project/PyQtWebEngine/)
 
 `pip install PyQtWebEngine`
+
+---
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda should deal with versions and conflicts in your environment.
@@ -182,14 +186,14 @@ Following this, feel free to change any of the other options such as the basis s
 
 QUBEKit ***does*** have a full suite of defaults built in. 
 You do not necessarily need to create and manage an ini config file; everything can be done through the terminal commands.
-To make things easier to keep track of changes however, we recommend you do use a config file, 
+To make it easier to keep track of changes however, we recommend you do use a config file, 
 or several depending on the analysis you're doing.
 
 You can change which config file is being used at runtime using the command:
 
     -config <config file name>.ini
     
-Otherwise, the default will be used.
+Otherwise, the default `master_config.ini` will be used.
 
 ### QUBEKit Commands: Running Jobs
 
@@ -524,6 +528,9 @@ All commands can be viewed by calling `QUBEKit -h`. Below is an explanation of w
 
 * Change the basis set (str; any valid psi4/g09 basis set):
 `-basis 6-31G`
+
+* Change the vibrational scaling used with the basis set (float; e.g. 0.997):
+`-vib 0.967`
 
 * Change the amount of memory allocated (int; do not exceed computer's limits!):
 `-memory 4`

@@ -452,7 +452,7 @@ class AnteChamber(Parametrisation):
                 copy('out.mol2', mol2)
                 copy('ante_log.txt', cwd)
             except FileNotFoundError:
-                print('Antechamber could not convert this file type is it a valid pdb?')
+                print('Antechamber could not convert this file type; is it a valid pdb?')
 
             os.chdir(cwd)
 
@@ -463,7 +463,7 @@ class AnteChamber(Parametrisation):
 
             # Run parmchk
             with open('Antechamber.log', 'a') as log:
-                sub_run(f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}",
+                sub_run(f'parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}',
                         shell=True, stdout=log, stderr=log)
 
             # Ensure command worked
