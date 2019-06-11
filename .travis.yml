@@ -51,13 +51,13 @@ install:
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
+  - conda info -a
   - conda config --add channels cringrose
 
   - conda install conda-build
   - conda install anaconda-client
-  - source activate test
   - conda build devtools/conda-recipe/build.sh
-  - conda install qubekit --use-local
+  - conda install -c cringrose qubekit --use-local
 
 script:
   - python QUBEKit/tests/ligand_tests.py
