@@ -254,9 +254,13 @@ class ArgsAndConfigs:
                             help='Enter True if you would like to run a torsion test on the chosen torsions.')
         parser.add_argument('-tor_make', '--torsion_maker', action=TorsionMakerAction,
                             help='Allow QUBEKit to help you make a torsion input file for the given molecule')
+        parser.add_argument('-log', '--log', type=str,
+                            help='Enter a name to tag working directories with. Can be any alphanumeric string.')
+        parser.add_argument('-vib', '--vib', type=float, default=0.991,
+                            help='Enter the vibrational scaling to be used with the basis set.')
 
-        # Add mutually exclusive groups to stop wrong combinations of options,
-        # e.g. setup should not be ran with another command
+        # Add mutually exclusive groups to stop certain combinations of options,
+        # e.g. setup should not be run with csv command
         groups = parser.add_mutually_exclusive_group()
         groups.add_argument('-setup', '--setup_config', nargs='?', const=True,
                             help='Setup a new configuration or edit an existing one.', action=SetupAction)
@@ -265,10 +269,9 @@ class ArgsAndConfigs:
                             help='Enter the name of the csv file to run as bulk, bulk will use smiles unless it finds '
                                  'a molecule file with the same name.')
         groups.add_argument('-csv', '--csv_filename', action=CSVAction, nargs='*',
-                            help='Enter the name of the csv file you would like to create for bulk runs.')
+                            help='Enter the name of the csv file you would like to create for bulk runs.'
+                                 'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
-        groups.add_argument('-log', '--log', type=str,
-                            help='Enter a name to tag working directories with. Can be any alphanumeric string.')
 
         return parser.parse_args()
 
@@ -279,7 +282,7 @@ class ArgsAndConfigs:
         This is repeated for each molecule in the bulk run, then Execute is called.
 
         Configs cannot be changed between molecule analyses as config data is
-        only loaded once at the start.
+        only loaded once at the start; -restart is required for that.
         """
 
         csv_file = self.args.bulk_run
@@ -645,6 +648,7 @@ class Execute:
             molecule.write_pdb(input_type='input')
             molecule.write_parameters()
             # Run geometric
+            # TODO Should this be moved to allow a decorator?
             with open('log.txt', 'w+') as log:
                 sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations}  --pdb '
                        f'{molecule.name}.pdb --openmm {molecule.name}.xml {self.molecule.constraints_file}',

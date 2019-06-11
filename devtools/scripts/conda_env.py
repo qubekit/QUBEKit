@@ -1,7 +1,7 @@
 import argparse
-from os import unlink
-from shutil import which
-from subprocess import call
+import os
+import shutil
+import subprocess as sp
 
 parser = argparse.ArgumentParser(description='Creates a conda environment from file for a given Python version.')
 parser.add_argument('-n', '--name', type=str, nargs=1, help='The name of the created Python environment')
@@ -10,21 +10,20 @@ parser.add_argument('conda_file', nargs='*', help='The file for the created Pyth
 
 args = parser.parse_args()
 
-with open(args.conda_file[0], "r") as handle:
-    script = handle.read()
+script = open(args.conda_file[0]).read()
 
-tmp_file = "tmp_env.yaml"
-script = script.replace("- python", "- python {}*".format(args.python[0]))
+tmp_file = 'tmp_env.yaml'
+script = script.replace('- python', f'- python {args.python[0]}*')
 
-with open(tmp_file, "w") as handle:
+with open(tmp_file, 'w') as handle:
     handle.write(script)
 
-conda_path = which("conda")
+conda_path = shutil.which('conda')
 
-print("CONDA ENV NAME  {}".format(args.name[0]))
-print("PYTHON VERSION  {}".format(args.python[0]))
-print("CONDA FILE NAME {}".format(args.conda_file[0]))
-print("CONDA path      {}".format(conda_path))
+print(f'CONDA ENV NAME  {args.name[0]}')
+print(f'PYTHON VERSION  {args.python[0]}')
+print(f'CONDA FILE NAME {args.conda_file[0]}')
+print(f'CONDA path      {conda_path}')
 
-call("{} env create -n {} -f {}".format(conda_path, args.name[0], tmp_file), shell=True)
-unlink(tmp_file)
+sp.call(f'{conda_path} env create -n {args.name[0]} -f {tmp_file}', shell=True)
+os.unlink(tmp_file)

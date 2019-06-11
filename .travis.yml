@@ -29,7 +29,7 @@ matrix:
         - PROG=OPENMM
 
 before_install:
-  - source devtools/travis/before_install.sh
+  #- source devtools/travis/before_install.sh
   - python -V
 
 install:
@@ -44,17 +44,20 @@ install:
       echo "ERROR: No match for PROG ($PROG)."
       exit 1
     fi
-  - conda activate test
-  - python setup.py install
 
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/conda
+  - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
+  - conda info -a
+  - conda config --add channels cringrose
+
   - conda install conda-build
   - conda install anaconda-client
+  - conda build devtools/conda-recipe/build.sh
+  - conda install -c cringrose qubekit --use-local
 
 script:
   - python QUBEKit/tests/ligand_tests.py
