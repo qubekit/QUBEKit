@@ -29,7 +29,7 @@ matrix:
         - PROG=OPENMM
 
 before_install:
-  - source devtools/travis/before_install.sh
+  #- source devtools/travis/before_install.sh
   - python -V
 
 install:
