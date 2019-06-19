@@ -33,7 +33,7 @@ class OpenFF(Parametrisation):
 
         # Now we need the connection info try using smiles string from rdkit
         molecule = Molecule.from_smiles(RDKit.get_smiles(f'{self.molecule.name}.pdb'))
-        print(molecule)
+        # print(molecule)
 
         # Make the openMM system
         omm_topology = pdb_file.topology

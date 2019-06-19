@@ -291,6 +291,8 @@ class ArgsAndConfigs:
 
         names = list(bulk_data)
 
+        home = os.getcwd()
+
         for name in names:
             printf(f'Analysing: {name}\n')
 
@@ -324,7 +326,7 @@ class ArgsAndConfigs:
             # Now that all configs are stored correctly: execute.
             Execute(self.molecule)
 
-            os.chdir('../')
+            os.chdir(home)
 
         sys.exit('Bulk analysis complete.\nUse QUBEKit -progress to view the completion progress of your molecules')
 
@@ -674,6 +676,8 @@ class Execute:
     def qm_optimise(self, molecule):
         """Optimise the molecule with or without geometric."""
 
+        # TODO this method's not always printing completion to log file.
+
         append_to_log('Starting qm_optimisation')
         qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
 
@@ -939,5 +943,5 @@ def main():
 
 
 if __name__ == '__main__':
-    """For running with debugger"""
+    # For running with debugger
     main()

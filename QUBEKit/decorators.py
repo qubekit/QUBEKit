@@ -88,8 +88,9 @@ def for_all_methods(decorator):
 
 def logger_format():
     """
-    Creates logging object to be returned. Contains proper formatting and locations for logging exceptions.
-    This isn't a decorator itself but is only used by exception_logger_decorator so it makes sense for it to be here.
+    Creates logging object to be returned.
+    Contains proper formatting and locations for logging exceptions.
+    This isn't a decorator itself but is only used by exception_logger so it makes sense for it to be here.
     """
 
     logger = logging.getLogger('Exception Logger')
@@ -109,7 +110,7 @@ def logger_format():
 
 def exception_logger(func):
     """
-    Decorator which logs exceptions to QUBEKit_log file if one occurs.
+    Decorator which logs exceptions to QUBEKit_log.txt file if one occurs.
     Do not apply this decorator to a function / method unless a log file will exist in the working dir.
     On exception, the full stack trace is printed to the log file,
     as well as the Ligand class objects which are taken from the pickle file.
@@ -129,10 +130,15 @@ def exception_logger(func):
             raise
         # Any other exception that occurs is logged
         except:
-            logger.exception(f'An exception occurred with: {func.__qualname__}')
-            print(f'An exception occurred with: {func.__qualname__}. View the log file for details.')
+            logger.exception(f'\nAn exception occurred with: {func.__qualname__}\n')
+            print(f'View the log file for details.\n')
 
-            log_file = f'{"" if "QUBEKit_log.txt" in os.listdir(".") else "../"}QUBEKit_log.txt'
+            home = getattr(args[0].molecule, 'home', None)
+            if home is None:
+                # Cannot find log file, just raise the exception without printing the ligand objects
+                raise
+            else:
+                log_file = os.path.join(home, 'QUBEKit_log.txt')
 
             with open(log_file, 'r') as log:
 
@@ -154,7 +160,13 @@ def exception_logger(func):
                 mol = unpickle()[pickle_point]
                 pretty_print(mol, to_file=True, finished=False)
 
-            # Re-raises the exception
-            raise
+            # Re-raises the exception if it's not a bulk run.
+            # Even if the exception is not raised, it is still logged.
+            if len(args) >= 1 and hasattr(args[0], 'molecule'):
+                if hasattr(args[0].molecule, 'bulk_run'):
+                    if args[0].molecule.bulk_run is None:
+                        raise
+                else:
+                    raise
 
     return wrapper

@@ -6,7 +6,7 @@ from collections import OrderedDict
 from copy import deepcopy
 import os
 from shutil import copy
-from subprocess import run as sub_run
+import subprocess as sp
 from tempfile import TemporaryDirectory
 
 import xml.etree.ElementTree as ET
@@ -444,7 +444,7 @@ class AnteChamber(Parametrisation):
             cmd = f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc -nc {self.molecule.charge}'
 
             with open('ante_log.txt', 'w+') as log:
-                sub_run(cmd, shell=True, stdout=log, stderr=log)
+                sp.run(cmd, shell=True, stdout=log, stderr=log)
 
             # Ensure command worked
             try:
@@ -452,7 +452,7 @@ class AnteChamber(Parametrisation):
                 copy('out.mol2', mol2)
                 copy('ante_log.txt', cwd)
             except FileNotFoundError:
-                print('Antechamber could not convert this file type; is it a valid pdb?')
+                raise FileNotFoundError('Antechamber could not convert this file type; is it a valid pdb?')
 
             os.chdir(cwd)
 
@@ -463,8 +463,8 @@ class AnteChamber(Parametrisation):
 
             # Run parmchk
             with open('Antechamber.log', 'a') as log:
-                sub_run(f'parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}',
-                        shell=True, stdout=log, stderr=log)
+                sp.run(f'parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}',
+                       shell=True, stdout=log, stderr=log)
 
             # Ensure command worked
             if not os.path.exists('out.frcmod'):
@@ -494,7 +494,7 @@ class AnteChamber(Parametrisation):
 
             # Now run tleap
             with open('Antechamber.log', 'a') as log:
-                sub_run('tleap -f tleap_commands', shell=True, stdout=log, stderr=log)
+                sp.run('tleap -f tleap_commands', shell=True, stdout=log, stderr=log)
 
             # Check results present
             if not os.path.exists('out.prmtop') or not os.path.exists('out.inpcrd'):
