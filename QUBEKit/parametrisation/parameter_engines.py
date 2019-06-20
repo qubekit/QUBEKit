@@ -287,7 +287,7 @@ class XMLProtein(Parametrisation):
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
 
-        pdb = app.PDBFile(self.molecule.filename)
+        pdb = app.PDBFile(self.molecule.filename.name)
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
         if self.input_file:
@@ -356,10 +356,9 @@ class XMLProtein(Parametrisation):
         for tor_list in self.molecule.dihedrals.values():
             for torsion in tor_list:
                 # change the indexing to check if they match
-                param = tuple(torsion[i] - 1 for i in range(4))
-                if param not in self.molecule.PeriodicTorsionForce and tuple(
-                        reversed(param)) not in self.molecule.PeriodicTorsionForce:
-                    self.molecule.PeriodicTorsionForce[param] = [['1', '0', '0'], ['2', '0', '3.141592653589793'],
+                if torsion not in self.molecule.PeriodicTorsionForce and tuple(
+                        reversed(torsion)) not in self.molecule.PeriodicTorsionForce:
+                    self.molecule.PeriodicTorsionForce[torsion] = [['1', '0', '0'], ['2', '0', '3.141592653589793'],
                                                                  ['3', '0', '0'], ['4', '0', '3.141592653589793']]
 
         # Now we need to fill in all blank phases of the Torsions
@@ -380,11 +379,11 @@ class XMLProtein(Parametrisation):
         for improper in self.molecule.improper_torsions:
             for key, val in self.molecule.PeriodicTorsionForce.items():
                 # for each improper find the corresponding torsion parameters and save
-                if sorted(key) == sorted(tuple([x - 1 for x in improper])):
+                if sorted(key) == sorted(improper):
                     # if they match tag the dihedral
                     self.molecule.PeriodicTorsionForce[key].append('Improper')
                     # replace the key with the strict improper order first atom is center
-                    improper_torsions[tuple([x - 1 for x in improper])] = val
+                    improper_torsions[improper] = val
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
         # now we should remake the torsion store in the ligand

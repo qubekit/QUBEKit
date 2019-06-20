@@ -25,9 +25,9 @@ class Configure:
     master_file = 'master_config.ini'
 
     qm = {
-        'theory': 'wB97XD',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
+        'theory': 'B3LYP',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
         'basis': '6-311++G(d,p)',       # Basis set
-        'vib_scaling': '0.957',         # Associated scaling to the theory
+        'vib_scaling': '0.967',         # Associated scaling to the theory
         'threads': '2',                 # Number of processors used in Gaussian09; affects the bonds and dihedral scans
         'memory': '2',                  # Amount of memory (in GB); specified in the Gaussian09 scripts
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
@@ -64,7 +64,7 @@ class Configure:
         'vib_scaling': ';Associated scaling to the theory',
         'threads': ';Number of processors used in g09; affects the bonds and dihedral scans',
         'memory': ';Amount of memory (in GB); specified in the g09 and PSI4 scripts',
-        'convergence': ';Criterion used during optimisations; works using psi4 and geometric',
+        'convergence': ';Criterion used during optimisations; GAU, GAU_TIGHT, GAU_VERYTIGHT',
         'iterations': ';Max number of optimisation iterations',
         'bonds_engine': ';Engine used for bonds calculations',
         'density_engine': ';Engine used to calculate the electron density',

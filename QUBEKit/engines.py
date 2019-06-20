@@ -9,6 +9,7 @@ from QUBEKit.decorators import for_all_methods, timer_logger
 
 import subprocess as sp
 from pathlib import Path
+from copy import deepcopy
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -26,6 +27,8 @@ import simtk.openmm as mm
 from simtk import unit
 
 import xml.etree.ElementTree as ET
+
+import math
 
 
 class Engines:
@@ -405,7 +408,7 @@ class Gaussian(Engines):
         :param solvent: Use a solvent when calculating the electron density
         :param restart: Restart from a check point file
         :param execute: Run the calculation after writing the input file
-        :return: The exit status of the job if ran, True for normal false for not ran or error
+        :return: A dictionary with the success or error and the type
         """
 
         molecule = self.molecule.coords[input_type]
@@ -443,7 +446,7 @@ class Gaussian(Engines):
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
                 for i, atom in enumerate(molecule):
-                    input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} '
+                    input_file.write(f'{self.molecule.atoms[i].element}  {float(atom[0]): .10f} {float(atom[1]): .10f} '
                                      f'{float(atom[2]): .10f}\n')
 
             if solvent:
@@ -499,9 +502,9 @@ class Gaussian(Engines):
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
 
-        # Make the fchk file first
-        with open('formchck.log', 'w+') as formlog:
-            sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
+        # # Make the fchk file first
+        # with open('formchck.log', 'w+') as formlog:
+        #     sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
         with open('lig.fchk', 'r') as fchk:
 
@@ -538,48 +541,40 @@ class Gaussian(Engines):
         return hessian
 
     def optimised_structure(self):
-        """Extract the optimised structure from the Gaussian log file."""
+        """
+        Extract the optimised structure and energy from a fchk file
+        :return molecule: The optimised array with the structure
+        :return energy:  The SCF energy of the optimised structure
+        """
+        # # Make the fchk file first
+        # with open('formchck.log', 'w+') as formlog:
+        #     sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
-        with open(f'gj_{self.molecule.name}.log', 'r') as log_file:
+        with open('lig.fchk', 'r') as fchk:
 
-            lines = log_file.readlines()
+            lines = fchk.readlines()
 
-        output = ''
         start, end, energy = None, None, None
-        # Look for the output stream
-        # TODO Escape sequence warnings. Just use r'' for search strings with \ in them
-        for pos, line in enumerate(lines):
-            if f'R{self.molecule.theory}\{self.molecule.basis}' in line:
-                start = pos
 
-            elif '@' in line:
-                end = pos
+        for i, line in enumerate(lines):
+            if 'Current cartesian coordinates' in line:
+                start = i + 1
+            elif 'Int Atom Types' in line:
+                end = i - 1
+            elif 'Total Energy' in line:
+                energy = float(line.split()[3])
 
-            elif 'SCF Done' in line:
-                energy = float(line.split()[4])
-
-        if any(i is None for i in [start, end, energy]):
+        if any(x is None for x in [start, end, energy]):
             raise EOFError('Cannot locate optimised structure in file.')
 
-        # now add the lines to the output stream
-        for line in range(start, end):
-            output += lines[line].strip()
-
-        # Split the string by the double slash to now find the molecule input
         molecule = []
-        output = output.split('\\\\')
-        for string in output:
-            if string.startswith(f'{self.molecule.charge},{self.molecule.multiplicity}\\'):
-                # Remove the charge and multiplicity from the string
-                molecule = string.split('\\')[1:]
+        # Now get the coords from the file
+        for line in lines[start: end]:
+            molecule.extend([float(coord) for coord in line.split()])
 
-            # Store the coords back into the molecule array
-            opt_struct = []
-            for atom in molecule:
-                atom = atom.split(",")
-                opt_struct.append([float(atom[1]), float(atom[2]), float(atom[3])])
+        molecule = np.round(np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529, decimals=10)
 
-        return np.array(opt_struct), energy
+        return molecule, energy
 
     def all_modes(self):
         """Extract the frequencies from the Gaussian log file."""
@@ -718,7 +713,6 @@ class QCEngine(Engines):
                 },
                 'initial_molecule': mol,
             }
-            # TODO hide the output stream so it does not spoil the terminal printing
             ret = qcng.compute_procedure(
                 geo_task, 'geometric', return_dict=True, local_options={'memory': self.molecule.memory,
                                                                         'ncores': self.molecule.threads})
@@ -868,35 +862,11 @@ class RDKit:
 
         mol = RDKit.read_file(filename)
 
-        cons = AllChem.EmbedMultipleConfs(mol, numConfs=conformer_no)
-        positions = cons.GetConformers()
+        AllChem.EmbedMultipleConfs(mol, numConfs=conformer_no)
+        positions = mol.GetConformers()
         coords = [conformer.GetPositions() for conformer in positions]
 
         return coords
-
-
-@for_all_methods(timer_logger)
-class Babel:
-    """Class to handel babel functions that convert between standard file types
-    acts as a thin wrapper around CLI for babel as python bindings require compiling from source."""
-
-    @staticmethod
-    def convert(input_file, output_file):
-        """
-        Convert the given input file type to the required output.
-        :param input_file: Input file name, file type is found by splitting the name by .
-        :param output_file: Output file name, file type is found by splitting the name by .
-        :return: None
-        """
-
-        # TODO Name output_file automatically? Supply output_type instead?
-
-        input_type = str(input_file).split(".")[-1]
-        output_type = str(output_file).split(".")[-1]
-
-        with open('babel.txt', 'w+') as log:
-            sp.run(f'babel -i{input_type} {input_file} -o{output_type} {output_file}',
-                   shell=True, stderr=log, stdout=log)
 
 
 @for_all_methods(timer_logger)
@@ -910,6 +880,7 @@ class OpenMM:
         self.combination = None
         self.pdb = molecule.name + '.pdb'
         self.xml = molecule.name + '.xml'
+        self.openmm_system()
 
     def openmm_system(self):
         """Initialise the OpenMM system we will use to evaluate the energies."""
@@ -1022,16 +993,66 @@ class OpenMM:
             #             eps = sqrt(epsilon1 * epsilon2)
             #             nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
 
-        return self.system
+    def format_coords(self, coordinates):
+        """
+        Take the coordinates as a list and format to the OpenMM style of a list of tuples.
+        :param coordinates: The flattened list of coordinates.
+        :return: The OpenMM list of tuples.
+        """
+
+        coords = []
+        for i in range(0, len(coordinates), 3):
+            coords.append(tuple(coordinates[i:i+3]))
+
+        return coords
 
     def calculate_hessian(self, finite_step):
         """
-        Using finite displacement calculate the hessian matrix of the molecule.
-        :param finite_step: The finite step size used in the calculation
-        :return: A numpy array of the hessian of size 3N*3N
+        Using finite displacement calculate the hessian matrix of the molecule using symmetric difference quotient (SQD) rule.
+        :param finite_step: The finite step size used in the calculation in nm
+        :return: A numpy array of the mass weighted hessian of size 3N*3N
         """
 
-        return None
+        # Create the OpenMM coords list from the qm coordinates and convert to nm
+        input_coords = self.molecule.coords['qm'].flatten() / 10
+
+        # We get each hessian element from = [E(dx + dy) + E(-dx - dy) - E(dx - dy) - E(-dx + dy)] / 4 dx dy
+        hessian = np.zeros((3 * len(self.molecule.atoms), 3 * len(self.molecule.atoms)))
+
+        for i in range(3 * len(self.molecule.atoms)):
+            for j in range(i, 3 * len(self.molecule.atoms)):
+                # Mutate the atomic coords
+                # Do less energy evaluations on the diagonal of the matrix
+                if i == j:
+                    coords = deepcopy(input_coords)
+                    coords[i] += 2 * finite_step
+                    e1 = self.get_energy(self.format_coords(coords))
+                    coords = deepcopy(input_coords)
+                    coords[i] -= 2 * finite_step
+                    e2 = self.get_energy(self.format_coords(coords))
+                    hessian[i, j] = (e1 + e2) / (4 * finite_step**2 * self.molecule.atoms[i // 3].mass)
+                else:
+                    coords = deepcopy(input_coords)
+                    coords[i] += finite_step
+                    coords[j] += finite_step
+                    e1 = self.get_energy(self.format_coords(coords))
+                    coords = deepcopy(input_coords)
+                    coords[i] -= finite_step
+                    coords[j] -= finite_step
+                    e2 = self.get_energy(self.format_coords(coords))
+                    coords = deepcopy(input_coords)
+                    coords[i] += finite_step
+                    coords[j] -= finite_step
+                    e3 = self.get_energy(self.format_coords(coords))
+                    coords = deepcopy(input_coords)
+                    coords[i] -= finite_step
+                    coords[j] += finite_step
+                    e4 = self.get_energy(self.format_coords(coords))
+                    hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step**2 * self.molecule.atoms[i // 3].mass)
+
+        # Now make the matrix symmetric
+        sym_hessian = hessian + hessian.T - np.diag(hessian.diagonal())
+        return sym_hessian
 
     def normal_modes(self, finite_step):
         """
@@ -1040,4 +1061,12 @@ class OpenMM:
         :return: A numpy array of the normal modes of the molecule
         """
 
-        return None
+        # Get the mass weighted hessian matrix in amu
+        hessian = self.calculate_hessian(finite_step)
+
+        # Now get the eigenvalues and vectors
+        e_vals, e_vectors = np.linalg.eig(hessian)
+        print(e_vals)
+        print(e_vectors)
+
+

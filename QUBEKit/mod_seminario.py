@@ -81,7 +81,7 @@ class ModSemMaths:
         # Normal vector to angle plane found
         u_n = ModSemMaths.unit_vector_n(u_cb, u_ab)
 
-        if sum(u_n):
+        if abs(sum(u_cb - u_ab)) < 0.01 or (1.99 < abs(sum(u_cb - u_ab)) < 2.01):
             # Scalings are set to 1.
             k_theta, theta_0 = ModSemMaths.f_c_a_special_case(
                 u_ab, u_cb, [bond_len_ab, bond_len_bc], [eigenvals_ab, eigenvals_cb], [eigenvecs_ab, eigenvecs_cb])
@@ -134,7 +134,7 @@ class ModSemMaths:
             k_theta_array[theta] = abs(k_theta_i * 0.5)
 
         k_theta = np.average(k_theta_array)
-        theta_0 = np.arccos(np.dot(u_ab, u_cb))
+        theta_0 = np.degrees(np.arccos(np.dot(u_ab, u_cb)))
 
         return k_theta, theta_0
 
@@ -260,6 +260,8 @@ class ModSeminario:
         # Used to find average values
         unique_values_angles = []
 
+        conversion = 8.368  # kcal/mol/rad to kj/mol/rad
+
         with open('Modified_Seminario_Angles.txt', 'w+') as angle_file:
 
             for i, angle in enumerate(angle_list):
@@ -272,9 +274,13 @@ class ModSeminario:
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
                 k_theta[i] = (self.molecule.vib_scaling ** 2) * ((ab_k_theta + ba_k_theta) / 2)
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
+                print(theta_0)
 
-                angle_file.write(f'{i}  {self.atoms[angle[0]].name}-{self.atoms[angle[1]].name}-{self.atoms[angle[2]].name}  ')
+                angle_file.write(f'{self.atoms[angle[0]].name}-{self.atoms[angle[1]].name}-{self.atoms[angle[2]].name}  ')
                 angle_file.write(f'{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n')
+
+                # Add ModSem values to ligand object.
+                self.molecule.HarmonicAngleForce[angle] = [str(theta_0[i]), str(k_theta[i] * conversion)]
 
                 unique_values_angles.append([self.atoms[angle[0]].name, self.atoms[angle[1]].name, self.atoms[angle[2]].name, k_theta[i], theta_0[i], 1])
 
@@ -283,7 +289,7 @@ class ModSeminario:
     def calculate_bonds(self, bond_list, bond_lens, eigenvals, eigenvecs, coords):
         """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
-        conversion = 418.4
+        conversion = 836.8
 
         k_b, bond_len_list = np.zeros(len(bond_list)), np.zeros(len(bond_list))
 

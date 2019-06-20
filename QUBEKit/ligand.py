@@ -8,6 +8,7 @@ from itertools import groupby
 import pickle
 import re
 from pathlib import Path
+import os
 
 import networkx as nx
 import numpy as np
@@ -22,9 +23,9 @@ class Defaults:
 
     def __init__(self):
 
-        self.theory = 'wB97XD'
+        self.theory = 'B3LYP'
         self.basis = '6-311++G(d,p)'
-        self.vib_scaling = 0.957
+        self.vib_scaling = 0.967
         self.threads = 2
         self.memory = 2
         self.convergence = 'GAU_TIGHT'
@@ -86,6 +87,32 @@ class Atom:
         self.bonds = []
         self.element = self.element_dict[atomic_number]
 
+    def add_bond(self, bonded_index):
+        """
+        Add a bond to the atom, this will make sure the bond has not already been described
+        :param bonded_index: The index of the atom bonded to
+        :return: None
+        """
+
+        if bonded_index not in self.bonds:
+            self.bonds.append(bonded_index)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
+
+    def __str__(self):
+        """
+        Prints the Atom class objects' names and values one after another with new lines between each.
+        Mostly just used for logging, debugging and displaying the results at the end of a run.
+        """
+
+        return_str = ''
+        for key, val in self.__dict__.items():
+            # Return all objects as {atom object name} = {atom object value(s)} without any special formatting.
+            return_str += f'\n{key} = {val}\n'
+
+        return return_str
+
 
 class Molecule(Defaults):
     """Base class for ligands and proteins."""
@@ -98,11 +125,9 @@ class Molecule(Defaults):
         smiles                  str; equal to the smiles_string if one is provided
 
         # Structure
-        coords                  Dict of lists where the keys are the input type (mm, qm, etc) and the vals are
-                                lists of lists where the inner lists are the atom name, followed by the coords
-                                e.g. {'mm': [['C', 1.045, 2.456, 1.564], ...], ...}
+        coords                  Dict of numpy arrays of the coords where the keys are the input type (mm, qm, etc)
         topology                Graph class object. Contains connection information for molecule
-        angles                  List of tuples; Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
+        angles                  List of tuples; Shows angles based on atom indices (from 0) e.g. (1, 2, 4), (1, 2, 5)
         dihedrals               Dictionary of dihedral tuples stored under their common core bond
                                 e.g. {(1,2): [(3, 1, 2, 6), (3, 1, 2, 7)]}
         improper_torsions
@@ -182,7 +207,7 @@ class Molecule(Defaults):
         # QUBEKit internals
         self.state = None
         self.config = 'master_config.ini'
-        self.constraints_file = ''
+        self.constraints_file = None
 
         # Atomic number dict
         self.element_dict = {
@@ -298,7 +323,7 @@ class Molecule(Defaults):
             # Add the bonds
             for bonded in atom.GetNeighbors():
                 self.topology.add_edge(atom.GetIdx(), bonded.GetIdx())
-                qube_atom.bonds.append(bonded.GetIdx())
+                qube_atom.add_bond(bonded.GetIdx())
 
             # Now at the atom to the molecule
             self.atoms.append(qube_atom)
@@ -354,8 +379,8 @@ class Molecule(Defaults):
                     if int(line.split()[i]) != 0:
                         bonded_index = int(line.split()[i]) - 1
                         self.topology.add_edge(atom_index, bonded_index)
-                        self.atoms[atom_index].bonds.append(bonded_index)
-                        self.atoms[bonded_index].bonds.append(atom_index)
+                        self.atoms[atom_index].add_bond(bonded_index)
+                        self.atoms[bonded_index].add_bond(atom_index)
 
         # put the object back into the correct place
         self.coords[input_type] = np.array(molecule)
@@ -426,8 +451,8 @@ class Molecule(Defaults):
                 # Add edges to the topology network
                 atom_index, bonded_index = int(line.split()[1]) - 1, int(line.split()[2]) - 1
                 self.topology.add_edge(atom_index, bonded_index)
-                self.atoms[atom_index].bonds.append(bonded_index)
-                self.atoms[bonded_index].bonds.append(atom_index)
+                self.atoms[atom_index].add_bond(bonded_index)
+                self.atoms[bonded_index].add_bond(atom_index)
 
         # put the object back into the correct place
         self.coords[input_type] = np.array(molecule)
@@ -913,6 +938,7 @@ class Ligand(Molecule):
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
+        self.home = None
 
         self.qm_scan_energy = {}
         self.descriptors = {}
@@ -1001,6 +1027,7 @@ class Protein(Molecule):
         self.pdb_names = None
         self.read_pdb(self.filename)
         self.residues = None
+        self.home = os.getcwd()
 
     def read_pdb(self, filename, input_type='input'):
         """
@@ -1082,7 +1109,7 @@ class Protein(Molecule):
             for i, atom in enumerate(molecule):
                 # TODO conditional printing
                 pdb_file.write(
-                    f'HETATM{i+1:>5}{self.atoms[i].name:>5} QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+                    f'HETATM{i+1:>5}{self.atoms[i].name:>5} QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}  1.00  0.00          {self.atoms[i].element:2}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:

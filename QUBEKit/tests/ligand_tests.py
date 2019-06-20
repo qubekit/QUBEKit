@@ -85,7 +85,7 @@ class TestLigands(unittest.TestCase):
 
         # check the rotatable torsions found this ensures that the methyl groups are removed from the
         # torsion list and symmetry is working
-        rot = []
+        rot = None
         self.assertEqual(rot, self.molecule_pdb.rotatable)
         self.assertEqual(rot, self.molecule_mol2.rotatable)
 
