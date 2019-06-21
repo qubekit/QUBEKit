@@ -566,6 +566,9 @@ class Execute:
 
         mol = unpickle()[start_key]
 
+        # Set the state for logging any exceptions should they arise
+        mol.state = start_key
+
         # if we have a torsion options dictionary pass it to the molecule
         if torsion_options is not None:
             mol = self.store_torsions(mol, torsion_options)
@@ -670,6 +673,8 @@ class Execute:
             molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {self.molecule.mm_opt_method}')
+
+        raise Exception('test')
 
         return molecule
 

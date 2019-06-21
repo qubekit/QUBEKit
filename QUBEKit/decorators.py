@@ -86,7 +86,7 @@ def for_all_methods(decorator):
     return decorate
 
 
-def logger_format():
+def logger_format(log_file):
     """
     Creates logging object to be returned.
     Contains proper formatting and locations for logging exceptions.
@@ -96,10 +96,10 @@ def logger_format():
     logger = logging.getLogger('Exception Logger')
     logger.setLevel(logging.INFO)
 
-    file_handler = logging.FileHandler('QUBEKit_log.txt')
+    file_handler = logging.FileHandler(log_file)
 
     # Format the log message
-    fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    fmt = '\n\n%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     formatter = logging.Formatter(fmt)
     file_handler.setFormatter(formatter)
 
@@ -111,54 +111,42 @@ def logger_format():
 def exception_logger(func):
     """
     Decorator which logs exceptions to QUBEKit_log.txt file if one occurs.
-    Do not apply this decorator to a function / method unless a log file will exist in the working dir.
-    On exception, the full stack trace is printed to the log file,
-    as well as the Ligand class objects which are taken from the pickle file.
+    Do not apply this decorator to a function / method unless a log file will exist in the working dir;
+    doing so will just raise the exception as normal.
+
+    On exception, the Ligand class objects which are taken from the pickle file are printed to the log file,
+    then the full stack trace is printed to the log file as well.
 
     Currently, only Execute.run is decorated like this, as it will always have a log file.
+    Decorating other functions this way is possible and won't break anything, but it is pointless.
     """
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        logger = logger_format()
 
         # Run as normal
         try:
             return func(*args, **kwargs)
-
         except KeyboardInterrupt:
             raise
+
         # Any other exception that occurs is logged
         except:
-            logger.exception(f'\nAn exception occurred with: {func.__qualname__}\n')
-            print(f'View the log file for details.\n')
-
+            # Get the working dir (home) and final pickle point from the molecule object
             home = getattr(args[0].molecule, 'home', None)
-            if home is None:
-                # Cannot find log file, just raise the exception without printing the ligand objects
+            pickle_point = getattr(args[0].molecule, 'state', None)
+            # Cannot find log file or pickle point, just raise the exception without printing the ligand objects
+            if home is None or pickle_point is None:
                 raise
-            else:
-                log_file = os.path.join(home, 'QUBEKit_log.txt')
 
-            with open(log_file, 'r') as log:
+            mol = unpickle()[pickle_point]
+            pretty_print(mol, to_file=True, finished=False)
 
-                # Run through log file backwards to find proper pickle point
-                lines = list(reversed(log.readlines()))
+            log_file = os.path.join(home, 'QUBEKit_log.txt')
+            logger = logger_format(log_file)
 
-                mol_name, pickle_point = False, False
-                for pos, line in enumerate(lines):
-                    if 'Analysing:' in line:
-                        mol_name = line.split()[1]
-
-                    elif ' stage_wrapper' in line:
-                        # The stage_wrapper always wraps the method which is the name of the pickle point.
-                        pickle_point = lines[pos - 2].split()[-1]
-
-                if not (mol_name and pickle_point):
-                    raise EOFError('Cannot locate molecule name or completion stage in log file.')
-
-                mol = unpickle()[pickle_point]
-                pretty_print(mol, to_file=True, finished=False)
+            logger.exception(f'\nAn exception occurred with: {func.__qualname__}\n')
+            print(f'\n\nAn exception occurred with: {func.__qualname__}\nView the log file for details.\n'.upper())
 
             # Re-raises the exception if it's not a bulk run.
             # Even if the exception is not raised, it is still logged.

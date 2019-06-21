@@ -297,6 +297,7 @@ class TorsionOptimiser:
         self.rest_torsions()
         # Now start the OpenMM engine
         self.openMM = OpenMM(self.molecule)
+        self.openMM.openmm_system()
 
     def mm_energies(self):
         """Evaluate the MM energies of the QM structures."""
@@ -389,7 +390,7 @@ class TorsionOptimiser:
     def update_tor_vec(self, x):
         """Update the tor_types dict with the parameter vector."""
 
-        x = round(x, ndigits=4)
+        x = np.round(x, decimals=4)
 
         # Update the param vector for the right torsions by slicing the vector every 4 places
         for key, val in self.tor_types.items():
@@ -677,7 +678,7 @@ class TorsionOptimiser:
         # Set up the first fitting
         for self.scan in self.scan_order:
             # move into the QM scan folder to get the scan coords
-            os.chdir(f'../torsion_scan/SCAN_{self.scan[0]}_{self.scan[1]}/QM_torsiondrive')
+            os.chdir(f'../9_torsion_scan/SCAN_{self.scan[0]}_{self.scan[1]}/QM_torsiondrive')
             # keep track of the QM_torsiondrive location needed for rmsd error
             self.qm_local = os.getcwd()
 
@@ -931,7 +932,7 @@ class TorsionOptimiser:
         for index, tor_info in self.tor_types.items():
             for j, torsion in enumerate(tor_info[0]):
                 # get the tuple of the torsion string
-                tor_tup = tuple(self.moleculeatoms[torsion[i]].type for i in range(4))
+                tor_tup = tuple(self.molecule.atoms[torsion[i]].type for i in range(4))
                 # check if its in the torsion string dict
                 try:
                     torsion_string_dict[tor_tup][0].append(torsion)
@@ -1036,7 +1037,7 @@ class TorsionOptimiser:
                         index=v_n + val[2][j], periodicity=v_n + 1, phase=self.phases[v_n], k=val[1][v_n],
                         particle1=dihedral[0], particle2=dihedral[1], particle3=dihedral[2], particle4=dihedral[3]
                     )
-        torsion_force.updateParametersInContext(self.simulation.context)
+        torsion_force.updateParametersInContext(self.openMM.simulation.context)
 
         return self.openMM
 
