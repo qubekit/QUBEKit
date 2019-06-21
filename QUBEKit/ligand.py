@@ -1079,21 +1079,30 @@ class Protein(Molecule):
                 atom_count += 1
                 protein.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
 
-            if 'CONECT' in line:
+            elif 'CONECT' in line:
                 # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
                 for i in range(2, len(line.split())):
                     if int(line.split()[i]) != 0:
-                        self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
+                        self.topology.add_edge(int(line.split()[1]) - 1, int(line.split()[i]) -1)
+
+        self.coords[input_type] = np.array(protein)
 
         # check if there are any conect terms in the file first
         if len(self.topology.edges) == 0:
             print('No connections found!')
+        else:
+            self.find_angles()
+            self.find_dihedrals()
+            self.find_rotatable_dihedrals()
+            self.find_impropers()
+            self.get_dihedral_values()
+            self.get_bond_lengths()
+            self.get_angle_values()
+            self.symmetrise_from_topo()
 
         # TODO What if there are two or more of the same residue back to back?
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
-
-        self.coords[input_type] = np.array(protein)
 
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""

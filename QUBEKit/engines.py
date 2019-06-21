@@ -502,9 +502,9 @@ class Gaussian(Engines):
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
 
-        # # Make the fchk file first
-        # with open('formchck.log', 'w+') as formlog:
-        #     sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
+        # Make the fchk file first
+        with open('formchck.log', 'w+') as formlog:
+            sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
         with open('lig.fchk', 'r') as fchk:
 
@@ -546,9 +546,9 @@ class Gaussian(Engines):
         :return molecule: The optimised array with the structure
         :return energy:  The SCF energy of the optimised structure
         """
-        # # Make the fchk file first
-        # with open('formchck.log', 'w+') as formlog:
-        #     sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
+        # Make the fchk file first
+        with open('formchck.log', 'w+') as formlog:
+            sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
         with open('lig.fchk', 'r') as fchk:
 

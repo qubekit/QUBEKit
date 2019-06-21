@@ -262,7 +262,7 @@ class ModSeminario:
 
         conversion = 8.368  # kcal/mol/rad to kj/mol/rad
 
-        with open('Modified_Seminario_Angles.txt', 'w+') as angle_file:
+        with open('Modified_Seminario_Angles.txt', 'w') as angle_file:
 
             for i, angle in enumerate(angle_list):
                 scalings = [scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1]]
@@ -274,15 +274,14 @@ class ModSeminario:
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
                 k_theta[i] = (self.molecule.vib_scaling ** 2) * ((ab_k_theta + ba_k_theta) / 2)
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
-                print(theta_0)
 
                 angle_file.write(f'{self.atoms[angle[0]].name}-{self.atoms[angle[1]].name}-{self.atoms[angle[2]].name}  ')
                 angle_file.write(f'{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicAngleForce[angle] = [str(theta_0[i]), str(k_theta[i] * conversion)]
+                self.molecule.HarmonicAngleForce[angle] = [str(theta_0[i] * np.pi / 180), str(k_theta[i] * conversion)]
 
-                unique_values_angles.append([self.atoms[angle[0]].name, self.atoms[angle[1]].name, self.atoms[angle[2]].name, k_theta[i], theta_0[i], 1])
+                unique_values_angles.append([self.atoms[angle[0]].name, self.atoms[angle[1]].name, self.atoms[angle[2]].name, k_theta[i] * conversion, theta_0[i] * np.pi / 180, 1])
 
         return unique_values_angles
 
@@ -296,7 +295,7 @@ class ModSeminario:
         # Used to find average values
         unique_values_bonds = []
 
-        with open('Modified_Seminario_Bonds.txt', 'w+') as bond_file:
+        with open('Modified_Seminario_Bonds.txt', 'w') as bond_file:
 
             for pos, bond in enumerate(bond_list):
                 ab = ModSemMaths.force_constant_bond(*bond, eigenvals, eigenvecs, coords)
@@ -312,6 +311,6 @@ class ModSeminario:
                 # Add ModSem values to ligand object.
                 self.molecule.HarmonicBondForce[bond] = [str(bond_len_list[pos] / 10), str(conversion * k_b[pos])]
 
-                unique_values_bonds.append([self.atoms[bond[0]].name, self.atoms[bond[1]].name, k_b[pos], bond_len_list[pos], 1])
+                unique_values_bonds.append([self.atoms[bond[0]].name, self.atoms[bond[1]].name, k_b[pos] * conversion, bond_len_list[pos] / 10, 1])
 
         return unique_values_bonds

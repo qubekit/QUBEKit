@@ -1,39 +1,40 @@
 from QUBEKit.ligand import Protein
-from QUBEKit.tests.test_structures import aceleunme
 
 import unittest
-from os import system
+import os
+import tempfile
+from shutil import copy
 
 
 class TestProteins(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
         """
-        Write the big string in test_structures to a file to be used for testing.
-        Cannot use actual files as pathing causes issues.
+        Set up a protein testing class, make temp folder and copy capped leu file
         """
-        with open('aceleunme.pdb', 'w+') as pdb_test_file:
-            pdb_test_file.write(aceleunme)
 
-        cls.molecule = Protein('aceleunme.pdb')
+        self.home = os.getcwd()
+        self.test_folder = os.path.join(os.path.dirname(__file__), 'files')
+
+        # Make the temp folder and move there with the required files
+        with tempfile.TemporaryDirectory() as temp:
+            os.chdir(temp)
+            copy(os.path.join(self.test_folder, 'capped_leu.pdb'), 'capped_leu.pdb')
+            self.molecule = Protein('capped_leu.pdb')
 
     def test_xml_generation(self):
 
-        self.molecule.AtomTypes()
-
         # Check all atoms are found in pdb file
-        self.assertEqual(len(self.molecule.coords), 31)
+        self.assertEqual(len(self.molecule.atoms), 31)
 
-        # Check that each bond has an associated HarmonicBondForce
-        self.assertEqual(sorted(self.molecule.bond_lengths), sorted(self.molecule.HarmonicBondForce))
+        # Check that every bond has been a length
+        self.assertEqual(len(self.molecule.topology.edges), len(self.molecule.bond_lengths))
 
         # Check for angles and torsions too
 
-    @classmethod
-    def tearDownClass(cls):
+    def tearDown(self):
         """Remove the files produced during testing"""
-        system('rm aceleunme.pdb')
+        os.chdir(self.home)
 
 
 if __name__ == '__main__':
