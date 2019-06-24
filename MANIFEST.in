@@ -8,3 +8,4 @@ include setup.py
 
 recursive-include QUBEKit *.py
 include QUBEKit/GUI/*
+include QUBEKit/tests/files/*

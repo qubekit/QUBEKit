@@ -62,19 +62,19 @@ class ArgsAndConfigs:
             self.handle_bulk()
 
         if self.args.restart:
-            # Find the file this could also be a mol2 file
+            # Find the pickled checkpoint file and load it as the molecule
             try:
-                self.file = [file for file in os.listdir(os.getcwd()) if '.pdb' in file][0]
-            except IndexError:
-                self.file = [file for file in os.listdir(os.getcwd()) if '.mol2' in file][0]
+                self.molecule = unpickle()[self.args.restart]
+            except FileNotFoundError:
+                raise FileNotFoundError('No checkpoint file found!')
         else:
             if self.args.smiles:
                 self.file = RDKit().smiles_to_pdb(self.args.smiles)
             else:
                 self.file = self.args.input
 
-        # Initialise molecule
-        self.molecule = Ligand(self.file)
+            # Initialise molecule
+            self.molecule = Ligand(self.file)
 
         # Find which config file is being used
         self.molecule.config = self.args.config_file
@@ -94,6 +94,8 @@ class ArgsAndConfigs:
             if val is not None:
                 setattr(self.molecule, name, val)
 
+        # If restarting put the molecule back into the checkpoint file with the new configs
+        self.molecule.pickle(state=self.args.restart)
         # Now that all configs are stored correctly: execute.
         Execute(self.molecule)
 
@@ -626,7 +628,7 @@ class Execute:
 
         # If we are using xml we have to move it
         if molecule.parameter_engine == 'xml':
-            copy(f'../{molecule.name}.xml', f'{molecule.name}.xml')
+            copy(os.path.join(molecule.home, f'{molecule.name}.xml'), f'{molecule.name}.xml')
 
         # Perform the parametrisation
         param_dict[molecule.parameter_engine](molecule)
@@ -706,6 +708,8 @@ class Execute:
                 molecule.write_xyz(input_type='traj', name=f'{molecule.name}_opt')
                 molecule.write_xyz(input_type='qm', name='opt')
 
+                append_to_log(f'Finishing qm_optimisation of molecule using{" geometric and" if molecule.geometric else molecule.bonds_engine}')
+
                 return molecule
 
             else:
@@ -715,6 +719,9 @@ class Execute:
 
         elif molecule.coords['mm'].any():
             result = qm_engine.generate_input(input_type='mm', optimise=True)
+
+        else:
+            result = qm_engine.generate_input(input_type='input', optimise=True)
 
         # Check the exit status of the job; if failed restart the job up to 2 times
         restart_count = 1
@@ -732,8 +739,8 @@ class Execute:
             elif result['error'] == 'Distance matrix':
                 molecule.write_pdb()
                 rdkit = RDKit()
-                molecule.coords['mm'] = rdkit.generate_conformers(f'{molecule.name}.pdb')[0]
-                result = qm_engine.generate_input(input_type='mm', optimise=True)
+                molecule.coords['temp'] = rdkit.generate_conformers(f'{molecule.name}.pdb')[0]
+                result = qm_engine.generate_input(input_type='temp', optimise=True)
 
             restart_count += 1
 
@@ -759,8 +766,18 @@ class Execute:
         # Check what engine to use
         if molecule.bonds_engine == 'g09':
             qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
-            qm_engine.generate_input(input_type='qm', hessian=True)
-            molecule.hessian = qm_engine.hessian()
+
+            # Use the checkpoint file as this has higher xyz precision
+            try:
+                copy(os.path.join(molecule.home, os.path.join('3_qm_optimise', 'lig.chk')), 'lig.chk')
+                result = qm_engine.generate_input(input_type='qm', hessian=True, restart=True)
+            except FileNotFoundError:
+                append_to_log('qm_optimise checkpoint not found, optimising first to refine atomic coordinates')
+                result = qm_engine.generate_input(input_type='qm', optimise=True, hessian=True)
+            if result['success']:
+                molecule.hessian = qm_engine.hessian()
+            else:
+                raise Exception('The hessian was not calculated check the log file.')
 
         else:
             qceng = QCEngine(molecule)
@@ -809,10 +826,9 @@ class Execute:
         """Perform DDEC calculation with Chargemol."""
 
         # TODO add option to use chargemol on onetep cube files.
-        # TODO Proper pathing
 
         append_to_log('Starting charge partitioning')
-        copy(f'../6_density/{molecule.name}.wfx', f'{molecule.name}.wfx')
+        copy(os.path.join(molecule.home, os.path.join('6_density', f'{molecule.name}.wfx')), f'{molecule.name}.wfx')
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
 
@@ -826,7 +842,11 @@ class Execute:
 
         append_to_log('Starting Lennard-Jones parameter calculation')
 
-        os.system('cp ../7_charges/DDEC* .')
+        #TODO test pathing
+        charges_fld = os.path.join(molecule.home, '7_charges')
+        for file in os.listdir(charges_fld):
+            if file.startswith('DDEC'):
+                copy(os.path.join(charges_fld, file), file)
         lj = LennardJones(molecule)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
@@ -837,7 +857,7 @@ class Execute:
     @staticmethod
     def torsion_scan(molecule):
         """Perform torsion scan."""
-
+        # TODO find constraints file if present
         append_to_log('Starting torsion_scans')
 
         molecule.find_rotatable_dihedrals()
@@ -933,9 +953,7 @@ class Execute:
     def torsion_test(self, molecule):
         """Take the molecule and do the torsion test method."""
 
-        # TODO Should we use anything other than PSI4 here? Why is bonds_engine the torsion engine?
-        qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
-        opt = TorsionOptimiser(molecule, qm_engine, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
+        opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
 
         opt.torsion_test()
 

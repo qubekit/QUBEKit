@@ -1,26 +1,28 @@
 from QUBEKit.ligand import Ligand
-from QUBEKit.tests.test_structures import acetone, acetone_mol2
 
-import os
 import unittest
+import os
+import tempfile
+from shutil import copy
 
 
 class TestLigands(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
         """
-        Write the big string in test_structures to a file to be used for testing.
-        Cannot use actual files as pathing causes issues.
+        Set up the ligand testing class, make temp folder and copy the pdb and mol2 over
         """
-        with open('acetone.pdb', 'w+') as pdb_test_file:
-            pdb_test_file.write(acetone)
 
-        with open('acetone.mol2', 'w+') as mol2_test_file:
-            mol2_test_file.write(acetone_mol2)
+        self.home = os.getcwd()
+        self.test_folder = os.path.join(os.path.dirname(__file__), 'files')
 
-        cls.molecule_pdb = Ligand('acetone.pdb')
-        cls.molecule_mol2 = Ligand('acetone.mol2')
+        # Make the temp folder and move there with the required files
+        with tempfile.TemporaryDirectory() as temp:
+            os.chdir(temp)
+            copy(os.path.join(self.test_folder, 'acetone.pdb'), 'acetone.pdb')
+            self.molecule_pdb = Ligand('acetone.pdb')
+            copy(os.path.join(self.test_folder, 'acetone.mol2'), 'acetone.mol2')
+            self.molecule_mol2 = Ligand('acetone.mol2')
 
     def test_pdb_reader(self):
         # Make sure the pdb reader has been used
@@ -85,14 +87,13 @@ class TestLigands(unittest.TestCase):
 
         # check the rotatable torsions found this ensures that the methyl groups are removed from the
         # torsion list and symmetry is working
-        rot = []
+        rot = None
         self.assertEqual(rot, self.molecule_pdb.rotatable)
         self.assertEqual(rot, self.molecule_mol2.rotatable)
 
-    @classmethod
-    def tearDownClass(cls):
-        """Remove the files produced during testing"""
-        os.system('rm acetone.pdb acetone.mol2')
+    def tearDown(self):
+        """Remove the temp folder"""
+        os.chdir(self.home)
 
 
 if __name__ == '__main__':

@@ -100,8 +100,9 @@ class LennardJones:
         """
 
         # We know this from the molecule object self.molecule try to get the info from there
-        for pos, atom in enumerate(self.molecule.coords['input']):
-            self.ddec_data.append([pos + 1] + [atom[i] for i in range(4)])
+        for atom in self.molecule.atoms:
+            self.ddec_data.append([atom.atom_index + 1, atom.element] +
+                                  [self.molecule.coords['input'][atom.atom_index][i] for i in range(3)])
 
         # TODO Just move the ddec.onetep file instead? Handle this in run file?
         #   At very least, should use abspath

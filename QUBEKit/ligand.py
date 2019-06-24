@@ -8,6 +8,7 @@ from itertools import groupby
 import pickle
 import re
 from pathlib import Path
+import os
 
 import networkx as nx
 import numpy as np
@@ -22,9 +23,9 @@ class Defaults:
 
     def __init__(self):
 
-        self.theory = 'wB97XD'
+        self.theory = 'B3LYP'
         self.basis = '6-311++G(d,p)'
-        self.vib_scaling = 0.957
+        self.vib_scaling = 0.967
         self.threads = 2
         self.memory = 2
         self.convergence = 'GAU_TIGHT'
@@ -86,6 +87,32 @@ class Atom:
         self.bonds = []
         self.element = self.element_dict[atomic_number]
 
+    def add_bond(self, bonded_index):
+        """
+        Add a bond to the atom, this will make sure the bond has not already been described
+        :param bonded_index: The index of the atom bonded to
+        :return: None
+        """
+
+        if bonded_index not in self.bonds:
+            self.bonds.append(bonded_index)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
+
+    def __str__(self):
+        """
+        Prints the Atom class objects' names and values one after another with new lines between each.
+        Mostly just used for logging, debugging and displaying the results at the end of a run.
+        """
+
+        return_str = ''
+        for key, val in self.__dict__.items():
+            # Return all objects as {atom object name} = {atom object value(s)} without any special formatting.
+            return_str += f'\n{key} = {val}\n'
+
+        return return_str
+
 
 class Molecule(Defaults):
     """Base class for ligands and proteins."""
@@ -98,11 +125,9 @@ class Molecule(Defaults):
         smiles                  str; equal to the smiles_string if one is provided
 
         # Structure
-        coords                  Dict of lists where the keys are the input type (mm, qm, etc) and the vals are
-                                lists of lists where the inner lists are the atom name, followed by the coords
-                                e.g. {'mm': [['C', 1.045, 2.456, 1.564], ...], ...}
+        coords                  Dict of numpy arrays of the coords where the keys are the input type (mm, qm, etc)
         topology                Graph class object. Contains connection information for molecule
-        angles                  List of tuples; Shows angles based on atom indices (+1) e.g. (1, 2, 4), (1, 2, 5)
+        angles                  List of tuples; Shows angles based on atom indices (from 0) e.g. (1, 2, 4), (1, 2, 5)
         dihedrals               Dictionary of dihedral tuples stored under their common core bond
                                 e.g. {(1,2): [(3, 1, 2, 6), (3, 1, 2, 7)]}
         improper_torsions
@@ -122,6 +147,7 @@ class Molecule(Defaults):
                                 e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
         Residues                List of residue names in the sequence they are found in the protein
         extra_sites
+        qm_scans                Dictionary of central scaned bonds and there energies and structures
 
         Parameters
         -------------------
@@ -165,6 +191,8 @@ class Molecule(Defaults):
         self.qm_energy = None
         self.charge = 0
         self.multiplicity = 1
+        self.qm_scans = {}
+        self.scan_order = None
 
         # XML Info
         self.xml_tree = None
@@ -182,7 +210,7 @@ class Molecule(Defaults):
         # QUBEKit internals
         self.state = None
         self.config = 'master_config.ini'
-        self.constraints_file = ''
+        self.constraints_file = None
 
         # Atomic number dict
         self.element_dict = {
@@ -298,7 +326,7 @@ class Molecule(Defaults):
             # Add the bonds
             for bonded in atom.GetNeighbors():
                 self.topology.add_edge(atom.GetIdx(), bonded.GetIdx())
-                qube_atom.bonds.append(bonded.GetIdx())
+                qube_atom.add_bond(bonded.GetIdx())
 
             # Now at the atom to the molecule
             self.atoms.append(qube_atom)
@@ -354,8 +382,8 @@ class Molecule(Defaults):
                     if int(line.split()[i]) != 0:
                         bonded_index = int(line.split()[i]) - 1
                         self.topology.add_edge(atom_index, bonded_index)
-                        self.atoms[atom_index].bonds.append(bonded_index)
-                        self.atoms[bonded_index].bonds.append(atom_index)
+                        self.atoms[atom_index].add_bond(bonded_index)
+                        self.atoms[bonded_index].add_bond(atom_index)
 
         # put the object back into the correct place
         self.coords[input_type] = np.array(molecule)
@@ -426,8 +454,8 @@ class Molecule(Defaults):
                 # Add edges to the topology network
                 atom_index, bonded_index = int(line.split()[1]) - 1, int(line.split()[2]) - 1
                 self.topology.add_edge(atom_index, bonded_index)
-                self.atoms[atom_index].bonds.append(bonded_index)
-                self.atoms[bonded_index].bonds.append(atom_index)
+                self.atoms[atom_index].add_bond(bonded_index)
+                self.atoms[bonded_index].add_bond(atom_index)
 
         # put the object back into the correct place
         self.coords[input_type] = np.array(molecule)
@@ -888,6 +916,51 @@ class Molecule(Defaults):
         # this creates the dictionary of terms that should be symmetrise
         self.symmetrise_from_topo()
 
+    def openMM_coordinates(self, input_type='input'):
+        """
+        Take a set of coordinates from the molecule and convert them to openMM format
+        :param input_type: The set of coordinates that should be used
+        :return: A list of tuples of the coords
+        """
+
+        coordinates = self.coords[input_type]
+
+        openmm_crds = []
+        if input_type == 'traj' and len(coordinates) != len(self.coords['input']):
+            # Multiple frames in this case
+            for frame in coordinates:
+                tups = []
+                for atom in frame:
+                    tups.append(tuple(atom / 10))
+                openmm_crds.append(tups)
+            return openmm_crds
+
+        else:
+            for atom in coordinates:
+                openmm_crds.append(tuple(atom / 10))
+            return openmm_crds
+
+    def read_tdrive(self, bond_scan):
+        """
+        Read a tdrive qdata file and get the coordinates and scan energies and store in the molecule.
+        :type bond_scan: the tuple of the scaned central bond
+        :return: None, store the coords in the traj holder and the energies in the qm scan hholder
+        """
+
+        scan_coords = []
+        energy = []
+        with open('qdata.txt', 'r') as data:
+            for line in data.readlines():
+                if 'COORDS' in line:
+                    coords = [float(x) for x in line.split()[1:]]
+                    coords = np.array(coords).reshape((len(self.atoms), 3))
+                    scan_coords.append(coords)
+                    print(coords)
+                elif 'ENERGY' in line:
+                    energy.append(float(line.split()[1]))
+
+        self.qm_scans[bond_scan] = [energy, scan_coords]
+
 
 class Ligand(Molecule):
 
@@ -905,12 +978,11 @@ class Ligand(Molecule):
 
         super().__init__(filename)
 
-        self.scan_order = None
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
+        self.home = None
 
-        self.qm_scan_energy = {}
         self.descriptors = {}
 
         self.constraints_file = ''
@@ -999,6 +1071,7 @@ class Protein(Molecule):
         # TODO Needs updating with new Path method of handling filenames
         self.read_pdb(self.filename)
         self.residues = None
+        self.home = os.getcwd()
 
     def read_pdb(self, filename, input_type='input'):
         """
@@ -1050,21 +1123,30 @@ class Protein(Molecule):
                 atom_count += 1
                 protein.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
 
-            if 'CONECT' in line:
+            elif 'CONECT' in line:
                 # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
                 for i in range(2, len(line.split())):
                     if int(line.split()[i]) != 0:
-                        self.topology.add_edge(int(line.split()[1]), int(line.split()[i]))
+                        self.topology.add_edge(int(line.split()[1]) - 1, int(line.split()[i]) -1)
+
+        self.coords[input_type] = np.array(protein)
 
         # check if there are any conect terms in the file first
         if len(self.topology.edges) == 0:
             print('No connections found!')
+        else:
+            self.find_angles()
+            self.find_dihedrals()
+            self.find_rotatable_dihedrals()
+            self.find_impropers()
+            self.get_dihedral_values()
+            self.get_bond_lengths()
+            self.get_angle_values()
+            self.symmetrise_from_topo()
 
         # TODO What if there are two or more of the same residue back to back?
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
-
-        self.coords[input_type] = np.array(protein)
 
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
@@ -1080,7 +1162,7 @@ class Protein(Molecule):
             for i, atom in enumerate(molecule):
                 # TODO conditional printing
                 pdb_file.write(
-                    f'HETATM{i+1:>5}{self.atoms[i].name:>5} QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}  1.00  0.00          {atom[0]:2}\n')
+                    f'HETATM{i+1:>5}{self.atoms[i].name:>5} QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}  1.00  0.00          {self.atoms[i].element:2}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
