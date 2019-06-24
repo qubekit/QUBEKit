@@ -147,6 +147,7 @@ class Molecule(Defaults):
                                 e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
         Residues                List of residue names in the sequence they are found in the protein
         extra_sites
+        qm_scans                Dictionary of central scaned bonds and there energies and structures
 
         Parameters
         -------------------
@@ -190,6 +191,8 @@ class Molecule(Defaults):
         self.qm_energy = None
         self.charge = 0
         self.multiplicity = 1
+        self.qm_scans = {}
+        self.scan_order = None
 
         # XML Info
         self.xml_tree = None
@@ -917,6 +920,51 @@ class Molecule(Defaults):
         # this creates the dictionary of terms that should be symmetrise
         self.symmetrise_from_topo()
 
+    def openMM_coordinates(self, input_type='input'):
+        """
+        Take a set of coordinates from the molecule and convert them to openMM format
+        :param input_type: The set of coordinates that should be used
+        :return: A list of tuples of the coords
+        """
+
+        coordinates = self.coords[input_type]
+
+        openmm_crds = []
+        if input_type == 'traj' and len(coordinates) != len(self.coords['input']):
+            # Multiple frames in this case
+            for frame in coordinates:
+                tups = []
+                for atom in frame:
+                    tups.append(tuple(atom / 10))
+                openmm_crds.append(tups)
+            return openmm_crds
+
+        else:
+            for atom in coordinates:
+                openmm_crds.append(tuple(atom / 10))
+            return openmm_crds
+
+    def read_tdrive(self, bond_scan):
+        """
+        Read a tdrive qdata file and get the coordinates and scan energies and store in the molecule.
+        :type bond_scan: the tuple of the scaned central bond
+        :return: None, store the coords in the traj holder and the energies in the qm scan hholder
+        """
+
+        scan_coords = []
+        energy = []
+        with open('qdata.txt', 'r') as data:
+            for line in data.readlines():
+                if 'COORDS' in line:
+                    coords = [float(x) for x in line.split()[1:]]
+                    coords = np.array(coords).reshape((len(self.atoms), 3))
+                    scan_coords.append(coords)
+                    print(coords)
+                elif 'ENERGY' in line:
+                    energy.append(float(line.split()[1]))
+
+        self.qm_scans[bond_scan] = [energy, scan_coords]
+
 
 class Ligand(Molecule):
 
@@ -934,13 +982,11 @@ class Ligand(Molecule):
 
         super().__init__(filename)
 
-        self.scan_order = None
         self.parameter_engine = None
         self.hessian = None
         self.modes = None
         self.home = None
 
-        self.qm_scan_energy = {}
         self.descriptors = {}
 
         self.constraints_file = ''

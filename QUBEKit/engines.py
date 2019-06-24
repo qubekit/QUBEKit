@@ -28,8 +28,6 @@ from simtk import unit
 
 import xml.etree.ElementTree as ET
 
-import math
-
 
 class Engines:
     """
