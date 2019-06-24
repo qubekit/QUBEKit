@@ -32,7 +32,7 @@ class OpenFF(Parametrisation):
         pdb_file = app.PDBFile(f'{self.molecule.name}.pdb')
 
         # Now we need the connection info try using smiles string from rdkit
-        molecule = Molecule.from_smiles(RDKit.get_smiles(f'{self.molecule.name}.pdb'))
+        molecule = Molecule.from_smiles(RDKit().get_smiles(f'{self.molecule.name}.pdb'))
         # print(molecule)
 
         # Make the openMM system
