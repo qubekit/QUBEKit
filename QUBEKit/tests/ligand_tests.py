@@ -1,8 +1,8 @@
 from QUBEKit.ligand import Ligand
 from QUBEKit.tests.test_structures import acetone, acetone_mol2
 
+import os
 import unittest
-from os import system
 
 
 class TestLigands(unittest.TestCase):
@@ -92,7 +92,7 @@ class TestLigands(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """Remove the files produced during testing"""
-        system('rm acetone.pdb acetone.mol2')
+        os.system('rm acetone.pdb acetone.mol2')
 
 
 if __name__ == '__main__':
