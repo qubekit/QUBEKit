@@ -27,7 +27,7 @@ echo ". $MINICONDA_HOME/etc/profile.d/conda.sh" >> ~/.bashrc  # Source the profi
 echo "conda activate" >> ~/.bashrc  # Activate conda
 source ~/.bashrc # source file to get new commands
 
-conda config --add channels conda-forge
+conda config --add channels cringrose
 conda config --set always_yes yes
 conda install conda conda-build jinja2 anaconda-client
 conda update --quiet --all
