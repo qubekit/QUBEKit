@@ -674,8 +674,6 @@ class Execute:
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {self.molecule.mm_opt_method}')
 
-        raise Exception('test')
-
         return molecule
 
     def qm_optimise(self, molecule):
