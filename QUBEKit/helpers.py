@@ -287,11 +287,14 @@ def generate_bulk_csv(csv_name, max_execs=None):
             for file in files:
                 file_writer.writerow([file, 0, 1, '', '', '', '', ''])
         print(f'{csv_name} generated.', flush=True)
+        return
 
     try:
         max_execs = int(max_execs)
-    except ValueError:
-        raise ValueError('Number of executions per bulk csv must be an int greater than 1.')
+    except TypeError:
+        raise TypeError('Number of executions must be provided as an int greater than 1.')
+    if max_execs > len(files):
+        raise ValueError('Number of executions cannot exceed the number of files provided.')
 
     # If max number of pdbs per file is specified, spread them across several csv files.
     num_csvs = math.ceil(len(files) / max_execs)
@@ -587,7 +590,8 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
     total_charge = sum(atom for atom in charges)
 
     with assert_wrapper(ValueError):
-        assert (abs(total_charge - ideal_net) < error), 'Total charge is not close enough to desired integer value in configs.'
+        assert (abs(total_charge - ideal_net) < error), ('Total charge is not close enough to desired '
+                                                         'integer value in configs.')
 
     print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
     return True

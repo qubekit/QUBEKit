@@ -1,9 +1,8 @@
 from QUBEKit.parametrisation import AnteChamber, OpenFF
 from QUBEKit.ligand import Ligand
 from QUBEKit.tests.test_structures import acetone
-from os import system
 
-
+import os
 import unittest
 
 
@@ -50,7 +49,7 @@ class ParametrisationTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """Remove the files produced during testing"""
-        system('rm *.frcmod *.inpcrd *.mol2 *.prmtop *.log serialised.xml acetone.pdb')
+        os.system('rm *.frcmod *.inpcrd *.mol2 *.prmtop *.log serialised.xml acetone.pdb')
 
 
 if __name__ == '__main__':

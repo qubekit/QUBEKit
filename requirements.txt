@@ -1,2 +1,5 @@
 qcelemental
 qcengine
+matplotlib
+numpy
+networkx

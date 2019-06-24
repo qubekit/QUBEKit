@@ -105,6 +105,7 @@ class LennardJones:
                                   [self.molecule.coords['input'][atom.atom_index][i] for i in range(3)])
 
         # TODO Just move the ddec.onetep file instead? Handle this in run file?
+        #   At very least, should use abspath
         # Second file contains the rest (charges, dipoles and volumes):
         with open(f'{"" if os.path.exists("ddec.onetep") else "iter_1/"}ddec.onetep', 'r') as file:
             lines = file.readlines()

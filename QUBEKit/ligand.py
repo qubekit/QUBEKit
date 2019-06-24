@@ -275,16 +275,16 @@ class Molecule(Defaults):
         """The base file reader used upon instancing the class; it will decide which file reader to use
          based on the file suffix."""
 
-        # Try and load the file using RDKit this should ensure that we always have the connection info
+        # Try to load the file using RDKit; this should ensure we always have the connection info
         try:
-            rdkit_mol = RDKit.read_file(self.filename.name)
+            rdkit_mol = RDKit().read_file(self.filename.name)
             # Now extract the molecule from RDKit
             self.mol_from_rdkit(rdkit_mol)
 
         except AttributeError:
             # AttributeError:  errors when reading the input file
             print('RDKit error was found, resorting to standard file readers')
-            # Try and read using QUBEKit readers they only get the connections if present
+            # Try to read using QUBEKit readers they only get the connections if present
             if self.filename.suffix == '.pdb':
                 self.read_pdb(self.filename)
             elif self.filename.suffix == '.mol2':
@@ -365,7 +365,7 @@ class Molecule(Defaults):
                     element = str(line.split()[2])[:-1]
                     element = re.sub('[0-9]+', '', element)
 
-                atomic_number = self.element_dict[element]
+                atomic_number = self.element_dict[element.upper()]
                 # Now instance the qube atom
                 qube_atom = Atom(atomic_number, atom_count, atom_name)
                 self.atoms.append(qube_atom)
@@ -469,7 +469,6 @@ class Molecule(Defaults):
 
         for atom in self.atoms:
             if atom.name == name:
-
                 return atom
 
         else:
@@ -895,10 +894,7 @@ class Molecule(Defaults):
             for torsion in remove_list:
                 rotatable.remove(torsion)
 
-            if rotatable:
-                self.rotatable = rotatable
-            else:
-                self.rotatable = None
+            self.rotatable = rotatable if rotatable else None
 
     def update(self, input_type='input'):
         """
@@ -993,7 +989,7 @@ class Ligand(Molecule):
 
         self.read_file()
         # Make sure we have the topology before we calculate the properties
-        if bool(self.topology.edges):
+        if self.topology.edges:
             self.find_angles()
             self.find_dihedrals()
             self.find_rotatable_dihedrals()
@@ -1068,9 +1064,11 @@ class Protein(Molecule):
     """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
     def __init__(self, filename):
+
         super().__init__(filename)
 
         self.pdb_names = None
+        # TODO Needs updating with new Path method of handling filenames
         self.read_pdb(self.filename)
         self.residues = None
         self.home = os.getcwd()

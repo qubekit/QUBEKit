@@ -15,7 +15,7 @@ from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log,
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
-from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
+from QUBEKit.parametrisation import OpenFF, AnteChamber, xml
 
 from collections import OrderedDict
 from datetime import datetime
@@ -69,7 +69,7 @@ class ArgsAndConfigs:
                 raise FileNotFoundError('No checkpoint file found!')
         else:
             if self.args.smiles:
-                self.file = RDKit.smiles_to_pdb(self.args.smiles)
+                self.file = RDKit().smiles_to_pdb(self.args.smiles)
             else:
                 self.file = self.args.input
 
@@ -258,9 +258,11 @@ class ArgsAndConfigs:
                             help='Allow QUBEKit to help you make a torsion input file for the given molecule')
         parser.add_argument('-log', '--log', type=str,
                             help='Enter a name to tag working directories with. Can be any alphanumeric string.')
+        parser.add_argument('-vib', '--vib', type=float, default=0.991,
+                            help='Enter the vibrational scaling to be used with the basis set.')
 
-        # Add mutually exclusive groups to stop wrong combinations of options,
-        # e.g. setup should not be ran with another command
+        # Add mutually exclusive groups to stop certain combinations of options,
+        # e.g. setup should not be run with csv command
         groups = parser.add_mutually_exclusive_group()
         groups.add_argument('-setup', '--setup_config', nargs='?', const=True,
                             help='Setup a new configuration or edit an existing one.', action=SetupAction)
@@ -269,9 +271,9 @@ class ArgsAndConfigs:
                             help='Enter the name of the csv file to run as bulk, bulk will use smiles unless it finds '
                                  'a molecule file with the same name.')
         groups.add_argument('-csv', '--csv_filename', action=CSVAction, nargs='*',
-                            help='Enter the name of the csv file you would like to create for bulk runs.')
+                            help='Enter the name of the csv file you would like to create for bulk runs.'
+                                 'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
-
 
         return parser.parse_args()
 
@@ -282,7 +284,7 @@ class ArgsAndConfigs:
         This is repeated for each molecule in the bulk run, then Execute is called.
 
         Configs cannot be changed between molecule analyses as config data is
-        only loaded once at the start.
+        only loaded once at the start; -restart is required for that.
         """
 
         csv_file = self.args.bulk_run
@@ -291,13 +293,16 @@ class ArgsAndConfigs:
 
         names = list(bulk_data)
 
+        home = os.getcwd()
+
         for name in names:
             printf(f'Analysing: {name}\n')
 
             # Get pdb from smiles or name if no smiles is given
             if bulk_data[name]['smiles'] is not None:
                 smiles_string = bulk_data[name]['smiles']
-                self.file = RDKit.smiles_to_pdb(smiles_string, name)
+                rdkit = RDKit()
+                self.file = rdkit.smiles_to_pdb(smiles_string, name)
 
             else:
                 self.file = f'{name}.pdb'
@@ -324,7 +329,7 @@ class ArgsAndConfigs:
             # Now that all configs are stored correctly: execute.
             Execute(self.molecule)
 
-            os.chdir('../')
+            os.chdir(home)
 
         sys.exit('Bulk analysis complete.\nUse QUBEKit -progress to view the completion progress of your molecules')
 
@@ -564,6 +569,9 @@ class Execute:
 
         mol = unpickle()[start_key]
 
+        # Set the state for logging any exceptions should they arise
+        mol.state = start_key
+
         # if we have a torsion options dictionary pass it to the molecule
         if torsion_options is not None:
             mol = self.store_torsions(mol, torsion_options)
@@ -611,7 +619,7 @@ class Execute:
         molecule.write_pdb()
 
         # Parametrisation options:
-        param_dict = {'antechamber': AnteChamber, 'xml': XML}
+        param_dict = {'antechamber': AnteChamber, 'xml': xml}
 
         try:
             param_dict['openff'] = OpenFF
@@ -621,7 +629,6 @@ class Execute:
         # If we are using xml we have to move it
         if molecule.parameter_engine == 'xml':
             copy(os.path.join(molecule.home, f'{molecule.name}.xml'), f'{molecule.name}.xml')
-            copy(f'../{molecule.name}.xml', f'{molecule.name}.xml')
 
         # Perform the parametrisation
         param_dict[molecule.parameter_engine](molecule)
@@ -649,6 +656,7 @@ class Execute:
             molecule.write_pdb(input_type='input')
             molecule.write_parameters()
             # Run geometric
+            # TODO Should this be moved to allow a decorator?
             with open('log.txt', 'w+') as log:
                 sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations}  --pdb '
                        f'{molecule.name}.pdb --openmm {molecule.name}.xml {self.molecule.constraints_file}',
@@ -665,7 +673,7 @@ class Execute:
 
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
-            molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
+            molecule.filename = RDKit().mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {self.molecule.mm_opt_method}')
 
@@ -673,6 +681,8 @@ class Execute:
 
     def qm_optimise(self, molecule):
         """Optimise the molecule with or without geometric."""
+
+        # TODO this method's not always printing completion to log file.
 
         append_to_log('Starting qm_optimisation')
         qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
@@ -728,7 +738,8 @@ class Execute:
             # 3) If we have already tried the starting structure generate a conformer and try again
             elif result['error'] == 'Distance matrix':
                 molecule.write_pdb()
-                molecule.coords['temp'] = RDKit.generate_conformers(f'{molecule.name}.pdb')[0]
+                rdkit = RDKit()
+                molecule.coords['temp'] = rdkit.generate_conformers(f'{molecule.name}.pdb')[0]
                 result = qm_engine.generate_input(input_type='temp', optimise=True)
 
             restart_count += 1
@@ -815,7 +826,6 @@ class Execute:
         """Perform DDEC calculation with Chargemol."""
 
         # TODO add option to use chargemol on onetep cube files.
-        # TODO Test proper pathing
 
         append_to_log('Starting charge partitioning')
         copy(os.path.join(molecule.home, os.path.join('6_density', f'{molecule.name}.wfx')), f'{molecule.name}.wfx')
@@ -891,7 +901,7 @@ class Execute:
         molecule.write_pdb()
         molecule.write_parameters()
 
-        molecule.descriptors = RDKit.rdkit_descriptors(f'{molecule.name}.pdb')
+        molecule.descriptors = RDKit().rdkit_descriptors(f'{molecule.name}.pdb')
 
         pretty_print(molecule, to_file=True)
         pretty_print(molecule)
@@ -929,7 +939,7 @@ class Execute:
             for torsion in torsions_list:
                 tor = tuple(atom for atom in torsion.split('-'))
                 # convert the string names to the index
-                core = (molecule.get_atom_with_name(tor[1]).atom_inde , molecule.get_atom_with_name(tor[2]).atom_index)
+                core = (molecule.get_atom_with_name(tor[1]).atom_index , molecule.get_atom_with_name(tor[2]).atom_index)
 
                 if core in molecule.rotatable:
                     scan_order.append(core)
@@ -956,5 +966,5 @@ def main():
 
 
 if __name__ == '__main__':
-    """For running with debugger"""
+    # For running with debugger
     main()
