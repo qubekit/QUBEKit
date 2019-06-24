@@ -35,7 +35,7 @@ install:
     fi
 
   - conda activate test
-  - python seteup.py develop --no-deps
+  - python setup.py develop --no-deps
 
 script:
   - python QUBEKit/tests/ligand_tests.py
