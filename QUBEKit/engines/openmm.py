@@ -11,6 +11,8 @@ from simtk import unit
 
 import xml.etree.ElementTree as ET
 
+from copy import deepcopy
+
 
 @for_all_methods(timer_logger)
 class OpenMM:
@@ -23,6 +25,7 @@ class OpenMM:
         self.combination = None
         self.pdb = molecule.name + '.pdb'
         self.xml = molecule.name + '.xml'
+        self.openmm_system()
 
     def openmm_system(self):
         """Initialise the OpenMM system we will use to evaluate the energies."""
@@ -135,16 +138,66 @@ class OpenMM:
             #             eps = sqrt(epsilon1 * epsilon2)
             #             nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
 
-        return self.system
+    def format_coords(self, coordinates):
+        """
+        Take the coordinates as a list and format to the OpenMM style of a list of tuples.
+        :param coordinates: The flattened list of coordinates.
+        :return: The OpenMM list of tuples.
+        """
+
+        coords = []
+        for i in range(0, len(coordinates), 3):
+            coords.append(tuple(coordinates[i:i+3]))
+
+        return coords
 
     def calculate_hessian(self, finite_step):
         """
-        Using finite displacement calculate the hessian matrix of the molecule.
-        :param finite_step: The finite step size used in the calculation
-        :return: A numpy array of the hessian of size 3N*3N
+        Using finite displacement calculate the hessian matrix of the molecule using symmetric difference quotient (SQD) rule.
+        :param finite_step: The finite step size used in the calculation in nm
+        :return: A numpy array of the mass weighted hessian of size 3N*3N
         """
 
-        return None
+        # Create the OpenMM coords list from the qm coordinates and convert to nm
+        input_coords = self.molecule.coords['qm'].flatten() / 10
+
+        # We get each hessian element from = [E(dx + dy) + E(-dx - dy) - E(dx - dy) - E(-dx + dy)] / 4 dx dy
+        hessian = np.zeros((3 * len(self.molecule.atoms), 3 * len(self.molecule.atoms)))
+
+        for i in range(3 * len(self.molecule.atoms)):
+            for j in range(i, 3 * len(self.molecule.atoms)):
+                # Mutate the atomic coords
+                # Do less energy evaluations on the diagonal of the matrix
+                if i == j:
+                    coords = deepcopy(input_coords)
+                    coords[i] += 2 * finite_step
+                    e1 = self.get_energy(self.format_coords(coords))
+                    coords = deepcopy(input_coords)
+                    coords[i] -= 2 * finite_step
+                    e2 = self.get_energy(self.format_coords(coords))
+                    hessian[i, j] = (e1 + e2) / (4 * finite_step**2 * self.molecule.atoms[i // 3].mass)
+                else:
+                    coords = deepcopy(input_coords)
+                    coords[i] += finite_step
+                    coords[j] += finite_step
+                    e1 = self.get_energy(self.format_coords(coords))
+                    coords = deepcopy(input_coords)
+                    coords[i] -= finite_step
+                    coords[j] -= finite_step
+                    e2 = self.get_energy(self.format_coords(coords))
+                    coords = deepcopy(input_coords)
+                    coords[i] += finite_step
+                    coords[j] -= finite_step
+                    e3 = self.get_energy(self.format_coords(coords))
+                    coords = deepcopy(input_coords)
+                    coords[i] -= finite_step
+                    coords[j] += finite_step
+                    e4 = self.get_energy(self.format_coords(coords))
+                    hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step**2 * self.molecule.atoms[i // 3].mass)
+
+        # Now make the matrix symmetric
+        sym_hessian = hessian + hessian.T - np.diag(hessian.diagonal())
+        return sym_hessian
 
     def normal_modes(self, finite_step):
         """
@@ -153,4 +206,10 @@ class OpenMM:
         :return: A numpy array of the normal modes of the molecule
         """
 
-        return None
+        # Get the mass weighted hessian matrix in amu
+        hessian = self.calculate_hessian(finite_step)
+
+        # Now get the eigenvalues and vectors
+        e_vals, e_vectors = np.linalg.eig(hessian)
+        print(e_vals)
+        print(e_vectors)

@@ -166,48 +166,40 @@ class Gaussian(Engines):
         return hessian
 
     def optimised_structure(self):
-        """Extract the optimised structure from the Gaussian log file."""
+        """
+        Extract the optimised structure and energy from a fchk file
+        :return molecule: The optimised array with the structure
+        :return energy:  The SCF energy of the optimised structure
+        """
+        # Make the fchk file first
+        with open('formchck.log', 'w+') as formlog:
+            sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
-        with open(f'gj_{self.molecule.name}.log', 'r') as log_file:
+        with open('lig.fchk', 'r') as fchk:
 
-            lines = log_file.readlines()
+            lines = fchk.readlines()
 
-        output = ''
         start, end, energy = None, None, None
-        # Look for the output stream
-        # TODO Escape sequence warnings. Just use r'' for search strings with \ in them
-        for pos, line in enumerate(lines):
-            if f'R{self.molecule.theory}\{self.molecule.basis}' in line:
-                start = pos
 
-            elif '@' in line:
-                end = pos
+        for i, line in enumerate(lines):
+            if 'Current cartesian coordinates' in line:
+                start = i + 1
+            elif 'Int Atom Types' in line:
+                end = i - 1
+            elif 'Total Energy' in line:
+                energy = float(line.split()[3])
 
-            elif 'SCF Done' in line:
-                energy = float(line.split()[4])
-
-        if any(i is None for i in [start, end, energy]):
+        if any(x is None for x in [start, end, energy]):
             raise EOFError('Cannot locate optimised structure in file.')
 
-        # now add the lines to the output stream
-        for line in range(start, end):
-            output += lines[line].strip()
-
-        # Split the string by the double slash to now find the molecule input
         molecule = []
-        output = output.split('\\\\')
-        for string in output:
-            if string.startswith(f'{self.molecule.charge},{self.molecule.multiplicity}\\'):
-                # Remove the charge and multiplicity from the string
-                molecule = string.split('\\')[1:]
+        # Now get the coords from the file
+        for line in lines[start: end]:
+            molecule.extend([float(coord) for coord in line.split()])
 
-            # Store the coords back into the molecule array
-            opt_struct = []
-            for atom in molecule:
-                atom = atom.split(",")
-                opt_struct.append([float(atom[1]), float(atom[2]), float(atom[3])])
+        molecule = np.round(np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529, decimals=10)
 
-        return np.array(opt_struct), energy
+        return molecule, energy
 
     def all_modes(self):
         """Extract the frequencies from the Gaussian log file."""
