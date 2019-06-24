@@ -114,7 +114,7 @@ def exception_logger(func):
     Do not apply this decorator to a function / method unless a log file will exist in the working dir;
     doing so will just raise the exception as normal.
 
-    On exception, the Ligand class objects which are taken from the pickle file are printed to the log file,
+    On any Exception, the Ligand class objects which are taken from the pickle file are printed to the log file,
     then the full stack trace is printed to the log file as well.
 
     Currently, only Execute.run is decorated like this, as it will always have a log file.
@@ -127,11 +127,8 @@ def exception_logger(func):
         # Run as normal
         try:
             return func(*args, **kwargs)
-        except KeyboardInterrupt:
-            raise
-
-        # Any other exception that occurs is logged
-        except:
+        # Any exception that occurs is logged; this means KeyboardInterrupt and SystemExit are still raised
+        except Exception:
             # Get the working dir (home) and final pickle point from the molecule object
             home = getattr(args[0].molecule, 'home', None)
             pickle_point = getattr(args[0].molecule, 'state', None)
