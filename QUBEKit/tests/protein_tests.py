@@ -1,8 +1,8 @@
 from QUBEKit.ligand import Protein
 from QUBEKit.tests.test_structures import aceleunme
 
+import os
 import unittest
-from os import system
 
 
 class TestProteins(unittest.TestCase):
@@ -33,7 +33,7 @@ class TestProteins(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """Remove the files produced during testing"""
-        system('rm aceleunme.pdb')
+        os.system('rm aceleunme.pdb')
 
 
 if __name__ == '__main__':
