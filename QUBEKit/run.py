@@ -15,7 +15,7 @@ from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log,
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
-from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
+from QUBEKit.parametrisation import OpenFF, AnteChamber, xml
 
 from collections import OrderedDict
 from datetime import datetime
@@ -69,7 +69,7 @@ class ArgsAndConfigs:
                 self.file = [file for file in os.listdir(os.getcwd()) if '.mol2' in file][0]
         else:
             if self.args.smiles:
-                self.file = RDKit.smiles_to_pdb(self.args.smiles)
+                self.file = RDKit().smiles_to_pdb(self.args.smiles)
             else:
                 self.file = self.args.input
 
@@ -299,7 +299,8 @@ class ArgsAndConfigs:
             # Get pdb from smiles or name if no smiles is given
             if bulk_data[name]['smiles'] is not None:
                 smiles_string = bulk_data[name]['smiles']
-                self.file = RDKit.smiles_to_pdb(smiles_string, name)
+                rdkit = RDKit()
+                self.file = rdkit.smiles_to_pdb(smiles_string, name)
 
             else:
                 self.file = f'{name}.pdb'
@@ -616,7 +617,7 @@ class Execute:
         molecule.write_pdb()
 
         # Parametrisation options:
-        param_dict = {'antechamber': AnteChamber, 'xml': XML}
+        param_dict = {'antechamber': AnteChamber, 'xml': xml}
 
         try:
             param_dict['openff'] = OpenFF
@@ -670,7 +671,7 @@ class Execute:
 
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
-            molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
+            molecule.filename = RDKit().mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {self.molecule.mm_opt_method}')
 
@@ -730,7 +731,8 @@ class Execute:
             # 3) If we have already tried the starting structure generate a conformer and try again
             elif result['error'] == 'Distance matrix':
                 molecule.write_pdb()
-                molecule.coords['mm'] = RDKit.generate_conformers(f'{molecule.name}.pdb')[0]
+                rdkit = RDKit()
+                molecule.coords['mm'] = rdkit.generate_conformers(f'{molecule.name}.pdb')[0]
                 result = qm_engine.generate_input(input_type='mm', optimise=True)
 
             restart_count += 1
@@ -879,7 +881,7 @@ class Execute:
         molecule.write_pdb()
         molecule.write_parameters()
 
-        molecule.descriptors = RDKit.rdkit_descriptors(f'{molecule.name}.pdb')
+        molecule.descriptors = RDKit().rdkit_descriptors(f'{molecule.name}.pdb')
 
         pretty_print(molecule, to_file=True)
         pretty_print(molecule)

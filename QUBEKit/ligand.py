@@ -249,7 +249,7 @@ class Molecule(Defaults):
 
         # Try to load the file using RDKit; this should ensure we always have the connection info
         try:
-            rdkit_mol = RDKit.read_file(self.filename.name)
+            rdkit_mol = RDKit().read_file(self.filename.name)
             # Now extract the molecule from RDKit
             self.mol_from_rdkit(rdkit_mol)
 
