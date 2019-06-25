@@ -47,6 +47,7 @@ class Defaults:
         self.div_index = 0
         self.parameter_engine = 'xml'
         self.l_pen = 0.0
+        self.mm_opt_method = 'openmm'
 
         self.chargemol = '/home/b8009890/Programs/chargemol_09_26_2017_unchanged'
         self.log = 'CHR'
@@ -978,7 +979,7 @@ class Ligand(Molecule):
 
         super().__init__(filename)
 
-        self.parameter_engine = None
+        self.parameter_engine = 'openmm'
         self.hessian = None
         self.modes = None
         self.home = None
