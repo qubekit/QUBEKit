@@ -15,7 +15,7 @@ from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log,
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
-from QUBEKit.parametrisation import OpenFF, AnteChamber, xml
+from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
 
 from collections import OrderedDict
 from datetime import datetime
@@ -619,7 +619,7 @@ class Execute:
         molecule.write_pdb()
 
         # Parametrisation options:
-        param_dict = {'antechamber': AnteChamber, 'xml': xml}
+        param_dict = {'antechamber': AnteChamber, 'xml': XML}
 
         try:
             param_dict['openff'] = OpenFF
@@ -715,7 +715,7 @@ class Execute:
             else:
                 # TODO catch the qcengine error here
                 print(result)
-                sys.exit('Molecule not optimised.')
+                raise Exception('Molecule not optimised.')
 
         elif molecule.coords['mm'].any():
             result = qm_engine.generate_input(input_type='mm', optimise=True)
