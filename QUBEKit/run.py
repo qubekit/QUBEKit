@@ -11,11 +11,11 @@ from QUBEKit.decorators import exception_logger
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
 from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
-    Configure, unpickle
+    Configure, unpickle, OptimisationFailed
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
-from QUBEKit.parametrisation import OpenFF, AnteChamber, xml
+from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
 
 from collections import OrderedDict
 from datetime import datetime
@@ -61,7 +61,7 @@ class ArgsAndConfigs:
         if self.args.bulk_run:
             self.handle_bulk()
 
-        if self.args.restart:
+        if self.args.restart is not None:
             # Find the pickled checkpoint file and load it as the molecule
             try:
                 self.molecule = unpickle()[self.args.restart]
@@ -95,7 +95,8 @@ class ArgsAndConfigs:
                 setattr(self.molecule, name, val)
 
         # If restarting put the molecule back into the checkpoint file with the new configs
-        self.molecule.pickle(state=self.args.restart)
+        if self.args.restart is not None:
+            self.molecule.pickle(state=self.args.restart)
         # Now that all configs are stored correctly: execute.
         Execute(self.molecule)
 
@@ -202,8 +203,8 @@ class ArgsAndConfigs:
                                          description=intro)
 
         # Add all of the command line options in the arg parser
-        parser.add_argument('-c', '--charge', default=0, type=int, help='Enter the charge of the molecule, default 0.')
-        parser.add_argument('-m', '--multiplicity', default=1, type=int, help='Enter the multiplicity of the '
+        parser.add_argument('-c', '--charge', type=int, help='Enter the charge of the molecule, default 0.')
+        parser.add_argument('-m', '--multiplicity', type=int, help='Enter the multiplicity of the '
                                                                               'molecule, default 1.')
         parser.add_argument('-threads', '--threads', type=int,
                             help='Number of threads used in various stages of analysis, especially for engines like '
@@ -229,7 +230,7 @@ class ArgsAndConfigs:
         parser.add_argument('-param', '--parameter_engine', choices=['xml', 'antechamber', 'openff'],
                             help='Enter the method of where we should get the initial molecule parameters from, '
                                  'if xml make sure the xml has the same name as the pdb file.')
-        parser.add_argument('-mm', '--mm_opt_method', default='openmm', choices=['openmm', 'rdkit_mff', 'rdkit_uff'],
+        parser.add_argument('-mm', '--mm_opt_method', choices=['openmm', 'rdkit_mff', 'rdkit_uff'],
                             help='Enter the mm optimisation method for pre qm optimisation.')
         parser.add_argument('-config', '--config_file', default='default_config', choices=Configure.show_ini(),
                             help='Enter the name of the configuration file you wish to use for this run from the list '
@@ -241,24 +242,24 @@ class ArgsAndConfigs:
         parser.add_argument('-restart', '--restart', choices=['parametrise', 'mm_optimise', 'qm_optimise', 'hessian',
                                                               'mod_sem', 'density', 'charges', 'lennard_jones',
                                                               'torsion_scan', 'torsion_optimise'],
-                            default=None, help='Enter the restart point of a QUBEKit job.')
+                            help='Enter the restart point of a QUBEKit job.')
         parser.add_argument('-end', '-end', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem', 'density',
                                                      'charges', 'lennard_jones', 'torsion_scan', 'torsion_optimise',
                                                      'finalise'],
-                            default=None, help='Enter the end point of the QUBEKit job.')
+                            help='Enter the end point of the QUBEKit job.')
         parser.add_argument('-progress', '--progress', nargs='?', const=True,
                             help='Get the current progress of a QUBEKit single or bulk job.', action=ProgressAction)
         parser.add_argument('-skip', '--skip', nargs='+', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem',
                                                                    'density', 'charges', 'lennard_jones',
                                                                    'torsion_scan', 'torsion_optimise', 'finalise'],
-                            default=None, help='Option to skip certain stages of the execution.')
-        parser.add_argument('-tor_test', '--torsion_test', default=False, choices=[True, False], type=string_to_bool,
+                            help='Option to skip certain stages of the execution.')
+        parser.add_argument('-tor_test', '--torsion_test', choices=[True, False], type=string_to_bool,
                             help='Enter True if you would like to run a torsion test on the chosen torsions.')
         parser.add_argument('-tor_make', '--torsion_maker', action=TorsionMakerAction,
                             help='Allow QUBEKit to help you make a torsion input file for the given molecule')
         parser.add_argument('-log', '--log', type=str,
                             help='Enter a name to tag working directories with. Can be any alphanumeric string.')
-        parser.add_argument('-vib', '--vib', type=float, default=0.991,
+        parser.add_argument('-vib', '--vib_scaling', type=float,
                             help='Enter the vibrational scaling to be used with the basis set.')
 
         # Add mutually exclusive groups to stop certain combinations of options,
@@ -619,7 +620,7 @@ class Execute:
         molecule.write_pdb()
 
         # Parametrisation options:
-        param_dict = {'antechamber': AnteChamber, 'xml': xml}
+        param_dict = {'antechamber': AnteChamber, 'xml': XML}
 
         try:
             param_dict['openff'] = OpenFF
@@ -715,7 +716,7 @@ class Execute:
             else:
                 # TODO catch the qcengine error here
                 print(result)
-                sys.exit('Molecule not optimised.')
+                raise OptimisationFailed("The optimisation did not converge")
 
         elif molecule.coords['mm'].any():
             result = qm_engine.generate_input(input_type='mm', optimise=True)
@@ -745,7 +746,8 @@ class Execute:
             restart_count += 1
 
         if not result['success']:
-            sys.exit(f'{molecule.bonds_engine} optimisation did not converge after 3 restarts; last error {result["error"]}')
+            raise OptimisationFailed(f"{molecule.bonds_engine} "
+                                     f"optimisation did not converge after 3 restarts; last error {result['error']}")
 
         molecule.coords['qm'], molecule.qm_energy = qm_engine.optimised_structure()
         molecule.write_xyz(input_type='qm', name='opt')

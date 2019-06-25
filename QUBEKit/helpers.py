@@ -595,3 +595,8 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
 
     print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
     return True
+
+
+class OptimisationFailed(Exception):
+    __module__ = Exception.__module__
+
