@@ -28,8 +28,8 @@ class Gaussian(Engines):
                                  'GAU_LOOSE': 'loose',
                                  'GAU_VERYTIGHT': 'verytight'}
 
-    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, solvent=False,
-                       restart=False, execute=True):
+    def generate_input(self, input_type='input', optimise=False, hessian=False,
+                       density=False, solvent=False, restart=False, execute=True):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
         :param input_type: The set of coordinates in the molecule that should be used in the job

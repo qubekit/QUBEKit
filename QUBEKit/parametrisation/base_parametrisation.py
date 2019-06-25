@@ -151,19 +151,3 @@ class Parametrisation:
         if improper_torsions is not None:
             for key, val in improper_torsions.items():
                 self.molecule.PeriodicTorsionForce[key] = val
-
-
-class Default:
-    """
-    If there is an import error, this class replaces the class which failed to be imported.
-    Then, only if called, an import error will be raised notifying the user of a failed call.
-    """
-
-    def __init__(self, *args, **kwargs):
-        # self.name is set when the failed-to-import class is set to Default.
-        raise ImportError(
-            f'The class {self.name} you tried to call is not importable; '
-            f'this is likely due to it not being installed.')
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.__dict__!r})'
