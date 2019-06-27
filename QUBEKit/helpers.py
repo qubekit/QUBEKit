@@ -4,6 +4,7 @@ from collections import OrderedDict
 from configparser import ConfigParser
 from contextlib import contextmanager
 import csv
+from functools import partial
 import math
 import os
 from pathlib import Path
@@ -356,11 +357,13 @@ def pretty_progress():
     Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
     """
 
+    printf = partial(print, flush=True)
+
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
     for root, dirs, files in os.walk('.', topdown=True):
         for file in files:
-            if 'QUBEKit_log.txt' in file:
+            if 'QUBEKit_log.txt' in file and 'backups' not in root:
                 log_files.append(os.path.abspath(f'{root}/{file}'))
 
     if not log_files:
@@ -399,15 +402,15 @@ def pretty_progress():
         'purple': '\033[1;35m'
     }
 
-    print('Displaying progress of all analyses in current directory.')
-    print(f'Progress key: {colours["green"]}\u2713{end} = Done;', end=' ')
-    print(f'{colours["blue"]}S{end} = Skipped;', end=' ')
-    print(f'{colours["red"]}E{end} = Error;', end=' ')
-    print(f'{colours["orange"]}R{end} = Running;', end=' ')
-    print(f'{colours["purple"]}~{end} = Queued')
+    printf('Displaying progress of all analyses in current directory.')
+    printf(f'Progress key: {colours["green"]}\u2713{end} = Done;', end=' ')
+    printf(f'{colours["blue"]}S{end} = Skipped;', end=' ')
+    printf(f'{colours["red"]}E{end} = Error;', end=' ')
+    printf(f'{colours["orange"]}R{end} = Running;', end=' ')
+    printf(f'{colours["purple"]}~{end} = Queued')
 
     header_string = '{:15}' + '{:>10}' * 10
-    print(header_string.format(
+    printf(header_string.format(
         'Name', 'Param', 'MM Opt', 'QM Opt', 'Hessian', 'Mod-Sem', 'Density', 'Charges', 'L-J', 'Tor Scan', 'Tor Opt'))
 
     # Sort the info alphabetically
@@ -415,27 +418,27 @@ def pretty_progress():
 
     # Outer dict contains the names of the molecules.
     for key_out, var_out in info.items():
-        print(f'{key_out[:13]:15}', end=' ')
+        printf(f'{key_out[:13]:15}', end=' ')
 
         # Inner dict contains the individual molecules' data.
         for var_in in var_out.values():
 
             if var_in == u'\u2713':
-                print(f'{colours["green"]}{var_in:>9}{end}', end=' ')
+                printf(f'{colours["green"]}{var_in:>9}{end}', end=' ')
 
             elif var_in == 'S':
-                print(f'{colours["blue"]}{var_in:>9}{end}', end=' ')
+                printf(f'{colours["blue"]}{var_in:>9}{end}', end=' ')
 
             elif var_in == 'E':
-                print(f'{colours["red"]}{var_in:>9}{end}', end=' ')
+                printf(f'{colours["red"]}{var_in:>9}{end}', end=' ')
 
             elif var_in == 'R':
-                print(f'{colours["orange"]}{var_in:>9}{end}', end=' ')
+                printf(f'{colours["orange"]}{var_in:>9}{end}', end=' ')
 
             elif var_in == '~':
-                print(f'{colours["purple"]}{var_in:>9}{end}', end=' ')
+                printf(f'{colours["purple"]}{var_in:>9}{end}', end=' ')
 
-        print('')
+        printf('')
 
 
 def populate_progress_dict(file_name):
@@ -452,7 +455,7 @@ def populate_progress_dict(file_name):
     search_terms = ['PARAMETRISATION', 'MM_OPT', 'QM_OPT', 'HESSIAN', 'MOD_SEM', 'DENSITY', 'CHARGE', 'LENNARD',
                     'TORSION_S', 'TORSION_O']
 
-    progress = OrderedDict((k, '~') for k in search_terms)
+    progress = OrderedDict((term, '~') for term in search_terms)
 
     restart_log = False
 
@@ -475,7 +478,7 @@ def populate_progress_dict(file_name):
                     # If its finishing tag is present it is done (tick)
                     elif 'FINISHING' in line:
                         progress[term] = u'\u2713'
-                    last_success = term
+                        last_success = term
 
             # If an error is found, then the stage after the last successful stage has errored (E)
             if 'Exception Logger - ERROR' in line:
@@ -490,13 +493,23 @@ def populate_progress_dict(file_name):
                     term = 'PARAMETRISATION'
                 progress[term] = 'E'
 
-    # Now we need to check if there was a restart and clear the progress of everything after the running step
     if restart_log:
         for term, stage in progress.items():
+            # Find where the program was restarted from
             if stage == 'R':
                 restart_term = search_terms.index(term)
                 break
+        else:
+            # If no stage is running, find the first stage that hasn't started; the first `~`
+            for term, stage in progress.items():
+                if stage == '~':
+                    restart_term = search_terms.index(term)
+                    break
+            else:
+                raise UnboundLocalError(
+                    'Cannot find where QUBEKit was restarted from. Please check the log file for progress.')
 
+        # Reset anything after the restart term to be `~` even if it was previously completed.
         for term in search_terms[restart_term + 1:]:
             progress[term] = '~'
 
@@ -599,4 +612,3 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
 
 class OptimisationFailed(Exception):
     __module__ = Exception.__module__
-
