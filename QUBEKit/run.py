@@ -5,7 +5,6 @@
 #  Squash unnecessary arguments into self.molecule. Args such as torsion_options.
 #  Switch to normal dicts rather than Ordered; all dicts are now ordered in newer versions.
 #  Better handling of torsion_options
-#  Add another argument to -sm for the molecule name? e.g. -sm C methane; this would remove the need for input()
 
 from QUBEKit.decorators import exception_logger
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
@@ -69,7 +68,7 @@ class ArgsAndConfigs:
                 raise FileNotFoundError('No checkpoint file found!')
         else:
             if self.args.smiles:
-                self.file = RDKit().smiles_to_pdb(self.args.smiles)
+                self.file = RDKit().smiles_to_pdb(*self.args.smiles)
             else:
                 self.file = self.args.input
 
@@ -267,7 +266,8 @@ class ArgsAndConfigs:
         groups = parser.add_mutually_exclusive_group()
         groups.add_argument('-setup', '--setup_config', nargs='?', const=True,
                             help='Setup a new configuration or edit an existing one.', action=SetupAction)
-        groups.add_argument('-sm', '--smiles', help='Enter the smiles string of a molecule as a starting point.')
+        groups.add_argument('-sm', '--smiles', nargs='+',
+                            help='Enter the smiles string of a molecule as a starting point.')
         groups.add_argument('-bulk', '--bulk_run',
                             help='Enter the name of the csv file to run as bulk, bulk will use smiles unless it finds '
                                  'a molecule file with the same name.')
@@ -275,6 +275,8 @@ class ArgsAndConfigs:
                             help='Enter the name of the csv file you would like to create for bulk runs.'
                                  'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
+        # TODO Get this from setup.py or elsewhere?
+        groups.add_argument('-version', '--version', action='version', version='2.3.1')
 
         return parser.parse_args()
 
@@ -620,12 +622,7 @@ class Execute:
         molecule.write_pdb()
 
         # Parametrisation options:
-        param_dict = {'antechamber': AnteChamber, 'xml': XML}
-
-        try:
-            param_dict['openff'] = OpenFF
-        except ImportError:
-            pass
+        param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF}
 
         # If we are using xml we have to move it
         if molecule.parameter_engine == 'xml':
@@ -671,7 +668,6 @@ class Execute:
 
         else:
             # TODO change to qcengine as this can already be done
-
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
             molecule.filename = RDKit().mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
@@ -709,7 +705,7 @@ class Execute:
                 molecule.write_xyz(input_type='traj', name=f'{molecule.name}_opt')
                 molecule.write_xyz(input_type='qm', name='opt')
 
-                append_to_log(f'Finishing qm_optimisation of molecule using{" geometric and" if molecule.geometric else molecule.bonds_engine}')
+                append_to_log(f'Finishing qm_optimisation of molecule{" using geometric" if molecule.geometric else ""}')
 
                 return molecule
 
@@ -752,7 +748,7 @@ class Execute:
         molecule.coords['qm'], molecule.qm_energy = qm_engine.optimised_structure()
         molecule.write_xyz(input_type='qm', name='opt')
 
-        append_to_log(f'Finishing qm_optimisation of molecule using{" geometric and" if molecule.geometric else molecule.bonds_engine}')
+        append_to_log(f'Finishing qm_optimisation of molecule{" using geometric" if molecule.geometric else ""}')
 
         return molecule
 
@@ -844,7 +840,7 @@ class Execute:
 
         append_to_log('Starting Lennard-Jones parameter calculation')
 
-        #TODO test pathing
+        # TODO test pathing
         charges_fld = os.path.join(molecule.home, '7_charges')
         for file in os.listdir(charges_fld):
             if file.startswith('DDEC'):
