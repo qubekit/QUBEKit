@@ -123,20 +123,18 @@ def exception_logger(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-
-        # Run as normal
         try:
             return func(*args, **kwargs)
         # Any exception that occurs is logged; this means KeyboardInterrupt and SystemExit are still raised
         except Exception:
-            # Get the working dir (home) and final pickle point from the molecule object
+
             home = getattr(args[0].molecule, 'home', None)
-            pickle_point = getattr(args[0].molecule, 'state', None)
-            # Cannot find log file or pickle point, just raise the exception without printing the ligand objects
-            if home is None or pickle_point is None:
+            state = getattr(args[0].molecule, 'state', None)
+
+            if home is None or state is None:
                 raise
 
-            mol = unpickle()[pickle_point]
+            mol = unpickle()[state]
             pretty_print(mol, to_file=True, finished=False)
 
             log_file = os.path.join(home, 'QUBEKit_log.txt')
