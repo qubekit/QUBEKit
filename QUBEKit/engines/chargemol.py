@@ -21,6 +21,7 @@ class Chargemol(Engines):
         if (self.molecule.ddec_version != 6) and (self.molecule.ddec_version != 3):
             append_to_log(message='Invalid or unsupported DDEC version given, running with default version 6.',
                           msg_type='warning')
+            self.molecule.ddec_version = 6
 
         # Write the charges job file.
         with open('job_control.txt', 'w+') as charge_file:

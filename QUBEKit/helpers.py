@@ -611,4 +611,10 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
 
 
 class OptimisationFailed(Exception):
+    """
+    Raise for seg faults from PSI4 - geomeTRIC/Torsiondrive/QCEngine interactions.
+    This should mean it's more obvious to users when there's a segfault.
+    """
+
+    # If we ever create a QUBEKit exceptions.py, this class will be moved there.
     __module__ = Exception.__module__

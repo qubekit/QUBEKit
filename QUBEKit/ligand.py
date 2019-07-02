@@ -5,10 +5,10 @@
 from collections import OrderedDict
 from datetime import datetime
 from itertools import groupby
+import os
+from pathlib import Path
 import pickle
 import re
-from pathlib import Path
-import os
 
 import networkx as nx
 import numpy as np
@@ -148,23 +148,24 @@ class Molecule(Defaults):
                                 e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
         Residues                List of residue names in the sequence they are found in the protein
         extra_sites
-        qm_scans                Dictionary of central scaned bonds and there energies and structures
+        qm_scans                Dictionary of central scanned bonds and there energies and structures
 
         Parameters
         -------------------
         This section has different units due to it interacting with OpenMM
 
         HarmonicBondForce       Dictionary of equilibrium distances and force constants stored under the bond tuple.
-                                {(1, 2): [0.108, 405.65]} (nano meters, kj/mol)
+                                {(1, 2): [0.108, 405.65]} (nano meters, kJ/mol)
         HarmonicAngleForce      Dictionary of equilibrium angles and force constants stored under the angle tuple
-                                e.g. {(2, 1, 3): [2.094395, 150.00]} (radians, kj/mol)
+                                e.g. {(2, 1, 3): [2.094395, 150.00]} (radians, kJ/mol)
         PeriodicTorsionForce    Dictionary of lists of the torsions values [periodicity, k, phase] stored under the
                                 dihedral tuple with an improper tag only for improper torsions
-                                e.g. {(3, 1, 2, 6): [[1, 0.6, 0 ] [2, 0, 3.141592653589793] .... Improper]}
+                                e.g. {(3, 1, 2, 6): [[1, 0.6, 0], [2, 0, 3.141592653589793], ... Improper]}
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
 
         combination             str; Combination rules e.g. 'opls'
-        sites                   OrderedDict of virtual site parameters {0: [(top nos parent, a .b), (p1, p2, p3), charge]}
+        sites                   OrderedDict of virtual site parameters
+                                e.g.{0: [(top nos parent, a .b), (p1, p2, p3), charge]}
 
         # QUBEKit Internals
         state                   str; Describes the stage the analysis is in for pickling and unpickling
@@ -178,6 +179,7 @@ class Molecule(Defaults):
         self.smiles = None
 
         # Structure
+        # TODO Convert empty lists to None?
         self.coords = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
         self.topology = None
         self.angles = None
@@ -244,17 +246,15 @@ class Molecule(Defaults):
         if trunc:
             for key, val in self.__dict__.items():
 
-                # Don't bother printing objects that are empty or None.
                 # Just checking (if val) won't work as truth table is ambiguous for length > 1 arrays
                 # I know this is gross, but it's the best of a bad situation.
-
                 try:
                     bool(val)
                 # Catch numpy array truth table error
                 except ValueError:
                     continue
 
-                # Ignore empty lists / dicts etc and NoneTypes
+                # Ignore NoneTypes and empty lists / dicts etc
                 if val is not None and val:
                     return_str += f'\n{key} = '
 
@@ -684,8 +684,9 @@ class Molecule(Defaults):
         l14 = '0.5'
 
         # add the combination rule to the xml for geometric.
-        NonbondedForce = ET.SubElement(root, "NonbondedForce", attrib={'coulomb14scale': c14, 'lj14scale': l14,
-                                                                    'combination': self.combination})
+        NonbondedForce = ET.SubElement(root, "NonbondedForce", attrib={
+            'coulomb14scale': c14, 'lj14scale': l14,
+            'combination': self.combination})
 
         for key, val in self.AtomTypes.items():
             ET.SubElement(AtomTypes, "Type", attrib={
@@ -746,10 +747,12 @@ class Molecule(Defaults):
         if self.sites:
             # Add the atom type to the top
             for key, val in self.sites.items():
-                ET.SubElement(AtomTypes, "Type", attrib={'name': f'v-site{key + 1}', 'class': f'X{key + 1}', 'mass': '0'})
+                ET.SubElement(AtomTypes, "Type", attrib={
+                    'name': f'v-site{key + 1}', 'class': f'X{key + 1}', 'mass': '0'})
 
                 # Add the atom info
-                ET.SubElement(Residue, "Atom", attrib={'name': f'X{key + 1}', 'type': f'v-site{key + 1}'})
+                ET.SubElement(Residue, "Atom", attrib={
+                    'name': f'X{key + 1}', 'type': f'v-site{key + 1}'})
 
                 # Add the local coords site info
                 ET.SubElement(Residue, "VirtualSite", attrib={
@@ -798,7 +801,8 @@ class Molecule(Defaults):
                 xyz_file.write(f'{message}{end}\n')
 
                 for i, atom in enumerate(frame):
-                    xyz_file.write(f'{self.atoms[i].element}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f} \n')
+                    xyz_file.write(
+                        f'{self.atoms[i].element}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f} \n')
 
                 try:
                     end += 1
@@ -815,7 +819,9 @@ class Molecule(Defaults):
             for pos, atom in enumerate(self.coords[input_type], 1):
                 # 'mol number''mol name'  'atom name'   'atom count'   'x coord'   'y coord'   'z coord'
                 # 1WATER  OW1    1   0.126   1.624   1.679
-                gro_file.write(f'    1{self.name.upper()}  {atom[0]}{pos}   {pos}   {atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
+                gro_file.write(
+                    f'    1{self.name.upper()}  {atom[0]}{pos}   {pos}   '
+                    f'{atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
 
     def pickle(self, state=None):
         """
@@ -917,7 +923,7 @@ class Molecule(Defaults):
         # this creates the dictionary of terms that should be symmetrise
         self.symmetrise_from_topo()
 
-    def openMM_coordinates(self, input_type='input'):
+    def openmm_coordinates(self, input_type='input'):
         """
         Take a set of coordinates from the molecule and convert them to openMM format
         :param input_type: The set of coordinates that should be used
@@ -925,8 +931,8 @@ class Molecule(Defaults):
         """
 
         coordinates = self.coords[input_type]
-
         openmm_crds = []
+
         if input_type == 'traj' and len(coordinates) != len(self.coords['input']):
             # Multiple frames in this case
             for frame in coordinates:
@@ -934,18 +940,18 @@ class Molecule(Defaults):
                 for atom in frame:
                     tups.append(tuple(atom / 10))
                 openmm_crds.append(tups)
-            return openmm_crds
 
         else:
             for atom in coordinates:
                 openmm_crds.append(tuple(atom / 10))
-            return openmm_crds
+
+        return openmm_crds
 
     def read_tdrive(self, bond_scan):
         """
         Read a tdrive qdata file and get the coordinates and scan energies and store in the molecule.
-        :type bond_scan: the tuple of the scaned central bond
-        :return: None, store the coords in the traj holder and the energies in the qm scan hholder
+        :type bond_scan: the tuple of the scanned central bond
+        :return: None, store the coords in the traj holder and the energies in the qm scan holder
         """
 
         scan_coords = []
@@ -967,11 +973,11 @@ class Ligand(Molecule):
 
     def __init__(self, filename):
         """
-        scan_order              A list of the dihedral cores to be scanned in the scan order
         parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
         hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
         modes                   A list of the qm predicted frequency modes
-        qm_scan_energy
+        home
+
         descriptors
         constraints_file        Either an empty string (does nothing in geometric run command); or
                                 the abspath of the constraint.txt file (constrains the execution of geometric)
@@ -989,6 +995,7 @@ class Ligand(Molecule):
         self.constraints_file = ''
 
         self.read_file()
+
         # Make sure we have the topology before we calculate the properties
         if self.topology.edges:
             self.find_angles()
@@ -1018,8 +1025,8 @@ class Ligand(Molecule):
                     if len(line) <= 1:
                         next(xyz_file)
                         continue
-                    else:
-                        molecule.append([float(line[1]), float(line[2]), float(line[3])])
+                    molecule.append([float(line[1]), float(line[2]), float(line[3])])
+
                     if len(molecule) == n_atoms:
                         # we have collected the molecule now store the frame
                         traj_molecules.append(np.array(molecule))
@@ -1050,12 +1057,13 @@ class Ligand(Molecule):
             pdb_file.write(f'COMPND    {self.name:<20}\n')
             for i, atom in enumerate(molecule):
                 pdb_file.write(
-                    f'HETATM{i+1:>5} {self.atoms[i].name:>4} UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}  1.00  0.00          {self.atoms[i].element:2}\n')
+                    f'HETATM {i+1:>4}{self.atoms[i].name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
+                    f'  1.00  0.00         {self.atoms[i].element.upper():>3}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(nx.neighbors(self.topology, node)))
-                if len(bonded) > 1:
+                if len(bonded) >= 1:
                     pdb_file.write(f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')
@@ -1161,14 +1169,14 @@ class Protein(Molecule):
             # pdb_file.write(f'COMPND    {self.name:<20}\n')
             # we have to transform the atom name while writing out the pdb file
             for i, atom in enumerate(molecule):
-                # TODO conditional printing
                 pdb_file.write(
-                    f'HETATM{i+1:>5}{self.atoms[i].name:>5} QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}  1.00  0.00          {self.atoms[i].element:2}\n')
+                    f'HETATM {i+1:>4}{self.atoms[i].name:>4}  QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
+                    f'  1.00  0.00         {self.atoms[i].element.upper():>3}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(nx.neighbors(self.topology, node)))
-                if len(bonded) > 1:
+                if len(bonded) >= 1:
                     pdb_file.write(f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')
