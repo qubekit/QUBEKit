@@ -2,7 +2,7 @@
 
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.engines import RDKit
-from QUBEKit.parametrisation.parameter_engines import Parametrisation
+from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 
 from openforcefield.topology import Molecule, Topology
 from openforcefield.typing.engines.smirnoff import ForceField
@@ -32,15 +32,15 @@ class OpenFF(Parametrisation):
         pdb_file = app.PDBFile(f'{self.molecule.name}.pdb')
 
         # Now we need the connection info try using smiles string from rdkit
-        molecule = Molecule.from_smiles(RDKit().get_smiles(f'{self.molecule.name}.pdb'))
-        # print(molecule)
+        rdkit = RDKit()
+        molecule = Molecule.from_smiles(rdkit.get_smiles(f'{self.molecule.name}.pdb'))
 
         # Make the openMM system
         omm_topology = pdb_file.topology
         off_topology = Topology.from_openmm(omm_topology, unique_molecules=[molecule])
 
-        # Load the smirnof99Frosst force field.
-        forcefield = ForceField('smirnoff99Frosst.offxml')
+        # Load the smirnoff99Frosst force field.
+        forcefield = ForceField('test_forcefields/smirnoff99Frosst.offxml')
 
         # Parametrize the topology and create an OpenMM System.
         system = forcefield.create_openmm_system(off_topology)
