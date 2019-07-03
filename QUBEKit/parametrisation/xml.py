@@ -3,10 +3,6 @@
 from QUBEKit.decorators import for_all_methods, timer_logger
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 
-import os
-
-import xml.etree.ElementTree as ET
-from xml.dom.minidom import parseString
 from simtk.openmm import app, XmlSerializer
 
 
