@@ -819,7 +819,7 @@ class Molecule(Defaults):
                     pass
 
     def write_gromacs_file(self, input_type='input'):
-        """To a gromacs file, write and format the necessary variables."""
+        """To a gromacs file, write and format the necessary variables gro."""
 
         with open(f'{self.name}.gro', 'w+') as gro_file:
             gro_file.write(f'NEW {self.name.upper()} GRO FILE\n')

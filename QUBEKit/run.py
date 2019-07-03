@@ -719,7 +719,7 @@ class Execute:
 
             else:
                 # TODO catch the qcengine error here
-                print(result['trajectory'])  # catch the steps done so far
+                print(result)  # catch the steps done so far
                 raise OptimisationFailed("The optimisation did not converge")
 
         elif molecule.coords['mm'].any():

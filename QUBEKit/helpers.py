@@ -183,7 +183,7 @@ class Configure:
     def show_ini():
         """Show all of the ini file options in the config folder."""
 
-        inis = os.listdir(Configure.config_folder)
+        inis = [ini for ini in os.listdir(Configure.config_folder) if not ini.endswith('~')]  # Hide the emacs backups
 
         return inis
 
