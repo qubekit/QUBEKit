@@ -24,6 +24,7 @@ import os
 from shutil import copy, move
 import subprocess as sp
 import sys
+from pathlib import Path
 
 import argparse
 
@@ -53,6 +54,12 @@ class ArgsAndConfigs:
     """
 
     def __init__(self):
+        # First make sure the config folder has been made
+        home = str(Path.home())
+        config_folder = f'{home}/QUBEKit_configs/'
+        if not os.path.exists(config_folder):
+            os.makedirs(config_folder)
+            print(f'Making config folder at: {home}')
 
         self.args = self.parse_commands()
 
@@ -660,7 +667,8 @@ class Execute:
             # TODO Should this be moved to allow a decorator?
             with open('log.txt', 'w+') as log:
                 sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations}  --pdb '
-                       f'{molecule.name}.pdb --openmm {molecule.name}.xml {self.molecule.constraints_file}',
+                       f'{molecule.name}.pdb --openmm {molecule.name}.xml '
+                       f'{self.molecule.constraints_file if self.molecule.constraints_file is not None else ""}',
                        shell=True, stdout=log, stderr=log)
 
             # This will continue even if we don't converge this is fine
@@ -715,7 +723,7 @@ class Execute:
 
             else:
                 # TODO catch the qcengine error here
-                print(result)
+                print(result['trajectory'])  # catch the steps done so far
                 raise OptimisationFailed("The optimisation did not converge")
 
         elif molecule.coords['mm'].any():
@@ -844,7 +852,6 @@ class Execute:
 
         append_to_log('Starting Lennard-Jones parameter calculation')
 
-        #TODO test pathing
         charges_fld = os.path.join(molecule.home, '7_charges')
         for file in os.listdir(charges_fld):
             if file.startswith('DDEC'):
@@ -874,7 +881,7 @@ class Execute:
         except FileNotFoundError:
             scan.find_scan_order()
 
-        scan.start_scan()
+        scan.scan()
 
         append_to_log('Finishing torsion_scans')
 
@@ -885,6 +892,14 @@ class Execute:
         """Perform torsion optimisation."""
 
         append_to_log('Starting torsion_optimisations')
+
+        # First we should make sure we have collected the results of the scans
+        if not molecule.qm_scans:
+            os.chdir(os.path.join(molecule.home, '9_torsion_scan'))
+            scan = TorsionScan(molecule)
+            scan.find_scan_order()
+            scan.collect_scan()
+            os.chdir(os.path.join(molecule.home, '10_torsion_optimise'))
 
         opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
         opt.run()

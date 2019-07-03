@@ -45,7 +45,7 @@ class PSI4(Engines):
 
         if energy:
             append_to_log('Writing psi4 energy calculation input')
-            tasks += f"\nenergy  = energy('{self.molecule.theory}')"
+            tasks += f"\nenergy('{self.molecule.theory}')"
 
         if optimise:
             append_to_log('Writing PSI4 optimisation input', 'minor')
@@ -106,13 +106,30 @@ class PSI4(Engines):
             with open('log.txt', 'w+') as log:
                 sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log)
 
-            # After running, check for normal termination
-            with open('output.dat', 'r') as output:
-                for line in output:
-                    if '*** Psi4 exiting successfully.' in line:
-                        return True
+            # Now check the exit status of the job
+            return self.check_for_errors()
 
-        return False
+        else:
+            return {'success': False, 'error': 'Not run'}
+
+    def check_for_errors(self):
+        """
+        Read the output file from the job and check for normal termination and any errors
+        :return: A dictionary of the success status and any problems.
+        """
+
+        with open('output.dat', 'r') as log:
+            for line in log:
+                if '*** Psi4 exiting successfully.' in line:
+                    return {'success': True}
+
+                elif '*** Psi4 encountered an error.' in line:
+                    return {'success': False,
+                            'error': 'Not known'}
+
+            else:
+                return {'success': False,
+                        'error': 'Segfault'}
 
     def hessian(self):
         """

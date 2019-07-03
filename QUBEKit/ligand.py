@@ -23,9 +23,9 @@ class Defaults:
 
     def __init__(self):
 
-        self.theory = 'B3LYP'
+        self.theory = 'wB97XD'
         self.basis = '6-311++G(d,p)'
-        self.vib_scaling = 0.967
+        self.vib_scaling = 0.957
         self.threads = 2
         self.memory = 2
         self.convergence = 'GAU_TIGHT'
@@ -48,6 +48,13 @@ class Defaults:
         self.parameter_engine = 'xml'
         self.l_pen = 0.0
         self.mm_opt_method = 'openmm'
+
+        self.excited_state = False
+        self.excited_theory = 'TDA'
+        self.nstates = 3
+        self.excited_root = 1
+        self.use_pseudo = False
+        self.pseudo_potential_block = ""
 
         self.chargemol = '/home/b8009890/Programs/chargemol_09_26_2017_unchanged'
         self.log = 'CHR'
@@ -211,7 +218,6 @@ class Molecule(Defaults):
         # QUBEKit internals
         self.state = None
         self.config = 'master_config.ini'
-        self.constraints_file = None
 
         # Atomic number dict
         self.element_dict = {
@@ -956,11 +962,10 @@ class Molecule(Defaults):
                     coords = [float(x) for x in line.split()[1:]]
                     coords = np.array(coords).reshape((len(self.atoms), 3))
                     scan_coords.append(coords)
-                    print(coords)
                 elif 'ENERGY' in line:
                     energy.append(float(line.split()[1]))
 
-        self.qm_scans[bond_scan] = [energy, scan_coords]
+        self.qm_scans[bond_scan] = [np.array(energy), scan_coords]
 
 
 class Ligand(Molecule):
@@ -986,7 +991,7 @@ class Ligand(Molecule):
 
         self.descriptors = {}
 
-        self.constraints_file = ''
+        self.constraints_file = None
 
         self.read_file()
         # Make sure we have the topology before we calculate the properties

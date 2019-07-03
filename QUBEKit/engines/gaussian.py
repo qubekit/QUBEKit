@@ -20,7 +20,7 @@ class Gaussian(Engines):
 
         super().__init__(molecule)
 
-        self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD'}
+        self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD', 'B3LYP-D3BJ': 'EmpiricalDispersion=GD3BJ B3LYP'}
         self.molecule.theory = self.functional_dict.get(self.molecule.theory, self.molecule.theory)
 
         self.convergence_dict = {'GAU': '',
@@ -28,17 +28,20 @@ class Gaussian(Engines):
                                  'GAU_LOOSE': 'loose',
                                  'GAU_VERYTIGHT': 'verytight'}
 
-    def generate_input(self, input_type='input', optimise=False, hessian=False,
-                       density=False, solvent=False, restart=False, execute=True):
+    def generate_input(self, input_type='input', optimise=False, hessian=False, energy=False,
+                       density=False, solvent=False, restart=False, execute=True, red_mode=None):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
         :param input_type: The set of coordinates in the molecule that should be used in the job
         :param optimise: Optimise the geometry of the molecule
         :param hessian: Calculate the hessian matrix
+        :param energy: Calculate the single point energy
         :param density: Calculate the electron density
         :param solvent: Use a solvent when calculating the electron density
         :param restart: Restart from a check point file
         :param execute: Run the calculation after writing the input file
+        :param red_mode: If we are doing a redundant mode optimisation this is a list of the atom numbers
+        and the desired value, for a dihedral [[1, 2, 3, 4], 180.0]
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
 
@@ -48,18 +51,33 @@ class Gaussian(Engines):
 
             input_file.write(f'%Mem={self.molecule.memory}GB\n%NProcShared={self.molecule.threads}\n%Chk=lig\n')
 
-            commands = f'# {self.molecule.theory}/{self.molecule.basis} SCF=XQC '
+            if self.molecule.excited_state:
+                commands = f'# {self.molecule.theory}/{self.molecule.basis} '
+                if self.molecule.use_pseudo:
+                    commands += f' Pseudo=Read'
+
+                commands += f' {self.molecule.excited_theory}=(Nstates={self.molecule.nstates}, ' \
+                    f'Root={self.molecule.excited_root}) SCF=XQC '
+
+            else:
+                commands = f'# {self.molecule.theory}/{self.molecule.basis} SCF=XQC '
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
             if optimise:
                 convergence = self.convergence_dict.get(self.molecule.convergence, "")
                 if convergence != "":
                     convergence = f', {convergence}'
+                if red_mode is not None:
+                    # Set the redundant mode as the convergence as we just want to use the standard threshold
+                    convergence = 'ModRedundant'
                 # Set the convergence and the iteration cap for the optimisation
                 commands += f'opt(MaxCycles={self.molecule.iterations} {convergence}) '
 
             if hessian:
                 commands += 'freq '
+
+            if energy:
+                commands += 'SP '
 
             if solvent:
                 commands += 'SCRF=(IPCM,Read) '
@@ -79,6 +97,15 @@ class Gaussian(Engines):
                 for i, atom in enumerate(molecule):
                     input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} '
                                      f'{float(atom[2]): .10f}\n')
+
+            if red_mode is not None:
+                # We need to build the model to have required redundant mode then freeze it
+                input_file.write(f'\n{"  ".join(str(x) for x in red_mode[0])} ={red_mode[1]:.3f} B')
+                input_file.write(f'\n{"  ".join(str(x) for x in red_mode[0])} F')
+
+            #TODO finish this block
+            if self.molecule.use_pseudo:
+                input_file.write(f'\n{self.molecule.pseudo_potential_block}')
 
             if solvent:
                 # Adds the epsilon and cavity params
@@ -120,9 +147,9 @@ class Gaussian(Engines):
                 elif 'Error termination in NtrErr' in line:
                     return {'success': False,
                             'error': 'FileIO'}
-                else:
-                    return {'success': False,
-                            'error': 'Unknown'}
+            else:
+                return {'success': False,
+                        'error': 'Unknown'}
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""
