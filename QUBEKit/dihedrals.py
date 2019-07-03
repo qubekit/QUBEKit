@@ -353,7 +353,7 @@ class TorsionOptimiser:
         self.index_dict = {}
         self.qm_local = None
         # Convert the optimised qm coords to OpenMM format
-        self.opt_coords = self.molecule.openMM_coordinates(input_type='qm')
+        self.opt_coords = self.molecule.openmm_coordinates(input_type='qm')
         self.optimiser_log = open('Optimiser_log.txt', 'w')
         self.optimiser_log.write('Starting dihedral optimisation.\n')
 
@@ -764,7 +764,7 @@ class TorsionOptimiser:
             self.optimiser_log.write(f'Optimising dihedrals for central bond {self.scan}\n')
             # Get the MM coords from the QM torsion drive in openMM format
             self.molecule.coords['traj'] = self.molecule.qm_scans[self.scan][1]
-            self.scan_coords = self.molecule.openMM_coordinates(input_type='traj')
+            self.scan_coords = self.molecule.openmm_coordinates(input_type='traj')
 
             # Set up the fitting folders
             try:

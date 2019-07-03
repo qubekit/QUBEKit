@@ -9,7 +9,7 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 
-# TODO do we need this class anymore it only makes an xyz file? Maybe move calculate_hull to helpers
+# TODO do we need this class anymore? It only makes an xyz file; maybe move calculate_hull to helpers
 @for_all_methods(timer_logger)
 class ONETEP(Engines):
 
