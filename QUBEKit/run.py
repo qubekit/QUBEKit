@@ -276,7 +276,7 @@ class ArgsAndConfigs:
                                  'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
         # TODO Get this from setup.py or elsewhere?
-        groups.add_argument('-version', '--version', action='version', version='2.3.1')
+        groups.add_argument('-version', '--version', action='version', version='2.3.2')
 
         return parser.parse_args()
 
