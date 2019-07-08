@@ -210,8 +210,8 @@ class ArgsAndConfigs:
 
         # Add all of the command line options in the arg parser
         parser.add_argument('-c', '--charge', type=int, help='Enter the charge of the molecule, default 0.')
-        parser.add_argument('-m', '--multiplicity', type=int, help='Enter the multiplicity of the '
-                                                                              'molecule, default 1.')
+        parser.add_argument('-m', '--multiplicity', type=int,
+                            help='Enter the multiplicity of the molecule, default 1.')
         parser.add_argument('-threads', '--threads', type=int,
                             help='Number of threads used in various stages of analysis, especially for engines like '
                                  'PSI4, Gaussian09, etc. Value is given as an int.')
@@ -222,11 +222,11 @@ class ArgsAndConfigs:
                             help='Enter the ddec version for charge partitioning, does not effect ONETEP partitioning.')
         parser.add_argument('-geo', '--geometric', choices=[True, False], type=string_to_bool,
                             help='Turn on geometric to use this during the qm optimisations, recommended.')
-        parser.add_argument('-bonds', '--bonds_engine', choices=['psi4', 'g09'],
+        parser.add_argument('-bonds', '--bonds_engine', choices=['psi4', 'g09', 'g16'],
                             help='Choose the QM code to calculate the bonded terms.')
         parser.add_argument('-charges', '--charges_engine', choices=['onetep', 'chargemol'],
                             help='Choose the method to do the charge partioning.')
-        parser.add_argument('-density', '--density_engine', choices=['onetep', 'g09', 'psi4'],
+        parser.add_argument('-density', '--density_engine', choices=['onetep', 'g09', 'g16', 'psi4'],
                             help='Enter the name of the QM code to calculate the electron density of the molecule.')
         parser.add_argument('-solvent', '--solvent', choices=[True, False], type=string_to_bool,
                             help='Enter whether or not you would like to use a solvent.')
@@ -723,10 +723,10 @@ class Execute:
                 raise OptimisationFailed("The optimisation did not converge")
 
         elif molecule.coords['mm'].any():
-            result = qm_engine.generate_input(input_type='mm', optimise=True)
+            result = qm_engine.generate_input(input_type='mm', optimise=True, execute=self.molecule.bonds_engine)
 
         else:
-            result = qm_engine.generate_input(input_type='input', optimise=True)
+            result = qm_engine.generate_input(input_type='input', optimise=True, execute=self.molecule.bonds_engine)
 
         # Check the exit status of the job; if failed restart the job up to 2 times
         restart_count = 1
@@ -736,16 +736,16 @@ class Execute:
             # Now we should handle the errors that we have in the results
             # 1) If we have a file read error just start again
             if result['error'] == 'FileIO':
-                result = qm_engine.generate_input(input_type='mm', optimise=True, restart=True)
+                result = qm_engine.generate_input(input_type='mm', optimise=True, restart=True, execute=self.molecule.bonds_engine)
             # 2) If we have a distance matrix error we should start from a different structure try the input
             elif result['error'] == 'Distance matrix' and restart_count == 1:
-                result = qm_engine.generate_input(input_type='input', optimise=True)
+                result = qm_engine.generate_input(input_type='input', optimise=True, execute=self.molecule.bonds_engine)
             # 3) If we have already tried the starting structure generate a conformer and try again
             elif result['error'] == 'Distance matrix':
                 molecule.write_pdb()
                 rdkit = RDKit()
                 molecule.coords['temp'] = rdkit.generate_conformers(f'{molecule.name}.pdb')[0]
-                result = qm_engine.generate_input(input_type='temp', optimise=True)
+                result = qm_engine.generate_input(input_type='temp', optimise=True, execute=self.molecule.bonds_engine)
 
             restart_count += 1
 
@@ -776,10 +776,10 @@ class Execute:
             # Use the checkpoint file as this has higher xyz precision
             try:
                 copy(os.path.join(molecule.home, os.path.join('3_qm_optimise', 'lig.chk')), 'lig.chk')
-                result = qm_engine.generate_input(input_type='qm', hessian=True, restart=True)
+                result = qm_engine.generate_input(input_type='qm', hessian=True, restart=True, execute=self.molecule.bonds_engine)
             except FileNotFoundError:
                 append_to_log('qm_optimise checkpoint not found, optimising first to refine atomic coordinates')
-                result = qm_engine.generate_input(input_type='qm', optimise=True, hessian=True)
+                result = qm_engine.generate_input(input_type='qm', optimise=True, hessian=True, execute=self.molecule.bonds_engine)
             if result['success']:
                 molecule.hessian = qm_engine.hessian()
             else:
@@ -822,7 +822,7 @@ class Execute:
 
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
-            qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent)
+            qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent, execute=self.molecule.density_engine)
             append_to_log('Finishing Density calculation')
 
         return molecule
@@ -979,5 +979,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # For running with debugger
+    # For running with debugger, normal entry point is defined in setup.py
     main()

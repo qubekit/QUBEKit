@@ -95,7 +95,8 @@ class PSI4(Engines):
                              f'{self.molecule.charge} {self.molecule.multiplicity} \n')
             # molecule is always printed
             for i, atom in enumerate(self.molecule.coords[input_type]):
-                input_file.write(f' {self.molecule.atoms[i].element}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n')
+                input_file.write(f' {self.molecule.atoms[i].element}    '
+                                 f'{float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n')
 
             input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n")
 
