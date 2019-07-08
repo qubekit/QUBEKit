@@ -99,7 +99,9 @@ These packages are on different conda channels, hence needing the extra argument
 
 * [PSI4](http://www.psicode.org/)
 
-`conda install -c psi4 psi4`
+You should chose which version of Psi4 you require at the following link
+
+`https://admiring-tesla-08529a.netlify.com/installs/v132/`
 
 * [GeomeTRIC](https://github.com/leeping/geomeTRIC)
 
@@ -124,11 +126,7 @@ These packages are on different conda channels, hence needing the extra argument
 * [TorsionDrive](https://github.com/lpwgroup/torsiondrive)
 
 
-```
-https://github.com/lpwgroup/torsiondrive.git
-cd <install location>
-python setup.py install
-```
+`conda install -c conda-forge torsiondrive`
 
 
 **GUI Requirements**

@@ -3,3 +3,5 @@ qcengine
 matplotlib
 numpy
 networkx
+torsiondrive
+scipy

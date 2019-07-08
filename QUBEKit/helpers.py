@@ -54,6 +54,15 @@ class Configure:
         'l_pen': '0.0',                 # The regularisation penalty
     }
 
+    excited = {
+        'excited_state': 'False',      # Is this an excited state calculation
+        'excited_theory': 'TDA',
+        'nstates': '3',
+        'excited_root': '1',
+        'use_pseudo': 'False',
+        'pseudo_potential_block': ''
+    }
+
     descriptions = {
         'chargemol': '/home/<QUBEKit_user>/chargemol_09_26_2017',  # Location of the chargemol program directory
         'log': '999',                   # Default string for the working directories and logs
@@ -84,7 +93,13 @@ class Configure:
         'div_index': ';Fitting starting index in the division array',
         'parameter_engine': ';Method used for initial parametrisation',
         'chargemol': ';Location of the Chargemol program directory (do not end with a "/")',
-        'log': ';Default string for the names of the working directories'
+        'log': ';Default string for the names of the working directories',
+        'excited_state': ';Use the excited state',
+        'excited_theory': ';Excited state theory TDA or TD',
+        'nstates': ';The number of states to use',
+        'excited_root': ';The root',
+        'use_pseudo': ';Use a pseudo potential',
+        'pseudo_potential_block': ';Enter the pseudo potential block here eg'
     }
 
     # TODO Why is this static? Shouldn't we just use self.qm, self.fitting etc
@@ -98,23 +113,23 @@ class Configure:
 
             # Check if the user has made a new master file to use
             if Configure.check_master():
-                qm, fitting, descriptions = Configure.ini_parser(f'{Configure.config_folder + Configure.master_file}')
+                qm, fitting, excited, descriptions = Configure.ini_parser(f'{Configure.config_folder + Configure.master_file}')
 
             else:
                 # If there is no master then assign the default config
-                qm, fitting, descriptions = Configure.qm, Configure.fitting, Configure.descriptions
+                qm, fitting, excited, descriptions = Configure.qm, Configure.fitting, Configure.excited, Configure.descriptions
 
         else:
             # Load in the ini file given
             if os.path.exists(config_file):
-                qm, fitting, descriptions = Configure.ini_parser(config_file)
+                qm, fitting, excited, descriptions = Configure.ini_parser(config_file)
 
             else:
-                qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder + config_file)
+                qm, fitting, excited, descriptions = Configure.ini_parser(Configure.config_folder + config_file)
 
         # Now cast the numbers
         clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
-                      'increment', 'dih_end', 'tor_limit', 'div_index']
+                      'increment', 'dih_end', 'tor_limit', 'div_index', 'nstates', 'excited_root']
 
         for key in clean_ints:
 
@@ -123,6 +138,9 @@ class Configure:
 
             elif key in fitting:
                 fitting[key] = int(fitting[key])
+
+            elif key in excited:
+                excited[key] = int(excited[key])
 
         # Now cast the one float the scaling
         qm['vib_scaling'] = float(qm['vib_scaling'])
@@ -134,6 +152,8 @@ class Configure:
         #  config parsing begins in run.py
         qm['geometric'] = True if qm['geometric'].lower() == 'true' else False
         qm['solvent'] = True if qm['solvent'].lower() == 'true' else False
+        excited['excited_state'] = True if excited['excited_state'].lower() == 'true' else False
+        excited['use_pseudo'] = True if excited['use_pseudo'].lower() == 'true' else False
 
         # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
@@ -144,7 +164,7 @@ class Configure:
 
         # return qm, fitting, descriptions
         # TODO Fix this monstrosity; shouldn't need to cast to dict() but something must be broken
-        return {**dict(qm), **dict(fitting), **dict(descriptions)}
+        return {**dict(qm), **dict(fitting), **dict(excited), **dict(descriptions)}
 
     @staticmethod
     def ini_parser(ini):
@@ -154,15 +174,16 @@ class Configure:
         config.read(ini)
         qm = config.__dict__['_sections']['QM']
         fitting = config.__dict__['_sections']['FITTING']
+        excited = config.__dict__['_sections']['EXCITED']
         descriptions = config.__dict__['_sections']['DESCRIPTIONS']
 
-        return qm, fitting, descriptions
+        return qm, fitting, excited, descriptions
 
     @staticmethod
     def show_ini():
         """Show all of the ini file options in the config folder."""
 
-        inis = os.listdir(Configure.config_folder)
+        inis = [ini for ini in os.listdir(Configure.config_folder) if not ini.endswith('~')]  # Hide the emacs backups
 
         return inis
 
@@ -183,11 +204,11 @@ class Configure:
         # Check the current master template
         if Configure.check_master():
             # If master then load
-            qm, fitting, descriptions = Configure.ini_parser(Configure.config_folder + Configure.master_file)
+            qm, fitting, excited, descriptions = Configure.ini_parser(Configure.config_folder + Configure.master_file)
 
         else:
             # If default is the config file then assign the defaults
-            qm, fitting, descriptions = Configure.qm, Configure.fitting, Configure.descriptions
+            qm, fitting, excited, descriptions = Configure.qm, Configure.fitting, Configure.excited, Configure.descriptions
 
         # Set config parser to allow for comments
         config = ConfigParser(allow_no_value=True)
@@ -202,6 +223,12 @@ class Configure:
         for key, val in fitting.items():
             config.set('FITTING', Configure.help[key])
             config.set('FITTING', key, val)
+
+        config.add_section('EXCITED')
+
+        for key, val in excited.items():
+            config.set('EXCITED', Configure.help[key])
+            config.set('EXCITED', key, val)
 
         config.add_section('DESCRIPTIONS')
 
