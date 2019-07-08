@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-
-
 from QUBEKit.decorators import timer_logger, for_all_methods
 from QUBEKit.engines import PSI4, OpenMM
 

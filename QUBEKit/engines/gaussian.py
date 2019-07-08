@@ -29,7 +29,7 @@ class Gaussian(Engines):
                                  'GAU_VERYTIGHT': 'verytight'}
 
     def generate_input(self, input_type='input', optimise=False, hessian=False,
-                       density=False, solvent=False, restart=False, execute=True):
+                       density=False, solvent=False, restart=False, execute='g09'):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
         :param input_type: The set of coordinates in the molecule that should be used in the job
@@ -41,6 +41,11 @@ class Gaussian(Engines):
         :param execute: Run the calculation after writing the input file
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
+
+        if execute == 'g16':
+            print('\nWe do not have the capability to test Gaussian 16; '
+                  'as a result, there may be some issues. '
+                  'Please let us know if any changes are needed through our Slack, or Github issues page.\n')
 
         molecule = self.molecule.coords[input_type]
 
@@ -91,9 +96,10 @@ class Gaussian(Engines):
             # Blank lines because Gaussian.
             input_file.write('\n\n')
 
+        # execute should be either g09, g16 or False
         if execute:
             with open('log.txt', 'w+') as log:
-                sp.run(f'g09 < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
+                sp.run(f'{execute} < gj_{self.molecule.name}.com > gj_{self.molecule.name}.log',
                        shell=True, stdout=log, stderr=log)
 
             # Now check the exit status of the job
@@ -134,18 +140,26 @@ class Gaussian(Engines):
         with open('lig.fchk', 'r') as fchk:
 
             lines = fchk.readlines()
+
+            # Improperly formatted Hessian (converted to square numpy array later)
             hessian_list = []
+
+            start, end = None, None
 
             for count, line in enumerate(lines):
                 if line.startswith('Cartesian Force Constants'):
-                    start_pos = count + 1
+                    start = count + 1
+                if line.startswith('Nonadiabatic coupling'):
+                    if end is None:
+                        end = count
                 if line.startswith('Dipole Moment'):
-                    end_pos = count
+                    if end is None:
+                        end = count
 
-            if not start_pos and end_pos:
+            if not start and end:
                 raise EOFError('Cannot locate Hessian matrix in lig.fchk file.')
 
-            for line in lines[start_pos: end_pos]:
+            for line in lines[start: end]:
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
                 hessian_list.extend([float(num) * 627.509391 / (0.529 ** 2) for num in line.strip('\n').split()])
 
@@ -181,15 +195,19 @@ class Gaussian(Engines):
 
         start, end, energy = None, None, None
 
-        for i, line in enumerate(lines):
+        for count, line in enumerate(lines):
             if 'Current cartesian coordinates' in line:
-                start = i + 1
+                start = count + 1
+            elif 'Number of symbols in' in line:
+                if end is None:
+                    end = count
             elif 'Int Atom Types' in line:
-                end = i - 1
+                if end is None:
+                    end = count - 1
             elif 'Total Energy' in line:
                 energy = float(line.split()[3])
 
-        if any(x is None for x in [start, end, energy]):
+        if any(val is None for val in [start, end, energy]):
             raise EOFError('Cannot locate optimised structure in file.')
 
         molecule = []
