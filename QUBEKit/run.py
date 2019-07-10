@@ -9,8 +9,9 @@
 from QUBEKit.decorators import exception_logger
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
+from QUBEKit.exceptions import OptimisationFailed
 from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
-    Configure, unpickle, OptimisationFailed
+    Configure, unpickle
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
@@ -20,10 +21,10 @@ from collections import OrderedDict
 from datetime import datetime
 from functools import partial
 import os
+from pathlib import Path
 from shutil import copy, move
 import subprocess as sp
 import sys
-from pathlib import Path
 
 import argparse
 
@@ -687,7 +688,9 @@ class Execute:
     def qm_optimise(self, molecule):
         """Optimise the molecule with or without geometric."""
 
-        # TODO this method's not always printing completion to log file.
+        # TODO This method's not always printing completion to log file.
+        # TODO If the optimisation restarts, we should print that to the log file.
+        #   Also, restarts should restart from the partially optimised structure (last trajectory before failure)
 
         append_to_log('Starting qm_optimisation')
         qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
