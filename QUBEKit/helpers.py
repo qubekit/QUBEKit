@@ -347,6 +347,8 @@ def append_to_log(message, msg_type='major'):
     # Starting in the current directory walk back looking for the log file
     # Stop at the first file found this should be our file
     search_dir = os.getcwd()
+
+    # TODO Dangerous use of while True; may exit is not guaranteed.
     while True:
         if 'QUBEKit_log.txt' in os.listdir(search_dir):
             log_file = os.path.abspath(os.path.join(search_dir, 'QUBEKit_log.txt'))
@@ -635,13 +637,3 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
 
     print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
     return True
-
-
-class OptimisationFailed(Exception):
-    """
-    Raise for seg faults from PSI4 - geomeTRIC/Torsiondrive/QCEngine interactions.
-    This should mean it's more obvious to users when there's a segfault.
-    """
-
-    # If we ever create a QUBEKit exceptions.py, this class will be moved there.
-    __module__ = Exception.__module__

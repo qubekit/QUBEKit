@@ -28,7 +28,7 @@ class Gaussian(Engines):
                                  'GAU_LOOSE': 'loose',
                                  'GAU_VERYTIGHT': 'verytight'}
 
-    def generate_input(self, input_type='input', optimise=False, hessian=False,
+    def generate_input(self, input_type='input', optimise=False, hessian=False, energy=False,
                        density=False, solvent=False, restart=False, execute='g09', red_mode=None):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
@@ -108,7 +108,7 @@ class Gaussian(Engines):
                 input_file.write(f'\n{"  ".join(str(x) for x in red_mode[0])} ={red_mode[1]:.3f} B')
                 input_file.write(f'\n{"  ".join(str(x) for x in red_mode[0])} F')
 
-            #TODO finish this block
+            # TODO finish this block
             if self.molecule.use_pseudo:
                 input_file.write(f'\n{self.molecule.pseudo_potential_block}')
 
