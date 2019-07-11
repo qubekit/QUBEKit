@@ -15,6 +15,7 @@ from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
+from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 
 from collections import OrderedDict
 from datetime import datetime
@@ -24,6 +25,7 @@ from shutil import copy, move
 import subprocess as sp
 import sys
 from pathlib import Path
+import numpy as np
 
 import argparse
 
@@ -233,10 +235,10 @@ class ArgsAndConfigs:
         # Maybe separate into known solvents and IPCM constants?
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
                             help='Enter the convergence criteria for the optimisation.')
-        parser.add_argument('-param', '--parameter_engine', choices=['xml', 'antechamber', 'openff'],
+        parser.add_argument('-param', '--parameter_engine', choices=['xml', 'antechamber', 'openff', 'none'],
                             help='Enter the method of where we should get the initial molecule parameters from, '
                                  'if xml make sure the xml has the same name as the pdb file.')
-        parser.add_argument('-mm', '--mm_opt_method', choices=['openmm', 'rdkit_mff', 'rdkit_uff'],
+        parser.add_argument('-mm', '--mm_opt_method', choices=['openmm', 'rdkit_mff', 'rdkit_uff', 'none'],
                             help='Enter the mm optimisation method for pre qm optimisation.')
         parser.add_argument('-config', '--config_file', default='default_config', choices=Configure.show_ini(),
                             help='Enter the name of the configuration file you wish to use for this run from the list '
@@ -629,14 +631,18 @@ class Execute:
         molecule.write_pdb()
 
         # Parametrisation options:
-        param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF}
+        param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF, 'none': Parametrisation}
 
         # If we are using xml we have to move it
         if molecule.parameter_engine == 'xml':
             copy(os.path.join(molecule.home, f'{molecule.name}.xml'), f'{molecule.name}.xml')
 
-        # Perform the parametrisation
-        param_dict[molecule.parameter_engine](molecule)
+        # Perform the parametrisation (
+        # If the method is none the molecule is not parameterised but the parameter holders are initiated
+        if molecule.parameter_engine == 'none':
+            param_dict[molecule.parameter_engine](molecule).gather_parameters()
+        else:
+            param_dict[molecule.parameter_engine](molecule)
 
         append_to_log(f'Finishing parametrisation of molecule with {molecule.parameter_engine}')
 
@@ -657,22 +663,30 @@ class Execute:
 
         # Check which method we want then do the optimisation
         if self.molecule.mm_opt_method == 'openmm':
-            # Make the inputs
-            molecule.write_pdb(input_type='input')
-            molecule.write_parameters()
-            # Run geometric
-            # TODO Should this be moved to allow a decorator?
-            with open('log.txt', 'w+') as log:
-                sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations}  --pdb '
-                       f'{molecule.name}.pdb --openmm {molecule.name}.xml '
-                       f'{self.molecule.constraints_file if self.molecule.constraints_file is not None else ""}',
-                       shell=True, stdout=log, stderr=log)
+            if self.molecule.parameter_engine != 'none':
+                # Make the inputs
+                molecule.write_pdb(input_type='input')
+                molecule.write_parameters()
+                # Run geometric
+                # TODO Should this be moved to allow a decorator?
+                with open('log.txt', 'w+') as log:
+                    sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations}  --pdb '
+                           f'{molecule.name}.pdb --openmm {molecule.name}.xml '
+                           f'{self.molecule.constraints_file if self.molecule.constraints_file is not None else ""}',
+                           shell=True, stdout=log, stderr=log)
 
-            # This will continue even if we don't converge this is fine
-            # Read the xyz traj and store the frames
-            molecule.read_xyz(f'{molecule.name}_optim.xyz')
-            # Store the last from the traj as the mm optimised structure
-            molecule.coords['mm'] = molecule.coords['traj'][-1]
+                # This will continue even if we don't converge this is fine
+                # Read the xyz traj and store the frames
+                molecule.read_xyz(f'{molecule.name}_optim.xyz')
+                # Store the last from the traj as the mm optimised structure
+                molecule.coords['mm'] = molecule.coords['traj'][-1]
+            else:
+                raise OptimisationFailed('You can not optimise a molecule with OpenMM and no initial parameters, '
+                                         'consider parametrising or using UFF/MFF in RDKit')
+
+        elif self.molecule.mm_opt_method == 'none':
+            # Skip the optimisation step
+            molecule.coords['mm'] = molecule.coords['input']
 
         else:
             # TODO change to qcengine as this can already be done
@@ -696,7 +710,7 @@ class Execute:
 
             qceng = QCEngine(molecule)
             # See if the structure is there if not we did not optimise
-            if molecule.coords['mm'].any():
+            if list(molecule.coords['mm']):
                 result = qceng.call_qcengine('geometric', 'gradient', input_type='mm')
             else:
                 result = qceng.call_qcengine('geometric', 'gradient', input_type='input')
@@ -706,8 +720,9 @@ class Execute:
                 # Load all of the frames into the molecule's trajectory holder
                 molecule.read_geometric_traj(result['trajectory'])
 
-                # store the last frame as the qm optimised structure
-                molecule.coords['qm'] = molecule.coords['traj'][-1]
+                # store the final molecule as the qm optimised structure
+                molecule.coords['qm'] = np.array(result['input_data']['final_molecule']['geometry']).reshape((len(molecule.atoms), 3)) * 0.529177210
+                molecule.qm_energy = result['input_data']['energies'][-1]
 
                 # Write out the trajectory file
                 molecule.write_xyz(input_type='traj', name=f'{molecule.name}_opt')
@@ -718,11 +733,30 @@ class Execute:
                 return molecule
 
             else:
-                # TODO catch the qcengine error here
-                print(result)  # catch the steps done so far
-                raise OptimisationFailed("The optimisation did not converge")
+                restart_count = 1
+                while not result['success'] and restart_count < 3:
 
-        elif molecule.coords['mm'].any():
+                    # If the error was not a straight segfault se if we can get the molecule so far
+                    try:
+                        molecule.coords['temp'] = np.array(result['input_data']['final_molecule']['geometry']).reshape((len(molecule.atoms), 3)) * 0.529177210
+                        result = qceng.call_qcengine('geometric', 'gradient', 'temp')
+                    except KeyError:
+                        # No molecule data was caught so start again
+                        #TODO check for other errors here as well
+                        if list(molecule.coords['mm']):
+                            result = qceng.call_qcengine('geometric', 'gradient', 'mm')
+                        else:
+                            result = qceng.call_qcengine('geometric', 'gradient', 'input')
+                if result['success']:
+                    molecule.coords['qm'] = np.array(result['input_data']['final_molecule']['geometry']).reshape((len(molecule.atoms), 3)) * 0.529177210
+                    molecule.qm_energy = result['input_data']['energies'][-1]
+
+                    return molecule
+                else:
+
+                    raise OptimisationFailed("The optimisation did not converge")
+
+        elif list(molecule.coords['mm']):
             result = qm_engine.generate_input(input_type='mm', optimise=True)
 
         else:
@@ -854,6 +888,9 @@ class Execute:
                 copy(os.path.join(charges_fld, file), file)
         lj = LennardJones(molecule)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
+
+        # This also now implies the opls combination rule
+        molecule.combination = 'opls'
 
         append_to_log('Finishing Lennard-Jones parameter calculation')
 

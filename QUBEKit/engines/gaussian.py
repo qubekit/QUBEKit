@@ -21,7 +21,7 @@ class Gaussian(Engines):
         super().__init__(molecule)
 
         self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD', 'B3LYP-D3BJ': 'EmpiricalDispersion=GD3BJ B3LYP'}
-        self.molecule.theory = self.functional_dict.get(self.molecule.theory, self.molecule.theory)
+        self.molecule.theory = self.functional_dict.get(self.molecule.theory.lower(), self.molecule.theory)
 
         self.convergence_dict = {'GAU': '',
                                  'GAU_TIGHT': 'tight',
@@ -29,7 +29,7 @@ class Gaussian(Engines):
                                  'GAU_VERYTIGHT': 'verytight'}
 
     def generate_input(self, input_type='input', optimise=False, hessian=False, energy=False,
-                       density=False, solvent=False, restart=False, execute=True, red_mode=None):
+                       density=False, solvent=False, restart=False, execute=True, red_mode=False):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
         :param input_type: The set of coordinates in the molecule that should be used in the job
@@ -67,7 +67,7 @@ class Gaussian(Engines):
                 convergence = self.convergence_dict.get(self.molecule.convergence, "")
                 if convergence != "":
                     convergence = f', {convergence}'
-                if red_mode is not None:
+                if red_mode:
                     # Set the redundant mode as the convergence as we just want to use the standard threshold
                     convergence = 'ModRedundant'
                 # Set the convergence and the iteration cap for the optimisation
@@ -97,11 +97,6 @@ class Gaussian(Engines):
                 for i, atom in enumerate(molecule):
                     input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} '
                                      f'{float(atom[2]): .10f}\n')
-
-            if red_mode is not None:
-                # We need to build the model to have required redundant mode then freeze it
-                input_file.write(f'\n{"  ".join(str(x) for x in red_mode[0])} ={red_mode[1]:.3f} B')
-                input_file.write(f'\n{"  ".join(str(x) for x in red_mode[0])} F')
 
             #TODO finish this block
             if self.molecule.use_pseudo:
@@ -224,7 +219,7 @@ class Gaussian(Engines):
         for line in lines[start: end]:
             molecule.extend([float(coord) for coord in line.split()])
 
-        molecule = np.round(np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529, decimals=10)
+        molecule = np.round(np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529177, decimals=10)
 
         return molecule, energy
 

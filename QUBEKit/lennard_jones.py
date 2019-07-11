@@ -158,16 +158,19 @@ class LennardJones:
         }
 
         for pos, atom in enumerate(self.ddec_data):
+            try:
+                # r_aim = r_free * ((vol / v_free) ** (1 / 3))
+                r_aim = elem_dict[f'{atom[1]}'][2] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** (1 / 3))
 
-            # r_aim = r_free * ((vol / v_free) ** (1 / 3))
-            r_aim = elem_dict[f'{atom[1]}'][2] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** (1 / 3))
+                # b_i = bfree * ((vol / v_free) ** 2)
+                b_i = elem_dict[f'{atom[1]}'][1] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** 2)
 
-            # b_i = bfree * ((vol / v_free) ** 2)
-            b_i = elem_dict[f'{atom[1]}'][1] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** 2)
+                a_i = 32 * b_i * (r_aim ** 6)
 
-            a_i = 32 * b_i * (r_aim ** 6)
+                self.ddec_data[pos] += [r_aim, b_i, a_i]
 
-            self.ddec_data[pos] += [r_aim, b_i, a_i]
+            except KeyError:
+                self.ddec_data[pos] += [0, 0, 0]
 
     def calculate_sig_eps(self):
         """

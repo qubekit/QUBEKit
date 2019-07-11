@@ -487,8 +487,6 @@ class Molecule(Defaults):
         :param trajectory: The qcengine trajectory
         :return: None
         """
-        # TODO when restarting, restart from last trajectory (depending on error) rather than restarting from the
-        #   beginning like we do currently.
 
         for frame in trajectory:
             opt_traj = []

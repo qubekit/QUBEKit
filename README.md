@@ -128,6 +128,10 @@ You should chose which version of Psi4 you require at the following link
 
 `conda install -c conda-forge torsiondrive`
 
+* [Ambermini](https://github.com/swails/ambermini)
+
+`conda install -c omnia ambermini`
+
 
 **GUI Requirements**
 

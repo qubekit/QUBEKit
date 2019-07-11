@@ -22,7 +22,7 @@ class PSI4(Engines):
 
         self.functional_dict = {'pbepbe': 'PBE', 'wb97xd': 'wB97X-D'}
         # Search for functional in dict, if it's not there, just leave the theory as it is.
-        self.molecule.theory = self.functional_dict.get(self.molecule.theory, self.molecule.theory)
+        self.molecule.theory = self.functional_dict.get(self.molecule.theory.lower(), self.molecule.theory)
 
     # TODO add restart from log method
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
