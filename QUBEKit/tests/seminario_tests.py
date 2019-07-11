@@ -1,4 +1,4 @@
-from QUBEKit.helpers import unpickle
+from QUBEKit.utils.helpers import unpickle
 from QUBEKit.mod_seminario import ModSeminario
 
 import unittest

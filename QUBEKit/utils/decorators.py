@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from QUBEKit.helpers import pretty_print, unpickle
+from QUBEKit.utils.helpers import pretty_print, unpickle
 
 from datetime import datetime
 from functools import wraps
@@ -126,7 +126,7 @@ def exception_logger(func):
         try:
             return func(*args, **kwargs)
         # Any exception that occurs is logged; this means KeyboardInterrupt and SystemExit are still raised
-        except Exception:
+        except Exception as exc:
 
             home = getattr(args[0].molecule, 'home', None)
             state = getattr(args[0].molecule, 'state', None)
@@ -141,7 +141,8 @@ def exception_logger(func):
             logger = logger_format(log_file)
 
             logger.exception(f'\nAn exception occurred with: {func.__qualname__}\n')
-            print(f'\n\nAn exception occurred with: {func.__qualname__}\nView the log file for details.\n'.upper())
+            print(f'\n\nAn exception occurred with: {func.__qualname__}\n'
+                  f'Exception: {exc}\nView the log file for details.'.upper())
 
             # Re-raises the exception if it's not a bulk run.
             # Even if the exception is not raised, it is still logged.
