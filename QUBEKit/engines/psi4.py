@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from QUBEKit.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.engines.base_engine import Engines
-from QUBEKit.helpers import append_to_log, get_overage, check_symmetry
+from QUBEKit.utils.helpers import append_to_log, get_overage, check_symmetry
 
 import subprocess as sp
 

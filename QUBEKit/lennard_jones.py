@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.helpers import check_net_charge
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.helpers import check_net_charge
 
 from collections import OrderedDict
 import os

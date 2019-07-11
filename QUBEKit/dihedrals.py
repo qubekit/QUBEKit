@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from QUBEKit.decorators import timer_logger, for_all_methods
+from QUBEKit.utils.decorators import timer_logger, for_all_methods
 from QUBEKit.engines import PSI4, OpenMM, Gaussian
 
 from collections import OrderedDict
@@ -36,7 +36,7 @@ class TorsionScan:
     """
 
     def __init__(self, molecule, verbose=False, constraints_made=None):
-        #TODO test with constraints
+        # TODO test with constraints
 
         # engine info
         self.qm_engine = {'psi4': PSI4, 'g09': Gaussian}.get(molecule.bonds_engine)(molecule)

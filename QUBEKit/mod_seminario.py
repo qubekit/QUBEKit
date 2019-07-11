@@ -7,7 +7,7 @@ Modified by Joshua T. Horton and rewritten by Chris Ringrose, Newcastle Universi
 Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 """
 
-from QUBEKit.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from operator import itemgetter
 

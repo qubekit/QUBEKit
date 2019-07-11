@@ -6,11 +6,11 @@
 #  Switch to normal dicts rather than Ordered; all dicts are now ordered in newer versions.
 #  Better handling of torsion_options
 
-from QUBEKit.decorators import exception_logger
+from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
-from QUBEKit.exceptions import OptimisationFailed
-from QUBEKit.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
+from QUBEKit.utils.exceptions import OptimisationFailed
+from QUBEKit.utils.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
     Configure, unpickle
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
