@@ -45,9 +45,6 @@ class RDKit:
         """
         # Originally written by venkatakrishnan; rewritten and extended by Chris Ringrose
 
-        if 'H' in smiles_string:
-            raise SyntaxError('Smiles string contains hydrogen atoms; try again.')
-
         m = AllChem.MolFromSmiles(smiles_string)
         if name is None:
             name = input('Please enter a name for the molecule:\n>')
@@ -59,9 +56,6 @@ class RDKit:
             rdPartialCharges.ComputeGasteigerCharges(mol_hydrogens)
         except RuntimeError:
             print('RDKit could not assign the partial charges')
-
-        #print(AllChem.MolToMolBlock(mol_hydrogens), file=open(f'{name}.mol', 'w+'))
-        #AllChem.MolToPDBFile(mol_hydrogens, f'{name}.pdb')
 
         return mol_hydrogens
 
