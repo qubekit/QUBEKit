@@ -125,7 +125,7 @@ class Atom:
 class Molecule(Defaults):
     """Base class for ligands and proteins."""
 
-    def __init__(self, filename):
+    def __init__(self, mol_input, name=None):
         """
         # Namings
         filename                str; Full filename e.g. methane.pdb
@@ -180,10 +180,15 @@ class Molecule(Defaults):
 
         super().__init__()
 
-        # Namings
-        self.filename = Path(filename)
-        self.name = self.filename.stem
-        self.smiles = None
+        if Path(mol_input).exists():
+            # Namings
+            self.filename = Path(mol_input)
+            self.name = self.filename.stem
+            self.smiles = None
+        else:
+            self.smiles = mol_input
+            self.name = name
+            self.filename = None
 
         # Structure
         # TODO Convert empty lists to None?
@@ -278,24 +283,29 @@ class Molecule(Defaults):
 
         return return_str
 
-    def read_file(self):
+    def read_input(self):
         """The base file reader used upon instancing the class; it will decide which file reader to use
          based on the file suffix."""
 
-        # Try to load the file using RDKit; this should ensure we always have the connection info
-        try:
-            rdkit_mol = RDKit().read_file(self.filename.name)
-            # Now extract the molecule from RDKit
+        if self.smiles is not None:
+            rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
             self.mol_from_rdkit(rdkit_mol)
 
-        except AttributeError:
-            # AttributeError:  errors when reading the input file
-            print('RDKit error was found, resorting to standard file readers')
-            # Try to read using QUBEKit readers they only get the connections if present
-            if self.filename.suffix == '.pdb':
-                self.read_pdb(self.filename)
-            elif self.filename.suffix == '.mol2':
-                self.read_mol2(self.filename)
+        else:
+            # Try to load the file using RDKit; this should ensure we always have the connection info
+            try:
+                rdkit_mol = RDKit().read_file(self.filename.name)
+                # Now extract the molecule from RDKit
+                self.mol_from_rdkit(rdkit_mol)
+
+            except AttributeError:
+                # AttributeError:  errors when reading the input file
+                print('RDKit error was found, resorting to standard file readers')
+                # Try to read using QUBEKit readers they only get the connections if present
+                if self.filename.suffix == '.pdb':
+                    self.read_pdb(self.filename)
+                elif self.filename.suffix == '.mol2':
+                    self.read_mol2(self.filename)
 
     # TODO add mol file reader
     def mol_from_rdkit(self, rdkit_molecule, input_type='input'):
@@ -309,17 +319,25 @@ class Molecule(Defaults):
         self.topology = nx.Graph()
         self.atoms = []
 
+        if self.name is None:
+            self.name = rdkit_molecule.GetProp('_Name')
         # Collect the atom names and bonds
-        for atom in rdkit_molecule.GetAtoms():
+        for i, atom in enumerate(rdkit_molecule.GetAtoms(), 1):
             # Collect info about each atom
             try:
                 # PDB file extraction
                 atom_name = atom.GetMonomerInfo().GetName().strip()
                 partial_charge = atom.GetProp('_GasteigerCharge')
             except AttributeError:
-                # Mol2 file extraction
-                atom_name = atom.GetProp('_TriposAtomName')
-                partial_charge = atom.GetProp('_TriposPartialCharge')
+                try:
+                    # Mol2 file extraction
+                    atom_name = atom.GetProp('_TriposAtomName')
+                    partial_charge = atom.GetProp('_TriposPartialCharge')
+                except KeyError:
+                    # Mol from smiles extraction
+                    partial_charge = atom.GetProp('_GasteigerCharge')
+                    # smiles does not have atom names so generate them here
+                    atom_name = f'{atom.GetSymbol()}{i}'
             atomic_number = atom.GetAtomicNum()
             index = atom.GetIdx()
 
@@ -487,8 +505,6 @@ class Molecule(Defaults):
         :param trajectory: The qcengine trajectory
         :return: None
         """
-        # TODO when restarting, restart from last trajectory (depending on error) rather than restarting from the
-        #   beginning like we do currently.
 
         for frame in trajectory:
             opt_traj = []
@@ -978,7 +994,7 @@ class Molecule(Defaults):
 
 class Ligand(Molecule):
 
-    def __init__(self, filename):
+    def __init__(self, mol_input, name=None):
         """
         parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
         hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
@@ -990,7 +1006,7 @@ class Ligand(Molecule):
                                 the abspath of the constraint.txt file (constrains the execution of geometric)
         """
 
-        super().__init__(filename)
+        super().__init__(mol_input, name)
 
         self.parameter_engine = 'openmm'
         self.hessian = None
@@ -1001,7 +1017,7 @@ class Ligand(Molecule):
 
         self.constraints_file = None
 
-        self.read_file()
+        self.read_input()
 
         # Make sure we have the topology before we calculate the properties
         if self.topology.edges:

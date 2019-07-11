@@ -41,7 +41,8 @@ class TorsionScan:
         # engine info
         self.qm_engine = {'psi4': PSI4, 'g09': Gaussian}.get(molecule.bonds_engine)(molecule)
         self.native_opt = True
-        if molecule.geometric:
+        # Ensure geometric can only be used with psi4  so far
+        if molecule.geometric and molecule.bonds_engine == 'psi4':
             self.native_opt = False
         self.verbose = verbose
         self.inputfile = None
@@ -122,79 +123,56 @@ class TorsionScan:
 
         if self.native_opt:
             self.qm_engine.generate_input(optimise=True, execute=False)
-            self.inputfile = 'input.dat'
+            if self.qm_engine.__class__.__name__.lower() == 'psi4':
+                self.inputfile = 'input.dat'
+            else:
+                self.inputfile = f'gj_{self.molecule.name}.com'
 
         else:
             self.qm_engine.geo_gradient(execute=False, threads=True)
-            self.inputfile = f'{self.molecule.name}.psi4in'
+            self.inputfile = f'{self.molecule.name}.{self.qm_engine.__class__.__name__}in'
 
     def start_torsiondrive(self, scan):
         """Start a torsiondrive either using psi4 or native gaussian09"""
 
-        if self.qm_engine.__class__.__name__ == 'PSI4':
-            # First set up the required files
-            self.tdrive_scan_input(scan)
-            # Read the dihedral file and set zero based numbering
-            dihedral_idxs, dihedral_ranges = load_dihedralfile('dihedrals.txt', True)
-            grid_dim = len(dihedral_idxs)
+        # First set up the required files
+        self.tdrive_scan_input(scan)
+        # Read the dihedral file and set zero based numbering
+        dihedral_idxs, dihedral_ranges = load_dihedralfile('dihedrals.txt', True)
+        grid_dim = len(dihedral_idxs)
 
-            # Parse additional constraints if present
-            constraints_dict = None
-            if self.constraints_made is not None:
-                with open(self.constraints_made) as fin:
-                    constraints_dict = make_constraints_dict(fin.read())
-                    # check if there are extra constraints conflict with the specified dihedral angles
-                    check_conflict_constraints(constraints_dict, dihedral_idxs)
+        # Parse additional constraints if present
+        constraints_dict = None
+        if self.constraints_made is not None:
+            with open(self.constraints_made) as fin:
+                constraints_dict = make_constraints_dict(fin.read())
+                # check if there are extra constraints conflict with the specified dihedral angles
+                check_conflict_constraints(constraints_dict, dihedral_idxs)
 
-            # Format grid spacing
-            n_grid_spacing = len(self.grid_space)
-            if n_grid_spacing == grid_dim:
-                grid_spacing = self.grid_space
-            elif n_grid_spacing == 1:
-                grid_spacing = self.grid_space * grid_dim
-            else:
-                raise ValueError(f"Number of grid_spacing values {grid_dim} "
-                                 f"is not consistent with number of dihedral angles {n_grid_spacing}")
+        # Format grid spacing
+        n_grid_spacing = len(self.grid_space)
+        if n_grid_spacing == grid_dim:
+            grid_spacing = self.grid_space
+        elif n_grid_spacing == 1:
+            grid_spacing = self.grid_space * grid_dim
+        else:
+            raise ValueError(f"Number of grid_spacing values {grid_dim} "
+                             f"is not consistent with number of dihedral angles {n_grid_spacing}")
 
-            # create QM Engine, and WorkQueue object if provided port
-            engine = create_engine('psi4', inputfile=self.inputfile, work_queue_port=None,
-                                   native_opt=self.native_opt)
+        # create QM Engine, and WorkQueue object if provided port
 
-            # create DihedralScanner object
-            scanner = DihedralScanner(engine, dihedrals=dihedral_idxs, dihedral_ranges=dihedral_ranges,
-                                      grid_spacing=grid_spacing, init_coords_M=None,
-                                      energy_decrease_thresh=1e-5, energy_upper_limit=None,
-                                      extra_constraints=constraints_dict, verbose=self.verbose)
-            # Run the torsiondrive
-            scanner.master()
-            # Gather the results
-            self.molecule.read_tdrive(scan)
+        engine = create_engine(self.qm_engine.__class__.__name__.lower(), inputfile=self.inputfile, work_queue_port=None,
+                               native_opt=self.native_opt)
 
-        elif self.qm_engine.__class__.__name__ == 'Gaussian':
-            # Make the individual run folders for gaussian
-            # Then run the native optimiser and collect the results
-            temp_home = os.getcwd()
-            scan_dihedral = list(x + 1 for x in self.molecule.dihedrals[scan][0])
-            energies = []
-            scan_coords = []
-            for run in range(self.scan_start, self.scan_end, self.grid_space[0]):
-                os.mkdir(f'run_{run}')
-                os.chdir(f'run_{run}')
-                # Make the job file
-                red_mode = [scan_dihedral, run]
-                result = self.qm_engine.generate_input(input_type='input', optimise=True, red_mode=red_mode)
-                if result['success']:
-                    coords, e = self.qm_engine.optimised_structure()
-                    energies.append(e)
-                    scan_coords.append(coords)
-                os.chdir(temp_home)
-
-            # Store the scan info back into the molecule
-            self.molecule.qm_scans[scan] = [np.array(energies), scan_coords]
-
-            # We should also write out a scan file with the full traj in it
-            self.molecule.coords['traj'] = scan_coords
-            self.molecule.write_xyz('traj')
+        # create DihedralScanner object
+        scanner = DihedralScanner(engine, dihedrals=dihedral_idxs, dihedral_ranges=dihedral_ranges,
+                                  grid_spacing=grid_spacing, init_coords_M=None,
+                                  energy_decrease_thresh=1e-5, energy_upper_limit=None,
+                                  extra_constraints=constraints_dict, verbose=True)
+        # Run the torsiondrive
+        scanner.master()
+        # Gather the results
+        self.molecule.read_tdrive(scan)
 
     def collect_scan(self):
         """
@@ -1262,7 +1240,7 @@ class TorsionOptimiser:
                        shell=True, stderr=log, stdout=log)
                 self.molecule.read_tdrive(self.scan)
                 self.molecule.coords['traj'] = self.molecule.qm_scans[self.scan][1]
-                positions = self.molecule.openMM_coordinates(input_type='traj')
+                positions = self.molecule.openmm_coordinates(input_type='traj')
             elif engine == 'geometric':
                 if self.molecule.constraints_file is not None:
                     os.system('mv ../constraints.txt .')
