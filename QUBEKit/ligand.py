@@ -180,15 +180,21 @@ class Molecule(Defaults):
 
         super().__init__()
 
-        if Path(mol_input).exists():
-            # Namings
-            self.filename = Path(mol_input)
-            self.name = self.filename.stem
-            self.smiles = None
-        else:
-            self.smiles = mol_input
+        self.smiles = None
+        self.filename = None
+        self.qc_json = None
+
+        try:
+            if Path(mol_input).exists():
+                self.filename = Path(mol_input)
+                self.name = self.filename.stem
+            else:
+                self.smiles = mol_input
+                self.name = name
+
+        except TypeError:
             self.name = name
-            self.filename = None
+            self.qc_json = mol_input
 
         # Structure
         # TODO Convert empty lists to None?
@@ -290,6 +296,9 @@ class Molecule(Defaults):
         if self.smiles is not None:
             rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
             self.mol_from_rdkit(rdkit_mol)
+
+        elif self.qc_json is not None:
+            self.read_qc_json()
 
         else:
             # Try to load the file using RDKit; this should ensure we always have the connection info
@@ -484,6 +493,27 @@ class Molecule(Defaults):
 
         # put the object back into the correct place
         self.coords[input_type] = np.array(molecule)
+
+    def read_qc_json(self):
+        """
+
+        :return:
+        """
+        topology = nx.Graph()
+        atoms = []
+
+        for i, atom in enumerate(self.qc_json['symbols'], 1):
+            atoms.append(Atom(atomic_number=self.element_dict[atom], index=i, atom_name=f'{atom}{i}'))
+            topology.add_node(i)
+
+        self.atoms = atoms
+
+        for bond in self.qc_json['connectivity']:
+            topology.add_edge(*bond[:2])
+
+        self.topology = topology
+
+        self.coords['input'] = np.array(self.qc_json['geometry']).reshape((len(self.atoms), 3)) * 0.529
 
     def get_atom_with_name(self, name):
         """

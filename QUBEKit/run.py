@@ -26,7 +26,6 @@ from pathlib import Path
 from shutil import copy, move
 import subprocess as sp
 import sys
-from pathlib import Path
 import numpy as np
 
 import argparse
