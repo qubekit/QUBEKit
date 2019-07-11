@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from QUBEKit.decorators import for_all_methods, timer_logger
-from QUBEKit.helpers import append_to_log
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.helpers import append_to_log
 
 import numpy as np
 

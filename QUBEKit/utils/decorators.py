@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from QUBEKit.helpers import pretty_print, unpickle
+from QUBEKit.utils.helpers import pretty_print, unpickle
 
 from datetime import datetime
 from functools import wraps

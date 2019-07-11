@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from QUBEKit.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.engines.base_engine import Engines
 
 import matplotlib.pyplot as plt

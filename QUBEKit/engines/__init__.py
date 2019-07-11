@@ -2,7 +2,7 @@
 
 from .babel import Babel
 from .chargemol import Chargemol
-from QUBEKit.exceptions import try_load
+from QUBEKit.utils.exceptions import try_load
 
 
 Gaussian = try_load('Gaussian', 'QUBEKit.engines.gaussian')
