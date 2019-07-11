@@ -77,12 +77,11 @@ class ArgsAndConfigs:
                 raise FileNotFoundError('No checkpoint file found!')
         else:
             if self.args.smiles:
-                self.file = RDKit().smiles_to_pdb(*self.args.smiles)
+                print(self.args.smiles)
+                self.molecule = Ligand(*self.args.smiles)
             else:
-                self.file = self.args.input
-
-            # Initialise molecule
-            self.molecule = Ligand(self.file)
+                # Initialise molecule
+                self.molecule = Ligand(self.args.input)
 
         # Find which config file is being used
         self.molecule.config = self.args.config_file
@@ -313,14 +312,12 @@ class ArgsAndConfigs:
             # Get pdb from smiles or name if no smiles is given
             if bulk_data[name]['smiles'] is not None:
                 smiles_string = bulk_data[name]['smiles']
-                rdkit = RDKit()
-                self.file = rdkit.smiles_to_pdb(smiles_string, name)
+                self.molecule = Ligand(smiles_string, name)
 
             else:
-                self.file = f'{name}.pdb'
 
-            # Initialise molecule, ready to add configs to it
-            self.molecule = Ligand(self.file)
+                # Initialise molecule, ready to add configs to it
+                self.molecule = Ligand(f'{name}.pdb')
 
             # Read each row in bulk data and set it to the molecule object
             for key, val in bulk_data[name].items():
@@ -472,20 +469,19 @@ class Execute:
 
         # Finally, having made any necessary backups, move files and change to working dir.
         finally:
-            # Copy active pdb into new directory.
-            abspath = os.path.abspath(self.molecule.filename)
-            copy(abspath, f'{dir_name}/{self.molecule.filename}')
             os.chdir(dir_name)
 
             # Set a home directory
             self.molecule.home = os.getcwd()
 
         # Find external files
-        copy_files = [f'{self.molecule.name}.xml', 'QUBE_torsions.txt']
+        copy_files = [f'{self.molecule.name}.xml', 'QUBE_torsions.txt', self.molecule.filename]
         for file in copy_files:
             try:
                 copy(f'../{file}', file)
             except FileNotFoundError:
+                pass
+            except TypeError:
                 pass
 
         with open('QUBEKit_log.txt', 'w+') as log_file:
@@ -627,9 +623,6 @@ class Execute:
 
         append_to_log('Starting parametrisation')
 
-        # Write the PDB file this covers us if we have a mol2 or xyz input file
-        molecule.write_pdb()
-
         # Parametrisation options:
         param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF, 'none': Parametrisation}
 
@@ -642,6 +635,8 @@ class Execute:
         if molecule.parameter_engine == 'none':
             param_dict[molecule.parameter_engine](molecule).gather_parameters()
         else:
+            # Write the PDB file this covers us if we have a mol2 or xyz input file
+            molecule.write_pdb()
             param_dict[molecule.parameter_engine](molecule)
 
         append_to_log(f'Finishing parametrisation of molecule with {molecule.parameter_engine}')

@@ -36,7 +36,7 @@ class RDKit:
 
         return mol
 
-    def smiles_to_pdb(self, smiles_string, name=None):
+    def smiles_to_rdkit_mol(self, smiles_string, name=None):
         """
         Converts smiles strings to RDKit molobject.
         :param smiles_string: The hydrogen free smiles string
@@ -55,11 +55,15 @@ class RDKit:
         mol_hydrogens = AllChem.AddHs(m)
         AllChem.EmbedMolecule(mol_hydrogens, AllChem.ETKDG())
         AllChem.SanitizeMol(mol_hydrogens)
+        try:
+            rdPartialCharges.ComputeGasteigerCharges(mol_hydrogens)
+        except RuntimeError:
+            print('RDKit could not assign the partial charges')
 
-        print(AllChem.MolToMolBlock(mol_hydrogens), file=open(f'{name}.mol', 'w+'))
-        AllChem.MolToPDBFile(mol_hydrogens, f'{name}.pdb')
+        #print(AllChem.MolToMolBlock(mol_hydrogens), file=open(f'{name}.mol', 'w+'))
+        #AllChem.MolToPDBFile(mol_hydrogens, f'{name}.pdb')
 
-        return f'{name}.pdb'
+        return mol_hydrogens
 
     def mm_optimise(self, filename, ff='MMF'):
         """
