@@ -78,12 +78,18 @@ class Parametrisation:
             # Extract all bond data
             for Bond in in_root.iter('Bond'):
                 bond = (int(Bond.get('p1')), int(Bond.get('p2')))
-                self.molecule.HarmonicBondForce[bond] = [Bond.get('d'), Bond.get('k')]
+                if bond in self.molecule.HarmonicBondForce:
+                    self.molecule.HarmonicBondForce[bond] = [Bond.get('d'), Bond.get('k')]
+                else:
+                    self.molecule.HarmonicBondForce[bond[::-1]] = [Bond.get('d'), Bond.get('k')]
 
             # Extract all angle data
             for Angle in in_root.iter('Angle'):
                 angle = int(Angle.get('p1')), int(Angle.get('p2')), int(Angle.get('p3'))
-                self.molecule.HarmonicAngleForce[angle] = [Angle.get('a'), Angle.get('k')]
+                if angle in self.molecule.HarmonicAngleForce:
+                    self.molecule.HarmonicAngleForce[angle] = [Angle.get('a'), Angle.get('k')]
+                else:
+                    self.molecule.HarmonicAngleForce[angle[::-1]] = [Angle.get('a'), Angle.get('k')]
 
             # Extract all non-bonded data
             i = 0

@@ -331,7 +331,7 @@ class Molecule(Defaults):
         if self.name is None:
             self.name = rdkit_molecule.GetProp('_Name')
         # Collect the atom names and bonds
-        for i, atom in enumerate(rdkit_molecule.GetAtoms(), 1):
+        for i, atom in enumerate(rdkit_molecule.GetAtoms()):
             # Collect info about each atom
             try:
                 # PDB file extraction
