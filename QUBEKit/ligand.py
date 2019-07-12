@@ -4,8 +4,8 @@
 # TODO Remove 'element' as a name.
 #  Very confusing as it could (and does) refer to both atom names AND numbers interchangeably.
 
-from QUBEKit.utils import constants
 from QUBEKit.engines import RDKit, Element
+from QUBEKit.utils import constants
 
 from collections import OrderedDict
 from datetime import datetime
@@ -502,9 +502,7 @@ class Molecule(Defaults):
         for atom in self.atoms:
             if atom.name == name:
                 return atom
-
-        else:
-            raise AttributeError('No atom found with that name.')
+        raise AttributeError('No atom found with that name.')
 
     def read_geometric_traj(self, trajectory):
         """
