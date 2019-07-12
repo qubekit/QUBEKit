@@ -138,40 +138,46 @@ class TorsionScan:
 
         # First set up the required files
         self.tdrive_scan_input(scan)
-        # Read the dihedral file and set zero based numbering
-        dihedral_idxs, dihedral_ranges = load_dihedralfile('dihedrals.txt', True)
-        grid_dim = len(dihedral_idxs)
 
-        # Parse additional constraints if present
-        constraints_dict = None
-        if self.constraints_made is not None:
-            with open(self.constraints_made) as fin:
-                constraints_dict = make_constraints_dict(fin.read())
-                # check if there are extra constraints conflict with the specified dihedral angles
-                check_conflict_constraints(constraints_dict, dihedral_idxs)
+        # Now we need to run torsiondrive through the CLI
+        with open('tdrive.log', 'w') as log:
+            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__} {self.inputfile} dihedrals.txt -v '
+                   f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log)
 
-        # Format grid spacing
-        n_grid_spacing = len(self.grid_space)
-        if n_grid_spacing == grid_dim:
-            grid_spacing = self.grid_space
-        elif n_grid_spacing == 1:
-            grid_spacing = self.grid_space * grid_dim
-        else:
-            raise ValueError(f"Number of grid_spacing values {grid_dim} "
-                             f"is not consistent with number of dihedral angles {n_grid_spacing}")
-
-        # create QM Engine, and WorkQueue object if provided port
-
-        engine = create_engine(self.qm_engine.__class__.__name__.lower(), inputfile=self.inputfile,
-                               work_queue_port=None, native_opt=self.native_opt)
-
-        # create DihedralScanner object
-        scanner = DihedralScanner(engine, dihedrals=dihedral_idxs, dihedral_ranges=dihedral_ranges,
-                                  grid_spacing=grid_spacing, init_coords_M=None,
-                                  energy_decrease_thresh=1e-5, energy_upper_limit=None,
-                                  extra_constraints=constraints_dict, verbose=True)
-        # Run the torsiondrive
-        scanner.master()
+        # # Read the dihedral file and set zero based numbering
+        # dihedral_idxs, dihedral_ranges = load_dihedralfile('dihedrals.txt', True)
+        # grid_dim = len(dihedral_idxs)
+        #
+        # # Parse additional constraints if present
+        # constraints_dict = None
+        # if self.constraints_made is not None:
+        #     with open(self.constraints_made) as fin:
+        #         constraints_dict = make_constraints_dict(fin.read())
+        #         # check if there are extra constraints conflict with the specified dihedral angles
+        #         check_conflict_constraints(constraints_dict, dihedral_idxs)
+        #
+        # # Format grid spacing
+        # n_grid_spacing = len(self.grid_space)
+        # if n_grid_spacing == grid_dim:
+        #     grid_spacing = self.grid_space
+        # elif n_grid_spacing == 1:
+        #     grid_spacing = self.grid_space * grid_dim
+        # else:
+        #     raise ValueError(f"Number of grid_spacing values {grid_dim} "
+        #                      f"is not consistent with number of dihedral angles {n_grid_spacing}")
+        #
+        # # create QM Engine, and WorkQueue object if provided port
+        #
+        # engine = create_engine(self.qm_engine.__class__.__name__.lower(), inputfile=self.inputfile, work_queue_port=None,
+        #                        native_opt=self.native_opt)
+        #
+        # # create DihedralScanner object
+        # scanner = DihedralScanner(engine, dihedrals=dihedral_idxs, dihedral_ranges=dihedral_ranges,
+        #                           grid_spacing=grid_spacing, init_coords_M=None,
+        #                           energy_decrease_thresh=1e-5, energy_upper_limit=None,
+        #                           extra_constraints=constraints_dict, verbose=True)
+        # # Run the torsiondrive
+        # scanner.master()
         # Gather the results
         self.molecule.read_tdrive(scan)
 
