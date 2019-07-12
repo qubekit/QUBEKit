@@ -13,10 +13,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
-from torsiondrive.dihedral_scanner import DihedralScanner
-from torsiondrive.extra_constraints import make_constraints_dict, check_conflict_constraints
-from torsiondrive.launch import create_engine, load_dihedralfile
-
 
 @for_all_methods(timer_logger)
 class TorsionScan:
@@ -49,6 +45,8 @@ class TorsionScan:
 
         # molecule
         self.molecule = molecule
+        # We need just a regular convergence criteria at this point
+        self.molecule.convergence = 'GAU'
         self.constraints_made = constraints_made
         self.grid_space = [molecule.increment]
         self.scan_start = molecule.dih_start
@@ -114,6 +112,7 @@ class TorsionScan:
     def tdrive_scan_input(self, scan):
         """Function takes the rotatable dihedrals requested and writes a scan input file for torsiondrive."""
 
+        # Write the dihedrals.txt file for tdrive
         with open('dihedrals.txt', 'w+') as out:
 
             out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering\n'
@@ -121,8 +120,9 @@ class TorsionScan:
             scan_di = self.molecule.dihedrals[scan][0]
             out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}\n')
 
+        # Then write the template input file for tdrive in g09 or psi4 format
         if self.native_opt:
-            self.qm_engine.generate_input(optimise=True, execute=False)
+            self.qm_engine.generate_input(optimise=True, execute=False, red_mode=True)
             if self.qm_engine.__class__.__name__.lower() == 'psi4':
                 self.inputfile = 'input.dat'
             else:
@@ -140,43 +140,9 @@ class TorsionScan:
 
         # Now we need to run torsiondrive through the CLI
         with open('tdrive.log', 'w') as log:
-            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__} {self.inputfile} dihedrals.txt -v '
-                   f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log)
+            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.inputfile} dihedrals.txt -v '
+                   f'{"--native_opt" if self.native_opt else ""}', bufsize=0, stderr=log, stdout=log, shell=True)
 
-        # # Read the dihedral file and set zero based numbering
-        # dihedral_idxs, dihedral_ranges = load_dihedralfile('dihedrals.txt', True)
-        # grid_dim = len(dihedral_idxs)
-        #
-        # # Parse additional constraints if present
-        # constraints_dict = None
-        # if self.constraints_made is not None:
-        #     with open(self.constraints_made) as fin:
-        #         constraints_dict = make_constraints_dict(fin.read())
-        #         # check if there are extra constraints conflict with the specified dihedral angles
-        #         check_conflict_constraints(constraints_dict, dihedral_idxs)
-        #
-        # # Format grid spacing
-        # n_grid_spacing = len(self.grid_space)
-        # if n_grid_spacing == grid_dim:
-        #     grid_spacing = self.grid_space
-        # elif n_grid_spacing == 1:
-        #     grid_spacing = self.grid_space * grid_dim
-        # else:
-        #     raise ValueError(f"Number of grid_spacing values {grid_dim} "
-        #                      f"is not consistent with number of dihedral angles {n_grid_spacing}")
-        #
-        # # create QM Engine, and WorkQueue object if provided port
-        #
-        # engine = create_engine(self.qm_engine.__class__.__name__.lower(), inputfile=self.inputfile, work_queue_port=None,
-        #                        native_opt=self.native_opt)
-        #
-        # # create DihedralScanner object
-        # scanner = DihedralScanner(engine, dihedrals=dihedral_idxs, dihedral_ranges=dihedral_ranges,
-        #                           grid_spacing=grid_spacing, init_coords_M=None,
-        #                           energy_decrease_thresh=1e-5, energy_upper_limit=None,
-        #                           extra_constraints=constraints_dict, verbose=True)
-        # # Run the torsiondrive
-        # scanner.master()
         # Gather the results
         self.molecule.read_tdrive(scan)
 
@@ -185,30 +151,10 @@ class TorsionScan:
         Collect the results of a gaussian scan and put them in the molecule, add QUBEKit-v1 compatibility
         :return: The energies and coordinates into the molecule
         """
-
-        energies = []
-        scan_coords = []
         for scan in self.molecule.scan_order:
             try:
                 os.chdir(os.path.join(self.home, os.path.join(f'SCAN_{scan[0]}_{scan[1]}', 'QM_torsiondrive')))
-                temp_home = os.getcwd()
-
-                if self.molecule.bonds_engine == 'psi4':
-                    self.molecule.read_tdrive(scan)
-
-                elif self.molecule.bonds_engine == 'g09':
-                    for run in range(self.scan_start, self.scan_end, self.grid_space[0]):
-                        os.chdir(f'run_{run}')
-                        # Make the job file
-                        coords, e = self.qm_engine.optimised_structure()
-                        energies.append(e)
-                        scan_coords.append(coords)
-                        os.chdir(temp_home)
-
-                    # Store the scan in the molecule and make a traj file
-                    self.molecule.qm_scans[scan] = [np.array(energies), scan_coords]
-                    self.molecule.coords['traj'] = scan_coords
-                    self.molecule.write_xyz('traj')
+                self.molecule.read_tdrive(scan)
 
             except FileNotFoundError:
                 raise FileNotFoundError(f'SCAN_{scan[0]}_{scan[1]} missing')
@@ -296,7 +242,7 @@ class TorsionOptimiser:
     qm_local                the location of the QM torsiondrive
     """
 
-    def __init__(self, molecule, weight_mm=True, use_force=False, step_size=0.02, error_tol=1e-5,
+    def __init__(self, molecule, weight_mm=True, step_size=0.02, error_tol=1e-5,
                  x_tol=1e-5, refinement='Steep', vn_bounds=20):
 
         # QUBEKit objects
@@ -312,7 +258,6 @@ class TorsionOptimiser:
         self.method = self.methods[self.molecule.opt_method]
         self.error_tol = error_tol
         self.x_tol = x_tol
-        self.use_Force = use_force
         self.abs_bounds = vn_bounds
         self.refinement = refinement
 
@@ -463,11 +408,11 @@ class TorsionOptimiser:
 
         # Calculate the objective
         # Get the energy of the qm structure with the new parameters
-        optimised_energy = self.openMM.get_energy(self.opt_coords)
+        # optimised_energy = self.openMM.get_energy(self.opt_coords)
 
         # Make the mm energy relative to mm predicted energy of the qm structure
-        mm_energy = self.mm_energy - optimised_energy
-        # mm_energy = self.mm_energy - self.mm_energy.min()
+        # mm_energy = self.mm_energy - optimised_energy
+        mm_energy = self.mm_energy - self.mm_energy.min()
         error = (mm_energy - self.qm_energy) ** 2
 
         # if using a weighting, add that here
@@ -681,14 +626,14 @@ class TorsionOptimiser:
         :param rel_to_optimised: Normalise relative to the am optimised structure
         :return: normalised qm vector
         """
-
+        rel_to_optimised = False
         if rel_to_optimised:
             self.qm_energy -= self.molecule.qm_energy  # make relative to the global minimum
 
         else:
             self.qm_energy -= min(self.qm_energy)  # make relative to lowest energy
 
-        self.qm_energy *= 627.509  # convert to kcal/mol
+        self.qm_energy *= 627.509391  # convert to kcal/mol
 
     def torsion_test(self):
         """
@@ -748,7 +693,6 @@ class TorsionOptimiser:
             # Get the MM coords from the QM torsion drive in openMM format
             self.molecule.coords['traj'] = self.molecule.qm_scans[self.scan][1]
             self.scan_coords = self.molecule.openmm_coordinates(input_type='traj')
-
             # Set up the fitting folders
             try:
                 rmtree(f'SCAN_{self.scan[0]}_{self.scan[1]}')
@@ -801,6 +745,7 @@ class TorsionOptimiser:
             # Plot the results of the first fit
             self.plot_results(name='Stage1_scipy')
 
+            exit()
             # move to the refinement section
             os.chdir('../Refinement')
 

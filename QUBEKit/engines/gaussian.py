@@ -116,7 +116,7 @@ class Gaussian(Engines):
                 input_file.write(f'\n{self.molecule.name}.wfx')
 
             # Blank lines because Gaussian.
-            input_file.write('\n\n')
+            input_file.write('\n\n\n\n')
 
         # execute should be either g09, g16 or False
         if execute:
@@ -183,7 +183,7 @@ class Gaussian(Engines):
 
             for line in lines[start: end]:
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
-                hessian_list.extend([float(num) * 627.509391 / (0.529 ** 2) for num in line.strip('\n').split()])
+                hessian_list.extend([float(num) * 627.509391 / (0.529177 ** 2) for num in line.strip('\n').split()])
 
         hess_size = 3 * len(self.molecule.atoms)
 
@@ -237,7 +237,7 @@ class Gaussian(Engines):
         for line in lines[start: end]:
             molecule.extend([float(coord) for coord in line.split()])
 
-        molecule = np.round(np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529177, decimals=10)
+        molecule = np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529177
 
         return molecule, energy
 

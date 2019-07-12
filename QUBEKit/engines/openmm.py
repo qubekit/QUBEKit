@@ -56,7 +56,7 @@ class OpenMM:
         self.simulation = app.Simulation(modeller.topology, self.system, integrator)
         self.simulation.context.setPositions(modeller.positions)
 
-    def get_energy(self, position, forces=False):
+    def get_energy(self, position):
         """
         Return the MM calculated energy of the structure
         :param position: The OpenMM formatted atomic positions
@@ -68,14 +68,9 @@ class OpenMM:
         self.simulation.context.setPositions(position)
 
         # Get the energy from the new state
-        state = self.simulation.context.getState(getEnergy=True, getForces=forces)
+        state = self.simulation.context.getState(getEnergy=True)
 
         energy = state.getPotentialEnergy().value_in_unit(unit.kilocalories_per_mole)
-
-        if forces:
-            gradient = state.getForces(asNumpy=True)
-
-            return energy, gradient
 
         return energy
 
