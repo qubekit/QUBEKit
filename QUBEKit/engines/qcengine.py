@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.engines.base_engine import Engines
+from QUBEKit.utils import constants
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import check_symmetry
 
-import qcengine as qcng
 import qcelemental as qcel
+import qcengine as qcng
 
 import numpy as np
 
@@ -61,7 +62,8 @@ class QCEngine(Engines):
 
             if driver == 'hessian':
                 hess_size = 3 * len(self.molecule.atoms)
-                hessian = np.reshape(ret.return_result, (hess_size, hess_size)) * 627.509391 / (0.529 ** 2)
+                conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
+                hessian = np.reshape(ret.return_result, (hess_size, hess_size)) * conversion
                 check_symmetry(hessian)
 
                 return hessian

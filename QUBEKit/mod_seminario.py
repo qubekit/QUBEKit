@@ -7,6 +7,7 @@ Modified by Joshua T. Horton and rewritten by Chris Ringrose, Newcastle Universi
 Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 """
 
+from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from operator import itemgetter
@@ -260,7 +261,7 @@ class ModSeminario:
         # Used to find average values
         unique_values_angles = []
 
-        conversion = 8.368  # kcal/mol/rad to kj/mol/rad
+        conversion = constants.KJ_TO_KCAL * 2
 
         with open('Modified_Seminario_Angles.txt', 'w') as angle_file:
 
@@ -288,6 +289,7 @@ class ModSeminario:
     def calculate_bonds(self, bond_list, bond_lens, eigenvals, eigenvecs, coords):
         """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
+        # TODO Document what this conversion is and store it in QUBEKit.utils.constants
         conversion = 836.8
 
         k_b, bond_len_list = np.zeros(len(bond_list)), np.zeros(len(bond_list))

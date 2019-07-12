@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
 # TODO Add remaining xml methods for Protein class
+# TODO Remove 'element' as a name.
+#  Very confusing as it could (and does) refer to both atom names AND numbers interchangeably.
+
+from QUBEKit.utils import constants
+from QUBEKit.engines import RDKit, Element
 
 from collections import OrderedDict
 from datetime import datetime
@@ -15,8 +20,6 @@ import numpy as np
 
 import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
-
-from QUBEKit.engines import RDKit
 
 
 class Defaults:
@@ -65,35 +68,15 @@ class Atom:
 
     def __init__(self, atomic_number, index, atom_name='', partial_charge=None, formal_charge=None):
 
-        # Atomic weight dict
-        self.mass_dict = {
-            1: 1.008000,  # Group 1
-            5: 10.811000,  # Group 3
-            6: 12.011000,  # Group 4
-            7: 14.007000, 15: 30.973762,  # Group 5
-            8: 15.999000, 16: 32.060000,  # Group 6
-            9: 18.998403, 17: 35.450000, 35: 79.904000, 53: 126.904470  # Group 7
-        }
-
-        # Atomic number dict
-        self.element_dict = {
-            1: 'H',  # Group 1
-            5: 'B',  # Group 3
-            6: 'C',  # Group 4
-            7: 'N', 15: 'P',  # Group 5
-            8: 'O', 16: 'S',  # Group 6
-            9: 'F', 17: 'Cl', 35: 'Br', 53: 'I'  # Group 7
-        }
-
         self.atomic_number = atomic_number
         self.name = atom_name
         self.atom_index = index
-        self.mass = self.mass_dict[atomic_number]
+        self.mass = Element().mass(atomic_number)
         self.partial_charge = partial_charge
         self.formal_charge = formal_charge
         self.type = None
         self.bonds = []
-        self.element = self.element_dict[atomic_number]
+        self.element = Element().name(atomic_number)
 
     def add_bond(self, bonded_index):
         """
@@ -231,16 +214,6 @@ class Molecule(Defaults):
         # QUBEKit internals
         self.state = None
         self.config = 'master_config.ini'
-
-        # Atomic number dict
-        self.element_dict = {
-            'H': 1,   # Group 1
-            'B': 5,  # Group 3
-            'C': 6,  # Group 4
-            'N': 7, 'P': 15,  # Group 5
-            'O': 8, 'S': 16,  # Group 6
-            'F': 9, 'CL': 17, 'BR': 35, 'I': 53   # Group 7
-        }
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -399,7 +372,7 @@ class Molecule(Defaults):
                     element = str(line.split()[2])[:-1]
                     element = re.sub('[0-9]+', '', element)
 
-                atomic_number = self.element_dict[element.upper()]
+                atomic_number = Element().number(element)
                 # Now instance the qube atom
                 qube_atom = Atom(atomic_number, atom_count, atom_name)
                 self.atoms.append(qube_atom)
@@ -461,10 +434,14 @@ class Molecule(Defaults):
                 element = re.sub('[0-9]+', '', element)
                 element = element.strip()
 
-                if element.upper() not in self.element_dict:
-                    element = element[0]
+                # TODO May need to use str.title() to make sure elements aren't capitalised.
+                try:
+                    atomic_number = Element().number(element)
+                except:
+                    # TODO Find out what the exception is (probably attribute error but rdkit is weird)
+                    raise
+                    # atomic_number = Element().number(element[0])
 
-                atomic_number = self.element_dict[element]
                 molecule.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
 
                 # Collect the atom names
@@ -503,7 +480,7 @@ class Molecule(Defaults):
         atoms = []
 
         for i, atom in enumerate(self.qc_json['symbols'], 1):
-            atoms.append(Atom(atomic_number=self.element_dict[atom], index=i, atom_name=f'{atom}{i}'))
+            atoms.append(Atom(atomic_number=Element().number(atom), index=i, atom_name=f'{atom}{i}'))
             topology.add_node(i)
 
         self.atoms = atoms
@@ -513,7 +490,7 @@ class Molecule(Defaults):
 
         self.topology = topology
 
-        self.coords['input'] = np.array(self.qc_json['geometry']).reshape((len(self.atoms), 3)) * 0.529
+        self.coords['input'] = np.array(self.qc_json['geometry']).reshape((len(self.atoms), 3)) * constants.BOHR_TO_ANGS
 
     def get_atom_with_name(self, name):
         """
@@ -539,7 +516,7 @@ class Molecule(Defaults):
         for frame in trajectory:
             opt_traj = []
             # Convert coordinates from bohr to angstroms
-            geometry = np.array(frame['molecule']['geometry']) * 0.529177210
+            geometry = np.array(frame['molecule']['geometry']) * constants.BOHR_TO_ANGS
             for i, atom in enumerate(frame['molecule']['symbols']):
                 opt_traj.append([geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
             self.coords['traj'].append(np.array(opt_traj))
@@ -1090,10 +1067,11 @@ class Ligand(Molecule):
             raise FileNotFoundError(
                 'Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n'
                 'Please ensure PSI4 is installed properly and can be called with the command: psi4\n'
-                'Alternatively, geometric may not be installed properly.\n'
+                'Alternatively, geometric may not be installed properly or breaking.\n'
                 'Please ensure it is and can be called with the command: geometric-optimize\n'
                 'Installation instructions can be found on the respective github pages and '
-                'elsewhere online, see README for more details.\n')
+                'elsewhere online, see README for more details.\n'
+                'If installation is not the issue, check the mm_optimise or qm_optimise folders for any issues.')
 
     def write_pdb(self, input_type='input', name=None):
         """
@@ -1116,7 +1094,7 @@ class Ligand(Molecule):
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(nx.neighbors(self.topology, node)))
-                if len(bonded) >= 1:
+                if len(bonded) > 1:
                     pdb_file.write(f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')
@@ -1171,7 +1149,7 @@ class Protein(Molecule):
                     element = element[0]
 
                 atom_name = f'{element}{atom_count}'
-                qube_atom = Atom(self.element_dict[element], atom_count, atom_name)
+                qube_atom = Atom(Element().number(element), atom_count, atom_name)
 
                 self.atoms.append(qube_atom)
 

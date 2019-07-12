@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.engines.base_engine import Engines
-from QUBEKit.utils.helpers import append_to_log, get_overage, check_symmetry
+from QUBEKit.utils import constants
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.helpers import append_to_log, check_symmetry
 
 import subprocess as sp
 
@@ -61,13 +62,14 @@ class PSI4(Engines):
             tasks += '\nwfn.hessian().print_out()\n\n'
 
         if density:
-            append_to_log('Writing PSI4 density calculation input', 'minor')
-            setters += " cubeprop_tasks ['density']\n"
-
-            overage = get_overage(self.molecule.name)
-            setters += ' CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n'.format(overage)
-            setters += ' CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n'
-            tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
+            pass
+        #     append_to_log('Writing PSI4 density calculation input', 'minor')
+        #     setters += " cubeprop_tasks ['density']\n"
+        #
+        #     overage = get_overage(self.molecule.name)
+        #     setters += ' CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n'.format(overage)
+        #     setters += ' CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n'
+        #     tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
 
         if fchk:
             append_to_log('Writing PSI4 input file to generate fchk file')
@@ -189,7 +191,7 @@ class PSI4(Engines):
             hess_matrix = np.array(reshaped)
 
             # Cache the unit conversion.
-            conversion = 627.509391 / (0.529 ** 2)
+            conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
             # Element-wise multiplication
             hess_matrix *= conversion
 

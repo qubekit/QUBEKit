@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import check_net_charge
 
@@ -22,15 +23,12 @@ class LennardJones:
 
         self.ddec_data = []
 
-        # Sigma: Angs -> nm
-        self.sigma_conversion = 0.1
+        conversion = constants.BOHR_TO_ANGS ** 6
+        conversion *= constants.HA_TO_KCAL_P_MOL
+        conversion *= constants.KCAL_TO_KJ
 
-        # Epsilon: (Ha * (Bohr ** 6)) / (Angs ** 6) -> kJ / mol
-        # (Ha * (Bohr ** 6)) / (Angs ** 6) -> Ha = * 0.529177 ** 6
-        # Ha -> kcal / mol = * 627.509
-        # kcal / mol -> kJ / mol = * 4.184
-        # PI = 57.65240039
-        self.epsilon_conversion = 57.65240039
+        self.epsilon_conversion = conversion
+        self.sigma_conversion = constants.ANGS_TO_NM
 
         self.non_bonded_force = {}
 

@@ -373,13 +373,6 @@ def append_to_log(message, msg_type='major'):
             file.write(f'\n\n{"-" * 50}\n\n')
 
 
-def get_overage(molecule):
-    """Bodge."""
-
-    overage_dict = {'methane': 12.0, 'ethane': 16.0, 'acetone': 20.0, 'benzene': 24.0, 'methanol': 17.0}
-    return overage_dict[molecule]
-
-
 def pretty_progress():
     """
     Neatly displays the state of all QUBEKit running directories in the terminal.
