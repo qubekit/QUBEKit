@@ -1,6 +1,7 @@
 dist
 build
 qubekit.egg-info
+VEHICLe
 .pytest_cache
 .idea
 *.pdb

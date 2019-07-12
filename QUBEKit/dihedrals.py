@@ -14,10 +14,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
-from torsiondrive.dihedral_scanner import DihedralScanner
-from torsiondrive.extra_constraints import make_constraints_dict, check_conflict_constraints
-from torsiondrive.launch import create_engine, load_dihedralfile
-
 
 @for_all_methods(timer_logger)
 class TorsionScan:
@@ -241,7 +237,7 @@ class TorsionScan:
                         pass
                     os.system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
                     os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
-                    pass
+
             os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
             os.mkdir('QM_torsiondrive')
             os.chdir('QM_torsiondrive')
