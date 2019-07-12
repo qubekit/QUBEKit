@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.decorators import timer_logger, for_all_methods
 from QUBEKit.engines import PSI4, OpenMM, Gaussian
+from QUBEKit.utils import constants
+from QUBEKit.utils.decorators import timer_logger, for_all_methods
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -39,7 +40,7 @@ class TorsionScan:
         # TODO test with constraints
 
         # engine info
-        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian}.get(molecule.bonds_engine)(molecule)
+        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}.get(molecule.bonds_engine)(molecule)
         self.native_opt = True
         # Ensure geometric can only be used with psi4  so far
         if molecule.geometric and molecule.bonds_engine == 'psi4':
@@ -301,7 +302,7 @@ class TorsionOptimiser:
 
         # QUBEKit objects
         self.molecule = molecule
-        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian}.get(self.molecule.bonds_engine)(molecule)
+        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}.get(self.molecule.bonds_engine)(molecule)
 
         # configurations
         self.l_pen = self.molecule.l_pen
@@ -341,8 +342,8 @@ class TorsionOptimiser:
         self.optimiser_log.write('Starting dihedral optimisation.\n')
 
         # constants
-        self.k_b = 0.001987
-        self.phases = [0, 3.141592653589793, 0, 3.141592653589793]
+        self.k_b = constants.KB_KCAL_P_MOL_K
+        self.phases = [0, constants.PI, 0, constants.PI]
         self.home = os.getcwd()
 
         # start the OpenMM system
@@ -921,11 +922,11 @@ class TorsionOptimiser:
         # Set all the torsion to 1 to get them into the system
         for key in self.molecule.PeriodicTorsionForce:
             if self.molecule.PeriodicTorsionForce[key][-1] == 'Improper':
-                self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', '3.141592653589793'],
-                                                           ['3', '1', '0'], ['4', '1', '3.141592653589793'], 'Improper']
+                self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', f'{constants.PI}'],
+                                                           ['3', '1', '0'], ['4', '1', f'{constants.PI}'], 'Improper']
             else:
-                self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', '3.141592653589793'],
-                                                           ['3', '1', '0'], ['4', '1', '3.141592653589793']]
+                self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', f'{constants.PI}'],
+                                                           ['3', '1', '0'], ['4', '1', f'{constants.PI}']]
 
         # Write out the new xml file which is read into the OpenMM system
         self.molecule.write_parameters()

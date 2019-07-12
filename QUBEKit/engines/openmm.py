@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import append_to_log
 
@@ -50,7 +51,7 @@ class OpenMM:
         if self.combination == 'opls':
             self.opls_lj()
 
-        temperature = 298.15 * unit.kelvin
+        temperature = constants.STP * unit.kelvin
         integrator = mm.LangevinIntegrator(temperature, 5 / unit.picoseconds, 0.001 * unit.picoseconds)
 
         self.simulation = app.Simulation(modeller.topology, self.system, integrator)
@@ -159,7 +160,7 @@ class OpenMM:
         """
 
         # Create the OpenMM coords list from the qm coordinates and convert to nm
-        input_coords = self.molecule.coords['qm'].flatten() / 10
+        input_coords = self.molecule.coords['qm'].flatten() * constants.ANGS_TO_NM
 
         # We get each hessian element from = [E(dx + dy) + E(-dx - dy) - E(dx - dy) - E(-dx + dy)] / 4 dx dy
         hessian = np.zeros((3 * len(self.molecule.atoms), 3 * len(self.molecule.atoms)))
@@ -193,7 +194,7 @@ class OpenMM:
                     coords[i] -= finite_step
                     coords[j] += finite_step
                     e4 = self.get_energy(self.format_coords(coords))
-                    hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step**2 * self.molecule.atoms[i // 3].mass)
+                    hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step ** 2 * self.molecule.atoms[i // 3].mass)
 
         # Now make the matrix symmetric
         sym_hessian = hessian + hessian.T - np.diag(hessian.diagonal())

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.engines.base_engine import Engines
+from QUBEKit.utils import constants
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import check_symmetry
 
 import subprocess as sp
@@ -181,9 +182,10 @@ class Gaussian(Engines):
             if not start and end:
                 raise EOFError('Cannot locate Hessian matrix in lig.fchk file.')
 
+            conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
             for line in lines[start: end]:
                 # Extend the list with the converted floats from the file, splitting on spaces and removing '\n' tags.
-                hessian_list.extend([float(num) * 627.509391 / (0.529 ** 2) for num in line.strip('\n').split()])
+                hessian_list.extend([float(num) * conversion for num in line.strip('\n').split()])
 
         hess_size = 3 * len(self.molecule.atoms)
 

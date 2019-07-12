@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.engines.base_engine import Engines
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import append_to_log
 
 import os
