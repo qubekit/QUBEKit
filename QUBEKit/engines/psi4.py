@@ -130,9 +130,8 @@ class PSI4(Engines):
                     return {'success': False,
                             'error': 'Not known'}
 
-            else:
-                return {'success': False,
-                        'error': 'Segfault'}
+            return {'success': False,
+                    'error': 'Segfault'}
 
     def hessian(self):
         """

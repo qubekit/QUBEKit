@@ -149,9 +149,9 @@ class Gaussian(Engines):
                 elif 'Error termination in NtrErr' in line:
                     return {'success': False,
                             'error': 'FileIO'}
-            else:
-                return {'success': False,
-                        'error': 'Unknown'}
+
+            return {'success': False,
+                    'error': 'Unknown'}
 
     def hessian(self):
         """Extract the Hessian matrix from the Gaussian fchk file."""

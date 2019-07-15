@@ -265,7 +265,7 @@ class ModSeminario:
 
         conversion = constants.KJ_TO_KCAL * 2
 
-        with open('Modified_Seminario_Angles.txt', 'w') as angle_file:
+        with open('Modified_Seminario_Angles.txt', 'a+') as angle_file:
 
             for i, angle in enumerate(angle_list):
                 scalings = [scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1]]
@@ -299,7 +299,7 @@ class ModSeminario:
         # Used to find average values
         unique_values_bonds = []
 
-        with open('Modified_Seminario_Bonds.txt', 'w') as bond_file:
+        with open('Modified_Seminario_Bonds.txt', 'a+') as bond_file:
 
             for pos, bond in enumerate(bond_list):
                 ab = ModSemMaths.force_constant_bond(*bond, eigenvals, eigenvecs, coords)

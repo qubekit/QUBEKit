@@ -191,7 +191,7 @@ class TorsionScan:
                         pass
                     os.system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
                     os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
-                    pass
+
             os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
             os.mkdir('QM_torsiondrive')
             os.chdir('QM_torsiondrive')
