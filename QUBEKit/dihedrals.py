@@ -713,7 +713,6 @@ class TorsionOptimiser:
             # Plot the results of the first fit
             self.plot_results(name='Stage1_scipy')
 
-            exit()
             # move to the refinement section
             os.chdir('../Refinement')
 
@@ -969,6 +968,8 @@ class TorsionOptimiser:
             bonds_rmsd.append(self.calculate_rmsd_component(qm_bonds, mm_bonds))
             angles_rmsd.append(self.calculate_rmsd_component(qm_angles, mm_angles))
             dihedrals_rmsd.append(self.calculate_rmsd_component(qm_dihedrals, mm_dihedrals))
+            print(qm_dihedrals)
+            print(mm_dihedrals)
 
         # Now work out the average rmsd over all of the frames
         bonds_rmsd = sum(bonds_rmsd) / len(bonds_rmsd)
@@ -979,6 +980,8 @@ class TorsionOptimiser:
                 'angles': angles_rmsd,
                 'dihedrals': dihedrals_rmsd,
                 'total': bonds_rmsd + angles_rmsd + dihedrals_rmsd}
+
+        print(rmsd)
 
         return rmsd
 

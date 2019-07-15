@@ -41,8 +41,8 @@ class Gaussian(Engines):
         :param solvent: Use a solvent when calculating the electron density
         :param restart: Restart from a check point file
         :param execute: Run the calculation after writing the input file
-        :param red_mode: If we are doing a redundant mode optimisation this is a list of the atom numbers
-        and the desired value, for a dihedral [[1, 2, 3, 4], 180.0]
+        :param red_mode: If we are doing a redundant mode optimisation this will only add the ModRedundant keyword,
+        the rest of the input is hand wrote or handeled by tdrive when required.
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
 
@@ -75,7 +75,7 @@ class Gaussian(Engines):
                     convergence = f', {convergence}'
                 if red_mode:
                     # Set the redundant mode as the convergence as we just want to use the standard threshold
-                    convergence = 'ModRedundant'
+                    convergence = ', ModRedundant'
                 # Set the convergence and the iteration cap for the optimisation
                 commands += f'opt(MaxCycles={self.molecule.iterations}{convergence}) '
 
