@@ -15,5 +15,5 @@ ANGS_TO_BOHR = 1.88972687777
 STP = 298.15
 
 PI = 3.141592653589793
-# Boltzmann constant in Kcal/(mol K)
+# Boltzmann constant in Kcal/(mol * K)
 KB_KCAL_P_MOL_K = 0.0019872041

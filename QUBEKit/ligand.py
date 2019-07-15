@@ -172,6 +172,8 @@ class Molecule(Defaults):
                 self.filename = Path(mol_input)
                 self.name = self.filename.stem
             else:
+                # TODO Handle the case of when QUBEKit is supplied a pdb name but it does not exist
+                #   This could be the location is wrong
                 self.smiles = mol_input
                 self.name = name
 
@@ -912,8 +914,8 @@ class Molecule(Defaults):
 
         # Open the pickle jar which will always be the ligand object's name
         with open(f'.QUBEKit_states', 'wb') as pickle_jar:
-            # If there were other molecules of the same state in the jar: overwrite them
 
+            # If there were other molecules of the same state in the jar: overwrite them
             for val in mols.values():
                 pickle.dump(val, pickle_jar)
 

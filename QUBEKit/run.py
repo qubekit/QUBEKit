@@ -15,7 +15,7 @@ from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import exception_logger
-from QUBEKit.utils.exceptions import OptimisationFailed
+from QUBEKit.utils.exceptions import OptimisationFailed, HessianCalculationFailed
 from QUBEKit.utils.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
     Configure, unpickle
 
@@ -88,7 +88,7 @@ class ArgsAndConfigs:
         self.molecule.config = self.args.config_file
 
         # Handle configs which are in a file
-        file_configs = Configure.load_config(self.molecule.config)
+        file_configs = Configure().load_config(self.molecule.config)
         for name, val in file_configs.items():
             setattr(self.molecule, name, val)
 
@@ -133,23 +133,23 @@ class ArgsAndConfigs:
                                    '4) Cancel\n>'))
 
                 if choice == 1:
-                    inis = Configure.show_ini()
+                    inis = Configure().show_ini()
                     name = input(f'Enter the name or number of the config file to edit\n'
                                  f'{"".join(f"{inis.index(ini)}:{ini}    " for ini in inis)}\n>')
                     # make sure name is right
                     if name in inis:
-                        Configure.ini_edit(name)
+                        Configure().ini_edit(name)
                     else:
-                        Configure.ini_edit(inis[int(name)])
+                        Configure().ini_edit(inis[int(name)])
 
                 elif choice == 2:
-                    Configure.ini_writer('master_config.ini')
-                    Configure.ini_edit('master_config.ini')
+                    Configure().ini_writer('master_config.ini')
+                    Configure().ini_edit('master_config.ini')
 
                 elif choice == 3:
                     name = input('Enter the name of the config file to create\n>')
-                    Configure.ini_writer(name)
-                    Configure.ini_edit(name)
+                    Configure().ini_writer(name)
+                    Configure().ini_edit(name)
 
                 else:
                     sys.exit('Cancelling setup; no changes made. '
@@ -204,12 +204,13 @@ class ArgsAndConfigs:
             """Convert a string to a bool for argparse use when casting to bool"""
             return True if string.lower() in ['true', 't', 'yes', 'y'] else False
 
-        # TODO Get intro (in a nice way) from the README.md
-        # TODO Add command-line args for every possible config change
-        intro = ''
+        intro = 'Welcome to QUBEKit! For a list of possible commands, use the help command: -h.' \
+                'Alternatively, take a look through our github page for commands, recipes and common problems:' \
+                'http://github.com/qubekit/QUBEKit'
         parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
                                          description=intro)
 
+        # TODO Add command-line args for every possible config change
         # Add all of the command line options in the arg parser
         parser.add_argument('-c', '--charge', type=int, help='Enter the charge of the molecule, default 0.')
         parser.add_argument('-m', '--multiplicity', type=int,
@@ -227,7 +228,7 @@ class ArgsAndConfigs:
         parser.add_argument('-bonds', '--bonds_engine', choices=['psi4', 'g09', 'g16'],
                             help='Choose the QM code to calculate the bonded terms.')
         parser.add_argument('-charges', '--charges_engine', choices=['onetep', 'chargemol'],
-                            help='Choose the method to do the charge partioning.')
+                            help='Choose the method to do the charge partitioning.')
         parser.add_argument('-density', '--density_engine', choices=['onetep', 'g09', 'g16', 'psi4'],
                             help='Enter the name of the QM code to calculate the electron density of the molecule.')
         parser.add_argument('-solvent', '--solvent', choices=[True, False], type=string_to_bool,
@@ -240,7 +241,7 @@ class ArgsAndConfigs:
                                  'if xml make sure the xml has the same name as the pdb file.')
         parser.add_argument('-mm', '--mm_opt_method', choices=['openmm', 'rdkit_mff', 'rdkit_uff', 'none'],
                             help='Enter the mm optimisation method for pre qm optimisation.')
-        parser.add_argument('-config', '--config_file', default='default_config', choices=Configure.show_ini(),
+        parser.add_argument('-config', '--config_file', default='default_config', choices=Configure().show_ini(),
                             help='Enter the name of the configuration file you wish to use for this run from the list '
                                  'available, defaults to master.')
         parser.add_argument('-theory', '--theory',
@@ -266,7 +267,9 @@ class ArgsAndConfigs:
         parser.add_argument('-tor_make', '--torsion_maker', action=TorsionMakerAction,
                             help='Allow QUBEKit to help you make a torsion input file for the given molecule')
         parser.add_argument('-log', '--log', type=str,
-                            help='Enter a name to tag working directories with. Can be any alphanumeric string.')
+                            help='Enter a name to tag working directories with. Can be any alphanumeric string.'
+                                 'This helps differentiate (by more than just date) different analyses of the '
+                                 'same molecule.')
         parser.add_argument('-vib', '--vib_scaling', type=float,
                             help='Enter the vibrational scaling to be used with the basis set.')
         parser.add_argument('-iters', '--iterations', type=int,
@@ -287,7 +290,7 @@ class ArgsAndConfigs:
                                  'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
         # TODO Get this from setup.py or elsewhere?
-        groups.add_argument('-version', '--version', action='version', version='2.3.2')
+        groups.add_argument('-version', '--version', action='version', version='2.3.3')
 
         return parser.parse_args()
 
@@ -318,7 +321,7 @@ class ArgsAndConfigs:
                 self.molecule = Ligand(smiles_string, name)
 
             else:
-
+                # TODO Different file types
                 # Initialise molecule, ready to add configs to it
                 self.molecule = Ligand(f'{name}.pdb')
 
@@ -668,7 +671,7 @@ class Execute:
                 # Run geometric
                 # TODO Should this be moved to allow a decorator?
                 with open('log.txt', 'w+') as log:
-                    sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations}  --pdb '
+                    sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations} --pdb '
                            f'{molecule.name}.pdb --openmm {molecule.name}.xml '
                            f'{self.molecule.constraints_file if self.molecule.constraints_file is not None else ""}',
                            shell=True, stdout=log, stderr=log)
@@ -826,7 +829,7 @@ class Execute:
             if result['success']:
                 molecule.hessian = qm_engine.hessian()
             else:
-                raise Exception('The hessian was not calculated check the log file.')
+                raise HessianCalculationFailed('The hessian was not calculated check the log file.')
 
         else:
             qceng = QCEngine(molecule)
@@ -983,7 +986,7 @@ class Execute:
         """
 
         printf('QUBEKit stopping at ONETEP step!\n To continue please move the ddec.onetep file and xyz file to the '
-               'density folder and use -restart lennard_jones.')
+               'density folder and use QUBEKit -restart lennard_jones.')
 
         return
 
@@ -1000,7 +1003,7 @@ class Execute:
             for torsion in torsions_list:
                 tor = tuple(atom for atom in torsion.split('-'))
                 # convert the string names to the index
-                core = (molecule.get_atom_with_name(tor[1]).atom_index , molecule.get_atom_with_name(tor[2]).atom_index)
+                core = (molecule.get_atom_with_name(tor[1]).atom_index, molecule.get_atom_with_name(tor[2]).atom_index)
 
                 if core in molecule.rotatable:
                     scan_order.append(core)
@@ -1011,7 +1014,8 @@ class Execute:
 
         return molecule
 
-    def torsion_test(self, molecule):
+    @staticmethod
+    def torsion_test(molecule):
         """Take the molecule and do the torsion test method."""
 
         opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)

@@ -265,7 +265,7 @@ class ModSeminario:
 
         conversion = constants.KCAL_TO_KJ * 2
 
-        with open('Modified_Seminario_Angles.txt', 'w') as angle_file:
+        with open('Modified_Seminario_Angles.txt', f'{"w" if self.molecule.restart else "a+"}') as angle_file:
 
             for i, angle in enumerate(angle_list):
                 scalings = [scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1]]
@@ -291,15 +291,14 @@ class ModSeminario:
     def calculate_bonds(self, bond_list, bond_lens, eigenvals, eigenvecs, coords):
         """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
-        # TODO Document what this conversion is and store it in QUBEKit.utils.constants
-        conversion = 836.8
+        conversion = constants.KCAL_TO_KJ * 200
 
         k_b, bond_len_list = np.zeros(len(bond_list)), np.zeros(len(bond_list))
 
         # Used to find average values
         unique_values_bonds = []
 
-        with open('Modified_Seminario_Bonds.txt', 'w') as bond_file:
+        with open('Modified_Seminario_Bonds.txt', f'{"w" if self.molecule.restart else "a+"}') as bond_file:
 
             for pos, bond in enumerate(bond_list):
                 ab = ModSemMaths.force_constant_bond(*bond, eigenvals, eigenvecs, coords)

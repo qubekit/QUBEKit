@@ -20,6 +20,7 @@ class Configure:
     """
 
     # TODO Remove / merge the separate sections qm, fitting, descriptions?
+    # TODO Use proper pathing (os.path.join or similar)
 
     home = Path.home()
     config_folder = f'{home}/QUBEKit_configs/'
@@ -34,8 +35,8 @@ class Configure:
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
         'iterations': '350',            # Max number of optimisation iterations
         'bonds_engine': 'psi4',         # Engine used for bonds calculations
-        'density_engine': 'onetep',     # Engine used to calculate the electron density
-        'charges_engine': 'onetep',  # Engine used for charge partitioning
+        'density_engine': 'g09',        # Engine used to calculate the electron density
+        'charges_engine': 'chargemol',  # Engine used for charge partitioning
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
@@ -50,12 +51,12 @@ class Configure:
         'refinement_method': 'SP',      # The type of QUBE refinement that should be done SP: single point energies
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array
-        'parameter_engine': 'xml',   # Method used for initial parametrisation
+        'parameter_engine': 'xml',      # Method used for initial parametrisation
         'l_pen': '0.0',                 # The regularisation penalty
     }
 
     excited = {
-        'excited_state': 'False',      # Is this an excited state calculation
+        'excited_state': 'False',       # Is this an excited state calculation
         'excited_theory': 'TDA',
         'nstates': '3',
         'excited_root': '1',
@@ -102,30 +103,26 @@ class Configure:
         'pseudo_potential_block': ';Enter the pseudo potential block here eg'
     }
 
-    # TODO Why is this static? Shouldn't we just use self.qm, self.fitting etc
-    #  instead of Configure.qm, Configure.fitting?
-
-    @staticmethod
-    def load_config(config_file='default_config'):
+    def load_config(self, config_file='default_config'):
         """This method loads and returns the selected config file."""
 
         if config_file == 'default_config':
 
             # Check if the user has made a new master file to use
-            if Configure.check_master():
-                qm, fitting, excited, descriptions = Configure.ini_parser(f'{Configure.config_folder + Configure.master_file}')
+            if self.check_master():
+                qm, fitting, excited, descriptions = self.ini_parser(f'{self.config_folder + self.master_file}')
 
             else:
                 # If there is no master then assign the default config
-                qm, fitting, excited, descriptions = Configure.qm, Configure.fitting, Configure.excited, Configure.descriptions
+                qm, fitting, excited, descriptions = self.qm, self.fitting, self.excited, self.descriptions
 
         else:
             # Load in the ini file given
             if os.path.exists(config_file):
-                qm, fitting, excited, descriptions = Configure.ini_parser(config_file)
+                qm, fitting, excited, descriptions = self.ini_parser(config_file)
 
             else:
-                qm, fitting, excited, descriptions = Configure.ini_parser(Configure.config_folder + config_file)
+                qm, fitting, excited, descriptions = self.ini_parser(self.config_folder + config_file)
 
         # Now cast the numbers
         clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
@@ -148,8 +145,6 @@ class Configure:
         # TODO Properly handle all command line / config arguments (not just geometric)
 
         # Now cast the bools
-        # TODO Storing this boolean might be a bit risky; may be better to just store a string until
-        #  config parsing begins in run.py
         qm['geometric'] = True if qm['geometric'].lower() == 'true' else False
         qm['solvent'] = True if qm['solvent'].lower() == 'true' else False
         excited['excited_state'] = True if excited['excited_state'].lower() == 'true' else False
@@ -179,22 +174,19 @@ class Configure:
 
         return qm, fitting, excited, descriptions
 
-    @staticmethod
-    def show_ini():
+    def show_ini(self):
         """Show all of the ini file options in the config folder."""
 
-        inis = [ini for ini in os.listdir(Configure.config_folder) if not ini.endswith('~')]  # Hide the emacs backups
+        inis = [ini for ini in os.listdir(self.config_folder) if not ini.endswith('~')]  # Hide the emacs backups
 
         return inis
 
-    @staticmethod
-    def check_master():
+    def check_master(self):
         """Check if there is a new master ini file in the configs folder."""
 
-        return True if os.path.exists(Configure.config_folder + Configure.master_file) else False
+        return True if os.path.exists(self.config_folder + self.master_file) else False
 
-    @staticmethod
-    def ini_writer(ini):
+    def ini_writer(self, ini):
         """Make a new configuration file in the config folder using the current master as a template."""
 
         # make sure the ini file has an ini ending
@@ -202,52 +194,51 @@ class Configure:
             ini += '.ini'
 
         # Check the current master template
-        if Configure.check_master():
+        if self.check_master():
             # If master then load
-            qm, fitting, excited, descriptions = Configure.ini_parser(Configure.config_folder + Configure.master_file)
+            qm, fitting, excited, descriptions = self.ini_parser(self.config_folder + self.master_file)
 
         else:
             # If default is the config file then assign the defaults
-            qm, fitting, excited, descriptions = Configure.qm, Configure.fitting, Configure.excited, Configure.descriptions
+            qm, fitting, excited, descriptions = self.qm, self.fitting, self.excited, self.descriptions
 
         # Set config parser to allow for comments
         config = ConfigParser(allow_no_value=True)
         config.add_section('QM')
 
         for key, val in qm.items():
-            config.set('QM', Configure.help[key])
+            config.set('QM', self.help[key])
             config.set('QM', key, val)
 
         config.add_section('FITTING')
 
         for key, val in fitting.items():
-            config.set('FITTING', Configure.help[key])
+            config.set('FITTING', self.help[key])
             config.set('FITTING', key, val)
 
         config.add_section('EXCITED')
 
         for key, val in excited.items():
-            config.set('EXCITED', Configure.help[key])
+            config.set('EXCITED', self.help[key])
             config.set('EXCITED', key, val)
 
         config.add_section('DESCRIPTIONS')
 
         for key, val in descriptions.items():
-            config.set('DESCRIPTIONS', Configure.help[key])
+            config.set('DESCRIPTIONS', self.help[key])
             config.set('DESCRIPTIONS', key, val)
 
-        with open(f'{Configure.config_folder + ini}', 'w+') as out:
+        with open(f'{self.config_folder + ini}', 'w+') as out:
             config.write(out)
 
-    @staticmethod
-    def ini_edit(ini_file):
+    def ini_edit(self, ini_file):
         """Open the ini file for editing in the command line using whatever program the user wants."""
 
         # Make sure the ini file has an ini ending
         if not ini_file.endswith('.ini'):
             ini_file += '.ini'
 
-        os.system(f'emacs -nw {Configure.config_folder + ini_file}')
+        os.system(f'emacs -nw {self.config_folder + ini_file}')
 
 
 def mol_data_from_csv(csv_name):
@@ -348,7 +339,7 @@ def append_to_log(message, msg_type='major'):
     # Stop at the first file found this should be our file
     search_dir = os.getcwd()
 
-    # TODO Dangerous use of while True; may exit is not guaranteed.
+    # TODO Dangerous use of while True; exit is not guaranteed.
     while True:
         if 'QUBEKit_log.txt' in os.listdir(search_dir):
             log_file = os.path.abspath(os.path.join(search_dir, 'QUBEKit_log.txt'))
