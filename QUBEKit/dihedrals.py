@@ -145,7 +145,6 @@ class TorsionScan:
 
         # Now we need to run torsiondrive through the CLI
         with open('tdrive.log', 'w') as log:
-            # TODO Use configs rather than __class__.__name__?
             sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.inputfile} dihedrals.txt -v '
                    f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
 
