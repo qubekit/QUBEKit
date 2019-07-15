@@ -19,8 +19,6 @@ class Babel:
         :return: None
         """
 
-        # TODO Name output_file automatically? Supply output_type instead?
-
         input_type = str(input_file).split(".")[-1]
         output_type = str(output_file).split(".")[-1]
 

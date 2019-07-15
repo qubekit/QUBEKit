@@ -104,7 +104,7 @@ class Gaussian(Engines):
                     input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} '
                                      f'{float(atom[2]): .10f}\n')
 
-            #TODO finish this block
+            # TODO finish this block
             if self.molecule.use_pseudo:
                 input_file.write(f'\n{self.molecule.pseudo_potential_block}')
 
