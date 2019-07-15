@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.engines import RDKit
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from openforcefield.topology import Molecule, Topology
 from openforcefield.typing.engines.smirnoff import ForceField

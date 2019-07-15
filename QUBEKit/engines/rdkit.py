@@ -5,6 +5,7 @@ from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from pathlib import Path
 
 from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile, MolFromMol2File, MolFromMolFile, rdPartialCharges
+from rdkit.Chem.rdchem import GetPeriodicTable
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 
 
@@ -146,3 +147,20 @@ class RDKit:
         coords = [conformer.GetPositions() for conformer in positions]
 
         return coords
+
+
+class Element:
+    """
+    Simple wrapper class for getting element info using RDKit.
+    """
+
+    pt = GetPeriodicTable()
+
+    def mass(self, identifier):
+        return self.pt.GetAtomicWeight(identifier)
+
+    def number(self, identifier):
+        return self.pt.GetAtomicNumber(identifier)
+
+    def name(self, identifier):
+        return self.pt.GetElementSymbol(identifier)

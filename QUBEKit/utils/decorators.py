@@ -5,8 +5,8 @@ from QUBEKit.utils.helpers import pretty_print, unpickle
 from datetime import datetime
 from functools import wraps
 import logging
-from time import time
 import os
+from time import time
 
 
 def timer_func(orig_func):

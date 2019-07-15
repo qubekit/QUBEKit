@@ -7,6 +7,7 @@ Modified by Joshua T. Horton and rewritten by Chris Ringrose, Newcastle Universi
 Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 """
 
+from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from operator import itemgetter
@@ -262,7 +263,7 @@ class ModSeminario:
         # Used to find average values
         unique_values_angles = []
 
-        conversion = 8.368  # kcal/mol/rad to kj/mol/rad
+        conversion = constants.KJ_TO_KCAL * 2
 
         with open('Modified_Seminario_Angles.txt', 'w') as angle_file:
 
@@ -281,7 +282,7 @@ class ModSeminario:
                 angle_file.write(f'{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicAngleForce[angle] = [str(theta_0[i] * np.pi / 180), str(k_theta[i] * conversion)]
+                self.molecule.HarmonicAngleForce[angle] = [str(round(theta_0[i] * np.pi / 180, ndigits=4)), str(round(k_theta[i] * conversion, ndigits=4))]
 
                 unique_values_angles.append([self.atoms[angle[0]].name, self.atoms[angle[1]].name, self.atoms[angle[2]].name, k_theta[i] * conversion, theta_0[i] * np.pi / 180, 1])
 
@@ -290,6 +291,7 @@ class ModSeminario:
     def calculate_bonds(self, bond_list, bond_lens, eigenvals, eigenvecs, coords):
         """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
+        # TODO Document what this conversion is and store it in QUBEKit.utils.constants
         conversion = 836.8
 
         k_b, bond_len_list = np.zeros(len(bond_list)), np.zeros(len(bond_list))
@@ -311,7 +313,7 @@ class ModSeminario:
                 bond_file.write(f'{k_b[pos]:.3f}   {bond_len_list[pos]:.3f}   {bond[0]}   {bond[1]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicBondForce[bond] = [str(bond_len_list[pos] / 10), str(conversion * k_b[pos])]
+                self.molecule.HarmonicBondForce[bond] = [str(round(bond_len_list[pos] / 10, ndigits=4)), str(round(conversion * k_b[pos], ndigits=4))]
 
                 unique_values_bonds.append([self.atoms[bond[0]].name, self.atoms[bond[1]].name, k_b[pos] * conversion, bond_len_list[pos] / 10, 1])
 

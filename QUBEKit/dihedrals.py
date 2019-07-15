@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.decorators import timer_logger, for_all_methods
 from QUBEKit.engines import PSI4, OpenMM, Gaussian
+from QUBEKit.utils import constants
+from QUBEKit.utils.decorators import timer_logger, for_all_methods
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -18,29 +19,33 @@ from scipy.optimize import minimize
 class TorsionScan:
     """
     This class will take a QUBEKit molecule object and perform a torsiondrive QM energy scan
-    for each selected dihedral.
+    for each selected rotatable dihedral.
 
     inputs
     ---------------
     molecule                    A QUBEKit Ligand instance
-    configs                     A QUBEKit config dict that will be used to instance the PSI4 engine, only option
-    native_opt                  Should we use the QM engines internal optimizer or torsiondrive/geometric
+    constranits_made            The name of the constraints file that should be used during the torsiondrive (pis4 only)
 
     attributes
     ---------------
+    qm_engine                   An instance of the QM engine used for any calculations
+    native_opt                  Chosen dynamically whether to use geometric or not (geometric is need to use constraints)
+    inputfile                   The name of the template file for tdrive, name depends on the qm_engine used
     grid_space                  The distance between the scan points on the surface
+    scan_start                  The starting angle of the dihedral during the scan
+    scan_end                    The final angle of the dihedral
+    home                        The starting location of the job, helpful when scanning multiple angles.
     """
 
-    def __init__(self, molecule, verbose=False, constraints_made=None):
+    def __init__(self, molecule, constraints_made=None):
         # TODO test with constraints
 
         # engine info
-        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian}.get(molecule.bonds_engine)(molecule)
+        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}.get(molecule.bonds_engine)(molecule)
         self.native_opt = True
         # Ensure geometric can only be used with psi4  so far
         if molecule.geometric and molecule.bonds_engine == 'psi4':
             self.native_opt = False
-        self.verbose = verbose
         self.inputfile = None
 
         # molecule
@@ -130,7 +135,7 @@ class TorsionScan:
 
         else:
             self.qm_engine.geo_gradient(execute=False, threads=True)
-            self.inputfile = f'{self.molecule.name}.{self.qm_engine.__class__.__name__}in'
+            self.inputfile = f'{self.molecule.name}.{self.qm_engine.__class__.__name__.lower()}in'
 
     def start_torsiondrive(self, scan):
         """Start a torsiondrive either using psi4 or native gaussian09"""
@@ -141,14 +146,14 @@ class TorsionScan:
         # Now we need to run torsiondrive through the CLI
         with open('tdrive.log', 'w') as log:
             sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.inputfile} dihedrals.txt -v '
-                   f'{"--native_opt" if self.native_opt else ""}', bufsize=0, stderr=log, stdout=log, shell=True)
+                   f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
 
         # Gather the results
         self.molecule.read_tdrive(scan)
 
     def collect_scan(self):
         """
-        Collect the results of a gaussian scan and put them in the molecule, add QUBEKit-v1 compatibility
+        Collect the results of a torsiondrive scan that has not been done using QUBEKit.
         :return: The energies and coordinates into the molecule
         """
         for scan in self.molecule.scan_order:
@@ -247,7 +252,7 @@ class TorsionOptimiser:
 
         # QUBEKit objects
         self.molecule = molecule
-        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian}.get(self.molecule.bonds_engine)(molecule)
+        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}.get(self.molecule.bonds_engine)(molecule)
 
         # configurations
         self.l_pen = self.molecule.l_pen
@@ -286,8 +291,8 @@ class TorsionOptimiser:
         self.optimiser_log.write('Starting dihedral optimisation.\n')
 
         # constants
-        self.k_b = 0.001987
-        self.phases = [0, 3.141592653589793, 0, 3.141592653589793]
+        self.k_b = constants.KB_KCAL_P_MOL_K
+        self.phases = [0, constants.PI, 0, constants.PI]
         self.home = os.getcwd()
 
         # start the OpenMM system
@@ -297,53 +302,16 @@ class TorsionOptimiser:
         self.openMM = OpenMM(self.molecule)
 
     def mm_energies(self):
-        """Evaluate the MM energies of the QM structures."""
+        """
+        Evaluate the MM energies of the geometries stored in scan_coords.
+        :return: A numpy array of the energies for easy normalisation.
+        """
 
         mm_energy = []
         for position in self.scan_coords:
             mm_energy.append(self.openMM.get_energy(position))
 
         return np.array(mm_energy)
-
-    # @staticmethod
-    # def get_coords(engine):
-    #     """
-    #     Read the torsion drive output file to get all of the coords in a format that can be passed to openmm
-    #     so we can update positions in context without reloading the molecule.
-    #     """
-    #
-    #     scan_coords = []
-    #     if engine == 'torsiondrive':
-    #         # open the torsion drive data file read all the scan coordinates
-    #         with open('qdata.txt', 'r') as data:
-    #             for line in data.readlines():
-    #                 if 'COORDS' in line:
-    #                     # get the coords into a single array
-    #                     coords = [float(x) / 10 for x in line.split()[1:]]
-    #                     # convert to a list of tuples for OpenMM format
-    #                     tups = []
-    #                     for i in range(0, len(coords), 3):
-    #                         tups.append((coords[i], coords[i + 1], coords[i + 2]))
-    #                     scan_coords.append(tups)
-    #
-    #     # get the coords from a geometric output
-    #     elif engine == 'geometric':
-    #         with open('scan-final.xyz', 'r') as data:
-    #             lines = data.readlines()
-    #             # get the amount of atoms
-    #             atoms = int(lines[0])
-    #             for i, line in enumerate(lines):
-    #                 if 'Iteration' in line:
-    #                     # this is the start of the coordinates
-    #                     tups = []
-    #                     for coords in lines[i + 1:i + atoms + 1]:
-    #                         coord = tuple(float(x) / 10 for x in coords.split()[1:])
-    #                         # convert to a list of tuples for OpenMM format
-    #                         # store tuples
-    #                         tups.append(coord)
-    #                     # now store that structure back to the coords list
-    #                     scan_coords.append(tups)
-    #     return scan_coords
 
     def initial_energies(self):
         """Calculate the initial energies using the input xml."""
@@ -626,7 +594,6 @@ class TorsionOptimiser:
         :param rel_to_optimised: Normalise relative to the am optimised structure
         :return: normalised qm vector
         """
-        rel_to_optimised = False
         if rel_to_optimised:
             self.qm_energy -= self.molecule.qm_energy  # make relative to the global minimum
 
@@ -866,11 +833,11 @@ class TorsionOptimiser:
         # Set all the torsion to 1 to get them into the system
         for key in self.molecule.PeriodicTorsionForce:
             if self.molecule.PeriodicTorsionForce[key][-1] == 'Improper':
-                self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', '3.141592653589793'],
-                                                           ['3', '1', '0'], ['4', '1', '3.141592653589793'], 'Improper']
+                self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', f'{constants.PI}'],
+                                                           ['3', '1', '0'], ['4', '1', f'{constants.PI}'], 'Improper']
             else:
-                self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', '3.141592653589793'],
-                                                           ['3', '1', '0'], ['4', '1', '3.141592653589793']]
+                self.molecule.PeriodicTorsionForce[key] = [['1', '1', '0'], ['2', '1', f'{constants.PI}'],
+                                                           ['3', '1', '0'], ['4', '1', f'{constants.PI}']]
 
         # Write out the new xml file which is read into the OpenMM system
         self.molecule.write_parameters()
