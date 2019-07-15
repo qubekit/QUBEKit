@@ -25,6 +25,7 @@ class AnteChamber(Parametrisation):
         self.antechamber_cmd()
         self.serialise_system()
         self.gather_parameters()
+        self.get_symmetry()
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype

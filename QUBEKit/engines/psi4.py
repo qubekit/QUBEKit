@@ -255,8 +255,8 @@ class PSI4(Engines):
             for line in log:
                 if 'Total Energy =' in line:
                     return float(line.split()[3])
-            else:
-                raise EOFError('Cannot find energy in output.dat file.')
+
+        raise EOFError('Cannot find energy in output.dat file.')
 
     def all_modes(self):
         """Extract all modes from the psi4 output file."""

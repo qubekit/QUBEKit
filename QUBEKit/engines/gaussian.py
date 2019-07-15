@@ -41,8 +41,8 @@ class Gaussian(Engines):
         :param solvent: Use a solvent when calculating the electron density
         :param restart: Restart from a check point file
         :param execute: Run the calculation after writing the input file
-        :param red_mode: If we are doing a redundant mode optimisation this is a list of the atom numbers
-        and the desired value, for a dihedral [[1, 2, 3, 4], 180.0]
+        :param red_mode: If we are doing a redundant mode optimisation this will only add the ModRedundant keyword,
+        the rest of the input is hand wrote or handeled by tdrive when required.
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
 
@@ -75,9 +75,9 @@ class Gaussian(Engines):
                     convergence = f', {convergence}'
                 if red_mode:
                     # Set the redundant mode as the convergence as we just want to use the standard threshold
-                    convergence = 'ModRedundant'
+                    convergence = ', ModRedundant'
                 # Set the convergence and the iteration cap for the optimisation
-                commands += f'opt(MaxCycles={self.molecule.iterations} {convergence}) '
+                commands += f'opt(MaxCycles={self.molecule.iterations}{convergence}) '
 
             if hessian:
                 commands += 'freq '
@@ -117,7 +117,7 @@ class Gaussian(Engines):
                 input_file.write(f'\n{self.molecule.name}.wfx')
 
             # Blank lines because Gaussian.
-            input_file.write('\n\n')
+            input_file.write('\n\n\n\n')
 
         # execute should be either g09, g16 or False
         if execute:
@@ -149,6 +149,10 @@ class Gaussian(Engines):
                 elif 'Error termination in NtrErr' in line:
                     return {'success': False,
                             'error': 'FileIO'}
+
+                elif '-- Number of steps exceeded' in line:
+                    return {'success': False,
+                            'error': 'Steps'}
 
             return {'success': False,
                     'error': 'Unknown'}
@@ -239,7 +243,7 @@ class Gaussian(Engines):
         for line in lines[start: end]:
             molecule.extend([float(coord) for coord in line.split()])
 
-        molecule = np.round(np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529177, decimals=10)
+        molecule = np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529177
 
         return molecule, energy
 

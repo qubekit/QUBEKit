@@ -263,7 +263,7 @@ class ModSeminario:
         # Used to find average values
         unique_values_angles = []
 
-        conversion = constants.KJ_TO_KCAL * 2
+        conversion = constants.KCAL_TO_KJ * 2
 
         with open('Modified_Seminario_Angles.txt', f'{"w" if self.molecule.restart else "a+"}') as angle_file:
 

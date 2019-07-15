@@ -209,6 +209,8 @@ class Molecule(Defaults):
         self.HarmonicAngleForce = None
         self.PeriodicTorsionForce = None
         self.NonbondedForce = None
+        self.bond_types = None
+        self.angle_types = None
 
         self.combination = None
         self.sites = None
@@ -679,6 +681,36 @@ class Molecule(Defaults):
         if bool(angle_values):
             self.angle_values = angle_values
 
+    def symmetrise_bonded_parameters(self):
+        """
+        Try and apply some symmetry to the parameters stored in the molecule based on type from initial FF.
+        :return: The molecule with the symmetry applied.
+        """
+
+        if self.bond_types is not None:
+
+            # Collect all of the values
+            for bonds in self.bond_types.values():
+                bond_values, force_values = [], []  # List of distances and force constants
+                for bond in bonds:
+                    bond_values.append(float(self.HarmonicBondForce[bond][0]))
+                    force_values.append(float(self.HarmonicBondForce[bond][1]))
+                # Average and replace
+                bond_values, force_values = sum(bond_values) / len(bond_values), sum(force_values) / len(force_values)
+                for bond in bonds:
+                    self.HarmonicBondForce[bond] = [str(round(bond_values, ndigits=6)), str(round(force_values, ndigits=6))]
+
+            # Collect all of the angle
+            for angles in self.angle_types.values():
+                angle_values, force_values = [], []  # List of angles and force constants
+                for angle in angles:
+                    angle_values.append(float(self.HarmonicAngleForce[angle][0]))
+                    force_values.append(float(self.HarmonicAngleForce[angle][1]))
+                # Average and replace
+                angle_values, force_values = sum(angle_values) / len(angle_values), sum(force_values) / len(force_values)
+                for angle in angles:
+                    self.HarmonicAngleForce[angle] = [str(round(angle_values, ndigits=6)), str(round(force_values, ndigits=6))]
+
     def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
@@ -890,7 +922,7 @@ class Molecule(Defaults):
     def symmetrise_from_topo(self):
         """
         Based on the molecule topology, symmetrise the methyl / amine hydrogens.
-        If there's a carbon, does it have 3 hydrogens? -> symmetrise
+        If there's a carbon, does it have 3/2 hydrogens? -> symmetrise
         If there's a nitrogen, does it have 2 hydrogens? -> symmetrise
         Also keep a list of the methyl carbons and amine / nitrile nitrogens
         then exclude these bonds from the rotatable torsions list.
@@ -898,6 +930,7 @@ class Molecule(Defaults):
 
         methyl_hs = []
         amine_hs = []
+        other_hs = []
         methyl_amine_nitride_cores = []
         for atom in self.atoms:
             if atom.element == 'C' or atom.element == 'N':
@@ -908,16 +941,19 @@ class Molecule(Defaults):
                         # now make sure it is a hydrogen (as halogens could be caught here)
                         if self.atoms[bonded].element == 'H':
                             hs.append(bonded)
-                if atom.element == 'C' and len(hs) == 3:
+
+                if atom.element == 'C' and len(hs) == 2:    # This is part of a carbon hydrogen chain
+                    other_hs.append(hs)
+                elif atom.element == 'C' and len(hs) == 3:
                     methyl_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
-                if atom.element == 'N' and len(hs) == 2:
+                elif atom.element == 'N' and len(hs) == 2:
                     amine_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
-                if atom.element == 'N' and len(hs) == 1:
+                elif atom.element == 'N' and len(hs) == 1:
                     methyl_amine_nitride_cores.append(atom.atom_index)
 
-        self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs}
+        self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs, 'other': other_hs}
 
         # now modify the rotatable list to remove methyl and amine/ nitrile torsions
         # these are already well represented in most FF's
