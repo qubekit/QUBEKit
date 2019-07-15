@@ -91,7 +91,6 @@ class QCEngine(Engines):
                 },
                 'initial_molecule': mol,
             }
-            # TODO hide the output stream so it does not spoil the terminal printing
             ret = qcng.compute_procedure(
                 geo_task, 'geometric', return_dict=True, local_options={'memory': self.molecule.memory,
                                                                         'ncores': self.molecule.threads})

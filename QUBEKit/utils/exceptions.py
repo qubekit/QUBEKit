@@ -41,3 +41,11 @@ class OptimisationFailed(Exception):
     This should mean it's more obvious to users when there's a segfault.
     """
     pass
+
+
+class HessianCalculationFailed(Exception):
+    """
+
+    """
+
+    pass
