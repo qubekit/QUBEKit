@@ -145,6 +145,7 @@ class TorsionScan:
 
         # Now we need to run torsiondrive through the CLI
         with open('tdrive.log', 'w') as log:
+            # TODO Use configs rather than __class__.__name__?
             sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.inputfile} dihedrals.txt -v '
                    f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
 
@@ -343,7 +344,7 @@ class TorsionOptimiser:
                                            [self.index_dict[(key[1], key[2], key[0], key[3])]]]
 
         self.update_torsions()
-        # initial is a referenceto the energy surface at the start of the fit
+        # initial is a reference to the energy surface at the start of the fit
         self.initial_energy = deepcopy(self.mm_energies())
         # starting energy is the surface made by the original unfit parameters
         self.starting_energy = deepcopy(self.initial_energy)
@@ -601,7 +602,7 @@ class TorsionOptimiser:
         else:
             self.qm_energy -= min(self.qm_energy)  # make relative to lowest energy
 
-        self.qm_energy *= 627.509391  # convert to kcal/mol
+        self.qm_energy *= constants.HA_TO_KCAL_P_MOL
 
     def torsion_test(self):
         """
@@ -932,11 +933,11 @@ class TorsionOptimiser:
         # Store the original parameter vectors to use regularisation
         self.starting_params = [list(k)[1][i] for k in self.tor_types.values() for i in range(4)]
 
-    def rmsd(self, qm_coordinates, mm_coodinates):
+    def rmsd(self, qm_coordinates, mm_coordinates):
         """
 
         :param qm_coordinates: An array of the reference qm coordinates in openMM format
-        :param mm_coodinates: An array of the new mm coordinates in openMM format
+        :param mm_coordinates: An array of the new mm coordinates in openMM format
         :return: [bond rmsd, angles rmsd, torsions, rmsd]
         """
 
@@ -944,7 +945,7 @@ class TorsionOptimiser:
         angles_rmsd = []
         dihedrals_rmsd = []
         # Each frame get the total rmsd for the components and put them in the list
-        for frame in zip(qm_coordinates, mm_coodinates):
+        for frame in zip(qm_coordinates, mm_coordinates):
             # First convert each frame from openMM to Angstroms
             self.molecule.coords['temp'] = np.array(frame[0]) * 10  # Convert to Angstroms
             # QM first
@@ -955,7 +956,7 @@ class TorsionOptimiser:
             self.molecule.get_dihedral_values(input_type='temp')
             qm_dihedrals = self.molecule.dih_phis
 
-            # Now get the MM measuremnts
+            # Now get the MM measurements
             self.molecule.coords['temp'] = np.array(frame[1]) * 10  # Convert to Angstroms
             self.molecule.get_bond_lengths(input_type='temp')
             mm_bonds = self.molecule.bond_lengths
