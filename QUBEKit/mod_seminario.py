@@ -263,9 +263,9 @@ class ModSeminario:
         # Used to find average values
         unique_values_angles = []
 
-        conversion = constants.KJ_TO_KCAL * 2
+        conversion = constants.KCAL_TO_KJ * 2
 
-        with open('Modified_Seminario_Angles.txt', 'a+') as angle_file:
+        with open('Modified_Seminario_Angles.txt', 'w') as angle_file:
 
             for i, angle in enumerate(angle_list):
                 scalings = [scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1]]
@@ -282,7 +282,7 @@ class ModSeminario:
                 angle_file.write(f'{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicAngleForce[angle] = [str(round(theta_0[i] * np.pi / 180, ndigits=4)), str(round(k_theta[i] * conversion, ndigits=4))]
+                self.molecule.HarmonicAngleForce[angle] = [str(theta_0[i] * np.pi / 180), str(k_theta[i] * conversion)]
 
                 unique_values_angles.append([self.atoms[angle[0]].name, self.atoms[angle[1]].name, self.atoms[angle[2]].name, k_theta[i] * conversion, theta_0[i] * np.pi / 180, 1])
 
@@ -299,7 +299,7 @@ class ModSeminario:
         # Used to find average values
         unique_values_bonds = []
 
-        with open('Modified_Seminario_Bonds.txt', 'a+') as bond_file:
+        with open('Modified_Seminario_Bonds.txt', 'w') as bond_file:
 
             for pos, bond in enumerate(bond_list):
                 ab = ModSemMaths.force_constant_bond(*bond, eigenvals, eigenvecs, coords)
@@ -313,7 +313,7 @@ class ModSeminario:
                 bond_file.write(f'{k_b[pos]:.3f}   {bond_len_list[pos]:.3f}   {bond[0]}   {bond[1]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicBondForce[bond] = [str(round(bond_len_list[pos] / 10, ndigits=4)), str(round(conversion * k_b[pos], ndigits=4))]
+                self.molecule.HarmonicBondForce[bond] = [str(bond_len_list[pos] / 10), str(conversion * k_b[pos])]
 
                 unique_values_bonds.append([self.atoms[bond[0]].name, self.atoms[bond[1]].name, k_b[pos] * conversion, bond_len_list[pos] / 10, 1])
 

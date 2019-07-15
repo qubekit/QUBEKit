@@ -77,7 +77,7 @@ class Gaussian(Engines):
                     # Set the redundant mode as the convergence as we just want to use the standard threshold
                     convergence = 'ModRedundant'
                 # Set the convergence and the iteration cap for the optimisation
-                commands += f'opt(MaxCycles={self.molecule.iterations} {convergence}) '
+                commands += f'opt(MaxCycles={self.molecule.iterations}{convergence}) '
 
             if hessian:
                 commands += 'freq '
@@ -149,6 +149,10 @@ class Gaussian(Engines):
                 elif 'Error termination in NtrErr' in line:
                     return {'success': False,
                             'error': 'FileIO'}
+
+                elif '-- Number of steps exceeded' in line:
+                    return {'success': False,
+                            'error': 'Steps'}
 
             return {'success': False,
                     'error': 'Unknown'}

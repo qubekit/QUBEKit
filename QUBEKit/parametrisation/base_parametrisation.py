@@ -171,3 +171,27 @@ class Parametrisation:
         if improper_torsions is not None:
             for key, val in improper_torsions.items():
                 self.molecule.PeriodicTorsionForce[key] = val
+
+    def get_symmetry(self):
+        """
+        Using the initial FF parameters cluster the bond and angle terms
+        :return: Dictionaries that can be used to cluster the parameters latter on after the seminaro method
+        """
+
+        bond_types = {}
+        angle_types = {}
+
+        if next(iter(self.molecule.HarmonicBondForce.values())) == ['0', '0']:
+            return
+
+        for bond, value in sorted(self.molecule.HarmonicBondForce.items()):
+            bond_types.setdefault(tuple(value), []).append(bond)
+
+        for angle, value in sorted(self.molecule.HarmonicAngleForce.items()):
+            angle_types.setdefault(tuple(value), []).append(angle)
+
+        # Now store back into the ligand
+        if bond_types:
+            self.molecule.bond_types = bond_types
+        if angle_types:
+            self.molecule.angle_types = angle_types

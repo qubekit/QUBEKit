@@ -844,6 +844,8 @@ class Execute:
 
         mod_sem = ModSeminario(molecule)
         mod_sem.modified_seminario_method()
+        # Try and average out the new parameters
+        molecule.symmetrise_bonded_parameters()
 
         append_to_log('Finishing Mod_Seminario method')
 
@@ -911,8 +913,8 @@ class Execute:
         # TODO find constraints file if present
         append_to_log('Starting torsion_scans')
 
-        molecule.find_rotatable_dihedrals()
-        molecule.symmetrise_from_topo()
+        # molecule.find_rotatable_dihedrals()
+        # molecule.symmetrise_from_topo()
 
         scan = TorsionScan(molecule)
 

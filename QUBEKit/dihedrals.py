@@ -248,7 +248,7 @@ class TorsionOptimiser:
     """
 
     def __init__(self, molecule, weight_mm=True, step_size=0.02, error_tol=1e-5,
-                 x_tol=1e-5, refinement='Steep', vn_bounds=20):
+                 x_tol=1e-5, refinement='Steep', vn_bounds=20, rel_to_opt=False):
 
         # QUBEKit objects
         self.molecule = molecule
@@ -265,6 +265,7 @@ class TorsionOptimiser:
         self.x_tol = x_tol
         self.abs_bounds = vn_bounds
         self.refinement = refinement
+        self.rel_to_optimised = rel_to_opt
 
         # TorsionOptimiser starting parameters
         self.scans_dict = deepcopy(molecule.qm_scans)
@@ -375,12 +376,12 @@ class TorsionOptimiser:
         assert len(self.qm_energy) == len(self.mm_energy)
 
         # Calculate the objective
-        # Get the energy of the qm structure with the new parameters
-        # optimised_energy = self.openMM.get_energy(self.opt_coords)
-
-        # Make the mm energy relative to mm predicted energy of the qm structure
-        # mm_energy = self.mm_energy - optimised_energy
-        mm_energy = self.mm_energy - self.mm_energy.min()
+        # Make the mm energy relative to mm predicted energy of the qm optimised structure,
+        # or lowest energy structure of scan
+        if self.rel_to_optimised:
+            mm_energy = self.mm_energy - self.openMM.get_energy(self.opt_coords)
+        else:
+            mm_energy = self.mm_energy - self.mm_energy.min()
         error = (mm_energy - self.qm_energy) ** 2
 
         # if using a weighting, add that here
@@ -484,7 +485,7 @@ class TorsionOptimiser:
             self.energy_store_qm = deepcopy(np.append(self.energy_store_qm, self.qm_energy))
 
             # Normalise the qm energy again using the qm reference energy
-            self.qm_normalise(rel_to_optimised=True)
+            self.qm_normalise(rel_to_optimised=self.rel_to_optimised)
 
             # calculate the energy error in step 4 (just for this scan) and get a measure of the new reference energies
             energy_error = self.objective(opt_parameters)
@@ -526,7 +527,7 @@ class TorsionOptimiser:
                 self.plot_results(name=f'SP_iter_{iteration}')
 
                 # now reset the energy's
-                self.qm_normalise(rel_to_optimised=True)
+                self.qm_normalise(rel_to_optimised=self.rel_to_optimised)
 
                 # move out of the folder
                 os.chdir('../')
@@ -558,7 +559,7 @@ class TorsionOptimiser:
         # this will also update the parameters in the molecule class so we can write a new xml
         # first get back the original qm energies as well
         self.qm_energy = self.energy_store_qm[:24]
-        self.qm_normalise(rel_to_optimised=True)
+        self.qm_normalise(rel_to_optimised=self.rel_to_optimised)
         # energy_error = self.objective(final_parameters)
 
         # get the starting energies back to the initial values before fitting
@@ -588,7 +589,7 @@ class TorsionOptimiser:
         plt.savefig(f'{name}.pdf')
         plt.clf()
 
-    def qm_normalise(self, rel_to_optimised=False):
+    def qm_normalise(self, rel_to_optimised):
         """
         Normalize the qm energy to the reference energy which is either the lowest in the set or the global minimum
         :param rel_to_optimised: Normalise relative to the am optimised structure
@@ -635,7 +636,7 @@ class TorsionOptimiser:
             self.qm_energy = self.single_point()
 
             # Normalise the qm energy again using the qm reference energy
-            self.qm_normalise(rel_to_optimised=True)
+            self.qm_normalise(rel_to_optimised=self.rel_to_optimised)
 
             # Calculate the mm energy
             # Use the parameters to get the current energies
@@ -688,7 +689,7 @@ class TorsionOptimiser:
             self.qm_energy = deepcopy(self.target_energy)
             # store the optimized qm energy and make all other energies relative to this one
 
-            self.qm_normalise(rel_to_optimised=True)
+            self.qm_normalise(rel_to_optimised=self.rel_to_optimised)
 
             # Keep the initial coords
             self.coords_store = deepcopy(self.scan_coords)
@@ -852,7 +853,6 @@ class TorsionOptimiser:
         """
 
         # Get a list of which dihedrals parameters are to be varied
-        # Convert to be indexed from 0
         to_fit = [(tor[0], tor[1], tor[2], tor[3]) for tor in list(self.molecule.dihedrals[self.scan])]
 
         # Check which ones have the same parameters and how many torsion vectors we need
