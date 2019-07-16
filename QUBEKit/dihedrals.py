@@ -24,7 +24,7 @@ class TorsionScan:
     inputs
     ---------------
     molecule                    A QUBEKit Ligand instance
-    constranits_made            The name of the constraints file that should be used during the torsiondrive (pis4 only)
+    constraints_made            The name of the constraints file that should be used during the torsiondrive (pis4 only)
 
     attributes
     ---------------
@@ -38,7 +38,6 @@ class TorsionScan:
     """
 
     def __init__(self, molecule, constraints_made=None):
-        # TODO test with constraints
 
         # engine info
         self.qm_engine = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}.get(molecule.bonds_engine)(molecule)
@@ -46,7 +45,7 @@ class TorsionScan:
         # Ensure geometric can only be used with psi4  so far
         if molecule.geometric and molecule.bonds_engine == 'psi4':
             self.native_opt = False
-        self.inputfile = None
+        self.input_file = None
 
         # molecule
         self.molecule = molecule
@@ -129,13 +128,13 @@ class TorsionScan:
         if self.native_opt:
             self.qm_engine.generate_input(optimise=True, execute=False, red_mode=True)
             if self.qm_engine.__class__.__name__.lower() == 'psi4':
-                self.inputfile = 'input.dat'
+                self.input_file = 'input.dat'
             else:
-                self.inputfile = f'gj_{self.molecule.name}.com'
+                self.input_file = f'gj_{self.molecule.name}.com'
 
         else:
             self.qm_engine.geo_gradient(execute=False, threads=True)
-            self.inputfile = f'{self.molecule.name}.{self.qm_engine.__class__.__name__.lower()}in'
+            self.input_file = f'{self.molecule.name}.{self.qm_engine.__class__.__name__.lower()}in'
 
     def start_torsiondrive(self, scan):
         """Start a torsiondrive either using psi4 or native gaussian09"""
@@ -145,7 +144,7 @@ class TorsionScan:
 
         # Now we need to run torsiondrive through the CLI
         with open('tdrive.log', 'w') as log:
-            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.inputfile} dihedrals.txt -v '
+            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.input_file} dihedrals.txt -v '
                    f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
 
         # Gather the results
@@ -323,8 +322,7 @@ class TorsionOptimiser:
                   index in range(self.openMM.simulation.system.getNumForces())}
         torsion_force = forces['PeriodicTorsionForce']
         for i in range(torsion_force.getNumTorsions()):
-            p1, p2, p3, p4, periodicity, phase, k = torsion_force.getTorsionParameters(i)
-            torsion = (p1, p2, p3, p4)
+            *torsion, periodicity, phase, k = torsion_force.getTorsionParameters(i)
             if torsion not in self.index_dict:
                 self.index_dict[torsion] = i
 
@@ -366,7 +364,7 @@ class TorsionOptimiser:
         # Update the parameter vector into tor_types
         self.update_tor_vec(x)
 
-        # Update the torsions in the Openmm system
+        # Update the torsions in the OpenMM system
         self.update_torsions()
 
         # Get the mm corresponding energy
@@ -512,7 +510,7 @@ class TorsionOptimiser:
                 # turn on the penalty
                 self.l_pen = 0.01
 
-                # optimise using the scipy method for the new structures with a penatly to remain close to the old
+                # optimise using the scipy method for the new structures with a penalty to remain close to the old
                 fitting_error, opt_parameters = self.scipy_optimiser()
 
                 # update the parameters in the fitting vector and the molecule for the MM scans
@@ -735,7 +733,7 @@ class TorsionOptimiser:
 
     def steepest_decent_refinement(self, x):
         """
-        A steepest decent optimiser as implemented in QUBEKit-V1, which will optimise the torsion terms
+        A steepest descent optimiser as implemented in QUBEKit-V1, which will optimise the torsion terms
         using full relaxed surface scans. SLOW!
         """
 
@@ -781,7 +779,7 @@ class TorsionOptimiser:
                 error_plus = self.objective(y_plus)
                 error[error_plus] = y_plus
 
-                # now make a differnt variation
+                # now make a different variation
                 y_minus = deepcopy(x)
                 y_minus[i] -= step_size[step_index]
                 print(f'y minus {y_minus}')
@@ -852,7 +850,7 @@ class TorsionOptimiser:
         """
 
         # Get a list of which dihedrals parameters are to be varied
-        to_fit = [(tor[0], tor[1], tor[2], tor[3]) for tor in list(self.molecule.dihedrals[self.scan])]
+        to_fit = [tuple(tor) for tor in list(self.molecule.dihedrals[self.scan])]
 
         # Check which ones have the same parameters and how many torsion vectors we need
         self.tor_types = OrderedDict()
@@ -946,7 +944,7 @@ class TorsionOptimiser:
         # Each frame get the total rmsd for the components and put them in the list
         for frame in zip(qm_coordinates, mm_coordinates):
             # First convert each frame from openMM to Angstroms
-            self.molecule.coords['temp'] = np.array(frame[0]) * 10  # Convert to Angstroms
+            self.molecule.coords['temp'] = np.array(frame[0]) * constants.NM_TO_ANGS
             # QM first
             self.molecule.get_bond_lengths(input_type='temp')
             qm_bonds = self.molecule.bond_lengths
@@ -956,7 +954,7 @@ class TorsionOptimiser:
             qm_dihedrals = self.molecule.dih_phis
 
             # Now get the MM measurements
-            self.molecule.coords['temp'] = np.array(frame[1]) * 10  # Convert to Angstroms
+            self.molecule.coords['temp'] = np.array(frame[1]) * constants.NM_TO_ANGS
             self.molecule.get_bond_lengths(input_type='temp')
             mm_bonds = self.molecule.bond_lengths
             self.molecule.get_angle_values(input_type='temp')
@@ -968,8 +966,6 @@ class TorsionOptimiser:
             bonds_rmsd.append(self.calculate_rmsd_component(qm_bonds, mm_bonds))
             angles_rmsd.append(self.calculate_rmsd_component(qm_angles, mm_angles))
             dihedrals_rmsd.append(self.calculate_rmsd_component(qm_dihedrals, mm_dihedrals))
-            print(qm_dihedrals)
-            print(mm_dihedrals)
 
         # Now work out the average rmsd over all of the frames
         bonds_rmsd = sum(bonds_rmsd) / len(bonds_rmsd)
@@ -985,7 +981,8 @@ class TorsionOptimiser:
 
         return rmsd
 
-    def calculate_rmsd_component(self, reference, component):
+    @staticmethod
+    def calculate_rmsd_component(reference, component):
         """
         Calculate the rmsd value for the input component
         :param reference: The reference values bonds, angles, dihedrals dicts
@@ -993,10 +990,8 @@ class TorsionOptimiser:
         :return: The rmsd value calculated
         """
 
-        rmsd = []
         # Reference is a dict of measurements
-        for key, value in reference.items():
-            rmsd.append((value - component[key]) ** 2)
+        rmsd = [(value - component[key]) ** 2 for key, value in reference.items()]
 
         return np.sqrt(sum(rmsd) / len(rmsd))
 
@@ -1069,8 +1064,8 @@ class TorsionOptimiser:
         initial_energy = self.initial_energy - min(self.initial_energy)
 
         # Construct the angle array
-        angles = [x for x in range(-165, 195, self.molecule.increment)]
-        points = [x for x in range(len(self.qm_energy))] if len(self.qm_energy) > len(angles) else None
+        angles = list(range(-165, 195, self.molecule.increment))
+        points = list(range(len(self.qm_energy))) if len(self.qm_energy) > len(angles) else None
 
         if points is not None:
             # Print a table of the results for multiple plots
@@ -1104,9 +1099,8 @@ class TorsionOptimiser:
                 plt.plot(angles, plot_mm_energy, label='MM validate')
 
         # Label the graph and save the pdf
-        plt.title(f'Relative energy surface for dihedral {self.molecule.dihedrals[self.scan][0][0]}-'
-                  f'{self.molecule.dihedrals[self.scan][0][1]}-'
-                  f'{self.molecule.dihedrals[self.scan][0][2]}-{self.molecule.dihedrals[self.scan][0][3]}')
+        mol_di = self.molecule.dihedrals[self.scan][0]
+        plt.title(f'Relative energy surface for dihedral {mol_di[0]}-{mol_di[1]}-{mol_di[2]}-{mol_di[3]}')
         plt.ylabel('Relative energy (kcal/mol)')
         plt.legend(loc=1)
         plt.savefig(f'{name}.pdf')
@@ -1171,7 +1165,7 @@ class TorsionOptimiser:
                        '--openmm state.xml qube_constraints.txt', shell=True, stdout=log, stderr=log)
                 positions = self.molecule.read_xyz('scan.xyz')
             else:
-                raise NotImplementedError
+                raise NotImplementedError('Invalid torsion engine. Please use torsiondrive or geometric')
 
         # move back to the master folder
         os.chdir('../')
@@ -1182,8 +1176,7 @@ class TorsionOptimiser:
     def single_point(self):
         """Take set of coordinates of a molecule and do a single point calculation; returns an array of the energies."""
 
-        sp_energy = []
-        # reset the temp entry in the moleule
+        # reset the temp entry in the molecule
         self.molecule.coords['temp'] = self.molecule.coords['input']
         # for each coordinate in the system we need to write a qm input file and get the single point energy
         try:
@@ -1192,6 +1185,9 @@ class TorsionOptimiser:
             pass
         os.mkdir('Single_points')
         os.chdir('Single_points')
+
+        sp_energy = []
+
         for i, x in enumerate(self.scan_coords):
             os.mkdir(f'SP_{i}')
             os.chdir(f'SP_{i}')
