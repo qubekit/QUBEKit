@@ -43,7 +43,6 @@ class Chargemol(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                # TODO Check if windows
                 control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/' \
                                'Chargemol_09_26_2017_linux_serial job_control.txt'
                 sp.run(os.path.join(self.molecule.chargemol, control_path), shell=True, stdout=log, stderr=log)

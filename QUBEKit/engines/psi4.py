@@ -25,6 +25,21 @@ class PSI4(Engines):
         # Search for functional in dict, if it's not there, just leave the theory as it is.
         self.molecule.theory = self.functional_dict.get(self.molecule.theory.lower(), self.molecule.theory)
 
+        # Test if PSI4 is callable
+        psi4_test = sp.Popen('psi4 -h', shell=True, stdout=sp.PIPE)
+        output = psi4_test.communicate()[0].decode('utf-8')
+        if not output.startswith('usage:'):
+            raise ModuleNotFoundError(
+                'PSI4 not working. Please ensure PSI4 is installed and can be called with the command: psi4')
+
+        if self.molecule.geometric:
+            geo_test = sp.Popen('geometric-optimize -h', shell=True, stdout=sp.PIPE)
+            output = geo_test.communicate()[0].decode('utf-8')
+            if not output.startswith('usage: '):
+                raise ModuleNotFoundError(
+                    'Geometric not working. Please ensure geometric is installed and can be called '
+                    'with the command: geometric-optimize')
+
     # TODO add restart from log method
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
                        fchk=False, restart=False, execute=True):

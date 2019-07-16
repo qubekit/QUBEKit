@@ -128,8 +128,7 @@ class Gaussian(Engines):
             # Now check the exit status of the job
             return self.check_for_errors()
 
-        else:
-            return {'success': False, 'error': 'Not run'}
+        return {'success': False, 'error': 'Not run'}
 
     def check_for_errors(self):
         """
@@ -170,7 +169,6 @@ class Gaussian(Engines):
 
             # Improperly formatted Hessian (converted to square numpy array later)
             hessian_list = []
-
             start, end = None, None
 
             for count, line in enumerate(lines):
@@ -192,7 +190,6 @@ class Gaussian(Engines):
                 hessian_list.extend([float(num) * conversion for num in line.strip('\n').split()])
 
         hess_size = 3 * len(self.molecule.atoms)
-
         hessian = np.zeros((hess_size, hess_size))
 
         # Rewrite Hessian to full, symmetric 3N * 3N matrix rather than list with just the non-repeated values.
@@ -253,6 +250,7 @@ class Gaussian(Engines):
         with open(f'gj_{self.molecule.name}.log', 'r') as gj_log_file:
 
             lines = gj_log_file.readlines()
+
             freqs = []
 
             # Stores indices of rows which will be used
