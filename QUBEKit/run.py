@@ -71,6 +71,10 @@ class ArgsAndConfigs:
         if self.args.bulk_run:
             self.handle_bulk()
 
+        # If we are doing the torsion test add the attribute to the molecule so we can catch it in execute
+        if self.args.torsion_test:
+            self.args.restart = 'finalise'
+
         if self.args.restart is not None:
             # Find the pickled checkpoint file and load it as the molecule
             try:
@@ -101,6 +105,16 @@ class ArgsAndConfigs:
         for name, val in vars(self.args).items():
             if val is not None:
                 setattr(self.molecule, name, val)
+
+        # Now we need to remove torsion_test as it is passed from the command line
+        if self.args.torsion_test is False:
+            del self.molecule.torsion_test
+
+        # Now check if we have been supplied a dihedral file and a constraints file
+        if self.args.dihedral_file:
+            self.molecule.read_scan_order(self.args.dihedrals_file)
+        if self.args.constraints_file:
+            self.molecule.constraints_file = Path(self.args.constaints_file)
 
         # If restarting put the molecule back into the checkpoint file with the new configs
         if self.args.restart is not None:
@@ -181,8 +195,6 @@ class ArgsAndConfigs:
             def __call__(self, pars, namespace, values, option_string=None):
                 """This function is executed when Torsion maker is called."""
 
-                # TODO Should this be here?
-
                 # load in the ligand molecule
                 mol = Ligand(values)
 
@@ -191,12 +203,12 @@ class ArgsAndConfigs:
                 scanner.find_scan_order()
 
                 # Write out the scan file
-                with open('QUBE_torsions.txt', 'w+') as qube:
-                    qube.write('# dihedral definition by atom indices starting from 1\n#  i      j      k      l\n')
+                with open(f'{mol.name}.dihedrals', 'w+') as qube:
+                    qube.write('# dihedral definition by atom indices starting from 0\n#  i      j      k      l\n')
                     for scan in mol.scan_order:
                         scan_di = mol.dihedrals[scan][0]
                         qube.write(f'  {scan_di[0]:2}     {scan_di[1]:2}     {scan_di[2]:2}     {scan_di[3]:2}\n')
-                printf('QUBE_torsions.txt made.')
+                printf(f'{mol.name}.dihedrals made.')
 
                 sys.exit()
 
@@ -262,7 +274,7 @@ class ArgsAndConfigs:
                                                                    'density', 'charges', 'lennard_jones',
                                                                    'torsion_scan', 'torsion_optimise', 'finalise'],
                             help='Option to skip certain stages of the execution.')
-        parser.add_argument('-tor_test', '--torsion_test', choices=[True, False], type=string_to_bool,
+        parser.add_argument('-tor_test', '--torsion_test', action='store_true',
                             help='Enter True if you would like to run a torsion test on the chosen torsions.')
         parser.add_argument('-tor_make', '--torsion_maker', action=TorsionMakerAction,
                             help='Allow QUBEKit to help you make a torsion input file for the given molecule')
@@ -274,6 +286,10 @@ class ArgsAndConfigs:
                             help='Enter the vibrational scaling to be used with the basis set.')
         parser.add_argument('-iters', '--iterations', type=int,
                             help='Max number of iterations for QM scan.')
+        parser.add_argument('-constraints', '--constraints_file', type=str,
+                            help='The name of the geometric constraints file.')
+        parser.add_argument('-dihedral_file', '--dihedral_file', type=str,
+                            help='The name of the qubekit/tdrive torsion file.')
 
         # Add mutually exclusive groups to stop certain combinations of options,
         # e.g. setup should not be run with csv command
@@ -385,7 +401,8 @@ class Execute:
                                   ('lennard_jones', self.lennard_jones),
                                   ('torsion_scan', self.torsion_scan),
                                   ('torsion_optimise', self.torsion_optimise),
-                                  ('finalise', self.finalise)])
+                                  ('finalise', self.finalise),
+                                  ('torsion_test', self.torsion_test)])
 
         # Keep this for pickling
         self.immutable_order = list(self.order)
@@ -410,25 +427,33 @@ class Execute:
         Creates a new self.order based on self.molecule's configs.
         """
 
-        start = self.molecule.restart if self.molecule.restart is not None else 'parametrise'
-        end = self.molecule.end if self.molecule.end is not None else 'finalise'
-        skip = self.molecule.skip if self.molecule.skip is not None else []
+        # If we are doing a torsion_test we have to redo the order as follows:
+        # 1 Skip the finalise step to create a pickled ligand at the torsion_test stage
+        # 2 Do the torsion_test and delete the torsion_test attribute
+        # 3 Do finalise again to save the ligand with the correct attributes
+        if hasattr(self.molecule, 'torsion_test'):
+            self.order = OrderedDict([('finalise', self.skip), ('torsion_test', self.torsion_test), ('finalise', self.skip)])
 
-        # Create list of all keys
-        stages = list(self.order)
+        else:
+            start = self.molecule.restart if self.molecule.restart is not None else 'parametrise'
+            end = self.molecule.end if self.molecule.end is not None else 'finalise'
+            skip = self.molecule.skip if self.molecule.skip is not None else []
 
-        # Cut out the keys before the start_point and after the end_point
-        # Add finalise back in if it's removed (finalise should always be called).
-        stages = stages[stages.index(start):stages.index(end) + 1] + ['finalise']
+            # Create list of all keys
+            stages = list(self.order)
 
-        # Redefine self.order to only contain the key, val pairs from stages
-        self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
+            # Cut out the keys before the start_point and after the end_point
+            # Add finalise back in if it's removed (finalise should always be called).
+            stages = stages[stages.index(start):stages.index(end) + 1] + ['finalise']
 
-        for pair in self.order.items():
-            if pair[0] in skip:
-                self.order[pair[0]] = self.skip
-            else:
-                self.order[pair[0]] = pair[1]
+            # Redefine self.order to only contain the key, val pairs from stages
+            self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
+
+            for pair in self.order.items():
+                if pair[0] in skip:
+                    self.order[pair[0]] = self.skip
+                else:
+                    self.order[pair[0]] = pair[1]
 
     def create_log(self):
         """
@@ -481,7 +506,7 @@ class Execute:
             self.molecule.home = os.getcwd()
 
         # Find external files
-        copy_files = [f'{self.molecule.name}.xml', 'QUBE_torsions.txt', self.molecule.filename]
+        copy_files = [f'{self.molecule.name}.xml', self.molecule.filename]
         for file in copy_files:
             try:
                 copy(f'../{file}', file)
@@ -521,6 +546,7 @@ class Execute:
 
     @exception_logger
     def run(self, torsion_options=None):
+        # TODO bulk torsion options need to be checked
         """
         Calls all the relevant classes and methods for the full QM calculation in the correct order
             (according to self.order).
@@ -792,6 +818,10 @@ class Execute:
                 molecule.coords['temp'] = RDKit().generate_conformers(f'{molecule.name}.pdb')[0]
                 result = qm_engine.generate_input(input_type='temp', optimise=True, execute=self.molecule.bonds_engine)
 
+            # Some times the user has no given enough iterations so try again
+            elif result['error'] == 'Max iterations':
+                result = qm_engine.generate_input(input_type='input', optimise=True, restart=True, execute=self.molecule.bonds_engine)
+
             restart_count += 1
 
         if not result['success']:
@@ -1018,11 +1048,21 @@ class Execute:
     def torsion_test(molecule):
         """Take the molecule and do the torsion test method."""
 
-        opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
+        # If there is a constraints file we should move it
+        if molecule.constraints_file is not None:
+            copy(molecule.constraints_file, molecule.constraints_file.name)
 
+        # Now we should run the torsion_test method
+        opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method,
+                               vn_bounds=molecule.tor_limit)
         opt.torsion_test()
 
         printf('Torsion testing done!')
+
+        # Now we must remove the torsion_test attrib
+        del molecule.torsion_test
+
+        return molecule
 
 
 def main():

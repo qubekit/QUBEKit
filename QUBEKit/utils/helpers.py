@@ -53,6 +53,8 @@ class Configure:
         'div_index': '0',               # Fitting starting index in the division array
         'parameter_engine': 'xml',      # Method used for initial parametrisation
         'l_pen': '0.0',                 # The regularisation penalty
+        'relative_to_global': 'False'   # If we should compute our relative energy surface
+                                        # compared to the global minimum
     }
 
     excited = {
@@ -88,6 +90,7 @@ class Configure:
         'dih_end': ';The last dihedral angle in the scan',
         't_weight': ';Weighting temperature that can be changed to better fit complicated surfaces',
         'l_pen': ';The regularisation penalty',
+        'relative_to_global': ';If we should compute our relative energy surface compared to the global minimum',
         'opt_method': ';The type of SciPy optimiser to use',
         'refinement_method': ';The type of QUBE refinement that should be done SP: single point energies',
         'tor_limit': ';Torsion Vn limit to speed up fitting',

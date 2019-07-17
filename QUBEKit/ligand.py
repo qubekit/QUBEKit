@@ -51,6 +51,7 @@ class Defaults:
         self.parameter_engine = 'xml'
         self.l_pen = 0.0
         self.mm_opt_method = 'openmm'
+        self.relative_to_global = False
 
         self.excited_state = False
         self.excited_theory = 'TDA'
@@ -1033,6 +1034,27 @@ class Molecule(Defaults):
                     energy.append(float(line.split()[1]))
 
         self.qm_scans[bond_scan] = [np.array(energy), scan_coords]
+
+    def read_scan_order(self, file):
+        """
+        Read a qubekit or tdrive dihedrals file and store the scan order into the ligand class
+        :param file: The dihedrals input file.
+        :return: The molecule with the scan_order saved
+        """
+
+        # If we have a QUBE_torsions.txt file get the scan order from there
+        scan_order = []
+        torsions = open(file).readlines()
+        for line in torsions[2:]:
+            torsion = line.split()
+            if len(torsion) == 4:
+                core = (int(torsion[1]), int(torsion[2]))
+                if core in self.molecule.rotatable:
+                    scan_order.append(core)
+                elif reversed(tuple(core)) in self.molecule.rotatable:
+                    scan_order.append(reversed(tuple(core)))
+
+        self.scan_order = scan_order
 
 
 class Ligand(Molecule):

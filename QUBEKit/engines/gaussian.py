@@ -152,7 +152,7 @@ class Gaussian(Engines):
 
                 elif '-- Number of steps exceeded' in line:
                     return {'success': False,
-                            'error': 'Steps'}
+                            'error': 'Max iterations'}
 
             return {'success': False,
                     'error': 'Unknown'}
