@@ -524,7 +524,7 @@ class Molecule(Defaults):
         """
 
         for atom in self.atoms:
-            if atom.name == name:
+            if atom.atom_name == name:
                 return atom
         raise AttributeError('No atom found with that name.')
 
