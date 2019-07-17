@@ -79,20 +79,19 @@ class RDKit:
 
         return f'{filename.stem}_rdkit_optimised.pdb'
 
-    def rdkit_descriptors(self, filename):
+    def rdkit_descriptors(self, rdkit_mol):
         """
         Use RDKit Descriptors to extract properties and store in Descriptors dictionary.
         :param filename: The molecule input file
         :return: Descriptors dictionary
         """
 
-        mol = RDKit().read_file(filename)
         # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
-        descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(mol),
-                       'H-bond donors': Descriptors.NumHDonors(mol),
-                       'H-bond acceptors': Descriptors.NumHAcceptors(mol),
-                       'Molecular weight': Descriptors.MolWt(mol),
-                       'LogP': Descriptors.MolLogP(mol)}
+        descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(rdkit_mol),
+                       'H-bond donors': Descriptors.NumHDonors(rdkit_mol),
+                       'H-bond acceptors': Descriptors.NumHAcceptors(rdkit_mol),
+                       'Molecular weight': Descriptors.MolWt(rdkit_mol),
+                       'LogP': Descriptors.MolLogP(rdkit_mol)}
 
         return descriptors
 

@@ -111,7 +111,7 @@ class ArgsAndConfigs:
 
         # Now check if we have been supplied a dihedral file and a constraints file
         if self.args.dihedral_file:
-            self.molecule.read_scan_order(self.args.dihedrals_file)
+            self.molecule.read_scan_order(self.args.dihedral_file)
         if self.args.constraints_file:
             self.molecule.constraints_file = Path(self.args.constaints_file)
 
@@ -685,7 +685,6 @@ class Execute:
         """
 
         append_to_log('Starting mm_optimisation')
-
         # Check which method we want then do the optimisation
         if molecule.mm_opt_method == 'openmm':
             if molecule.parameter_engine != 'none':
@@ -936,20 +935,11 @@ class Execute:
     @staticmethod
     def torsion_scan(molecule):
         """Perform torsion scan."""
-        # TODO find constraints file if present
         append_to_log('Starting torsion_scans')
 
-        # molecule.find_rotatable_dihedrals()
-        # molecule.symmetrise_from_topo()
-
         scan = TorsionScan(molecule)
-
-        # Try to find a scan file; if none provided and more than one torsion detected: prompt user
-        try:
-            copy('../../QUBE_torsions.txt', 'QUBE_torsions.txt')
-            scan.find_scan_order(file='QUBE_torsions.txt')
-        except FileNotFoundError:
-            scan.find_scan_order()
+        # Check that we have a scan order for the molecule this should of been captured from the dihedral file
+        scan.find_scan_order()
 
         scan.scan()
 
@@ -964,7 +954,7 @@ class Execute:
         append_to_log('Starting torsion_optimisations')
 
         # First we should make sure we have collected the results of the scans
-        if not molecule.qm_scans:
+        if molecule.qm_scans is not None:
             os.chdir(os.path.join(molecule.home, '09_torsion_scan'))
             scan = TorsionScan(molecule)
             scan.find_scan_order()
@@ -981,14 +971,12 @@ class Execute:
     @staticmethod
     def finalise(molecule):
         """
-        Make the xml and pdb file; get the RDKit descriptors;
+        Make the xml and pdb file;
         print the ligand object to terminal (in abbreviated form) and to the log file (unabbreviated).
         """
 
         molecule.write_pdb()
         molecule.write_parameters()
-
-        molecule.descriptors = RDKit().rdkit_descriptors(f'{molecule.name}.pdb')
 
         pretty_print(molecule, to_file=True)
         pretty_print(molecule)

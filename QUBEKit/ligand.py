@@ -197,8 +197,9 @@ class Molecule(Defaults):
         self.qm_energy = None
         self.charge = 0
         self.multiplicity = 1
-        self.qm_scans = {}
+        self.qm_scans = None
         self.scan_order = None
+        self.descriptors = None
 
         # XML Info
         self.xml_tree = None
@@ -285,6 +286,7 @@ class Molecule(Defaults):
                 self.mol_from_rdkit(rdkit_mol)
 
             except AttributeError:
+                raise
                 # AttributeError:  errors when reading the input file
                 print('RDKit error was found, resorting to standard file readers')
                 # Try to read using QUBEKit readers they only get the connections if present
@@ -344,6 +346,9 @@ class Molecule(Defaults):
 
         # Now get the coordinates and store in the right location
         self.coords[input_type] = rdkit_molecule.GetConformer().GetPositions()
+
+        # Now get any descriptors we can find
+        self.descriptors = RDKit().rdkit_descriptors(rdkit_molecule)
 
     def read_pdb(self, filename, input_type='input'):
         """
@@ -495,6 +500,12 @@ class Molecule(Defaults):
         self.topology = topology
 
         self.coords['input'] = np.array(self.qc_json['geometry']).reshape((len(self.atoms), 3)) * constants.BOHR_TO_ANGS
+
+    def mol_to_rdkit(self, input_type='input'):
+        """
+        Create a rdkit molecule from the current QUBEKit object requires bond types
+        :return:
+        """
 
     def get_atom_with_name(self, name):
         """
@@ -698,7 +709,7 @@ class Molecule(Defaults):
 
                 # Replace with averaged values
                 for bond in bonds:
-                    self.HarmonicBondForce[bond] = [f'{bond_lens:.6f}', f'{bond_forces:.6f}']
+                    self.HarmonicBondForce[bond] = [bond_lens, bond_forces]
 
             # Collect all of the angle values
             for angles in self.angle_types.values():
@@ -709,7 +720,7 @@ class Molecule(Defaults):
 
                 # Replace with averaged values
                 for angle in angles:
-                    self.HarmonicAngleForce[angle] = [f'{angle_vals:.6f}', f'{angle_forces:.6f}']
+                    self.HarmonicAngleForce[angle] = [angle_vals, angle_forces]
 
     def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
@@ -763,7 +774,7 @@ class Molecule(Defaults):
             ET.SubElement(HarmonicBondForce, "Bond", attrib={
                 'class1': self.AtomTypes[key[0]][2],
                 'class2': self.AtomTypes[key[1]][2],
-                'length': val[0], 'k': val[1]})
+                'length': f'{val[0]:.6f}', 'k': f'{val[1]:.6f}'})
 
         # Add the angles
         for key, val in self.HarmonicAngleForce.items():
@@ -771,7 +782,7 @@ class Molecule(Defaults):
                 'class1': self.AtomTypes[key[0]][2],
                 'class2': self.AtomTypes[key[1]][2],
                 'class3': self.AtomTypes[key[2]][2],
-                'angle': val[0], 'k': val[1]})
+                'angle': f'{val[0]:.6f}', 'k': f'{val[1]:.6f}'})
 
         # add the proper and improper torsion terms
         for key in self.PeriodicTorsionForce:
@@ -790,10 +801,10 @@ class Molecule(Defaults):
                 'k4': self.PeriodicTorsionForce[key][3][1],
                 'periodicity1': '1', 'periodicity2': '2',
                 'periodicity3': '3', 'periodicity4': '4',
-                'phase1': self.PeriodicTorsionForce[key][0][2],
-                'phase2': self.PeriodicTorsionForce[key][1][2],
-                'phase3': self.PeriodicTorsionForce[key][2][2],
-                'phase4': self.PeriodicTorsionForce[key][3][2]})
+                'phase1': str(self.PeriodicTorsionForce[key][0][2]),
+                'phase2': str(self.PeriodicTorsionForce[key][1][2]),
+                'phase3': str(self.PeriodicTorsionForce[key][2][2]),
+                'phase4': str(self.PeriodicTorsionForce[key][3][2])})
 
         # add the non-bonded parameters
         for key in self.NonbondedForce:
@@ -1017,6 +1028,7 @@ class Molecule(Defaults):
 
         scan_coords = []
         energy = []
+        qm_scans = {}
         with open('qdata.txt', 'r') as data:
             for line in data.readlines():
                 if 'COORDS' in line:
@@ -1026,7 +1038,9 @@ class Molecule(Defaults):
                 elif 'ENERGY' in line:
                     energy.append(float(line.split()[1]))
 
-        self.qm_scans[bond_scan] = [np.array(energy), scan_coords]
+        qm_scans[bond_scan] = [np.array(energy), scan_coords]
+        if qm_scans:
+            self.qm_scans = qm_scans
 
     def read_scan_order(self, file):
         """
@@ -1042,9 +1056,9 @@ class Molecule(Defaults):
             torsion = line.split()
             if len(torsion) == 4:
                 core = (int(torsion[1]), int(torsion[2]))
-                if core in self.molecule.rotatable:
+                if core in self.rotatable:
                     scan_order.append(core)
-                elif reversed(tuple(core)) in self.molecule.rotatable:
+                elif reversed(tuple(core)) in self.rotatable:
                     scan_order.append(reversed(tuple(core)))
 
         self.scan_order = scan_order
@@ -1070,8 +1084,6 @@ class Ligand(Molecule):
         self.hessian = None
         self.modes = None
         self.home = None
-
-        self.descriptors = {}
 
         self.constraints_file = None
 

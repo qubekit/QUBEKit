@@ -149,6 +149,8 @@ class Configure:
         qm['solvent'] = True if qm['solvent'].lower() == 'true' else False
         excited['excited_state'] = True if excited['excited_state'].lower() == 'true' else False
         excited['use_pseudo'] = True if excited['use_pseudo'].lower() == 'true' else False
+        fitting['relative_to_global'] = True if fitting['relative_to_global'].lower() == 'true' else False
+
 
         # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
@@ -191,14 +193,8 @@ class Configure:
         if not ini.endswith('.ini'):
             ini += '.ini'
 
-        # Check the current master template
-        if self.check_master():
-            # If master then load
-            qm, fitting, excited, descriptions = self.ini_parser(self.config_folder + self.master_file)
-
-        else:
-            # If default is the config file then assign the defaults
-            qm, fitting, excited, descriptions = self.qm, self.fitting, self.excited, self.descriptions
+        # Load a new configs from the options
+        qm, fitting, excited, descriptions = self.qm, self.fitting, self.excited, self.descriptions
 
         # Set config parser to allow for comments
         config = ConfigParser(allow_no_value=True)
