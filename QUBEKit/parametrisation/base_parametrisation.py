@@ -51,7 +51,6 @@ class Parametrisation:
         self.combination = 'amber'
 
         # could be a problem for boron compounds
-        # TODO Set back to None if there are none
         self.molecule.AtomTypes = {}
         self.molecule.HarmonicBondForce = {bond: ['0', '0'] for bond in self.molecule.bond_lengths.keys()}
         self.molecule.HarmonicAngleForce = {angle: ['0', '0'] for angle in self.molecule.angle_values.keys()}

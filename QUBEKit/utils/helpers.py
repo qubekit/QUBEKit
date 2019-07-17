@@ -52,6 +52,8 @@ class Configure:
         'div_index': '0',               # Fitting starting index in the division array
         'parameter_engine': 'xml',      # Method used for initial parametrisation
         'l_pen': '0.0',                 # The regularisation penalty
+        'relative_to_global': 'False'   # If we should compute our relative energy surface
+                                        # compared to the global minimum
     }
 
     excited = {
@@ -87,6 +89,7 @@ class Configure:
         'dih_end': ';The last dihedral angle in the scan',
         't_weight': ';Weighting temperature that can be changed to better fit complicated surfaces',
         'l_pen': ';The regularisation penalty',
+        'relative_to_global': ';If we should compute our relative energy surface compared to the global minimum',
         'opt_method': ';The type of SciPy optimiser to use',
         'refinement_method': ';The type of QUBE refinement that should be done SP: single point energies',
         'tor_limit': ';Torsion Vn limit to speed up fitting',
@@ -146,6 +149,7 @@ class Configure:
         qm['solvent'] = True if qm['solvent'].lower() == 'true' else False
         excited['excited_state'] = True if excited['excited_state'].lower() == 'true' else False
         excited['use_pseudo'] = True if excited['use_pseudo'].lower() == 'true' else False
+        fitting['relative_to_global'] = True if fitting['relative_to_global'].lower() == 'true' else False
 
         # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
@@ -188,14 +192,8 @@ class Configure:
         if not ini.endswith('.ini'):
             ini += '.ini'
 
-        # Check the current master template
-        if self.check_master():
-            # If master then load
-            qm, fitting, excited, descriptions = self.ini_parser(self.config_folder + self.master_file)
-
-        else:
-            # If default is the config file then assign the defaults
-            qm, fitting, excited, descriptions = self.qm, self.fitting, self.excited, self.descriptions
+        # Load a new configs from the options
+        qm, fitting, excited, descriptions = self.qm, self.fitting, self.excited, self.descriptions
 
         # Set config parser to allow for comments
         config = ConfigParser(allow_no_value=True)
