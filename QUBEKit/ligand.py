@@ -183,7 +183,6 @@ class Molecule(Defaults):
             self.qc_json = mol_input
 
         # Structure
-        # TODO Convert empty lists to None?
         self.coords = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
         self.topology = None
         self.angles = None
@@ -690,27 +689,27 @@ class Molecule(Defaults):
 
         if self.bond_types is not None:
 
-            # Collect all of the values
+            # Collect all of the bond values
             for bonds in self.bond_types.values():
-                bond_values, force_values = [], []  # List of distances and force constants
-                for bond in bonds:
-                    bond_values.append(float(self.HarmonicBondForce[bond][0]))
-                    force_values.append(float(self.HarmonicBondForce[bond][1]))
-                # Average and replace
-                bond_values, force_values = sum(bond_values) / len(bond_values), sum(force_values) / len(force_values)
-                for bond in bonds:
-                    self.HarmonicBondForce[bond] = [str(round(bond_values, ndigits=6)), str(round(force_values, ndigits=6))]
+                bond_lens, bond_forces = zip(*[self.HarmonicBondForce[bond] for bond in bonds])
 
-            # Collect all of the angle
+                # Average
+                bond_lens, bond_forces = sum(bond_lens) / len(bond_lens), sum(bond_forces) / len(bond_forces)
+
+                # Replace with averaged values
+                for bond in bonds:
+                    self.HarmonicBondForce[bond] = [f'{bond_lens:.6f}', f'{bond_forces:.6f}']
+
+            # Collect all of the angle values
             for angles in self.angle_types.values():
-                angle_values, force_values = [], []  # List of angles and force constants
+                angle_vals, angle_forces = zip(*[self.HarmonicAngleForce[angle] for angle in angles])
+
+                # Average
+                angle_vals, angle_forces = sum(angle_vals) / len(angle_vals), sum(angle_forces) / len(angle_forces)
+
+                # Replace with averaged values
                 for angle in angles:
-                    angle_values.append(float(self.HarmonicAngleForce[angle][0]))
-                    force_values.append(float(self.HarmonicAngleForce[angle][1]))
-                # Average and replace
-                angle_values, force_values = sum(angle_values) / len(angle_values), sum(force_values) / len(force_values)
-                for angle in angles:
-                    self.HarmonicAngleForce[angle] = [str(round(angle_values, ndigits=6)), str(round(force_values, ndigits=6))]
+                    self.HarmonicAngleForce[angle] = [f'{angle_vals:.6f}', f'{angle_forces:.6f}']
 
     def write_parameters(self, name=None, protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
@@ -734,10 +733,7 @@ class Molecule(Defaults):
         AtomTypes = ET.SubElement(root, "AtomTypes")
         Residues = ET.SubElement(root, "Residues")
 
-        if protein:
-            Residue = ET.SubElement(Residues, "Residue", name="QUP")
-        else:
-            Residue = ET.SubElement(Residues, "Residue", name="UNK")
+        Residue = ET.SubElement(Residues, "Residue", name=f'{"QUP" if protein else "UNK"}')
 
         HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
@@ -803,9 +799,9 @@ class Molecule(Defaults):
         for key in self.NonbondedForce:
             ET.SubElement(NonbondedForce, "Atom", attrib={
                 'type': self.AtomTypes[key][1],
-                'charge': self.NonbondedForce[key][0],
-                'sigma': self.NonbondedForce[key][1],
-                'epsilon': self.NonbondedForce[key][2]})
+                'charge': str(self.NonbondedForce[key][0]),
+                'sigma': str(self.NonbondedForce[key][1]),
+                'epsilon': str(self.NonbondedForce[key][2])})
 
         # Add all of the virtual site info if present
         if self.sites:
@@ -820,9 +816,11 @@ class Molecule(Defaults):
 
                 # Add the local coords site info
                 ET.SubElement(Residue, "VirtualSite", attrib={
-                    'type': 'localCoords', 'index': str(key + len(self.atoms)),
+                    'type': 'localCoords',
+                    'index': str(key + len(self.atoms)),
                     'atom1': str(val[0][0]), 'atom2': str(val[0][1]), 'atom3': str(val[0][2]),
-                    'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0', 'wx1': '-1.0', 'wx2': '1.0', 'wx3': '0.0',
+                    'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0',
+                    'wx1': '-1.0', 'wx2': '1.0', 'wx3': '0.0',
                     'wy1': '-1.0', 'wy2': '0.0', 'wy3': '1.0',
                     'p1': f'{float(val[1][0]):.4f}',
                     'p2': f'{float(val[1][1]):.4f}',
@@ -866,7 +864,7 @@ class Molecule(Defaults):
 
                 for i, atom in enumerate(frame):
                     xyz_file.write(
-                        f'{self.atoms[i].element}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f} \n')
+                        f'{self.atoms[i].element}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n')
 
                 try:
                     end += 1
@@ -906,7 +904,6 @@ class Molecule(Defaults):
                     except EOFError:
                         break
         except FileNotFoundError:
-            # TODO Should this only pass if we're on the first stage? i.e. if the file hasn't been made yet
             pass
 
         # Now we can save the items; first assign the location
@@ -979,7 +976,7 @@ class Molecule(Defaults):
 
         # using the new harmonic bond force dict we can add the bond edges to the topology graph
         for key in self.HarmonicBondForce:
-            self.topology.add_edge(key[0], key[1])
+            self.topology.add_edge(*key)
 
         self.find_angles()
         self.find_dihedrals()
@@ -999,21 +996,17 @@ class Molecule(Defaults):
         """
 
         coordinates = self.coords[input_type]
-        openmm_crds = []
+        openmm_coords = []
 
         if input_type == 'traj' and len(coordinates) != len(self.coords['input']):
             # Multiple frames in this case
             for frame in coordinates:
-                tups = []
-                for atom in frame:
-                    tups.append(tuple(atom / 10))
-                openmm_crds.append(tups)
-
+                openmm_coords.append([tuple(atom / 10) for atom in frame])
         else:
             for atom in coordinates:
-                openmm_crds.append(tuple(atom / 10))
+                openmm_coords.append(tuple(atom / 10))
 
-        return openmm_crds
+        return openmm_coords
 
     def read_tdrive(self, bond_scan):
         """
@@ -1122,14 +1115,7 @@ class Ligand(Molecule):
             self.coords[input_type] = traj_molecules
 
         except FileNotFoundError:
-            raise FileNotFoundError(
-                'Cannot find xyz file to read.\nThis is likely due to PSI4 not generating one.\n'
-                'Please ensure PSI4 is installed properly and can be called with the command: psi4\n'
-                'Alternatively, geometric may not be installed properly or breaking.\n'
-                'Please ensure it is and can be called with the command: geometric-optimize\n'
-                'Installation instructions can be found on the respective github pages and '
-                'elsewhere online, see README for more details.\n'
-                'If installation is not the issue, check the mm_optimise or qm_optimise folders for any issues.')
+            raise FileNotFoundError('Cannot find xyz file to read.')
 
     def write_pdb(self, input_type='input', name=None):
         """

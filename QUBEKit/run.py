@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 # TODO
-#  Are self.molecule.input and self.molecule.filename always the same? Can we remove one?
 #  Squash unnecessary arguments into self.molecule. Args such as torsion_options.
-#  Switch to normal dicts rather than Ordered; all dicts are now ordered in newer versions.
 #  Better handling of torsion_options
 
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
@@ -27,9 +25,10 @@ from pathlib import Path
 from shutil import copy, move
 import subprocess as sp
 import sys
-import numpy as np
 
 import argparse
+import numpy as np
+
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -222,7 +221,6 @@ class ArgsAndConfigs:
         parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
                                          description=intro)
 
-        # TODO Add command-line args for every possible config change
         # Add all of the command line options in the arg parser
         parser.add_argument('-c', '--charge', type=int, help='Enter the charge of the molecule, default 0.')
         parser.add_argument('-m', '--multiplicity', type=int,
@@ -305,8 +303,7 @@ class ArgsAndConfigs:
                             help='Enter the name of the csv file you would like to create for bulk runs.'
                                  'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
-        # TODO Get this from setup.py or elsewhere?
-        groups.add_argument('-version', '--version', action='version', version='2.3.3')
+        groups.add_argument('-version', '--version', action='version', version='2.3.4')
 
         return parser.parse_args()
 
@@ -627,7 +624,7 @@ class Execute:
 
         home = os.getcwd()
 
-        folder_name = f'{self.immutable_order.index(start_key) + 1}_{start_key}'
+        folder_name = f'{str(self.immutable_order.index(start_key) + 1).zfill(2)}_{start_key}'
         # Make sure you don't get an error if restarting
         try:
             os.mkdir(folder_name)
@@ -675,7 +672,8 @@ class Execute:
 
         return molecule
 
-    def mm_optimise(self, molecule):
+    @staticmethod
+    def mm_optimise(molecule):
         """
         Use an mm force field to get the initial optimisation of a molecule
 
@@ -689,8 +687,8 @@ class Execute:
         append_to_log('Starting mm_optimisation')
 
         # Check which method we want then do the optimisation
-        if self.molecule.mm_opt_method == 'openmm':
-            if self.molecule.parameter_engine != 'none':
+        if molecule.mm_opt_method == 'openmm':
+            if molecule.parameter_engine != 'none':
                 # Make the inputs
                 molecule.write_pdb(input_type='input')
                 molecule.write_parameters()
@@ -699,7 +697,7 @@ class Execute:
                 with open('log.txt', 'w+') as log:
                     sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations} --pdb '
                            f'{molecule.name}.pdb --openmm {molecule.name}.xml '
-                           f'{self.molecule.constraints_file if self.molecule.constraints_file is not None else ""}',
+                           f'{molecule.constraints_file if molecule.constraints_file is not None else ""}',
                            shell=True, stdout=log, stderr=log)
 
                 # This will continue even if we don't converge this is fine
@@ -708,10 +706,10 @@ class Execute:
                 # Store the last from the traj as the mm optimised structure
                 molecule.coords['mm'] = molecule.coords['traj'][-1]
             else:
-                raise OptimisationFailed('You can not optimise a molecule with OpenMM and no initial parameters, '
+                raise OptimisationFailed('You can not optimise a molecule with OpenMM and no initial parameters; '
                                          'consider parametrising or using UFF/MFF in RDKit')
 
-        elif self.molecule.mm_opt_method == 'none':
+        elif molecule.mm_opt_method == 'none':
             # Skip the optimisation step
             molecule.coords['mm'] = molecule.coords['input']
 
@@ -719,9 +717,9 @@ class Execute:
             # TODO change to qcengine as this can already be done
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
-            molecule.filename = RDKit().mm_optimise(molecule.filename, ff=rdkit_ff[self.molecule.mm_opt_method])
+            molecule.filename = RDKit().mm_optimise(molecule.filename, ff=rdkit_ff[molecule.mm_opt_method])
 
-        append_to_log(f'Finishing mm_optimisation of the molecule with {self.molecule.mm_opt_method}')
+        append_to_log(f'Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}')
 
         return molecule
 
@@ -776,10 +774,8 @@ class Execute:
                     except KeyError:
                         # No molecule data was caught so start again
                         # TODO check for other errors here as well
-                        if list(molecule.coords['mm']):
-                            result = qceng.call_qcengine('geometric', 'gradient', 'mm')
-                        else:
-                            result = qceng.call_qcengine('geometric', 'gradient', 'input')
+                        result = qceng.call_qcengine(
+                            'geometric', 'gradient', f'{"mm" if list(molecule.coords["mm"]) else "input"}')
 
                 if result['success']:
                     molecule.coords['qm'] = np.array(result['final_molecule']['geometry']).reshape((len(molecule.atoms), 3))
@@ -792,11 +788,8 @@ class Execute:
                 else:
                     raise OptimisationFailed("The optimisation did not converge")
 
-        elif list(molecule.coords['mm']):
-            result = qm_engine.generate_input(input_type='mm', optimise=True, execute=self.molecule.bonds_engine)
-
-        else:
-            result = qm_engine.generate_input(input_type='input', optimise=True, execute=self.molecule.bonds_engine)
+        result = qm_engine.generate_input(input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}',
+                                          optimise=True, execute=molecule.bonds_engine)
 
         # Check the exit status of the job; if failed restart the job up to 2 times
         restart_count = 1
@@ -806,17 +799,17 @@ class Execute:
 
             # 1) If we have a file read error just start again
             if result['error'] == 'FileIO':
-                result = qm_engine.generate_input(input_type='mm', optimise=True, restart=True, execute=self.molecule.bonds_engine)
+                result = qm_engine.generate_input(input_type='mm', optimise=True, restart=True, execute=molecule.bonds_engine)
 
             # 2) If we have a distance matrix error we should start from a different structure try the input
             elif result['error'] == 'Distance matrix' and restart_count == 1:
-                result = qm_engine.generate_input(input_type='input', optimise=True, execute=self.molecule.bonds_engine)
+                result = qm_engine.generate_input(input_type='input', optimise=True, execute=molecule.bonds_engine)
 
             # 3) If we have already tried the starting structure generate a conformer and try again
             elif result['error'] == 'Distance matrix':
                 molecule.write_pdb()
                 molecule.coords['temp'] = RDKit().generate_conformers(f'{molecule.name}.pdb')[0]
-                result = qm_engine.generate_input(input_type='temp', optimise=True, execute=self.molecule.bonds_engine)
+                result = qm_engine.generate_input(input_type='temp', optimise=True, execute=molecule.bonds_engine)
 
             # Some times the user has no given enough iterations so try again
             elif result['error'] == 'Max iterations':
@@ -838,9 +831,6 @@ class Execute:
     def hessian(self, molecule):
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
-        # TODO Because of QCEngine, nothing is being put into the hessian folder anymore
-        #   Need a way of writing QCEngine output to log file; still waiting on documentation ...
-
         append_to_log('Starting hessian calculation')
         molecule.get_bond_lengths(input_type='qm')
 
@@ -850,11 +840,11 @@ class Execute:
 
             # Use the checkpoint file as this has higher xyz precision
             try:
-                copy(os.path.join(molecule.home, os.path.join('3_qm_optimise', 'lig.chk')), 'lig.chk')
-                result = qm_engine.generate_input(input_type='qm', hessian=True, restart=True, execute=self.molecule.bonds_engine)
+                copy(os.path.join(molecule.home, os.path.join('03_qm_optimise', 'lig.chk')), 'lig.chk')
+                result = qm_engine.generate_input(input_type='qm', hessian=True, restart=True, execute=molecule.bonds_engine)
             except FileNotFoundError:
                 append_to_log('qm_optimise checkpoint not found, optimising first to refine atomic coordinates')
-                result = qm_engine.generate_input(input_type='qm', optimise=True, hessian=True, execute=self.molecule.bonds_engine)
+                result = qm_engine.generate_input(input_type='qm', optimise=True, hessian=True, execute=molecule.bonds_engine)
 
             if result['success']:
                 molecule.hessian = qm_engine.hessian()
@@ -863,7 +853,11 @@ class Execute:
 
         else:
             qceng = QCEngine(molecule)
-            molecule.hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
+            hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
+
+            np.savetxt('hessian.txt', hessian)
+
+            molecule.hessian = hessian
 
         append_to_log(f'Finishing Hessian calculation using {molecule.bonds_engine}')
 
@@ -900,7 +894,7 @@ class Execute:
 
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
-            qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent, execute=self.molecule.density_engine)
+            qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent, execute=molecule.density_engine)
             append_to_log('Finishing Density calculation')
 
         return molecule
@@ -909,10 +903,8 @@ class Execute:
     def charges(molecule):
         """Perform DDEC calculation with Chargemol."""
 
-        # TODO add option to use chargemol on onetep cube files.
-
         append_to_log('Starting charge partitioning')
-        copy(os.path.join(molecule.home, os.path.join('6_density', f'{molecule.name}.wfx')), f'{molecule.name}.wfx')
+        copy(os.path.join(molecule.home, os.path.join('06_density', f'{molecule.name}.wfx')), f'{molecule.name}.wfx')
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
 
@@ -926,10 +918,11 @@ class Execute:
 
         append_to_log('Starting Lennard-Jones parameter calculation')
 
-        charges_fld = os.path.join(molecule.home, '7_charges')
-        for file in os.listdir(charges_fld):
+        charges_folder = os.path.join(molecule.home, '07_charges')
+        for file in os.listdir(charges_folder):
             if file.startswith('DDEC'):
-                copy(os.path.join(charges_fld, file), file)
+                copy(os.path.join(charges_folder, file), file)
+
         lj = LennardJones(molecule)
         molecule.NonbondedForce = lj.calculate_non_bonded_force()
 
@@ -972,7 +965,7 @@ class Execute:
 
         # First we should make sure we have collected the results of the scans
         if not molecule.qm_scans:
-            os.chdir(os.path.join(molecule.home, '9_torsion_scan'))
+            os.chdir(os.path.join(molecule.home, '09_torsion_scan'))
             scan = TorsionScan(molecule)
             scan.find_scan_order()
             scan.collect_scan()

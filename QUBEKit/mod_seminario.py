@@ -282,7 +282,7 @@ class ModSeminario:
                 angle_file.write(f'{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicAngleForce[angle] = [str(theta_0[i] * np.pi / 180), str(k_theta[i] * conversion)]
+                self.molecule.HarmonicAngleForce[angle] = [theta_0[i] * np.pi / 180, k_theta[i] * conversion]
 
                 unique_values_angles.append([self.atoms[angle[0]].name, self.atoms[angle[1]].name, self.atoms[angle[2]].name, k_theta[i] * conversion, theta_0[i] * np.pi / 180, 1])
 
@@ -312,7 +312,7 @@ class ModSeminario:
                 bond_file.write(f'{k_b[pos]:.3f}   {bond_len_list[pos]:.3f}   {bond[0]}   {bond[1]}\n')
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicBondForce[bond] = [str(bond_len_list[pos] / 10), str(conversion * k_b[pos])]
+                self.molecule.HarmonicBondForce[bond] = [bond_len_list[pos] / 10, conversion * k_b[pos]]
 
                 unique_values_bonds.append([self.atoms[bond[0]].name, self.atoms[bond[1]].name, k_b[pos] * conversion, bond_len_list[pos] / 10, 1])
 

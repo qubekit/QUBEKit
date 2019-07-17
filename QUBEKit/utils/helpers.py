@@ -19,7 +19,6 @@ class Configure:
     settings as strings, all numbers must then be cast before use.
     """
 
-    # TODO Remove / merge the separate sections qm, fitting, descriptions?
     # TODO Use proper pathing (os.path.join or similar)
 
     home = Path.home()
@@ -145,8 +144,6 @@ class Configure:
         # Now cast the one float the scaling
         qm['vib_scaling'] = float(qm['vib_scaling'])
 
-        # TODO Properly handle all command line / config arguments (not just geometric)
-
         # Now cast the bools
         qm['geometric'] = True if qm['geometric'].lower() == 'true' else False
         qm['solvent'] = True if qm['solvent'].lower() == 'true' else False
@@ -161,8 +158,7 @@ class Configure:
         fitting['l_pen'] = float(fitting['l_pen'])
 
         # return qm, fitting, descriptions
-        # TODO Fix this monstrosity; shouldn't need to cast to dict() but something must be broken
-        return {**dict(qm), **dict(fitting), **dict(excited), **dict(descriptions)}
+        return {**qm, **fitting, **excited, **descriptions}
 
     @staticmethod
     def ini_parser(ini):
@@ -180,9 +176,8 @@ class Configure:
     def show_ini(self):
         """Show all of the ini file options in the config folder."""
 
-        inis = [ini for ini in os.listdir(self.config_folder) if not ini.endswith('~')]  # Hide the emacs backups
-
-        return inis
+        # Hide the emacs backups
+        return [ini for ini in os.listdir(self.config_folder) if not ini.endswith('~')]
 
     def check_master(self):
         """Check if there is a new master ini file in the configs folder."""
@@ -342,7 +337,6 @@ def append_to_log(message, msg_type='major'):
     # Stop at the first file found this should be our file
     search_dir = os.getcwd()
 
-    # TODO Dangerous use of while True; exit is not guaranteed.
     while True:
         if 'QUBEKit_log.txt' in os.listdir(search_dir):
             log_file = os.path.abspath(os.path.join(search_dir, 'QUBEKit_log.txt'))
@@ -351,6 +345,8 @@ def append_to_log(message, msg_type='major'):
         # Else we have to split the search path
         else:
             search_dir = os.path.split(search_dir)[0]
+            if not search_dir:
+                raise FileNotFoundError('Cannot locate QUBEKit log file.')
 
     # Check if the message is a blank string to avoid adding blank lines and unnecessary separators
     if message:

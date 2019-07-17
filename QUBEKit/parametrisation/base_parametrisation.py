@@ -147,7 +147,7 @@ class Parametrisation:
                 for i in vns:
                     val.append([i, '0', phases[int(i) - 1]])
         # sort by periodicity using lambda function
-        for key, val in self.molecule.PeriodicTorsionForce.items():
+        for val in self.molecule.PeriodicTorsionForce.values():
             val.sort(key=lambda x: x[0])
 
         # now we need to tag the proper and improper torsions and reorder them so the first atom is the central
