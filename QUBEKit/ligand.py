@@ -287,7 +287,6 @@ class Molecule(Defaults):
                 self.mol_from_rdkit(rdkit_mol)
 
             except AttributeError:
-                raise
                 # AttributeError:  errors when reading the input file
                 print('RDKit error was found, resorting to standard file readers')
                 # Try to read using QUBEKit readers they only get the connections if present
