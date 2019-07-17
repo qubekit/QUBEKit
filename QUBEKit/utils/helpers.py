@@ -151,7 +151,6 @@ class Configure:
         excited['use_pseudo'] = True if excited['use_pseudo'].lower() == 'true' else False
         fitting['relative_to_global'] = True if fitting['relative_to_global'].lower() == 'true' else False
 
-
         # Now handle the weight temp
         if fitting['t_weight'] != 'infinity':
             fitting['t_weight'] = float(fitting['t_weight'])
