@@ -28,18 +28,20 @@ class ModSemMaths:
         return np.cross(u_bc, u_ab) / np.linalg.norm(np.cross(u_bc, u_ab))
 
     @staticmethod
-    def vector_along_bond(coords, atom_a, atom_b):
+    def vector_along_bond(coords, bond):
 
-        diff_ab = coords[atom_b, :] - coords[atom_a, :]
+        diff_ab = coords[bond[1], :] - coords[bond[0], :]
 
         return diff_ab / np.linalg.norm(diff_ab)
 
     @staticmethod
-    def u_pa_from_angles(atom_a, atom_b, atom_c, coords):
+    def u_pa_from_angles(angle, coords):
         """This gives the vector in the plane a, b, c and perpendicular to a to b."""
 
-        u_ab = ModSemMaths.vector_along_bond(coords, atom_a, atom_b)
-        u_cb = ModSemMaths.vector_along_bond(coords, atom_c, atom_b)
+        atom_a, atom_b, atom_c = angle
+
+        u_ab = ModSemMaths.vector_along_bond(coords, (atom_a, atom_b))
+        u_cb = ModSemMaths.vector_along_bond(coords, (atom_c, atom_b))
 
         u_n = ModSemMaths.unit_vector_n(u_cb, u_ab)
 
@@ -51,33 +53,35 @@ class ModSemMaths:
         return sum(u_pa[i] * eig_ab[i].conjugate() for i in range(3))
 
     @staticmethod
-    def force_constant_bond(atom_a, atom_b, eigenvals, eigenvecs, coords):
+    def force_constant_bond(bond, eigenvals, eigenvecs, coords):
         """Force Constant - Equation 10 of Seminario paper - gives force constant for bond."""
 
-        eigenvals_ab = eigenvals[atom_a, atom_b, :]
-        eigenvecs_ab = eigenvecs[:, :, atom_a, atom_b]
+        eigenvals_ab = eigenvals[bond[0], bond[1], :]
+        eigenvecs_ab = eigenvecs[:, :, bond[0], bond[1]]
 
-        unit_vectors_ab = ModSemMaths.vector_along_bond(coords, atom_a, atom_b)
+        unit_vectors_ab = ModSemMaths.vector_along_bond(coords, bond)
 
         return -0.5 * sum(eigenvals_ab[i] * abs(np.dot(unit_vectors_ab, eigenvecs_ab[:, i])) for i in range(3))
 
     @staticmethod
-    def force_constant_angle(atom_a, atom_b, atom_c, bond_lens, eigenvals, eigenvecs, coords, scalings):
+    def force_constant_angle(angle, bond_lens, eigenvals, eigenvecs, coords, scalings):
         """
         Force Constant - Equation 14 of Seminario paper - gives force constant for angle
         (in kcal/mol/rad^2) and equilibrium angle (in degrees).
         """
 
-        u_ab = ModSemMaths.vector_along_bond(coords, atom_a, atom_b)
-        u_cb = ModSemMaths.vector_along_bond(coords, atom_c, atom_b)
+        atom_a, atom_b, atom_c = angle
+
+        u_ab = ModSemMaths.vector_along_bond(coords, (atom_a, atom_b))
+        u_cb = ModSemMaths.vector_along_bond(coords, (atom_c, atom_b))
 
         bond_len_ab = bond_lens[atom_a, atom_b]
         eigenvals_ab = eigenvals[atom_a, atom_b, :]
-        eigenvecs_ab = eigenvecs[0:3, 0:3, atom_a, atom_b]
+        eigenvecs_ab = eigenvecs[:3, :3, atom_a, atom_b]
 
         bond_len_bc = bond_lens[atom_b, atom_c]
         eigenvals_cb = eigenvals[atom_c, atom_b, :]
-        eigenvecs_cb = eigenvecs[0:3, 0:3, atom_c, atom_b]
+        eigenvecs_cb = eigenvecs[:3, :3, atom_c, atom_b]
 
         # Normal vector to angle plane found
         u_n = ModSemMaths.unit_vector_n(u_cb, u_ab)
@@ -146,9 +150,10 @@ class ModSeminario:
     def __init__(self, molecule):
 
         self.molecule = molecule
-        self.atoms = self.molecule.atoms
-        self.molecule.HarmonicAngleForce = {}
-        self.molecule.HarmonicBondForce = {}
+        self.size_mol = len(self.molecule.atoms)
+        # Find bond lengths and create empty matrix of correct size.
+        self.bond_lens = np.zeros((self.size_mol, self.size_mol))
+        self.coords = self.molecule.coords['qm']
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -159,34 +164,24 @@ class ModSeminario:
         optimised molecule coordinates.
         """
 
-        coords = [atom[j] for atom in self.molecule.coords['qm'] for j in range(3)]
-        size_mol = len(self.atoms)
-        coords = np.reshape(coords, (size_mol, 3))
-        hessian = self.molecule.hessian
+        eigenvecs = np.empty((3, 3, self.size_mol, self.size_mol), dtype=complex)
+        eigenvals = np.empty((self.size_mol, self.size_mol, 3), dtype=complex)
 
-        # Find bond lengths and create empty matrix of correct size.
-        bond_lens = np.zeros((size_mol, size_mol))
+        for i in range(self.size_mol):
+            for j in range(self.size_mol):
+                diff_i_j = self.coords[i, :] - self.coords[j, :]
+                self.bond_lens[i, j] = np.linalg.norm(diff_i_j)
 
-        eigenvecs = np.empty((3, 3, size_mol, size_mol), dtype=complex)
-        eigenvals = np.empty((size_mol, size_mol, 3), dtype=complex)
-
-        for i in range(size_mol):
-            for j in range(size_mol):
-                diff_i_j = coords[i, :] - coords[j, :]
-                bond_lens[i][j] = np.linalg.norm(diff_i_j)
-
-                partial_hessian = hessian[(i * 3):((i + 1) * 3), (j * 3):((j + 1) * 3)]
+                partial_hessian = self.molecule.hessian[(i * 3):((i + 1) * 3), (j * 3):((j + 1) * 3)]
 
                 eigenvals[i, j, :], eigenvecs[:, :, i, j] = np.linalg.eig(partial_hessian)
 
         # The bond and angle values are calculated and written to file.
-        self.calculate_bonds(self.molecule.topology.edges, bond_lens, eigenvals, eigenvecs, coords)
-        self.calculate_angles(self.molecule.angles, bond_lens, eigenvals, eigenvecs, coords)
+        self.calculate_bonds(eigenvals, eigenvecs)
+        self.calculate_angles(eigenvals, eigenvecs)
 
-    def calculate_angles(self, angle_list, bond_lens, eigenvals, eigenvecs, coords):
+    def calculate_angles(self, eigenvals, eigenvecs):
         """Uses the modified Seminario method to find the angle parameters and prints them to file."""
-
-        k_theta, theta_0 = np.zeros(len(angle_list)), np.zeros(len(angle_list))
 
         # A structure is created with the index giving the central atom of the angle;
         # an array then lists the angles with that central atom.
@@ -195,20 +190,18 @@ class ModSeminario:
         # Connectivity information for Modified Seminario Method
         central_atoms_angles = []
 
-        for coord in range(len(coords)):
+        for coord in range(self.size_mol):
             central_atoms_angles.append([])
-            for count, angle in enumerate(angle_list):
+            for count, angle in enumerate(self.molecule.angles):
                 if coord == angle[1]:
                     # For angle abc, atoms a, c are written to array
-                    ac_array = [angle[0], angle[2], count]
-                    central_atoms_angles[coord].append(ac_array)
+                    central_atoms_angles[coord].append([angle[0], angle[2], count])
 
                     # For angle abc, atoms c a are written to array
-                    ca_array = [angle[2], angle[0], count]
-                    central_atoms_angles[coord].append(ca_array)
+                    central_atoms_angles[coord].append([angle[2], angle[0], count])
 
         # Sort rows by atom number
-        for coord in range(len(coords)):
+        for coord in range(self.size_mol):
             central_atoms_angles[coord] = sorted(central_atoms_angles[coord], key=itemgetter(0))
 
         # Find normals u_pa for each angle
@@ -219,7 +212,8 @@ class ModSeminario:
             for j in range(len(central_atoms_angles[i])):
                 # For the angle at central_atoms_angles[i][j,:] the u_pa value is found for plane abc and bond ab,
                 # where abc corresponds to the order of the arguments. This is why the reverse order was also added.
-                unit_pa_all_angles[i].append(ModSemMaths.u_pa_from_angles(central_atoms_angles[i][j][0], i, central_atoms_angles[i][j][1], coords))
+                angle = central_atoms_angles[i][j][0], i, central_atoms_angles[i][j][1]
+                unit_pa_all_angles[i].append(ModSemMaths.u_pa_from_angles(angle, self.coords))
 
         # Finds the contributing factors from the other angle terms
         scaling_factor_all_angles = []
@@ -253,7 +247,7 @@ class ModSeminario:
                     # Finds the mean value of the additional contribution
                     scaling_factor_all_angles[i][j][0] += (extra_contribs / (m + n - 2))
 
-        scaling_factors_angles_list = [[]] * len(angle_list)
+        scaling_factors_angles_list = [[]] * len(self.molecule.angles)
 
         # Orders the scaling factors according to the angle list
         for i in range(len(central_atoms_angles)):
@@ -262,58 +256,65 @@ class ModSeminario:
 
         # Used to find average values
         unique_values_angles = []
+        k_theta, theta_0 = np.zeros(len(self.molecule.angles)), np.zeros(len(self.molecule.angles))
 
         conversion = constants.KCAL_TO_KJ * 2
 
         with open('Modified_Seminario_Angles.txt', f'{"w" if self.molecule.restart else "a+"}') as angle_file:
 
-            for i, angle in enumerate(angle_list):
-                scalings = [scaling_factors_angles_list[i][0], scaling_factors_angles_list[i][1]]
+            for i, angle in enumerate(self.molecule.angles):
+
+                scalings = scaling_factors_angles_list[i][:2]
 
                 # Ensures that there is no difference when the ordering is changed.
-                ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(*angle, bond_lens, eigenvals, eigenvecs, coords, scalings)
-                ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(*angle[::-1], bond_lens, eigenvals, eigenvecs, coords, scalings[::-1])
+                ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(angle, self.bond_lens, eigenvals, eigenvecs, self.coords, scalings)
+                ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(angle[::-1], self.bond_lens, eigenvals, eigenvecs, self.coords, scalings[::-1])
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
                 k_theta[i] = (self.molecule.vib_scaling ** 2) * ((ab_k_theta + ba_k_theta) / 2)
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
-                angle_file.write(f'{self.atoms[angle[0]].name}-{self.atoms[angle[1]].name}-{self.atoms[angle[2]].name}  ')
+                angle_file.write(f'{self.molecule.atoms[angle[0]].atom_name}-{self.molecule.atoms[angle[1]].atom_name}-{self.molecule.atoms[angle[2]].atom_name}  ')
                 angle_file.write(f'{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n')
 
                 # Add ModSem values to ligand object.
                 self.molecule.HarmonicAngleForce[angle] = [theta_0[i] * np.pi / 180, k_theta[i] * conversion]
 
-                unique_values_angles.append([self.atoms[angle[0]].name, self.atoms[angle[1]].name, self.atoms[angle[2]].name, k_theta[i] * conversion, theta_0[i] * np.pi / 180, 1])
+                unique_values_angles.append(
+                    [self.molecule.atoms[angle[0]].atom_name, self.molecule.atoms[angle[1]].atom_name, self.molecule.atoms[angle[2]].atom_name,
+                     k_theta[i] * conversion, theta_0[i] * np.pi / 180, 1])
 
         return unique_values_angles
 
-    def calculate_bonds(self, bond_list, bond_lens, eigenvals, eigenvecs, coords):
+    def calculate_bonds(self, eigenvals, eigenvecs):
         """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
+        bonds = self.molecule.topology.edges
         conversion = constants.KCAL_TO_KJ * 200
 
-        k_b, bond_len_list = np.zeros(len(bond_list)), np.zeros(len(bond_list))
+        k_b, bond_len_list = np.zeros(len(bonds)), np.zeros(len(bonds))
 
         # Used to find average values
         unique_values_bonds = []
 
         with open('Modified_Seminario_Bonds.txt', f'{"w" if self.molecule.restart else "a+"}') as bond_file:
 
-            for pos, bond in enumerate(bond_list):
-                ab = ModSemMaths.force_constant_bond(*bond, eigenvals, eigenvecs, coords)
-                ba = ModSemMaths.force_constant_bond(*bond[::-1], eigenvals, eigenvecs, coords)
+            for pos, bond in enumerate(bonds):
+                ab = ModSemMaths.force_constant_bond(bond, eigenvals, eigenvecs, self.coords)
+                ba = ModSemMaths.force_constant_bond(bond[::-1], eigenvals, eigenvecs, self.coords)
 
                 # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
                 k_b[pos] = np.real((ab + ba) / 2) * (self.molecule.vib_scaling ** 2)
 
-                bond_len_list[pos] = bond_lens[bond]
-                bond_file.write(f'{self.atoms[bond[0]].name}-{self.atoms[bond[1]].name}  ')
+                bond_len_list[pos] = self.bond_lens[bond]
+                bond_file.write(f'{self.molecule.atoms[bond[0]].atom_name}-{self.molecule.atoms[bond[1]].atom_name}  ')
                 bond_file.write(f'{k_b[pos]:.3f}   {bond_len_list[pos]:.3f}   {bond[0]}   {bond[1]}\n')
 
                 # Add ModSem values to ligand object.
                 self.molecule.HarmonicBondForce[bond] = [bond_len_list[pos] / 10, conversion * k_b[pos]]
 
-                unique_values_bonds.append([self.atoms[bond[0]].name, self.atoms[bond[1]].name, k_b[pos] * conversion, bond_len_list[pos] / 10, 1])
+                unique_values_bonds.append(
+                    [self.molecule.atoms[bond[0]].atom_name, self.molecule.atoms[bond[1]].atom_name,
+                     k_b[pos] * conversion, bond_len_list[pos] / 10, 1])
 
         return unique_values_bonds

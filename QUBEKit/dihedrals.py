@@ -85,10 +85,10 @@ class TorsionScan:
             print('Torsion number   Central-Bond   Representative Dihedral')
             for i, bond in enumerate(rotatable):
                 print(f'  {i + 1}                    {bond[0]}-{bond[1]}             '
-                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][0]].name}-'
-                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][1]].name}-'
-                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][2]].name}-'
-                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][3]].name}')
+                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][0]].atom_name}-'
+                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][1]].atom_name}-'
+                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][2]].atom_name}-'
+                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][3]].atom_name}')
 
             scans = list(input('>'))  # Enter as a space separated list
             scans[:] = [scan for scan in scans if scan != ' ']  # remove all spaces from the scan list
