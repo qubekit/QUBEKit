@@ -104,6 +104,7 @@ class ArgsAndConfigs:
         # If restarting put the molecule back into the checkpoint file with the new configs
         if self.args.restart is not None:
             self.molecule.pickle(state=self.args.restart)
+
         # Now that all configs are stored correctly: execute.
         Execute(self.molecule)
 

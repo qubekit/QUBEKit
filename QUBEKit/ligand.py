@@ -22,6 +22,47 @@ import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
 
 
+class Atom:
+    """Class to hold all of the atomic information"""
+
+    def __init__(self, atomic_number, atom_index, atom_name='', partial_charge=None, formal_charge=None):
+
+        self.atomic_number = atomic_number
+        self.atom_name = atom_name
+        self.atom_index = atom_index
+        self.mass = Element().mass(atomic_number)
+        self.partial_charge = partial_charge
+        self.formal_charge = formal_charge
+        self.type = None
+        self.bonds = []
+        self.element = Element().name(atomic_number)
+
+    def add_bond(self, bonded_index):
+        """
+        Add a bond to the atom, this will make sure the bond has not already been described
+        :param bonded_index: The index of the atom bonded to
+        :return: None
+        """
+
+        if bonded_index not in self.bonds:
+            self.bonds.append(bonded_index)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__!r})'
+
+    def __str__(self):
+        """
+        Prints the Atom class objects' names and values one after another with new lines between each.
+        """
+
+        return_str = ''
+        for key, val in self.__dict__.items():
+            # Return all objects as {atom object name} = {atom object value(s)}.
+            return_str += f'\n{key} = {val}\n'
+
+        return return_str
+
+
 class Defaults:
 
     def __init__(self):
@@ -61,48 +102,6 @@ class Defaults:
 
         self.chargemol = '/home/b8009890/Programs/chargemol_09_26_2017_unchanged'
         self.log = 'CHR'
-
-
-class Atom:
-    """Class to hold all of the atomic information"""
-
-    def __init__(self, atomic_number, index, atom_name='', partial_charge=None, formal_charge=None):
-
-        self.atomic_number = atomic_number
-        self.name = atom_name
-        self.atom_index = index
-        self.mass = Element().mass(atomic_number)
-        self.partial_charge = partial_charge
-        self.formal_charge = formal_charge
-        self.type = None
-        self.bonds = []
-        self.element = Element().name(atomic_number)
-
-    def add_bond(self, bonded_index):
-        """
-        Add a bond to the atom, this will make sure the bond has not already been described
-        :param bonded_index: The index of the atom bonded to
-        :return: None
-        """
-
-        if bonded_index not in self.bonds:
-            self.bonds.append(bonded_index)
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.__dict__!r})'
-
-    def __str__(self):
-        """
-        Prints the Atom class objects' names and values one after another with new lines between each.
-        Mostly just used for logging, debugging and displaying the results at the end of a run.
-        """
-
-        return_str = ''
-        for key, val in self.__dict__.items():
-            # Return all objects as {atom object name} = {atom object value(s)} without any special formatting.
-            return_str += f'\n{key} = {val}\n'
-
-        return return_str
 
 
 class Molecule(Defaults):
@@ -266,8 +265,10 @@ class Molecule(Defaults):
         return return_str
 
     def read_input(self):
-        """The base file reader used upon instancing the class; it will decide which file reader to use
-         based on the file suffix."""
+        """
+        The base file reader used upon instancing the class; it will decide which file reader to use
+        based on the file suffix.
+        """
 
         if self.smiles is not None:
             rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
@@ -291,6 +292,26 @@ class Molecule(Defaults):
                     self.read_pdb(self.filename)
                 elif self.filename.suffix == '.mol2':
                     self.read_mol2(self.filename)
+
+        self.check_names_are_unique()
+
+    def check_names_are_unique(self):
+        """
+        To prevent problems occurring with some atoms perceived to be the same,
+        check the atom names to ensure they are all unique.
+        If some are the same, reset all atom names to be: f'{element}{index}'.
+        This ensure they are all unique.
+        """
+
+        atom_names = [atom.atom_name for atom in self.atoms]
+        # If some atom names aren't unique
+        if len(set(atom_names)) < len(atom_names):
+            # Change the atom name only; everything else is the same as it was.
+            self.atoms = [Atom(atomic_number=self.atoms[i].atomic_number,
+                               atom_index=self.atoms[i].atom_index,
+                               atom_name=f'{self.atoms[i].element}{i}',
+                               partial_charge=self.atoms[i].partial_charge,
+                               formal_charge=self.atoms[i].formal_charge) for i, atom in enumerate(self.atoms)]
 
     # TODO add mol file reader
     def mol_from_rdkit(self, rdkit_molecule, input_type='input'):
@@ -483,7 +504,7 @@ class Molecule(Defaults):
         atoms = []
 
         for i, atom in enumerate(self.qc_json['symbols'], 1):
-            atoms.append(Atom(atomic_number=Element().number(atom), index=i, atom_name=f'{atom}{i}'))
+            atoms.append(Atom(atomic_number=Element().number(atom), atom_index=i, atom_name=f'{atom}{i}'))
             topology.add_node(i)
 
         self.atoms = atoms
@@ -647,8 +668,8 @@ class Molecule(Defaults):
 
             molecule = self.coords[input_type]
 
-            for key in self.dihedrals.keys():
-                for torsion in self.dihedrals[key]:
+            for val in self.dihedrals.values():
+                for torsion in val:
                     # Calculate the dihedral angle in the molecule using the molecule data array.
                     x1, x2, x3, x4 = [molecule[torsion[i]] for i in range(4)]
                     b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
@@ -688,7 +709,7 @@ class Molecule(Defaults):
 
         if self.bond_types is not None:
 
-            # Collect all of the bond values
+            # Collect all of the bond values from the HarmonicBondForce dict
             for bonds in self.bond_types.values():
                 bond_lens, bond_forces = zip(*[self.HarmonicBondForce[bond] for bond in bonds])
 
@@ -699,7 +720,7 @@ class Molecule(Defaults):
                 for bond in bonds:
                     self.HarmonicBondForce[bond] = [f'{bond_lens:.6f}', f'{bond_forces:.6f}']
 
-            # Collect all of the angle values
+            # Collect all of the angle values from the HarmonicAngleForce dict
             for angles in self.angle_types.values():
                 angle_vals, angle_forces = zip(*[self.HarmonicAngleForce[angle] for angle in angles])
 
@@ -1110,7 +1131,7 @@ class Ligand(Molecule):
             pdb_file.write(f'COMPND    {self.name:<20}\n')
             for i, atom in enumerate(molecule):
                 pdb_file.write(
-                    f'HETATM {i+1:>4}{self.atoms[i].name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
+                    f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
                     f'  1.00  0.00         {self.atoms[i].element.upper():>3}\n')
 
             # Now add the connection terms
@@ -1223,7 +1244,7 @@ class Protein(Molecule):
             # we have to transform the atom name while writing out the pdb file
             for i, atom in enumerate(molecule):
                 pdb_file.write(
-                    f'HETATM {i+1:>4}{self.atoms[i].name:>4}  QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
+                    f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
                     f'  1.00  0.00         {self.atoms[i].element.upper():>3}\n')
 
             # Now add the connection terms

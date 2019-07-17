@@ -69,7 +69,7 @@ class Parametrisation:
 
         # Try to gather the AtomTypes first
         for atom in self.molecule.atoms:
-            self.molecule.AtomTypes[atom.atom_index] = [atom.name, 'QUBE_' + str(000 + atom.atom_index),
+            self.molecule.AtomTypes[atom.atom_index] = [atom.atom_name, 'QUBE_' + str(000 + atom.atom_index),
                                                         str(atom.element) + str(000 + atom.atom_index)]
 
         try:
