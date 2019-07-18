@@ -240,7 +240,7 @@ class Gaussian(Engines):
         for line in lines[start: end]:
             molecule.extend([float(coord) for coord in line.split()])
 
-        molecule = np.array(molecule).reshape((len(self.molecule.atoms), 3)) * 0.529177
+        molecule = np.array(molecule).reshape((len(self.molecule.atoms), 3)) * constants.BOHR_TO_ANGS
 
         return molecule, energy
 

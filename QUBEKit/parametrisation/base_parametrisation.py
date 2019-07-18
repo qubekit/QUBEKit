@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from QUBEKit.utils import constants
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -78,42 +79,42 @@ class Parametrisation:
             for Bond in in_root.iter('Bond'):
                 bond = (int(Bond.get('p1')), int(Bond.get('p2')))
                 if bond in self.molecule.HarmonicBondForce:
-                    self.molecule.HarmonicBondForce[bond] = [Bond.get('d'), Bond.get('k')]
+                    self.molecule.HarmonicBondForce[bond] = [float(Bond.get('d')), float(Bond.get('k'))]
                 else:
-                    self.molecule.HarmonicBondForce[bond[::-1]] = [Bond.get('d'), Bond.get('k')]
+                    self.molecule.HarmonicBondForce[bond[::-1]] = [float(Bond.get('d')), float(Bond.get('k'))]
 
             # Extract all angle data
             for Angle in in_root.iter('Angle'):
                 angle = int(Angle.get('p1')), int(Angle.get('p2')), int(Angle.get('p3'))
                 if angle in self.molecule.HarmonicAngleForce:
-                    self.molecule.HarmonicAngleForce[angle] = [Angle.get('a'), Angle.get('k')]
+                    self.molecule.HarmonicAngleForce[angle] = [float(Angle.get('a')), float(Angle.get('k'))]
                 else:
-                    self.molecule.HarmonicAngleForce[angle[::-1]] = [Angle.get('a'), Angle.get('k')]
+                    self.molecule.HarmonicAngleForce[angle[::-1]] = [float(Angle.get('a')), float(Angle.get('k'))]
 
             # Extract all non-bonded data
             i = 0
             for Atom in in_root.iter('Particle'):
                 if "eps" in Atom.attrib:
-                    self.molecule.NonbondedForce[i] = [Atom.get('q'), Atom.get('sig'), Atom.get('eps')]
+                    self.molecule.NonbondedForce[i] = [float(Atom.get('q')), float(Atom.get('sig')), float(Atom.get('eps'))]
                     i += 1
 
             # Extract all of the torsion data
-            phases = ['0', '3.141592653589793', '0', '3.141592653589793']
+            phases = [0, constants.PI, 0, constants.PI]
             for Torsion in in_root.iter('Torsion'):
                 tor_str_forward = tuple(int(Torsion.get(f'p{i}')) for i in range(1, 5))
                 tor_str_back = tuple(reversed(tor_str_forward))
 
                 if tor_str_forward not in self.molecule.PeriodicTorsionForce and tor_str_back not in self.molecule.PeriodicTorsionForce:
                     self.molecule.PeriodicTorsionForce[tor_str_forward] = [
-                        [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]]]
+                        [int(Torsion.get('periodicity')), float(Torsion.get('k')), phases[int(Torsion.get('periodicity')) - 1]]]
 
                 elif tor_str_forward in self.molecule.PeriodicTorsionForce:
                     self.molecule.PeriodicTorsionForce[tor_str_forward].append(
-                        [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+                        [int(Torsion.get('periodicity')), float(Torsion.get('k')), phases[int(Torsion.get('periodicity')) - 1]])
 
                 elif tor_str_back in self.molecule.PeriodicTorsionForce:
                     self.molecule.PeriodicTorsionForce[tor_str_back].append(
-                        [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+                        [int(Torsion.get('periodicity')), float(Torsion.get('k')), phases[int(Torsion.get('periodicity')) - 1]])
 
         except FileNotFoundError:
             # Check what parameter engine we are using if not none then raise an error
@@ -126,25 +127,25 @@ class Parametrisation:
             for tor_list in self.molecule.dihedrals.values():
                 for torsion in tor_list:
                     if torsion not in self.molecule.PeriodicTorsionForce and tuple(reversed(torsion)) not in self.molecule.PeriodicTorsionForce:
-                        self.molecule.PeriodicTorsionForce[torsion] = [['1', '0', '0'], ['2', '0', '3.141592653589793'],
-                                                                       ['3', '0', '0'], ['4', '0', '3.141592653589793']]
+                        self.molecule.PeriodicTorsionForce[torsion] = [[1, 0, 0], [2, 0, constants.PI],
+                                                                       [3, 0, 0], [4, 0, constants.PI]]
         torsions = [sorted(key) for key in self.molecule.PeriodicTorsionForce.keys()]
         if self.molecule.improper_torsions is not None:
             for torsion in self.molecule.improper_torsions:
                 if torsion not in torsions:
                     # The improper torsion is missing and should be added with no energy
-                    self.molecule.PeriodicTorsionForce[torsion] = [['1', '0', '0'], ['2', '0', '3.141592653589793'],
-                                                                   ['3', '0', '0'], ['4', '0', '3.141592653589793']]
+                    self.molecule.PeriodicTorsionForce[torsion] = [[1, 0, 0], [2, 0, constants.PI],
+                                                                   [3, 0, 0], [4, 0, constants.PI]]
 
         # Now we need to fill in all blank phases of the Torsions
         for key, val in self.molecule.PeriodicTorsionForce.items():
-            vns = ['1', '2', '3', '4']
+            vns = [1, 2, 3, 4]
             if len(val) < 4:
                 # now need to add the missing terms from the torsion force
                 for force in val:
                     vns.remove(force[0])
                 for i in vns:
-                    val.append([i, '0', phases[int(i) - 1]])
+                    val.append([i, 0, phases[int(i) - 1]])
         # sort by periodicity using lambda function
         for val in self.molecule.PeriodicTorsionForce.values():
             val.sort(key=lambda x: x[0])

@@ -15,7 +15,6 @@ import xml.etree.ElementTree as ET
 from copy import deepcopy
 
 
-@for_all_methods(timer_logger)
 class OpenMM:
     """This class acts as a wrapper around OpenMM so we can many basic functions using the class"""
 
@@ -28,6 +27,7 @@ class OpenMM:
         self.xml = molecule.name + '.xml'
         self.openmm_system()
 
+    @timer_logger
     def openmm_system(self):
         """Initialise the OpenMM system we will use to evaluate the energies."""
 
@@ -75,6 +75,7 @@ class OpenMM:
 
         return energy
 
+    @timer_logger
     def opls_lj(self):
         """
         This function changes the standard OpenMM combination rules to use OPLS, execp and normal pairs are only
@@ -134,6 +135,7 @@ class OpenMM:
             #             eps = sqrt(epsilon1 * epsilon2)
             #             nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
 
+    @timer_logger
     def format_coords(self, coordinates):
         """
         Take the coordinates as a list and format to the OpenMM style of a list of tuples.
@@ -147,6 +149,7 @@ class OpenMM:
 
         return coords
 
+    @timer_logger
     def calculate_hessian(self, finite_step):
         """
         Using finite displacement calculate the hessian matrix of the molecule using symmetric difference quotient (SQD) rule.
@@ -195,6 +198,7 @@ class OpenMM:
         sym_hessian = hessian + hessian.T - np.diag(hessian.diagonal())
         return sym_hessian
 
+    @timer_logger
     def normal_modes(self, finite_step):
         """
         Calculate the normal modes of the molecule from the hessian matrix

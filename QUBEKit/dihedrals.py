@@ -3,6 +3,7 @@
 from QUBEKit.engines import PSI4, OpenMM, Gaussian
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import timer_logger, for_all_methods
+from QUBEKit.utils.exceptions import TorsionDriveFailed
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -130,11 +131,17 @@ class TorsionScan:
 
         # Now we need to run torsiondrive through the CLI
         with open('tdrive.log', 'w') as log:
-            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.input_file} dihedrals.txt -v '
+            # When we start the run write the options used here to be used during restarts
+            log.write(f'Theory used: {self.molecule.theory} Basis used: {self.molecule.basis}\n')
+            log.flush()
+            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower() + self.molecule.bonds_engine[1:]} {self.input_file} dihedrals.txt -v '
                    f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
 
         # Gather the results
-        self.molecule.read_tdrive(scan)
+        try:
+            self.molecule.read_tdrive(scan)
+        except FileNotFoundError:
+            raise TorsionDriveFailed('Torsiondrive output qdata.txt missing; job did not execute or finish properly')
 
     def collect_scan(self):
         """
@@ -148,6 +155,27 @@ class TorsionScan:
 
             except FileNotFoundError:
                 raise FileNotFoundError(f'SCAN_{scan[0]}_{scan[1]} missing')
+
+    def check_run_history(self, scan):
+        """
+        Check the contents of a scan folder to see if we should continue the run;
+        if the settings are the same then continue
+        :return: If we should continue the run
+        """
+
+        # Try and open the tdrive.log file to check the old running options
+        try:
+            file_path = os.path.join(os.getcwd(), os.path.join(f'SCAN_{scan[0]}_{scan[1]}', os.path.join('QM_torsiondrive', 'tdrive.log')))
+            with open(file_path) as t_log:
+                header = t_log.readline()
+
+            if self.molecule.theory == header.split()[2] and self.molecule.basis == header.split()[5]:
+                return True
+            else:
+                return False
+
+        except FileNotFoundError:
+            return False
 
     def scan(self):
         """Makes a folder and writes a new a dihedral input file for each scan and runs the scan."""
@@ -163,11 +191,10 @@ class TorsionScan:
             try:
                 os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
             except FileExistsError:
-                # If the folder has only been used to test the torsions then use that folder
-                if os.listdir(f'SCAN_{scan[0]}_{scan[1]}') == ['testing_torsion']:
-                    pass
-                # However, if there is a full run in the folder, back the folder up and start again
-                else:
+                # If there is a run in the folder, check if we are continuing an old run by matching the settings
+                con_scan = self.check_run_history(scan)
+                if not con_scan:
+
                     print(f'SCAN_{scan[0]}_{scan[1]} folder present backing up folder to SCAN_{scan[0]}_{scan[1]}_tmp')
                     # Remove old backups
                     try:
@@ -177,8 +204,11 @@ class TorsionScan:
                     os.system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
                     os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
 
-            os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
-            os.mkdir('QM_torsiondrive')
+                    os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
+                    os.mkdir('QM_torsiondrive')
+                else:
+                    os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
+
             os.chdir('QM_torsiondrive')
 
             # Start the torsion drive if psi4 else run native separate optimisations using g09

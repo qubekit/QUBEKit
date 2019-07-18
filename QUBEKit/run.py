@@ -287,7 +287,7 @@ class ArgsAndConfigs:
                             help='Max number of iterations for QM scan.')
         parser.add_argument('-constraints', '--constraints_file', type=str,
                             help='The name of the geometric constraints file.')
-        parser.add_argument('-dihedral_file', '--dihedral_file', type=str,
+        parser.add_argument('-dihedrals', '--dihedral_file', type=str,
                             help='The name of the qubekit/tdrive torsion file.')
 
         # Add mutually exclusive groups to stop certain combinations of options,
