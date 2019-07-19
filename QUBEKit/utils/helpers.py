@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from QUBEKit.utils.exceptions import PickleFileNotFound
+
 from collections import OrderedDict
 from configparser import ConfigParser
 from contextlib import contextmanager
@@ -537,7 +539,8 @@ def pretty_print(molecule, to_file=False, finished=True):
 
     # Print to log file rather than to terminal
     if to_file:
-        with open(f'../QUBEKit_log.txt', 'a+') as log_file:
+        log_location = os.path.join(getattr(molecule, 'home'), 'QUBEKit_log.txt')
+        with open(log_location, 'a+') as log_file:
             log_file.write(f'{pre_string.upper()}\n\n{molecule.__str__()}')
 
     # Print to terminal
@@ -548,7 +551,7 @@ def pretty_print(molecule, to_file=False, finished=True):
         print('')
 
 
-def unpickle():
+def unpickle(location=None):
     """
     Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of ligands
     indexed by their progress.
@@ -558,8 +561,22 @@ def unpickle():
 
     # unpickle the pickle jar
     # try to load a pickle file make sure to get all objects
-    pickle_file = f'{"" if ".QUBEKit_states" in os.listdir(".") else "../"}.QUBEKit_states'
-    with open(pickle_file, 'rb') as jar:
+    pickle_file = '.QUBEKit_states'
+    if location is not None:
+        pickle_path = os.path.join(location, pickle_file)
+    else:
+        current_loc = os.getcwd()
+        for attempt in range(10):
+            if pickle_file in os.listdir(current_loc):
+                pickle_path = os.path.join(current_loc, pickle_file)
+                break
+
+            current_loc = os.path.dirname(current_loc)
+
+        else:
+            raise PickleFileNotFound('Pickle file not found; have you deleted it?')
+
+    with open(pickle_path, 'rb') as jar:
         while True:
             try:
                 mol = pickle.load(jar)

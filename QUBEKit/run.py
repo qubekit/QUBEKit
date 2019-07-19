@@ -287,7 +287,7 @@ class ArgsAndConfigs:
                             help='Max number of iterations for QM scan.')
         parser.add_argument('-constraints', '--constraints_file', type=str,
                             help='The name of the geometric constraints file.')
-        parser.add_argument('-dihedral_file', '--dihedral_file', type=str,
+        parser.add_argument('-dihedrals', '--dihedral_file', type=str,
                             help='The name of the qubekit/tdrive torsion file.')
 
         # Add mutually exclusive groups to stop certain combinations of options,
@@ -955,10 +955,11 @@ class Execute:
         append_to_log('Starting torsion_optimisations')
 
         # First we should make sure we have collected the results of the scans
-        if molecule.qm_scans is not None:
+        if molecule.qm_scans is None:
             os.chdir(os.path.join(molecule.home, '09_torsion_scan'))
             scan = TorsionScan(molecule)
-            scan.find_scan_order()
+            if molecule.scan_order is None:
+                scan.find_scan_order()
             scan.collect_scan()
             os.chdir(os.path.join(molecule.home, '10_torsion_optimise'))
 
