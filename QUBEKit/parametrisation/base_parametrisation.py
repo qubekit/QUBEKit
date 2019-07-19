@@ -53,9 +53,9 @@ class Parametrisation:
 
         # could be a problem for boron compounds
         self.molecule.AtomTypes = {}
-        self.molecule.HarmonicBondForce = {bond: ['0', '0'] for bond in self.molecule.bond_lengths.keys()}
-        self.molecule.HarmonicAngleForce = {angle: ['0', '0'] for angle in self.molecule.angle_values.keys()}
-        self.molecule.NonbondedForce = OrderedDict((number, ['0', '0', '0']) for number in range(len(self.molecule.atoms)))
+        self.molecule.HarmonicBondForce = {bond: [0, 0] for bond in self.molecule.bond_lengths.keys()}
+        self.molecule.HarmonicAngleForce = {angle: [0, 0] for angle in self.molecule.angle_values.keys()}
+        self.molecule.NonbondedForce = OrderedDict((number, [0, 0, 0]) for number in range(len(self.molecule.atoms)))
         self.molecule.PeriodicTorsionForce = OrderedDict()
 
     def __repr__(self):
@@ -167,7 +167,7 @@ class Parametrisation:
         # Remake the torsion; store in the ligand
         self.molecule.PeriodicTorsionForce = OrderedDict((v, k) for v, k in torsions.items() if k[-1] != 'Improper')
 
-        # Add the impropers at the end of the torsion object
+        # Add the improper at the end of the torsion object
         if improper_torsions is not None:
             for key, val in improper_torsions.items():
                 self.molecule.PeriodicTorsionForce[key] = val

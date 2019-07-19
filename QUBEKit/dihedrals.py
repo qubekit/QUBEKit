@@ -134,8 +134,14 @@ class TorsionScan:
             # When we start the run write the options used here to be used during restarts
             log.write(f'Theory used: {self.molecule.theory} Basis used: {self.molecule.basis}\n')
             log.flush()
-            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower() + self.molecule.bonds_engine[1:]} {self.input_file} dihedrals.txt -v '
-                   f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
+            if self.qm_engine.__class__.__name__.lower() == 'psi4':
+                tdrive_engine = 'psi4'
+            else:
+                tdrive_engine = f'{self.qm_engine.__class__.__name__.lower() + self.molecule.bonds_engine[1:]}'
+
+            cmd = f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v ' \
+                  f'{"--native_opt" if self.native_opt else ""}'
+            sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
 
         # Gather the results
         try:
@@ -204,10 +210,11 @@ class TorsionScan:
                     os.system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
                     os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
 
-                    os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
-                    os.mkdir('QM_torsiondrive')
-                else:
-                    os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
+            os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
+            try:
+                os.mkdir('QM_torsiondrive')
+            except FileExistsError:
+                pass
 
             os.chdir('QM_torsiondrive')
 
@@ -367,8 +374,8 @@ class TorsionOptimiser:
 
     def update_tor_vec(self, x):
         """Update the tor_types dict with the parameter vector."""
-
-        x = np.round(x, decimals=4)
+        # Round to 6 dp as this is the acuraccy that will be in the xml files.
+        x = np.round(x, decimals=6)
 
         # Update the param vector for the right torsions by slicing the vector every 4 places
         for key, val in self.tor_types.items():
@@ -557,8 +564,8 @@ class TorsionOptimiser:
                 break
 
         # find the minimum total error index in list
-        min_error = min(objective['total'])
-        min_index = objective['total'].index(min_error)
+        # min_error = min(objective['total'])
+        # min_index = objective['total'].index(min_error)
 
         # gather the parameters with the lowest error, not always the last parameter set
         # final_parameters = deepcopy(objective['parameters'][min_index])
@@ -661,8 +668,6 @@ class TorsionOptimiser:
             self.initial_energies()
             # Use the parameters to get the current energies
             self.mm_energy = deepcopy(self.starting_energy)
-
-            print(self.mm_energy)
 
             # Graph the energy
             self.plot_results(name='testing_torsion', torsion_test=True)
@@ -1085,6 +1090,7 @@ class TorsionOptimiser:
         if self.molecule.relative_to_global:
             if torsion_test:
                 initial_energy = self.mm_energy - self.openMM.get_energy(self.opt_coords)
+                plot_mm_energy = initial_energy
             else:
                 plot_mm_energy = self.mm_energy - self.openMM.get_energy(self.opt_coords)
                 initial_energy = self.initial_energy - self.openMM.get_energy(self.opt_coords)
@@ -1092,6 +1098,7 @@ class TorsionOptimiser:
         else:
             if torsion_test:
                 initial_energy = self.mm_energy - self.mm_energy.min()
+                plot_mm_energy = initial_energy
             else:
                 plot_mm_energy = self.mm_energy - self.mm_energy.min()
                 initial_energy = self.initial_energy - self.initial_energy.min()
