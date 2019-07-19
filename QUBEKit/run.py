@@ -955,10 +955,11 @@ class Execute:
         append_to_log('Starting torsion_optimisations')
 
         # First we should make sure we have collected the results of the scans
-        if molecule.qm_scans is not None:
+        if molecule.qm_scans is None:
             os.chdir(os.path.join(molecule.home, '09_torsion_scan'))
             scan = TorsionScan(molecule)
-            scan.find_scan_order()
+            if molecule.scan_order is None:
+                scan.find_scan_order()
             scan.collect_scan()
             os.chdir(os.path.join(molecule.home, '10_torsion_optimise'))
 
