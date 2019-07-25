@@ -3,6 +3,7 @@
 from QUBEKit.engines import PSI4, OpenMM, Gaussian
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import timer_logger, for_all_methods
+from QUBEKit.utils.exceptions import TorsionDriveFailed
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -10,6 +11,7 @@ import os
 import pty
 from shutil import rmtree
 import subprocess as sp
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -134,19 +136,23 @@ class TorsionScan:
         #     sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.input_file} dihedrals.txt -v '
         #            f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
 
-        tdive_log = os.path.abspath('tdrive.log')
+        with open('tdrive.sh', 'w') as shell:
+            shell.write('torsiondrive-launch -h')
 
-        with open(tdive_log, 'ab', 0) as log_file:
-
+        with open(os.path.abspath('tdrive.log'), 'ab', 0) as log_file:
             def prout(fd):
                 data = os.read(fd, 1024)
                 log_file.write(data)
                 log_file.flush()
                 return data
-            pty.spawn(f'torsiondrive-launch -h', prout)
+            pty.spawn(os.path.abspath('tdrive.sh'), prout)
+        sys.exit()
 
         # Gather the results
-        self.molecule.read_tdrive(scan)
+        try:
+            self.molecule.read_tdrive(scan)
+        except FileNotFoundError:
+            raise TorsionDriveFailed('Torsiondrive output qdata.txt missing; job did not execute or finish properly')
 
     def collect_scan(self):
         """
@@ -160,6 +166,27 @@ class TorsionScan:
 
             except FileNotFoundError:
                 raise FileNotFoundError(f'SCAN_{scan[0]}_{scan[1]} missing')
+
+    def check_run_history(self, scan):
+        """
+        Check the contents of a scan folder to see if we should continue the run;
+        if the settings are the same then continue
+        :return: If we should continue the run
+        """
+
+        # Try and open the tdrive.log file to check the old running options
+        try:
+            file_path = os.path.join(os.getcwd(), os.path.join(f'SCAN_{scan[0]}_{scan[1]}', os.path.join('QM_torsiondrive', 'tdrive.log')))
+            with open(file_path) as t_log:
+                header = t_log.readline()
+
+            if self.molecule.theory == header.split()[2] and self.molecule.basis == header.split()[5]:
+                return True
+            else:
+                return False
+
+        except FileNotFoundError:
+            return False
 
     def scan(self):
         """Makes a folder and writes a new a dihedral input file for each scan and runs the scan."""
@@ -175,11 +202,10 @@ class TorsionScan:
             try:
                 os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
             except FileExistsError:
-                # If the folder has only been used to test the torsions then use that folder
-                if os.listdir(f'SCAN_{scan[0]}_{scan[1]}') == ['testing_torsion']:
-                    pass
-                # However, if there is a full run in the folder, back the folder up and start again
-                else:
+                # If there is a run in the folder, check if we are continuing an old run by matching the settings
+                con_scan = self.check_run_history(scan)
+                if not con_scan:
+
                     print(f'SCAN_{scan[0]}_{scan[1]} folder present backing up folder to SCAN_{scan[0]}_{scan[1]}_tmp')
                     # Remove old backups
                     try:
@@ -190,7 +216,11 @@ class TorsionScan:
                     os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
 
             os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
-            os.mkdir('QM_torsiondrive')
+            try:
+                os.mkdir('QM_torsiondrive')
+            except FileExistsError:
+                pass
+
             os.chdir('QM_torsiondrive')
 
             # Start the torsion drive if psi4 else run native separate optimisations using g09
@@ -349,8 +379,8 @@ class TorsionOptimiser:
 
     def update_tor_vec(self, x):
         """Update the tor_types dict with the parameter vector."""
-
-        x = np.round(x, decimals=4)
+        # Round to 6 dp as this is the acuraccy that will be in the xml files.
+        x = np.round(x, decimals=6)
 
         # Update the param vector for the right torsions by slicing the vector every 4 places
         for key, val in self.tor_types.items():
@@ -539,8 +569,8 @@ class TorsionOptimiser:
                 break
 
         # find the minimum total error index in list
-        min_error = min(objective['total'])
-        min_index = objective['total'].index(min_error)
+        # min_error = min(objective['total'])
+        # min_index = objective['total'].index(min_error)
 
         # gather the parameters with the lowest error, not always the last parameter set
         # final_parameters = deepcopy(objective['parameters'][min_index])
@@ -643,8 +673,6 @@ class TorsionOptimiser:
             self.initial_energies()
             # Use the parameters to get the current energies
             self.mm_energy = deepcopy(self.starting_energy)
-
-            print(self.mm_energy)
 
             # Graph the energy
             self.plot_results(name='testing_torsion', torsion_test=True)
@@ -1067,6 +1095,7 @@ class TorsionOptimiser:
         if self.molecule.relative_to_global:
             if torsion_test:
                 initial_energy = self.mm_energy - self.openMM.get_energy(self.opt_coords)
+                plot_mm_energy = initial_energy
             else:
                 plot_mm_energy = self.mm_energy - self.openMM.get_energy(self.opt_coords)
                 initial_energy = self.initial_energy - self.openMM.get_energy(self.opt_coords)
@@ -1074,6 +1103,7 @@ class TorsionOptimiser:
         else:
             if torsion_test:
                 initial_energy = self.mm_energy - self.mm_energy.min()
+                plot_mm_energy = initial_energy
             else:
                 plot_mm_energy = self.mm_energy - self.mm_energy.min()
                 initial_energy = self.initial_energy - self.initial_energy.min()

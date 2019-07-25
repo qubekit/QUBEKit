@@ -49,3 +49,19 @@ class HessianCalculationFailed(Exception):
     """
 
     pass
+
+
+class TorsionDriveFailed(Exception):
+    """
+
+    """
+
+    pass
+
+
+class PickleFileNotFound(Exception):
+    """
+
+    """
+
+    pass
