@@ -8,10 +8,8 @@ from QUBEKit.utils.exceptions import TorsionDriveFailed
 from collections import OrderedDict
 from copy import deepcopy
 import os
-import pty
 from shutil import rmtree
 import subprocess as sp
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -132,21 +130,18 @@ class TorsionScan:
         self.tdrive_scan_input(scan)
 
         # Now we need to run torsiondrive through the CLI
-        # with open('tdrive.log', 'w') as log:
-        #     sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.input_file} dihedrals.txt -v '
-        #            f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
+        with open('tdrive.log', 'w') as log:
+            # When we start the run write the options used here to be used during restarts
+            log.write(f'Theory used: {self.molecule.theory} Basis used: {self.molecule.basis}\n')
+            log.flush()
+            if self.qm_engine.__class__.__name__.lower() == 'psi4':
+                tdrive_engine = 'psi4'
+            else:
+                tdrive_engine = f'{self.qm_engine.__class__.__name__.lower() + self.molecule.bonds_engine[1:]}'
 
-        with open('tdrive.sh', 'w') as shell:
-            shell.write('torsiondrive-launch -h')
-
-        with open(os.path.abspath('tdrive.log'), 'ab', 0) as log_file:
-            def prout(fd):
-                data = os.read(fd, 1024)
-                log_file.write(data)
-                log_file.flush()
-                return data
-            pty.spawn(os.path.abspath('tdrive.sh'), prout)
-        sys.exit()
+            cmd = f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v ' \
+                  f'{"--native_opt" if self.native_opt else ""}'
+            sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
 
         # Gather the results
         try:
