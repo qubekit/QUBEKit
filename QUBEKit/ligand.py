@@ -159,6 +159,8 @@ class Molecule(Defaults):
 
         # QUBEKit Internals
         state                   str; Describes the stage the analysis is in for pickling and unpickling
+        config
+        restart
         """
 
         super().__init__()
@@ -218,6 +220,7 @@ class Molecule(Defaults):
         # QUBEKit internals
         self.state = None
         self.config = 'master_config.ini'
+        self.restart = False
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -508,7 +511,7 @@ class Molecule(Defaults):
         topology = nx.Graph()
         atoms = []
 
-        for i, atom in enumerate(self.qc_json['symbols'], 1):
+        for i, atom in enumerate(self.qc_json['symbols']):
             atoms.append(Atom(atomic_number=Element().number(atom), atom_index=i, atom_name=f'{atom}{i}'))
             topology.add_node(i)
 
@@ -1006,8 +1009,8 @@ class Molecule(Defaults):
         """
 
         # using the new harmonic bond force dict we can add the bond edges to the topology graph
-        for key in self.HarmonicBondForce:
-            self.topology.add_edge(*key)
+        for bond in self.HarmonicBondForce:
+            self.topology.add_edge(*bond)
 
         self.find_angles()
         self.find_dihedrals()
@@ -1093,7 +1096,6 @@ class Ligand(Molecule):
         modes                   A list of the qm predicted frequency modes
         home
 
-        descriptors
         constraints_file        Either an empty string (does nothing in geometric run command); or
                                 the abspath of the constraint.txt file (constrains the execution of geometric)
         """
@@ -1248,6 +1250,7 @@ class Protein(Molecule):
         self.coords[input_type] = np.array(protein)
 
         # check if there are any conect terms in the file first
+        # if not self.topology.edges:
         if len(self.topology.edges) == 0:
             print('No connections found!')
         else:

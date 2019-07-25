@@ -7,6 +7,7 @@ from QUBEKit.utils.decorators import timer_logger, for_all_methods
 from collections import OrderedDict
 from copy import deepcopy
 import os
+import pty
 from shutil import rmtree
 import subprocess as sp
 
@@ -129,9 +130,20 @@ class TorsionScan:
         self.tdrive_scan_input(scan)
 
         # Now we need to run torsiondrive through the CLI
-        with open('tdrive.log', 'w') as log:
-            sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.input_file} dihedrals.txt -v '
-                   f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
+        # with open('tdrive.log', 'w') as log:
+        #     sp.run(f'torsiondrive-launch -e {self.qm_engine.__class__.__name__.lower()} {self.input_file} dihedrals.txt -v '
+        #            f'{"--native_opt" if self.native_opt else ""}', stderr=log, stdout=log, shell=True)
+
+        tdive_log = os.path.abspath('tdrive.log')
+
+        with open(tdive_log, 'ab', 0) as log_file:
+
+            def prout(fd):
+                data = os.read(fd, 1024)
+                log_file.write(data)
+                log_file.flush()
+                return data
+            pty.spawn(f'torsiondrive-launch -h', prout)
 
         # Gather the results
         self.molecule.read_tdrive(scan)
