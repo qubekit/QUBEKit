@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 from QUBEKit.utils import constants
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.helpers import append_to_log
+from QUBEKit.utils.decorators import timer_logger
 
 import numpy as np
 
@@ -22,7 +21,7 @@ class OpenMM:
         self.molecule = molecule
         self.system = None
         self.simulation = None
-        self.combination = None
+        self.combination = molecule.combination
         self.pdb = molecule.name + '.pdb'
         self.xml = molecule.name + '.xml'
         self.openmm_system()
@@ -42,13 +41,13 @@ class OpenMM:
         # check if we have opls combination rules if the xml is present
         try:
             self.combination = ET.fromstring(xmlstr).find('NonbondedForce').attrib['combination']
-            append_to_log('OPLS combination rules found in xml file', msg_type='minor')
         except AttributeError:
             pass
         except KeyError:
             pass
 
         if self.combination == 'opls':
+            print('OPLS combination rules found in xml file')
             self.opls_lj()
 
         temperature = constants.STP * unit.kelvin

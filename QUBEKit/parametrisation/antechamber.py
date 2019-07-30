@@ -67,9 +67,10 @@ class AnteChamber(Parametrisation):
             # Ensure command worked
             try:
                 # Copy the gaff mol2 and antechamber file back
-                shutil.copy('out.mol2', mol2)
                 shutil.copy('ante_log.txt', cwd)
+                shutil.copy('out.mol2', mol2)
             except FileNotFoundError:
+                os.chdir(cwd)
                 raise FileNotFoundError('Antechamber could not convert this file type; is it a valid pdb?')
 
             os.chdir(cwd)

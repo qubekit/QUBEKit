@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from QUBEKit.utils.exceptions import PickleFileNotFound
+from QUBEKit.utils import constants
 
 from collections import OrderedDict
 from configparser import ConfigParser
@@ -11,6 +12,7 @@ import math
 import os
 from pathlib import Path
 import pickle
+import operator
 
 import numpy as np
 
@@ -632,3 +634,30 @@ def check_net_charge(charges, ideal_net=0, error=0.00001):
 
     print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
     return True
+
+
+def collect_archive_tdrive(tdrive_record, client):
+    """
+    This function takes in a QCArchive tdrive record and collects all of the final geometries and energies to be used in
+    torsion fitting.
+    :param client:  A QCPortal client instance.
+    :param tdrive_record: A QCArchive data object containing an optimisation and energy dictionary
+    :return: QUBEKit qm_scans data: list of energies and geometries [np.array(energies), [np.array(geometry)]]
+    """
+
+    # Sort the dictionary by assending keys
+    energy_dict = {int(key.strip('][')): value for key, value in tdrive_record.final_energy_dict.items()}
+    sorted_energies = sorted(energy_dict.items(), key=operator.itemgetter(0))
+
+    energies = np.array([x[1] for x in sorted_energies])
+
+    geometry = []
+    # Now make the optimization dict and store an array of the final geometry
+    for pair in sorted_energies:
+        min_energy_id = tdrive_record.minimum_positions[f'[{pair[0]}]']
+        opt_history = int(tdrive_record.optimization_history[f'[{pair[0]}]'][min_energy_id])
+        opt_struct = client.query_procedures(id=opt_history)[0]
+        geometry.append(opt_struct.get_final_molecule().geometry * constants.BOHR_TO_ANGS)
+        assert opt_struct.get_final_energy() == pair[1], "The energies collected do not match the QCArchive minima."
+
+    return [energies, geometry]

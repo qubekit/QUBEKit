@@ -508,7 +508,7 @@ class Molecule(Defaults):
         topology = nx.Graph()
         atoms = []
 
-        for i, atom in enumerate(self.qc_json['symbols'], 1):
+        for i, atom in enumerate(self.qc_json['symbols']):
             atoms.append(Atom(atomic_number=Element().number(atom), atom_index=i, atom_name=f'{atom}{i}'))
             topology.add_node(i)
 
@@ -565,7 +565,8 @@ class Molecule(Defaults):
         for node in self.topology.nodes:
             near = sorted(list(nx.neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
-            if len(near) == 3:
+            # Check if an sp2 carbon
+            if len(near) == 3 and self.atoms[node].element == 'C':
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
         if improper_torsions:

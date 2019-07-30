@@ -132,7 +132,7 @@ class Parametrisation:
         torsions = [sorted(key) for key in self.molecule.PeriodicTorsionForce.keys()]
         if self.molecule.improper_torsions is not None:
             for torsion in self.molecule.improper_torsions:
-                if torsion not in torsions:
+                if sorted(torsion) not in torsions:
                     # The improper torsion is missing and should be added with no energy
                     self.molecule.PeriodicTorsionForce[torsion] = [[1, 0, 0], [2, 0, constants.PI],
                                                                    [3, 0, 0], [4, 0, constants.PI]]
