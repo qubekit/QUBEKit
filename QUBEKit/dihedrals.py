@@ -175,10 +175,7 @@ class TorsionScan:
             with open(file_path) as t_log:
                 header = t_log.readline()
 
-            if self.molecule.theory == header.split()[2] and self.molecule.basis == header.split()[5]:
-                return True
-            else:
-                return False
+            return self.molecule.theory == header.split()[2] and self.molecule.basis == header.split()[5]
 
         except FileNotFoundError:
             return False

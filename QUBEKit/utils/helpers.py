@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.exceptions import PickleFileNotFound
 from QUBEKit.utils import constants
+from QUBEKit.utils.exceptions import PickleFileNotFound, QUBEKitLogFileNotFound
 
 from collections import OrderedDict
 from configparser import ConfigParser
@@ -10,7 +10,6 @@ import csv
 from functools import partial
 import math
 import os
-from pathlib import Path
 import pickle
 import operator
 
@@ -23,10 +22,8 @@ class Configure:
     settings as strings, all numbers must then be cast before use.
     """
 
-    # TODO Use proper pathing (os.path.join or similar)
-
-    home = Path.home()
-    config_folder = f'{home}/QUBEKit_configs/'
+    home = os.path.expanduser('~')
+    config_folder = os.path.join(home, 'QUBEKit_configs')
     master_file = 'master_config.ini'
 
     qm = {
@@ -116,7 +113,7 @@ class Configure:
 
             # Check if the user has made a new master file to use
             if self.check_master():
-                qm, fitting, excited, descriptions = self.ini_parser(f'{self.config_folder + self.master_file}')
+                qm, fitting, excited, descriptions = self.ini_parser(os.path.join(self.config_folder, self.master_file))
 
             else:
                 # If there is no master then assign the default config
@@ -128,7 +125,7 @@ class Configure:
                 qm, fitting, excited, descriptions = self.ini_parser(config_file)
 
             else:
-                qm, fitting, excited, descriptions = self.ini_parser(self.config_folder + config_file)
+                qm, fitting, excited, descriptions = self.ini_parser(os.path.join(self.config_folder, config_file))
 
         # Now cast the numbers
         clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
@@ -187,7 +184,7 @@ class Configure:
     def check_master(self):
         """Check if there is a new master ini file in the configs folder."""
 
-        return True if os.path.exists(self.config_folder + self.master_file) else False
+        return os.path.exists(os.path.join(self.config_folder, self.master_file))
 
     def ini_writer(self, ini):
         """Make a new configuration file in the config folder using the current master as a template."""
@@ -196,36 +193,23 @@ class Configure:
         if not ini.endswith('.ini'):
             ini += '.ini'
 
-        # Load a new configs from the options
-        qm, fitting, excited, descriptions = self.qm, self.fitting, self.excited, self.descriptions
-
         # Set config parser to allow for comments
         config = ConfigParser(allow_no_value=True)
-        config.add_section('QM')
 
-        for key, val in qm.items():
-            config.set('QM', self.help[key])
-            config.set('QM', key, val)
+        categories = {
+            'QM': self.qm,
+            'FITTING': self.fitting,
+            'EXCITED': self.excited,
+            'DESCRIPTIONS': self.descriptions
+        }
 
-        config.add_section('FITTING')
+        for name, data in categories.items():
+            config.add_section(name)
+            for key, val in data.items():
+                config.set(name, self.help[key])
+                config.set(name, key, val)
 
-        for key, val in fitting.items():
-            config.set('FITTING', self.help[key])
-            config.set('FITTING', key, val)
-
-        config.add_section('EXCITED')
-
-        for key, val in excited.items():
-            config.set('EXCITED', self.help[key])
-            config.set('EXCITED', key, val)
-
-        config.add_section('DESCRIPTIONS')
-
-        for key, val in descriptions.items():
-            config.set('DESCRIPTIONS', self.help[key])
-            config.set('DESCRIPTIONS', key, val)
-
-        with open(f'{self.config_folder + ini}', 'w+') as out:
+        with open(os.path.join(self.config_folder, ini), 'w+') as out:
             config.write(out)
 
     def ini_edit(self, ini_file):
@@ -235,7 +219,8 @@ class Configure:
         if not ini_file.endswith('.ini'):
             ini_file += '.ini'
 
-        os.system(f'emacs -nw {self.config_folder + ini_file}')
+        ini_path = os.path.join(self.config_folder, ini_file)
+        os.system(f'emacs -nw {ini_path}')
 
 
 def mol_data_from_csv(csv_name):
@@ -333,19 +318,13 @@ def append_to_log(message, msg_type='major'):
     """
 
     # Starting in the current directory walk back looking for the log file
-    # Stop at the first file found this should be our file
     search_dir = os.getcwd()
+    while 'QUBEKit_log.txt' not in os.listdir(search_dir):
+        search_dir = os.path.split(search_dir)[0]
+        if not search_dir:
+            raise QUBEKitLogFileNotFound('Cannot locate QUBEKit log file.')
 
-    while True:
-        if 'QUBEKit_log.txt' in os.listdir(search_dir):
-            log_file = os.path.abspath(os.path.join(search_dir, 'QUBEKit_log.txt'))
-            break
-
-        # Else we have to split the search path
-        else:
-            search_dir = os.path.split(search_dir)[0]
-            if not search_dir:
-                raise FileNotFoundError('Cannot locate QUBEKit log file.')
+    log_file = os.path.abspath(os.path.join(search_dir, 'QUBEKit_log.txt'))
 
     # Check if the message is a blank string to avoid adding blank lines and unnecessary separators
     if message:
@@ -566,17 +545,15 @@ def unpickle(location=None):
     pickle_file = '.QUBEKit_states'
     if location is not None:
         pickle_path = os.path.join(location, pickle_file)
+
     else:
-        current_loc = os.getcwd()
-        for attempt in range(10):
-            if pickle_file in os.listdir(current_loc):
-                pickle_path = os.path.join(current_loc, pickle_file)
-                break
+        search_dir = os.getcwd()
+        while pickle_file not in os.listdir(search_dir):
+            search_dir = os.path.split(search_dir)[0]
+            if not search_dir:
+                raise PickleFileNotFound('Pickle file not found; have you deleted it?')
 
-            current_loc = os.path.dirname(current_loc)
-
-        else:
-            raise PickleFileNotFound('Pickle file not found; have you deleted it?')
+        pickle_path = os.path.join(search_dir, pickle_file)
 
     with open(pickle_path, 'rb') as jar:
         while True:

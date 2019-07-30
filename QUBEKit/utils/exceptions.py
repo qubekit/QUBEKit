@@ -22,10 +22,10 @@ def try_load(engine, module):
     Try to load a particular engine from a module.
     If this fails, a dummy class is imported in its place with an import error raised on initialisation.
 
-    :param engine: Name of the engine (PSI4, OpenFF, ONETEP, etc.
-    :param module: Name of the QUBEKit module (.psi4, .openff, .onetep, etc)
+    :param engine: Name of the engine (PSI4, OpenFF, ONETEP, etc).
+    :param module: Name of the QUBEKit module (.psi4, .openff, .onetep, etc).
     :return: Either the engine is imported as normal, or it is replaced with dummy class which
-    just raises an import error with a message
+    just raises an import error with a message.
     """
     try:
         module = import_module(module, __name__)
@@ -60,6 +60,14 @@ class TorsionDriveFailed(Exception):
 
 
 class PickleFileNotFound(Exception):
+    """
+
+    """
+
+    pass
+
+
+class QUBEKitLogFileNotFound(Exception):
     """
 
     """

@@ -3,7 +3,7 @@
 from QUBEKit.utils.helpers import pretty_print, unpickle
 
 from datetime import datetime
-from functools import wraps
+from functools import wraps, partial
 import logging
 import os
 from time import time
@@ -48,8 +48,8 @@ def timer_logger(orig_func):
                 log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
 
                 with open(log_file_path, 'a+') as log_file:
-                    log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
-                    log_file.write(f'Docstring for {orig_func.__qualname__}:\n     {orig_func.__doc__}\n\n')
+                    log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n    ')
+                    log_file.write(f'Docstring for {orig_func.__qualname__}:\n    {orig_func.__doc__}\n\n')
 
                     time_taken = time() - t1
 
@@ -151,10 +151,69 @@ def exception_logger(func):
             # Re-raises the exception if it's not a bulk run.
             # Even if the exception is not raised, it is still logged.
             if len(args) >= 1 and hasattr(args[0], 'molecule'):
-                if hasattr(args[0].molecule, 'bulk_run'):
-                    if args[0].molecule.bulk_run is None:
-                        raise
-                else:
+                if not hasattr(args[0].molecule, 'bulk_run'):
+                    raise
+                if args[0].molecule.bulk_run is None:
                     raise
 
     return wrapper
+
+
+class ExceptionLogger:
+    """Alternate implementation of exception logger functions above"""
+
+    def __init__(self, func):
+
+        self.func = func
+        self.log_file = None
+
+    def __get__(self, instance, owner):
+        """Allows decoration of functions and methods"""
+        return partial(self.__call__, instance)
+
+    def __call__(self, *args, **kwargs):
+
+        try:
+            return self.func(*args, **kwargs)
+        # Any exception that occurs is logged; this means KeyboardInterrupt and SystemExit are still raised
+        except Exception as exc:
+
+            home = getattr(args[0].molecule, 'home', None)
+            state = getattr(args[0].molecule, 'state', None)
+
+            if home is None or state is None:
+                raise
+
+            mol = unpickle()[state]
+            pretty_print(mol, to_file=True, finished=False)
+
+            self.log_file = os.path.join(home, 'QUBEKit_log.txt')
+            logger = self.logger_format()
+
+            logger.exception(f'\nAn exception occurred with: {self.func.__qualname__}\n')
+            print(f'\n\nAn exception occurred with: {self.func.__qualname__}\n'
+                  f'Exception: {exc}\nView the log file for details.'.upper())
+
+            # Re-raises the exception if it's not a bulk run.
+            # Even if the exception is not raised, it is still logged.
+            if len(args) >= 1 and hasattr(args[0], 'molecule'):
+                if not hasattr(args[0].molecule, 'bulk_run'):
+                    raise
+                if args[0].molecule.bulk_run is None:
+                    raise
+
+    def logger_format(self):
+
+        logger = logging.getLogger('Exception Logger')
+        logger.setLevel(logging.INFO)
+
+        file_handler = logging.FileHandler(self.log_file)
+
+        # Format the log message
+        fmt = '\n\n%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        formatter = logging.Formatter(fmt)
+        file_handler.setFormatter(formatter)
+
+        logger.addHandler(file_handler)
+
+        return logger

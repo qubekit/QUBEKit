@@ -29,7 +29,7 @@ class QCEngine(Engines):
         mol_data = f'{self.molecule.charge} {self.molecule.multiplicity}\n'
 
         for i, coord in enumerate(self.molecule.coords[input_type]):
-            mol_data += f'{self.molecule.atoms[i].element} '
+            mol_data += f'{self.molecule.atoms[i].atomic_name} '
             for item in coord:
                 mol_data += f'{item} '
             mol_data += '\n'
