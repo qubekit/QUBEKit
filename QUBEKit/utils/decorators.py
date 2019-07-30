@@ -48,8 +48,8 @@ def timer_logger(orig_func):
                 log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
 
                 with open(log_file_path, 'a+') as log_file:
-                    log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n')
-                    log_file.write(f'Docstring for {orig_func.__qualname__}:\n     {orig_func.__doc__}\n\n')
+                    log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n    ')
+                    log_file.write(f'Docstring for {orig_func.__qualname__}:\n    {orig_func.__doc__}\n\n')
 
                     time_taken = time() - t1
 
@@ -151,10 +151,9 @@ def exception_logger(func):
             # Re-raises the exception if it's not a bulk run.
             # Even if the exception is not raised, it is still logged.
             if len(args) >= 1 and hasattr(args[0], 'molecule'):
-                if hasattr(args[0].molecule, 'bulk_run'):
-                    if args[0].molecule.bulk_run is None:
-                        raise
-                else:
+                if not hasattr(args[0].molecule, 'bulk_run'):
+                    raise
+                if args[0].molecule.bulk_run is None:
                     raise
 
     return wrapper
@@ -169,6 +168,7 @@ class ExceptionLogger:
         self.log_file = None
 
     def __get__(self, instance, owner):
+        """Allows decoration of functions and methods"""
         return partial(self.__call__, instance)
 
     def __call__(self, *args, **kwargs):
@@ -197,10 +197,9 @@ class ExceptionLogger:
             # Re-raises the exception if it's not a bulk run.
             # Even if the exception is not raised, it is still logged.
             if len(args) >= 1 and hasattr(args[0], 'molecule'):
-                if hasattr(args[0].molecule, 'bulk_run'):
-                    if args[0].molecule.bulk_run is None:
-                        raise
-                else:
+                if not hasattr(args[0].molecule, 'bulk_run'):
+                    raise
+                if args[0].molecule.bulk_run is None:
                     raise
 
     def logger_format(self):

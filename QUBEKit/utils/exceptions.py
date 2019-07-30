@@ -65,3 +65,11 @@ class PickleFileNotFound(Exception):
     """
 
     pass
+
+
+class QUBEKitLogFileNotFound(Exception):
+    """
+
+    """
+
+    pass

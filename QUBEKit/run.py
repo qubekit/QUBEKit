@@ -3,6 +3,7 @@
 # TODO
 #  Squash unnecessary arguments into self.molecule. Args such as torsion_options.
 #  Better handling of torsion_options
+#  Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
 
 from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
@@ -17,16 +18,15 @@ from QUBEKit.utils.exceptions import OptimisationFailed, HessianCalculationFaile
 from QUBEKit.utils.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
     Configure, unpickle
 
+import argparse
 from collections import OrderedDict
 from datetime import datetime
 from functools import partial
 import os
-from pathlib import Path
 from shutil import copy, move
 import subprocess as sp
 import sys
 
-import argparse
 import numpy as np
 
 
@@ -57,8 +57,8 @@ class ArgsAndConfigs:
 
     def __init__(self):
         # First make sure the config folder has been made missing for conda and pip
-        home = str(Path.home())
-        config_folder = f'{home}/QUBEKit_configs/'
+        home = os.path.expanduser('~')
+        config_folder = os.path.join(home, 'QUBEKit_configs')
         if not os.path.exists(config_folder):
             os.makedirs(config_folder)
             printf(f'Making config folder at: {home}')
@@ -88,10 +88,10 @@ class ArgsAndConfigs:
                 self.molecule = Ligand(self.args.input)
 
         # Find which config file is being used
-        self.molecule.config = self.args.config_file
+        self.molecule.config_file = self.args.config_file
 
         # Handle configs which are in a file
-        file_configs = Configure().load_config(self.molecule.config)
+        file_configs = Configure().load_config(self.molecule.config_file)
         for name, val in file_configs.items():
             setattr(self.molecule, name, val)
 
@@ -113,7 +113,7 @@ class ArgsAndConfigs:
         if self.args.dihedral_file:
             self.molecule.read_scan_order(self.args.dihedral_file)
         if self.args.constraints_file:
-            self.molecule.constraints_file = Path(self.args.constaints_file)
+            self.molecule.constraints_file = self.args.constaints_file
 
         # If restarting put the molecule back into the checkpoint file with the new configs
         if self.args.restart is not None:
@@ -214,7 +214,7 @@ class ArgsAndConfigs:
 
         def string_to_bool(string):
             """Convert a string to a bool for argparse use when casting to bool"""
-            return True if string.lower() in ['true', 't', 'yes', 'y'] else False
+            return string.lower() in ['true', 't', 'yes', 'y']
 
         intro = 'Welcome to QUBEKit! For a list of possible commands, use the help command: -h.' \
                 'Alternatively, take a look through our github page for commands, recipes and common problems:' \
@@ -346,7 +346,7 @@ class ArgsAndConfigs:
             setattr(self.molecule, 'skip', [])
 
             # Using the config file from the .csv, gather the .ini file configs
-            file_configs = Configure.load_config(self.molecule.config)
+            file_configs = Configure().load_config(self.molecule.config_file)
             for key, val in file_configs.items():
                 setattr(self.molecule, key, val)
 

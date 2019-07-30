@@ -101,7 +101,7 @@ class Gaussian(Engines):
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
                 for i, atom in enumerate(molecule):
-                    input_file.write(f'{self.molecule.atoms[i].element} {float(atom[0]): .10f} {float(atom[1]): .10f} '
+                    input_file.write(f'{self.molecule.atoms[i].atomic_name} {float(atom[0]): .10f} {float(atom[1]): .10f} '
                                      f'{float(atom[2]): .10f}\n')
 
             # TODO finish this block

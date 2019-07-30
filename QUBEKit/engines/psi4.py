@@ -46,12 +46,12 @@ class PSI4(Engines):
         """
         Converts to psi4 input format to be run in psi4 without using geometric.
         :param input_type: The coordinate set of the molecule to be used
-        :param optimise: Optimise the molecule to the desired convergence critera with in the iteration limit
+        :param optimise: Optimise the molecule to the desired convergence criterion within the iteration limit
         :param hessian: Calculate the hessian matrix
         :param density: Calculate the electron density
         :param energy: Calculate the single point energy of the molecule
         :param fchk: Write out a gaussian style Fchk file
-        :param restart: Restart the calculation from a log point
+        :param restart: Restart the calculation from a log point (required but unused to match g09's generate_input())
         :param execute: Run the desired Psi4 job
         :return: The completion status of the job True if successful False if not run or failed
         """
@@ -93,7 +93,8 @@ class PSI4(Engines):
             tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
 
         # TODO If overage cannot be made to work, delete and just use Gaussian.
-        # if self.molecule.solvent:
+        if self.molecule.solvent:
+            pass
         #     setters += ' pcm true\n pcm_scf_type total\n'
         #     tasks += '\n\npcm = {'
         #     tasks += '\n units = Angstrom\n Medium {\n  SolverType = IEFPCM\n  Solvent = Chloroform\n }'
@@ -112,7 +113,7 @@ class PSI4(Engines):
                              f'{self.molecule.charge} {self.molecule.multiplicity} \n')
             # molecule is always printed
             for i, atom in enumerate(self.molecule.coords[input_type]):
-                input_file.write(f' {self.molecule.atoms[i].element}    '
+                input_file.write(f' {self.molecule.atoms[i].atomic_name}    '
                                  f'{float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n')
 
             input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n")
@@ -130,7 +131,8 @@ class PSI4(Engines):
         else:
             return {'success': False, 'error': 'Not run'}
 
-    def check_for_errors(self):
+    @staticmethod
+    def check_for_errors():
         """
         Read the output file from the job and check for normal termination and any errors
         :return: A dictionary of the success status and any problems.
@@ -316,10 +318,12 @@ class PSI4(Engines):
 
         with open(f'{self.molecule.name}.psi4in', 'w+') as file:
 
-            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} {self.molecule.multiplicity} \n')
+            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} '
+                       f'{self.molecule.multiplicity} \n')
 
             for i, atom in enumerate(molecule):
-                file.write(f'  {self.molecule.atoms[i].element:2}    {float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f}\n')
+                file.write(f'  {self.molecule.atoms[i].atomic_name:2}    '
+                           f'{float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f}\n')
 
             file.write(f' units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n')
 

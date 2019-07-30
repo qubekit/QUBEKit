@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 # TODO Add remaining xml methods for Protein class
-# TODO Remove 'element' as a name.
-#  Very confusing as it could (and does) refer to both atom names AND numbers interchangeably.
 
 from QUBEKit.engines import RDKit, Element
 from QUBEKit.utils import constants
@@ -28,20 +26,21 @@ class Atom:
     def __init__(self, atomic_number, atom_index, atom_name='', partial_charge=None, formal_charge=None):
 
         self.atomic_number = atomic_number
+        # The actual atomic name as per periodic table e.g. C, F, Pb, etc
+        self.atomic_mass = Element().mass(atomic_number)
+        self.atomic_name = Element().name(atomic_number)
+        # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
         self.atom_name = atom_name
         self.atom_index = atom_index
-        self.mass = Element().mass(atomic_number)
         self.partial_charge = partial_charge
         self.formal_charge = formal_charge
         self.type = None
         self.bonds = []
-        self.element = Element().name(atomic_number)
 
     def add_bond(self, bonded_index):
         """
         Add a bond to the atom, this will make sure the bond has not already been described
-        :param bonded_index: The index of the atom bonded to
-        :return: None
+        :param bonded_index: The index of the atom bonded to self
         """
 
         if bonded_index not in self.bonds:
@@ -105,19 +104,20 @@ class Defaults:
         self.log = 'CHR'
 
 
-class Molecule(Defaults):
+class Molecule:
     """Base class for ligands and proteins."""
 
     def __init__(self, mol_input, name=None):
         """
         # Namings
+        smiles                  str; SMILES string for the molecule e.g. 'c1cc[nH]c1'
         filename                str; Full filename e.g. methane.pdb
-        name                    str; Molecule name e.g. methane
-        smiles                  str; equal to the smiles_string if one is provided
+        qc_json                 json dict; QC json data. Only used if loading from qcarchive/portal
+        name                    str; Molecule name e.g. 'methane'
 
         # Structure
-        coords                  Dict of numpy arrays of the coords where the keys are the input type (mm, qm, etc)
-        topology                Graph class object. Contains connection information for molecule
+        coords                  Dict of numpy arrays of the coords where the keys are the input type ('mm', 'qm', etc)
+        topology                networkx Graph() object. Contains connection information for molecule
         angles                  List of tuples; Shows angles based on atom indices (from 0) e.g. (1, 2, 4), (1, 2, 5)
         dihedrals               Dictionary of dihedral tuples stored under their common core bond
                                 e.g. {(1,2): [(3, 1, 2, 6), (3, 1, 2, 7)]}
@@ -159,8 +159,8 @@ class Molecule(Defaults):
 
         # QUBEKit Internals
         state                   str; Describes the stage the analysis is in for pickling and unpickling
-        config
-        restart
+        config_file             str or path; the config file used for the execution
+        restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
 
         super().__init__()
@@ -219,7 +219,7 @@ class Molecule(Defaults):
 
         # QUBEKit internals
         self.state = None
-        self.config = 'master_config.ini'
+        self.config_file = 'master_config.ini'
         self.restart = False
 
     def __repr__(self):
@@ -251,8 +251,8 @@ class Molecule(Defaults):
                 except ValueError:
                     continue
 
-                # Ignore NoneTypes and empty lists / dicts etc
-                if val is not None and val:
+                # Ignore NoneTypes and empty lists / dicts etc unless type is int (charge = 0 for example)
+                if val is not None and (val or type(val) is int):
                     return_str += f'\n{key} = '
 
                     # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".
@@ -265,7 +265,7 @@ class Molecule(Defaults):
         else:
             for key, val in self.__dict__.items():
                 # Return all objects as {ligand object name} = {ligand object value(s)} without any special formatting.
-                return_str += f'\n{key} = {val}\n'
+                return_str += f'\n{key} = {repr(val)}\n'
 
         return return_str
 
@@ -314,7 +314,7 @@ class Molecule(Defaults):
             # Change the atom name only; everything else is the same as it was.
             self.atoms = [Atom(atomic_number=self.atoms[i].atomic_number,
                                atom_index=self.atoms[i].atom_index,
-                               atom_name=f'{self.atoms[i].element}{i}',
+                               atom_name=f'{self.atoms[i].atomic_name}{i}',
                                partial_charge=self.atoms[i].partial_charge,
                                formal_charge=self.atoms[i].formal_charge) for i, atom in enumerate(self.atoms)]
 
@@ -505,22 +505,18 @@ class Molecule(Defaults):
 
     def read_qc_json(self):
         """
-
-        :return:
+        Using the QC json, extract the atoms and bonds (connectivity) to build a full topology.
+        Insert the coords into the molecule too.
         """
-        topology = nx.Graph()
-        atoms = []
+        self.topology = nx.Graph()
+        self.atoms = []
 
         for i, atom in enumerate(self.qc_json['symbols']):
-            atoms.append(Atom(atomic_number=Element().number(atom), atom_index=i, atom_name=f'{atom}{i}'))
-            topology.add_node(i)
-
-        self.atoms = atoms
+            self.atoms.append(Atom(atomic_number=Element().number(atom), atom_index=i, atom_name=f'{atom}{i}'))
+            self.topology.add_node(i)
 
         for bond in self.qc_json['connectivity']:
-            topology.add_edge(*bond[:2])
-
-        self.topology = topology
+            self.topology.add_edge(*bond[:2])
 
         self.coords['input'] = np.array(self.qc_json['geometry']).reshape((len(self.atoms), 3)) * constants.BOHR_TO_ANGS
 
@@ -712,7 +708,7 @@ class Molecule(Defaults):
             cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
             angle_values[angle] = np.degrees(np.arccos(cosine_angle))
 
-        if bool(angle_values):
+        if angle_values:
             self.angle_values = angle_values
 
     def symmetrise_bonded_parameters(self):
@@ -745,11 +741,11 @@ class Molecule(Defaults):
                 for angle in angles:
                     self.HarmonicAngleForce[angle] = [angle_vals, angle_forces]
 
-    def write_parameters(self, name=None, protein=False):
+    def write_parameters(self, name=None, is_protein=False):
         """Take the molecule's parameter set and write an xml file for the molecule."""
 
         # First build the xml tree
-        self.build_tree(protein=protein)
+        self.build_tree(protein=is_protein)
 
         tree = self.xml_tree.getroot()
         messy = ET.tostring(tree, 'utf-8')
@@ -785,8 +781,8 @@ class Molecule(Defaults):
         for key, val in self.AtomTypes.items():
             ET.SubElement(AtomTypes, "Type", attrib={
                 'name': val[1], 'class': val[2],
-                'element': self.atoms[key].element,
-                'mass': str(self.atoms[key].mass)})
+                'element': self.atoms[key].atomic_name,
+                'mass': str(self.atoms[key].atomic_mass)})
 
             ET.SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
 
@@ -873,9 +869,8 @@ class Molecule(Defaults):
     def write_xyz(self, input_type='input', name=None):
         """
         Write a general xyz file of the molecule if there are multiple geometries in the molecule write a traj
-        :param input_type: Where the molecule coordinates are to be wrote from
-        :param name: The name of the xyz file to be produced
-        :return: None
+        :param input_type: Where the molecule coordinates are taken from
+        :param name: The name of the xyz file to be produced; otherwise self.name is used.
         """
 
         with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
@@ -898,7 +893,7 @@ class Molecule(Defaults):
 
                 for i, atom in enumerate(frame):
                     xyz_file.write(
-                        f'{self.atoms[i].element}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n')
+                        f'{self.atoms[i].atomic_name}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n')
 
                 try:
                     end += 1
@@ -965,24 +960,24 @@ class Molecule(Defaults):
         other_hs = []
         methyl_amine_nitride_cores = []
         for atom in self.atoms:
-            if atom.element == 'C' or atom.element == 'N':
+            if atom.atomic_name == 'C' or atom.atomic_name == 'N':
 
                 hs = []
                 for bonded in self.topology.neighbors(atom.atom_index):
                     if len(list(self.topology.neighbors(bonded))) == 1:
                         # now make sure it is a hydrogen (as halogens could be caught here)
-                        if self.atoms[bonded].element == 'H':
+                        if self.atoms[bonded].atomic_name == 'H':
                             hs.append(bonded)
 
-                if atom.element == 'C' and len(hs) == 2:    # This is part of a carbon hydrogen chain
+                if atom.atomic_name == 'C' and len(hs) == 2:    # This is part of a carbon hydrogen chain
                     other_hs.append(hs)
-                elif atom.element == 'C' and len(hs) == 3:
+                elif atom.atomic_name == 'C' and len(hs) == 3:
                     methyl_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
-                elif atom.element == 'N' and len(hs) == 2:
+                elif atom.atomic_name == 'N' and len(hs) == 2:
                     amine_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
-                elif atom.element == 'N' and len(hs) == 1:
+                elif atom.atomic_name == 'N' and len(hs) == 1:
                     methyl_amine_nitride_cores.append(atom.atom_index)
 
         self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs, 'other': other_hs}
@@ -1087,7 +1082,7 @@ class Molecule(Defaults):
         self.scan_order = scan_order
 
 
-class Ligand(Molecule):
+class Ligand(Molecule, Defaults):
 
     def __init__(self, mol_input, name=None):
         """
@@ -1167,7 +1162,7 @@ class Ligand(Molecule):
             for i, atom in enumerate(molecule):
                 pdb_file.write(
                     f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
-                    f'  1.00  0.00         {self.atoms[i].element.upper():>3}\n')
+                    f'  1.00  0.00         {self.atoms[i].atomic_name.upper():>3}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
@@ -1178,7 +1173,7 @@ class Ligand(Molecule):
             pdb_file.write('END\n')
 
 
-class Protein(Molecule):
+class Protein(Molecule, Defaults):
     """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
     def __init__(self, filename):
@@ -1211,23 +1206,22 @@ class Protein(Molecule):
         atom_count = 0
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
-                element = str(line[76:78])
-                element = re.sub('[0-9]+', '', element)
-                element = element.strip()
+                atomic_name = str(line[76:78])
+                atomic_name = re.sub('[0-9]+', '', atomic_name).strip()
 
                 # If the element column is missing from the pdb, extract the element from the name.
-                if not element:
-                    element = str(line.split()[2])
-                    element = re.sub('[0-9]+', '', element)
+                if not atomic_name:
+                    atomic_name = str(line.split()[2])
+                    atomic_name = re.sub('[0-9]+', '', atomic_name)
 
                 # now make sure we have a valid element
-                if element.lower() == 'cl' or element.lower() == 'br':
+                if atomic_name.lower() == 'cl' or atomic_name.lower() == 'br':
                     pass
                 else:
-                    element = element[0]
+                    atomic_name = atomic_name[0]
 
-                atom_name = f'{element}{atom_count}'
-                qube_atom = Atom(Element().number(element), atom_count, atom_name)
+                atom_name = f'{atomic_name}{atom_count}'
+                qube_atom = Atom(Element().number(atomic_name), atom_count, atom_name)
 
                 self.atoms.append(qube_atom)
 
@@ -1264,6 +1258,7 @@ class Protein(Molecule):
             self.symmetrise_from_topo()
 
         # TODO What if there are two or more of the same residue back to back?
+        #   Need to store the number of atoms in each amino acid and use that to check instead.
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
@@ -1281,7 +1276,7 @@ class Protein(Molecule):
             for i, atom in enumerate(molecule):
                 pdb_file.write(
                     f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
-                    f'  1.00  0.00         {self.atoms[i].element.upper():>3}\n')
+                    f'  1.00  0.00         {self.atoms[i].atomic_name.upper():>3}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
