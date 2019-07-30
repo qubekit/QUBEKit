@@ -182,7 +182,7 @@ class Configure:
     def check_master(self):
         """Check if there is a new master ini file in the configs folder."""
 
-        return os.path.exists(self.config_folder + self.master_file)
+        return os.path.exists(os.path.join(self.config_folder, self.master_file))
 
     def ini_writer(self, ini):
         """Make a new configuration file in the config folder using the current master as a template."""
