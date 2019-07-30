@@ -27,6 +27,10 @@ class RDKit:
             mol = MolFromMol2File(filename.name, removeHs=False)
         elif filename.suffix == '.mol':
             mol = MolFromMolFile(filename.name, removeHs=False)
+            try:
+                rdPartialCharges.ComputeGasteigerCharges(mol)
+            except RuntimeError:
+                print('RDKit could not assign the partial charges')
         else:
             mol = None
 

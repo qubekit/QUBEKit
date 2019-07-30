@@ -285,7 +285,7 @@ class Molecule:
         else:
             # Try to load the file using RDKit; this should ensure we always have the connection info
             try:
-                rdkit_mol = RDKit().read_file(self.filename.name)
+                rdkit_mol = RDKit().read_file(self.filename)
                 # Now extract the molecule from RDKit
                 self.mol_from_rdkit(rdkit_mol)
 
@@ -345,7 +345,7 @@ class Molecule:
                     atom_name = atom.GetProp('_TriposAtomName')
                     partial_charge = atom.GetProp('_TriposPartialCharge')
                 except KeyError:
-                    # Mol from smiles extraction
+                    # Mol from smiles extraction also chatch mol files here
                     partial_charge = atom.GetProp('_GasteigerCharge')
                     # smiles does not have atom names so generate them here
                     atom_name = f'{atom.GetSymbol()}{i}'
@@ -564,7 +564,8 @@ class Molecule:
         for node in self.topology.nodes:
             near = sorted(list(nx.neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
-            if len(near) == 3:
+            # Check if an sp2 carbon
+            if len(near) == 3 and self.atoms[node].atomic_name == 'C':
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
         if improper_torsions:

@@ -80,6 +80,8 @@ class ArgsAndConfigs:
                 self.molecule = unpickle()[self.args.restart]
             except FileNotFoundError:
                 raise FileNotFoundError('No checkpoint file found!')
+            except KeyError:
+                raise KeyError('This stage was not found in the log file; was the previous stage completed?')
         else:
             if self.args.smiles:
                 self.molecule = Ligand(*self.args.smiles)
@@ -890,7 +892,8 @@ class Execute:
 
             # Edit the order to end here
             self.order = OrderedDict([('density', self.density), ('charges', self.skip), ('lennard_jones', self.skip),
-                                      ('torsion_scan', self.torsion_scan), ('pause', self.pause)])
+                                      ('torsion_scan', self.skip), ('pause', self.pause),
+                                      ('finalise', self.finalise)])
 
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
@@ -963,7 +966,7 @@ class Execute:
             scan.collect_scan()
             os.chdir(os.path.join(molecule.home, '10_torsion_optimise'))
 
-        opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method, vn_bounds=molecule.tor_limit)
+        opt = TorsionOptimiser(molecule, vn_bounds=molecule.tor_limit)
         opt.run()
 
         append_to_log('Finishing torsion_optimisations')
