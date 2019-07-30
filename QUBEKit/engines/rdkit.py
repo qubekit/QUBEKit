@@ -2,8 +2,6 @@
 
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
-from pathlib import Path
-
 from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile, MolFromMol2File, MolFromMolFile, rdPartialCharges
 from rdkit.Chem.rdchem import GetPeriodicTable
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
@@ -17,9 +15,6 @@ class RDKit:
         pass
 
     def read_file(self, filename):
-
-        # This handles splitting the paths
-        filename = Path(filename)
 
         # Try and read the file
         if filename.suffix == '.pdb':

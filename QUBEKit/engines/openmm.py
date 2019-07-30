@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from QUBEKit.utils import constants
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.decorators import timer_logger
 from QUBEKit.utils.helpers import append_to_log
 
 import numpy as np
@@ -57,11 +57,11 @@ class OpenMM:
         self.simulation = app.Simulation(modeller.topology, self.system, integrator)
         self.simulation.context.setPositions(modeller.positions)
 
+    # get_energy is called too many times so timer_logger decorator should not be applied.
     def get_energy(self, position):
         """
         Return the MM calculated energy of the structure
         :param position: The OpenMM formatted atomic positions
-        :param forces: If we should also get the forces
         :return:
         """
 
@@ -174,7 +174,7 @@ class OpenMM:
                     coords = deepcopy(input_coords)
                     coords[i] -= 2 * finite_step
                     e2 = self.get_energy(self.format_coords(coords))
-                    hessian[i, j] = (e1 + e2) / (4 * finite_step**2 * self.molecule.atoms[i // 3].mass)
+                    hessian[i, j] = (e1 + e2) / (4 * finite_step**2 * self.molecule.atoms[i // 3].atomic_mass)
                 else:
                     coords = deepcopy(input_coords)
                     coords[i] += finite_step
@@ -192,7 +192,7 @@ class OpenMM:
                     coords[i] -= finite_step
                     coords[j] += finite_step
                     e4 = self.get_energy(self.format_coords(coords))
-                    hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step ** 2 * self.molecule.atoms[i // 3].mass)
+                    hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass)
 
         # Now make the matrix symmetric
         sym_hessian = hessian + hessian.T - np.diag(hessian.diagonal())

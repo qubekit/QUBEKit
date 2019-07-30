@@ -99,7 +99,7 @@ class LennardJones:
 
         # We know this from the molecule object self.molecule try to get the info from there
         for atom in self.molecule.atoms:
-            self.ddec_data.append([atom.atom_index + 1, atom.element] +
+            self.ddec_data.append([atom.atom_index + 1, atom.atomic_name] +
                                   [self.molecule.coords['input'][atom.atom_index][i] for i in range(3)])
 
         # TODO Just move the ddec.onetep file instead? Handle this in run file?
@@ -213,12 +213,12 @@ class LennardJones:
         # Find all the polar hydrogens and store their positions / atom numbers
         polars = []
         for pair in new_pairs:
-            if 'O' == pair[0].element or 'N' == pair[0].element or 'S' == pair[0].element:
-                if 'H' == pair[1].element:
+            if 'O' == pair[0].atomic_name or 'N' == pair[0].atomic_name or 'S' == pair[0].atomic_name:
+                if 'H' == pair[1].atomic_name:
                     polars.append(pair)
 
-            if 'O' == pair[1].element or 'N' == pair[1].element or 'S' == pair[1].element:
-                if 'H' == pair[0].element:
+            if 'O' == pair[1].atomic_name or 'N' == pair[1].atomic_name or 'S' == pair[1].atomic_name:
+                if 'H' == pair[0].atomic_name:
                     polars.append(pair)
 
         # Find square root of all b_i values so that they can be added easily according to paper's formula.
@@ -227,8 +227,8 @@ class LennardJones:
 
         if polars:
             for pair in polars:
-                if 'H' == pair[0].element or 'H' == pair[1].element:
-                    if 'H' == pair[0].element:
+                if 'H' == pair[0].atomic_name or 'H' == pair[1].atomic_name:
+                    if 'H' == pair[0].atomic_name:
                         polar_h_pos = pair[0].atom_index
                         polar_son_pos = pair[1].atom_index
                     else:
