@@ -10,7 +10,6 @@ from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMole
 @for_all_methods(timer_logger)
 class RDKit:
     """Class for controlling useful RDKit functions; try to keep class static."""
-
     def __init__(self):
         pass
 
@@ -34,18 +33,17 @@ class RDKit:
 
     def smiles_to_rdkit_mol(self, smiles_string, name=None):
         """
-        Converts smiles strings to RDKit molobject.
+        Converts smiles strings to RDKit mol object.
         :param smiles_string: The hydrogen free smiles string
         :param name: The name of the molecule this will be used when writing the pdb file
         :return: The RDKit molecule
         """
-        # Originally written by venkatakrishnan; rewritten and extended by Chris Ringrose
 
-        m = AllChem.MolFromSmiles(smiles_string)
+        mol = AllChem.MolFromSmiles(smiles_string)
         if name is None:
             name = input('Please enter a name for the molecule:\n>')
-        m.SetProp('_Name', name)
-        mol_hydrogens = AllChem.AddHs(m)
+        mol.SetProp('_Name', name)
+        mol_hydrogens = AllChem.AddHs(mol)
         AllChem.EmbedMolecule(mol_hydrogens, AllChem.ETKDG())
         AllChem.SanitizeMol(mol_hydrogens)
         try:
@@ -66,9 +64,7 @@ class RDKit:
         # Get the rdkit molecule
         mol = RDKit().read_file(filename)
 
-        force_fields = {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}
-
-        force_fields[ff](mol)
+        {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}[ff](mol)
 
         AllChem.MolToPDBFile(mol, f'{filename.stem}_rdkit_optimised.pdb')
 
@@ -77,18 +73,16 @@ class RDKit:
     def rdkit_descriptors(self, rdkit_mol):
         """
         Use RDKit Descriptors to extract properties and store in Descriptors dictionary.
-        :param filename: The molecule input file
-        :return: Descriptors dictionary
+        :param rdkit_mol: The molecule input file
+        :return: descriptors dictionary
         """
 
         # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
-        descriptors = {'Heavy atoms': Descriptors.HeavyAtomCount(rdkit_mol),
-                       'H-bond donors': Descriptors.NumHDonors(rdkit_mol),
-                       'H-bond acceptors': Descriptors.NumHAcceptors(rdkit_mol),
-                       'Molecular weight': Descriptors.MolWt(rdkit_mol),
-                       'LogP': Descriptors.MolLogP(rdkit_mol)}
-
-        return descriptors
+        return {'Heavy atoms': Descriptors.HeavyAtomCount(rdkit_mol),
+                'H-bond donors': Descriptors.NumHDonors(rdkit_mol),
+                'H-bond acceptors': Descriptors.NumHAcceptors(rdkit_mol),
+                'Molecular weight': Descriptors.MolWt(rdkit_mol),
+                'LogP': Descriptors.MolLogP(rdkit_mol)}
 
     def get_smiles(self, filename):
         """
@@ -138,9 +132,8 @@ class RDKit:
 
         cons = AllChem.EmbedMultipleConfs(mol, numConfs=conformer_no)
         positions = cons.GetConformers()
-        coords = [conformer.GetPositions() for conformer in positions]
 
-        return coords
+        return [conformer.GetPositions() for conformer in positions]
 
 
 class Element:

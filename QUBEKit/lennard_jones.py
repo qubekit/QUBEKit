@@ -23,11 +23,10 @@ class LennardJones:
 
         self.ddec_data = []
 
-        conversion = constants.BOHR_TO_ANGS ** 6
-        conversion *= constants.HA_TO_KCAL_P_MOL
-        conversion *= constants.KCAL_TO_KJ
+        self.epsilon_conversion = constants.BOHR_TO_ANGS ** 6
+        self.epsilon_conversion *= constants.HA_TO_KCAL_P_MOL
+        self.epsilon_conversion *= constants.KCAL_TO_KJ
 
-        self.epsilon_conversion = conversion
         self.sigma_conversion = constants.ANGS_TO_NM
 
         self.non_bonded_force = {}
@@ -56,7 +55,6 @@ class LennardJones:
                 ' point to that location.')
 
         with open(net_charge_file_name, 'r+') as charge_file:
-
             lines = charge_file.readlines()
 
         # Find number of atoms
@@ -81,7 +79,6 @@ class LennardJones:
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
 
         with open(r_cubed_file_name, 'r+') as vol_file:
-
             lines = vol_file.readlines()
 
         vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
@@ -183,10 +180,7 @@ class LennardJones:
 
         for pos, atom in enumerate(self.ddec_data):
 
-            if atom[-1] == 0:
-                sigma = epsilon = 0
-
-            else:
+            if atom[-1]:
                 # sigma = (a_i / b_i) ** (1 / 6)
                 sigma = (atom[-1] / atom[-2]) ** (1 / 6)
                 sigma *= self.sigma_conversion
@@ -194,6 +188,9 @@ class LennardJones:
                 # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (atom[-2] ** 2) / (4 * atom[-1])
                 epsilon *= self.epsilon_conversion
+
+            else:
+                sigma = epsilon = 0
 
             self.non_bonded_force[pos] = [atom[5], sigma, epsilon]
 

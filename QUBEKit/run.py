@@ -65,26 +65,26 @@ class ArgsAndConfigs:
 
         self.args = self.parse_commands()
 
-        # If it's a bulk run, handle it separately
-        # TODO Add .sdf as possible bulk_run, not just .csv
-        if self.args.bulk_run:
-            self.handle_bulk()
-
         # If we are doing the torsion test add the attribute to the molecule so we can catch it in execute
         if self.args.torsion_test:
             self.args.restart = 'finalise'
 
-        if self.args.restart is not None:
+        # If it's a bulk run, handle it separately
+        # TODO Add .sdf as possible bulk_run, not just .csv
+        if self.args.bulk_run is not None:
+            self.handle_bulk()
+
+        elif self.args.restart is not None:
             # Find the pickled checkpoint file and load it as the molecule
             try:
                 self.molecule = unpickle()[self.args.restart]
             except FileNotFoundError:
                 raise FileNotFoundError('No checkpoint file found!')
         else:
+            # Initialise molecule
             if self.args.smiles:
                 self.molecule = Ligand(*self.args.smiles)
             else:
-                # Initialise molecule
                 self.molecule = Ligand(self.args.input)
 
         # Find which config file is being used
@@ -96,9 +96,9 @@ class ArgsAndConfigs:
             setattr(self.molecule, name, val)
 
         # Although these may be None always, they need to be explicitly set anyway.
-        setattr(self.molecule, 'restart', None)
-        setattr(self.molecule, 'end', None)
-        setattr(self.molecule, 'skip', None)
+        self.molecule.restart = None
+        self.molecule.end = None
+        self.molecule.skip = None
 
         # Handle configs which are changed by terminal commands
         for name, val in vars(self.args).items():
@@ -343,7 +343,7 @@ class ArgsAndConfigs:
             for key, val in bulk_data[name].items():
                 setattr(self.molecule, key, val)
 
-            setattr(self.molecule, 'skip', [])
+            self.molecule.skip = None
 
             # Using the config file from the .csv, gather the .ini file configs
             file_configs = Configure().load_config(self.molecule.config_file)
@@ -832,7 +832,7 @@ class Execute:
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
         append_to_log('Starting hessian calculation')
-        molecule.get_bond_lengths(input_type='qm')
+        molecule.find_bond_lengths(input_type='qm')
 
         # Check what engine to use
         if molecule.bonds_engine == 'g09' or molecule.bonds_engine == 'g16':

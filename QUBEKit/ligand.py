@@ -4,6 +4,7 @@
 
 from QUBEKit.engines import RDKit, Element
 from QUBEKit.utils import constants
+from QUBEKit.utils.exceptions import FileTypeError
 
 from collections import OrderedDict
 from datetime import datetime
@@ -34,7 +35,7 @@ class Atom:
         self.atom_index = atom_index
         self.partial_charge = partial_charge
         self.formal_charge = formal_charge
-        self.type = None
+        self.atom_type = None
         self.bonds = []
 
     def add_bond(self, bonded_index):
@@ -66,6 +67,8 @@ class Defaults:
 
     def __init__(self):
 
+        super().__init__()
+
         self.theory = 'wB97XD'
         self.basis = '6-311++G(d,p)'
         self.vib_scaling = 0.957
@@ -74,8 +77,8 @@ class Defaults:
         self.convergence = 'GAU_TIGHT'
         self.iterations = 350
         self.bonds_engine = 'psi4'
-        self.density_engine = 'onetep'
-        self.charges_engine = 'onetep'
+        self.density_engine = 'g09'
+        self.charges_engine = 'chargemol'
         self.ddec_version = 6
         self.geometric = True
         self.solvent = True
@@ -165,23 +168,13 @@ class Molecule:
 
         super().__init__()
 
-        self.smiles = None
+        self.mol_input = mol_input
+        self.name = name
+
+        # The three possible input types; these are set in read_input()
         self.filename = None
+        self.smiles = None
         self.qc_json = None
-
-        try:
-            if Path(mol_input).exists():
-                self.filename = Path(mol_input)
-                self.name = self.filename.stem
-            else:
-                # TODO Handle the case of when QUBEKit is supplied a pdb name but it does not exist
-                #   This could be the location is wrong
-                self.smiles = mol_input
-                self.name = name
-
-        except TypeError:
-            self.name = name
-            self.qc_json = mol_input
 
         # Structure
         self.coords = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
@@ -221,6 +214,10 @@ class Molecule:
         self.state = None
         self.config_file = 'master_config.ini'
         self.restart = False
+
+        # Read mol_input and generate mol info from file, smiles string or qc_json.
+        self.read_input()
+        self.check_names_are_unique()
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -271,34 +268,28 @@ class Molecule:
 
     def read_input(self):
         """
-        The base file reader used upon instancing the class; it will decide which file reader to use
-        based on the file suffix.
+        The base input reader used upon instancing the class; it will decide which reader to use
+        based on the file suffix, smiles string or qc_json.
         """
+        if Path(self.mol_input).exists():
+            self.filename = Path(self.mol_input)
+            self.name = self.filename.stem
+            if self.filename.suffix == '.pdb':
+                self.read_pdb()
+            elif self.filename.suffix == '.mol2':
+                self.read_mol2()
+            else:
+                raise FileTypeError('Unsupported file type.')
 
-        if self.smiles is not None:
+        # If it's a string, and doesn't contain '.' (not a file that doesn't exist)
+        elif isinstance(self.mol_input, str) and '.' not in self.mol_input:
+            self.smiles = self.mol_input
             rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
             self.mol_from_rdkit(rdkit_mol)
 
-        elif self.qc_json is not None:
-            self.read_qc_json()
-
         else:
-            # Try to load the file using RDKit; this should ensure we always have the connection info
-            try:
-                rdkit_mol = RDKit().read_file(self.filename.name)
-                # Now extract the molecule from RDKit
-                self.mol_from_rdkit(rdkit_mol)
-
-            except AttributeError:
-                # AttributeError:  errors when reading the input file
-                print('RDKit error was found, resorting to standard file readers')
-                # Try to read using QUBEKit readers they only get the connections if present
-                if self.filename.suffix == '.pdb':
-                    self.read_pdb(self.filename)
-                elif self.filename.suffix == '.mol2':
-                    self.read_mol2(self.filename)
-
-        self.check_names_are_unique()
+            self.qc_json = self.mol_input
+            self.read_qc_json()
 
     def check_names_are_unique(self):
         """
@@ -312,11 +303,11 @@ class Molecule:
         # If some atom names aren't unique
         if len(set(atom_names)) < len(atom_names):
             # Change the atom name only; everything else is the same as it was.
-            self.atoms = [Atom(atomic_number=self.atoms[i].atomic_number,
-                               atom_index=self.atoms[i].atom_index,
-                               atom_name=f'{self.atoms[i].atomic_name}{i}',
-                               partial_charge=self.atoms[i].partial_charge,
-                               formal_charge=self.atoms[i].formal_charge) for i, atom in enumerate(self.atoms)]
+            self.atoms = [Atom(atomic_number=atom.atomic_number,
+                               atom_index=atom.atom_index,
+                               atom_name=f'{atom.atomic_name}{i}',
+                               partial_charge=atom.partial_charge,
+                               formal_charge=atom.formal_charge) for i, atom in enumerate(self.atoms)]
 
     # TODO add mol file reader
     def mol_from_rdkit(self, rdkit_molecule, input_type='input'):
@@ -354,7 +345,7 @@ class Molecule:
 
             # Instance the basic qube_atom
             qube_atom = Atom(atomic_number, index, atom_name, partial_charge, atom.GetFormalCharge())
-            qube_atom.type = atom.GetSmarts()
+            qube_atom.atom_type = atom.GetSmarts()
 
             # Add the atoms as nodes
             self.topology.add_node(atom.GetIdx())
@@ -364,7 +355,7 @@ class Molecule:
                 self.topology.add_edge(atom.GetIdx(), bonded.GetIdx())
                 qube_atom.add_bond(bonded.GetIdx())
 
-            # Now at the atom to the molecule
+            # Now add the atom to the molecule
             self.atoms.append(qube_atom)
 
         # Now get the coordinates and store in the right location
@@ -373,7 +364,7 @@ class Molecule:
         # Now get any descriptors we can find
         self.descriptors = RDKit().rdkit_descriptors(rdkit_molecule)
 
-    def read_pdb(self, filename, input_type='input'):
+    def read_pdb(self, input_type='input'):
         """
         Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
         Then reads through the connection tags and builds a connectivity network
@@ -382,7 +373,7 @@ class Molecule:
         Can also generate a simple plot of the network.
         """
 
-        with open(filename, 'r') as pdb:
+        with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
 
         molecule = []
@@ -394,17 +385,17 @@ class Molecule:
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
                 # start collecting the atom class info
-                element = str(line[76:78])
-                element = re.sub('[0-9]+', '', element)
-                element = element.strip()
+                atomic_name = str(line[76:78])
+                atomic_name = re.sub('[0-9]+', '', atomic_name)
+                atomic_name = atomic_name.strip()
                 atom_name = str(line.split()[2])
 
-                # If the element column is missing from the pdb, extract the element from the name.
-                if not element:
-                    element = str(line.split()[2])[:-1]
-                    element = re.sub('[0-9]+', '', element)
+                # If the element column is missing from the pdb, extract the atomic_name from the atom name.
+                if not atomic_name:
+                    atomic_name = str(line.split()[2])[:-1]
+                    atomic_name = re.sub('[0-9]+', '', atomic_name)
 
-                atomic_number = Element().number(element)
+                atomic_number = Element().number(atomic_name)
                 # Now instance the qube atom
                 qube_atom = Atom(atomic_number, atom_count, atom_name)
                 self.atoms.append(qube_atom)
@@ -427,10 +418,9 @@ class Molecule:
         # put the object back into the correct place
         self.coords[input_type] = np.array(molecule)
 
-    def read_mol2(self, name, input_type='input'):
+    def read_mol2(self, input_type='input'):
         """
         Read an input mol2 file and extract the atom names, positions, atom types and bonds.
-        :param name: The mol2 file name
         :param input_type: Assign the structure to right holder, input, mm, qm, temp or traj.
         :return: The object back into the right place.
         """
@@ -442,7 +432,7 @@ class Molecule:
         # atom counter used for graph node generation
         atom_count = 0
 
-        with open(name, 'r') as mol2:
+        with open(self.filename, 'r') as mol2:
             lines = mol2.readlines()
 
         atoms = False
@@ -462,17 +452,12 @@ class Molecule:
 
             if atoms:
                 # Add the molecule information
-                element = line.split()[1][:2]
-                element = re.sub('[0-9]+', '', element)
-                element = element.strip()
+                atomic_name = line.split()[1][:2]
+                atomic_name = re.sub('[0-9]+', '', atomic_name)
+                atomic_name = atomic_name.strip()
 
                 # TODO May need to use str.title() to make sure elements aren't capitalised.
-                try:
-                    atomic_number = Element().number(element)
-                except:
-                    # TODO Find out what the exception is (probably attribute error but rdkit is weird)
-                    raise
-                    # atomic_number = Element().number(element[0])
+                atomic_number = Element().number(atomic_name)
 
                 molecule.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
 
@@ -489,7 +474,7 @@ class Molecule:
 
                 # Make the qube_atom
                 qube_atom = Atom(atomic_number, atom_count, atom_name)
-                qube_atom.type = atom_type
+                qube_atom.atom_type = atom_type
 
                 self.atoms.append(qube_atom)
 
@@ -595,7 +580,7 @@ class Molecule:
         if angles:
             self.angles = angles
 
-    def get_bond_lengths(self, input_type='input'):
+    def find_bond_lengths(self, input_type='input'):
         """For the given molecule and topology find the length of all of the bonds."""
 
         bond_lengths = {}
@@ -658,7 +643,7 @@ class Molecule:
                 self.topology.remove_edge(*key)
 
                 # Check if there is still a path between the two atoms in the edges.
-                if not nx.has_path(self.topology, key[0], key[1]):
+                if not nx.has_path(self.topology, *key):
                     rotatable.append(key)
 
                 # Add edge back to the network and try next key
@@ -955,10 +940,9 @@ class Molecule:
         then exclude these bonds from the rotatable torsions list.
         """
 
-        methyl_hs = []
-        amine_hs = []
-        other_hs = []
+        methyl_hs, amine_hs, other_hs = [], [], []
         methyl_amine_nitride_cores = []
+
         for atom in self.atoms:
             if atom.atomic_name == 'C' or atom.atomic_name == 'N':
 
@@ -982,7 +966,7 @@ class Molecule:
 
         self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs, 'other': other_hs}
 
-        # now modify the rotatable list to remove methyl and amine/ nitrile torsions
+        # now modify the rotatable list to remove methyl and amine / nitrile torsions
         # these are already well represented in most FF's
         remove_list = []
         if self.rotatable is not None:
@@ -997,26 +981,6 @@ class Molecule:
 
             self.rotatable = rotatable if rotatable else None
 
-    def update(self, input_type='input'):
-        """
-        After the protein has been passed to the parametrisation class we get back the bond info
-        use this to update all missing terms.
-        """
-
-        # using the new harmonic bond force dict we can add the bond edges to the topology graph
-        for bond in self.HarmonicBondForce:
-            self.topology.add_edge(*bond)
-
-        self.find_angles()
-        self.find_dihedrals()
-        self.find_rotatable_dihedrals()
-        self.get_dihedral_values(input_type)
-        self.get_bond_lengths(input_type)
-        self.get_angle_values(input_type)
-        self.find_impropers()
-        # this creates the dictionary of terms that should be symmetrise
-        self.symmetrise_from_topo()
-
     def openmm_coordinates(self, input_type='input'):
         """
         Take a set of coordinates from the molecule and convert them to openMM format
@@ -1025,17 +989,12 @@ class Molecule:
         """
 
         coordinates = self.coords[input_type]
-        openmm_coords = []
 
         if input_type == 'traj' and len(coordinates) != len(self.coords['input']):
             # Multiple frames in this case
-            for frame in coordinates:
-                openmm_coords.append([tuple(atom / 10) for atom in frame])
+            return [[tuple(atom / 10) for atom in frame] for frame in coordinates]
         else:
-            for atom in coordinates:
-                openmm_coords.append(tuple(atom / 10))
-
-        return openmm_coords
+            return [tuple(atom / 10) for atom in coordinates]
 
     def read_tdrive(self, bond_scan):
         """
@@ -1104,8 +1063,6 @@ class Ligand(Molecule, Defaults):
 
         self.constraints_file = None
 
-        self.read_input()
-
         # Make sure we have the topology before we calculate the properties
         if self.topology.edges:
             self.find_angles()
@@ -1113,7 +1070,7 @@ class Ligand(Molecule, Defaults):
             self.find_rotatable_dihedrals()
             self.find_impropers()
             self.get_dihedral_values()
-            self.get_bond_lengths()
+            self.find_bond_lengths()
             self.get_angle_values()
             self.symmetrise_from_topo()
 
@@ -1186,13 +1143,13 @@ class Protein(Molecule, Defaults):
         self.residues = None
         self.home = os.getcwd()
 
-    def read_pdb(self, filename, input_type='input'):
+    def read_pdb(self, input_type='input'):
         """
         Read the pdb file which probably does not have the right connections,
         so we need to find them using QUBE.xml
         """
 
-        with open(filename, 'r') as pdb:
+        with open(self.filename, 'r') as pdb:
             lines = pdb.readlines()
 
         protein = []
@@ -1209,7 +1166,7 @@ class Protein(Molecule, Defaults):
                 atomic_name = str(line[76:78])
                 atomic_name = re.sub('[0-9]+', '', atomic_name).strip()
 
-                # If the element column is missing from the pdb, extract the element from the name.
+                # If the element column is missing from the pdb, extract the atomic_name from the atom name.
                 if not atomic_name:
                     atomic_name = str(line.split()[2])
                     atomic_name = re.sub('[0-9]+', '', atomic_name)
@@ -1245,7 +1202,7 @@ class Protein(Molecule, Defaults):
 
         # check if there are any conect terms in the file first
         # if not self.topology.edges:
-        if len(self.topology.edges) == 0:
+        if not len(self.topology.edges):
             print('No connections found!')
         else:
             self.find_angles()
@@ -1253,7 +1210,7 @@ class Protein(Molecule, Defaults):
             self.find_rotatable_dihedrals()
             self.find_impropers()
             self.get_dihedral_values()
-            self.get_bond_lengths()
+            self.find_bond_lengths()
             self.get_angle_values()
             self.symmetrise_from_topo()
 
@@ -1285,3 +1242,23 @@ class Protein(Molecule, Defaults):
                     pdb_file.write(f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n')
 
             pdb_file.write('END\n')
+
+    def update(self, input_type='input'):
+        """
+        After the protein has been passed to the parametrisation class we get back the bond info
+        use this to update all missing terms.
+        """
+
+        # using the new harmonic bond force dict we can add the bond edges to the topology graph
+        for bond in self.HarmonicBondForce:
+            self.topology.add_edge(*bond)
+
+        self.find_angles()
+        self.find_dihedrals()
+        self.find_rotatable_dihedrals()
+        self.get_dihedral_values(input_type)
+        self.find_bond_lengths(input_type)
+        self.get_angle_values(input_type)
+        self.find_impropers()
+        # this creates the dictionary of terms that should be symmetrise
+        self.symmetrise_from_topo()
