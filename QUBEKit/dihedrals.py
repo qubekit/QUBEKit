@@ -950,7 +950,7 @@ class TorsionOptimiser:
         for index, tor_info in self.tor_types.items():
             for j, torsion in enumerate(tor_info[0]):
                 # get the tuple of the torsion string
-                tor_tup = tuple(self.molecule.atoms[torsion[i]].type for i in range(4))
+                tor_tup = tuple(self.molecule.atoms[torsion[i]].atom_type for i in range(4))
                 # check if its in the torsion string dict
                 try:
                     torsion_string_dict[tor_tup][0].append(torsion)
@@ -981,17 +981,15 @@ class TorsionOptimiser:
         :return: [bond rmsd, angles rmsd, torsions, rmsd]
         """
 
-        #TODO use rdkit to align the molecules and get the rmsd
+        # TODO use rdkit to align the molecules and get the rmsd
 
-        bonds_rmsd = []
-        angles_rmsd = []
-        dihedrals_rmsd = []
+        bonds_rmsd, angles_rmsd, dihedrals_rmsd = [], [], []
         # Each frame get the total rmsd for the components and put them in the list
         for frame in zip(qm_coordinates, mm_coordinates):
             # First convert each frame from openMM to Angstroms
             self.molecule.coords['temp'] = np.array(frame[0]) * constants.NM_TO_ANGS
             # QM first
-            self.molecule.get_bond_lengths(input_type='temp')
+            self.molecule.find_bond_lengths(input_type='temp')
             qm_bonds = self.molecule.bond_lengths
             self.molecule.get_angle_values(input_type='temp')
             qm_angles = self.molecule.angle_values
@@ -1000,7 +998,7 @@ class TorsionOptimiser:
 
             # Now get the MM measurements
             self.molecule.coords['temp'] = np.array(frame[1]) * constants.NM_TO_ANGS
-            self.molecule.get_bond_lengths(input_type='temp')
+            self.molecule.find_bond_lengths(input_type='temp')
             mm_bonds = self.molecule.bond_lengths
             self.molecule.get_angle_values(input_type='temp')
             mm_angles = self.molecule.angle_values
@@ -1017,14 +1015,10 @@ class TorsionOptimiser:
         angles_rmsd = sum(angles_rmsd) / len(angles_rmsd)
         dihedrals_rmsd = sum(dihedrals_rmsd) / len(dihedrals_rmsd)
 
-        rmsd = {'bonds': bonds_rmsd,
+        return {'bonds': bonds_rmsd,
                 'angles': angles_rmsd,
                 'dihedrals': dihedrals_rmsd,
                 'total': bonds_rmsd + angles_rmsd + dihedrals_rmsd}
-
-        print(rmsd)
-
-        return rmsd
 
     @staticmethod
     def calculate_rmsd_component(reference, component):
