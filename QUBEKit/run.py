@@ -85,6 +85,7 @@ class ArgsAndConfigs:
         else:
             if self.args.smiles:
                 self.molecule = Ligand(*self.args.smiles)
+                # Now we should create the initial molecule and
             else:
                 # Initialise molecule
                 self.molecule = Ligand(self.args.input)

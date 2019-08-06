@@ -28,7 +28,7 @@ class Atom:
         self.atomic_number = atomic_number
         # The actual atomic name as per periodic table e.g. C, F, Pb, etc
         self.atomic_mass = Element().mass(atomic_number)
-        self.atomic_name = Element().name(atomic_number)
+        self.atomic_symbol = Element().name(atomic_number)
         # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
         self.atom_name = atom_name
         self.atom_index = atom_index
@@ -314,7 +314,7 @@ class Molecule:
             # Change the atom name only; everything else is the same as it was.
             self.atoms = [Atom(atomic_number=self.atoms[i].atomic_number,
                                atom_index=self.atoms[i].atom_index,
-                               atom_name=f'{self.atoms[i].atomic_name}{i}',
+                               atom_name=f'{self.atoms[i].atomic_symbol}{i}',
                                partial_charge=self.atoms[i].partial_charge,
                                formal_charge=self.atoms[i].formal_charge) for i, atom in enumerate(self.atoms)]
 
@@ -404,7 +404,7 @@ class Molecule:
                     element = str(line.split()[2])[:-1]
                     element = re.sub('[0-9]+', '', element)
 
-                atomic_number = Element().number(element)
+                atomic_number = Element().number(element.title())
                 # Now instance the qube atom
                 qube_atom = Atom(atomic_number, atom_count, atom_name)
                 self.atoms.append(qube_atom)
@@ -565,7 +565,7 @@ class Molecule:
             near = sorted(list(nx.neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
             # Check if an sp2 carbon
-            if len(near) == 3 and self.atoms[node].atomic_name == 'C':
+            if len(near) == 3 and self.atoms[node].atomic_symbol == 'C':
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
         if improper_torsions:
@@ -782,7 +782,7 @@ class Molecule:
         for key, val in self.AtomTypes.items():
             ET.SubElement(AtomTypes, "Type", attrib={
                 'name': val[1], 'class': val[2],
-                'element': self.atoms[key].atomic_name,
+                'element': self.atoms[key].atomic_symbol,
                 'mass': str(self.atoms[key].atomic_mass)})
 
             ET.SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
@@ -894,7 +894,7 @@ class Molecule:
 
                 for i, atom in enumerate(frame):
                     xyz_file.write(
-                        f'{self.atoms[i].atomic_name}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n')
+                        f'{self.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n')
 
                 try:
                     end += 1
@@ -961,7 +961,7 @@ class Molecule:
         other_hs = []
         methyl_amine_nitride_cores = []
         for atom in self.atoms:
-            if atom.atomic_name == 'C' or atom.atomic_name == 'N':
+            if atom.atomic_symbol == 'C' or atom.atomic_symbol == 'N':
 
                 hs = []
                 for bonded in self.topology.neighbors(atom.atom_index):
@@ -1129,7 +1129,7 @@ class Ligand(Molecule, Defaults):
         try:
             with open(name, 'r') as xyz_file:
                 # get the number of atoms
-                n_atoms = len(self.coords['input'])
+                n_atoms = len(self.atoms)
                 for line in xyz_file:
                     line = line.split()
                     # skip frame heading lines
@@ -1142,7 +1142,12 @@ class Ligand(Molecule, Defaults):
                         # we have collected the molecule now store the frame
                         traj_molecules.append(np.array(molecule))
                         molecule = []
-            self.coords[input_type] = traj_molecules
+
+            # check how many frames we have
+            if len(traj_molecules) == 1:
+                self.coords[input_type] = traj_molecules[0]
+            else:
+                self.coords[input_type] = traj_molecules
 
         except FileNotFoundError:
             raise FileNotFoundError('Cannot find xyz file to read.')
