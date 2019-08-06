@@ -17,7 +17,6 @@ class XML(Parametrisation):
         # self.check_xml()
         self.serialise_system()
         self.gather_parameters()
-        self.get_symmetry()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
         self.molecule.combination = 'opls'
 

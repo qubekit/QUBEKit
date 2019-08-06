@@ -73,3 +73,10 @@ class QUBEKitLogFileNotFound(Exception):
     """
 
     pass
+
+
+class FileTypeError(Exception):
+    """
+    Invalid file type e.g. trying to read a mol file when we only accept pdb or mol2.
+    """
+    pass

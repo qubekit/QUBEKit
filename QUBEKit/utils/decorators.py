@@ -35,6 +35,9 @@ def timer_logger(orig_func):
     Then outputs the runtime and time when function / method finishes.
     """
 
+    # TODO Currently only logs when the decorated class is passed molecule.
+    #  Need a better way of getting log file beyond just getting it from the molecule object.
+
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
 
