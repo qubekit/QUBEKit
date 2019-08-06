@@ -346,7 +346,7 @@ class Molecule:
                     atom_name = atom.GetProp('_TriposAtomName')
                     partial_charge = atom.GetProp('_TriposPartialCharge')
                 except KeyError:
-                    # Mol from smiles extraction
+                    # Mol from smiles extraction also catch mol files here
                     partial_charge = atom.GetProp('_GasteigerCharge')
                     # smiles does not have atom names so generate them here
                     atom_name = f'{atom.GetSymbol()}{i}'
@@ -553,7 +553,8 @@ class Molecule:
         for node in self.topology.nodes:
             near = sorted(list(nx.neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
-            if len(near) == 3:
+            # Check if an sp2 carbon
+            if len(near) == 3 and self.atoms[node].atomic_symbol == 'C':
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
         if improper_torsions:

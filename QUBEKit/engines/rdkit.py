@@ -2,9 +2,6 @@
 
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
-from collections import defaultdict
-from itertools import groupby
-
 import numpy as np
 
 from rdkit import Chem
@@ -32,6 +29,10 @@ class RDKit:
             mol = Chem.MolFromMol2File(filename.name, removeHs=False)
         elif filename.suffix == '.mol':
             mol = Chem.MolFromMolFile(filename.name, removeHs=False)
+            try:
+                Chem.rdPartialCharges.ComputeGasteigerCharges(mol)
+            except RuntimeError:
+                print('RDKit could not assign the partial charges')
         else:
             mol = None
 

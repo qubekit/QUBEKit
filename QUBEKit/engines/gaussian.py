@@ -21,7 +21,7 @@ class Gaussian(Engines):
 
         super().__init__(molecule)
 
-        self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD', 'B3LYP-D3BJ': 'EmpiricalDispersion=GD3BJ B3LYP'}
+        self.functional_dict = {'pbe': 'PBEPBE', 'wb97x-d': 'wB97XD', 'b3lyp-d3bj': 'EmpiricalDispersion=GD3BJ B3LYP'}
         self.molecule.theory = self.functional_dict.get(self.molecule.theory.lower(), self.molecule.theory)
 
         self.convergence_dict = {'GAU': '',
