@@ -96,7 +96,7 @@ class LennardJones:
 
         # We know this from the molecule object self.molecule try to get the info from there
         for atom in self.molecule.atoms:
-            self.ddec_data.append([atom.atom_index + 1, atom.atomic_name] +
+            self.ddec_data.append([atom.atom_index + 1, atom.atomic_symbol] +
                                   [self.molecule.coords['input'][atom.atom_index][i] for i in range(3)])
 
         # TODO Just move the ddec.onetep file instead? Handle this in run file?
@@ -210,12 +210,12 @@ class LennardJones:
         # Find all the polar hydrogens and store their positions / atom numbers
         polars = []
         for pair in new_pairs:
-            if 'O' == pair[0].atomic_name or 'N' == pair[0].atomic_name or 'S' == pair[0].atomic_name:
-                if 'H' == pair[1].atomic_name:
+            if 'O' == pair[0].atomic_symbol or 'N' == pair[0].atomic_symbol or 'S' == pair[0].atomic_symbol:
+                if 'H' == pair[1].atomic_symbol:
                     polars.append(pair)
 
-            if 'O' == pair[1].atomic_name or 'N' == pair[1].atomic_name or 'S' == pair[1].atomic_name:
-                if 'H' == pair[0].atomic_name:
+            if 'O' == pair[1].atomic_symbol or 'N' == pair[1].atomic_symbol or 'S' == pair[1].atomic_symbol:
+                if 'H' == pair[0].atomic_symbol:
                     polars.append(pair)
 
         # Find square root of all b_i values so that they can be added easily according to paper's formula.
@@ -224,8 +224,8 @@ class LennardJones:
 
         if polars:
             for pair in polars:
-                if 'H' == pair[0].atomic_name or 'H' == pair[1].atomic_name:
-                    if 'H' == pair[0].atomic_name:
+                if 'H' == pair[0].atomic_symbol or 'H' == pair[1].atomic_symbol:
+                    if 'H' == pair[0].atomic_symbol:
                         polar_h_pos = pair[0].atom_index
                         polar_son_pos = pair[1].atom_index
                     else:
@@ -257,13 +257,20 @@ class LennardJones:
             self.non_bonded_force[pos] = [atom[5], self.non_bonded_force[pos][1], epsilon]
 
     def apply_symmetrisation(self):
-        """Using the atoms picked out to be symmetrised apply the symmetry to the charge, sigma and epsilon values"""
+        """
+        Using the atoms picked out to be symmetrised,
+        apply the symmetry to the charge, sigma and epsilon values.
+        """
+
+        atom_types = {}
+        for key, val in self.molecule.atom_symmetry_classes.items():
+            atom_types.setdefault(val, []).append(key)
 
         # get the values to be symmetrised
-        for sym_set in self.molecule.symm_hs.values():
+        for sym_set in atom_types.values():
             charges, sigmas, epsilons = [], [], []
-            for atom_set in sym_set:
-                for atom in atom_set:
+            if len(sym_set) > 1:
+                for atom in sym_set:
                     charges.append(self.non_bonded_force[atom][0])
                     sigmas.append(self.non_bonded_force[atom][1])
                     epsilons.append(self.non_bonded_force[atom][2])
@@ -272,7 +279,7 @@ class LennardJones:
                 charge, sigma, epsilon = sum(charges) / len(charges), sum(sigmas) / len(sigmas), sum(epsilons) / len(epsilons)
 
                 # Loop through the atoms again and store the new values
-                for atom in atom_set:
+                for atom in sym_set:
                     self.non_bonded_force[atom] = [charge, sigma, epsilon]
 
     def extract_extra_sites(self):

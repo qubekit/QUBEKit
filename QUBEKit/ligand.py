@@ -29,7 +29,7 @@ class Atom:
         self.atomic_number = atomic_number
         # The actual atomic name as per periodic table e.g. C, F, Pb, etc
         self.atomic_mass = Element().mass(atomic_number)
-        self.atomic_name = Element().name(atomic_number)
+        self.atomic_symbol = Element().name(atomic_number)
         # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
         self.atom_name = atom_name
         self.atom_index = atom_index
@@ -176,6 +176,8 @@ class Molecule:
         self.smiles = None
         self.qc_json = None
 
+        self.rdkit_mol = None
+
         # Structure
         self.coords = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
         self.topology = None
@@ -214,10 +216,10 @@ class Molecule:
         self.state = None
         self.config_file = 'master_config.ini'
         self.restart = False
+        self.atom_symmetry_classes = None
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
         self.read_input()
-        self.check_names_are_unique()
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -271,25 +273,33 @@ class Molecule:
         The base input reader used upon instancing the class; it will decide which reader to use
         based on the file suffix, smiles string or qc_json.
         """
+
         if Path(self.mol_input).exists():
             self.filename = Path(self.mol_input)
             self.name = self.filename.stem
-            if self.filename.suffix == '.pdb':
-                self.read_pdb()
-            elif self.filename.suffix == '.mol2':
-                self.read_mol2()
-            else:
-                raise FileTypeError('Unsupported file type.')
+            try:
+                self.rdkit_mol = RDKit().read_file(self.filename)
+                self.mol_from_rdkit(self.rdkit_mol)
+
+            except AttributeError:
+                if self.filename.suffix == '.pdb':
+                    self.read_pdb()
+                elif self.filename.suffix == '.mol2':
+                    self.read_mol2()
+                else:
+                    raise FileTypeError('Unsupported file type.')
 
         # If it's a string, and doesn't contain '.' (not a file that doesn't exist)
         elif isinstance(self.mol_input, str) and '.' not in self.mol_input:
             self.smiles = self.mol_input
-            rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
-            self.mol_from_rdkit(rdkit_mol)
+            self.rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
+            self.mol_from_rdkit(self.rdkit_mol)
 
         else:
             self.qc_json = self.mol_input
             self.read_qc_json()
+
+        self.check_names_are_unique()
 
     def check_names_are_unique(self):
         """
@@ -305,7 +315,7 @@ class Molecule:
             # Change the atom name only; everything else is the same as it was.
             self.atoms = [Atom(atomic_number=atom.atomic_number,
                                atom_index=atom.atom_index,
-                               atom_name=f'{atom.atomic_name}{i}',
+                               atom_name=f'{atom.atomic_symbol}{i}',
                                partial_charge=atom.partial_charge,
                                formal_charge=atom.formal_charge) for i, atom in enumerate(self.atoms)]
 
@@ -385,17 +395,17 @@ class Molecule:
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
                 # start collecting the atom class info
-                atomic_name = str(line[76:78])
-                atomic_name = re.sub('[0-9]+', '', atomic_name)
-                atomic_name = atomic_name.strip()
+                atomic_symbol = str(line[76:78])
+                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+                atomic_symbol = atomic_symbol.strip()
                 atom_name = str(line.split()[2])
 
-                # If the element column is missing from the pdb, extract the atomic_name from the atom name.
-                if not atomic_name:
-                    atomic_name = str(line.split()[2])[:-1]
-                    atomic_name = re.sub('[0-9]+', '', atomic_name)
+                # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
+                if not atomic_symbol:
+                    atomic_symbol = str(line.split()[2])[:-1]
+                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
 
-                atomic_number = Element().number(atomic_name)
+                atomic_number = Element().number(atomic_symbol)
                 # Now instance the qube atom
                 qube_atom = Atom(atomic_number, atom_count, atom_name)
                 self.atoms.append(qube_atom)
@@ -452,12 +462,12 @@ class Molecule:
 
             if atoms:
                 # Add the molecule information
-                atomic_name = line.split()[1][:2]
-                atomic_name = re.sub('[0-9]+', '', atomic_name)
-                atomic_name = atomic_name.strip()
+                atomic_symbol = line.split()[1][:2]
+                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+                atomic_symbol = atomic_symbol.strip()
 
                 # TODO May need to use str.title() to make sure elements aren't capitalised.
-                atomic_number = Element().number(atomic_name)
+                atomic_number = Element().number(atomic_symbol)
 
                 molecule.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
 
@@ -504,12 +514,6 @@ class Molecule:
             self.topology.add_edge(*bond[:2])
 
         self.coords['input'] = np.array(self.qc_json['geometry']).reshape((len(self.atoms), 3)) * constants.BOHR_TO_ANGS
-
-    def mol_to_rdkit(self, input_type='input'):
-        """
-        Create a rdkit molecule from the current QUBEKit object requires bond types
-        :return:
-        """
 
     def get_atom_with_name(self, name):
         """
@@ -698,7 +702,7 @@ class Molecule:
 
     def symmetrise_bonded_parameters(self):
         """
-        Try and apply some symmetry to the parameters stored in the molecule based on type from initial FF.
+        Try to apply some symmetry to the parameters stored in the molecule based on type from initial FF.
         :return: The molecule with the symmetry applied.
         """
 
@@ -766,7 +770,7 @@ class Molecule:
         for key, val in self.AtomTypes.items():
             ET.SubElement(AtomTypes, "Type", attrib={
                 'name': val[1], 'class': val[2],
-                'element': self.atoms[key].atomic_name,
+                'element': self.atoms[key].atomic_symbol,
                 'mass': str(self.atoms[key].atomic_mass)})
 
             ET.SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
@@ -814,9 +818,9 @@ class Molecule:
         for key in self.NonbondedForce:
             ET.SubElement(NonbondedForce, "Atom", attrib={
                 'type': self.AtomTypes[key][1],
-                'charge': str(self.NonbondedForce[key][0]),
-                'sigma': str(self.NonbondedForce[key][1]),
-                'epsilon': str(self.NonbondedForce[key][2])})
+                'charge': f'{self.NonbondedForce[key][0]:.6f}',
+                'sigma': f'{self.NonbondedForce[key][1]:.6f}',
+                'epsilon': f'{self.NonbondedForce[key][2]:.6f}'})
 
         # Add all of the virtual site info if present
         if self.sites:
@@ -878,7 +882,7 @@ class Molecule:
 
                 for i, atom in enumerate(frame):
                     xyz_file.write(
-                        f'{self.atoms[i].atomic_name}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n')
+                        f'{self.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n')
 
                 try:
                     end += 1
@@ -931,37 +935,83 @@ class Molecule:
             for val in mols.values():
                 pickle.dump(val, pickle_jar)
 
+    def get_bond_equiv_classes(self):
+        """
+        Using the symmetry dict, give each bond a code. If any codes match, the bonds can be symmetrised.
+        e.g. bond_symmetry_classes = {(0, 3): '2-0', (0, 4): '2-0', (0, 5): '2-0' ...}
+        all of the above bonds (tuples) are of the same type (methyl H-C bonds in same region)
+        This dict is then used to produce bond_types.
+        bond_types is just a dict where the keys are the string code from above and the values are all
+        of the bonds with that particular type.
+        """
+
+        bond_symmetry_classes = {}
+        for bond in self.topology.edges:
+            bond_symmetry_classes[bond] = f'{self.atom_symmetry_classes[bond[0]]}-{self.atom_symmetry_classes[bond[1]]}'
+
+        self.bond_types = {}
+        for key, val in bond_symmetry_classes.items():
+            self.bond_types.setdefault(val, []).append(key)
+
+    def get_angle_equiv_classes(self):
+        """
+        Using the symmetry dict, give each angle a code. If any codes match, the angles can be symmetrised.
+        e.g. angle_symmetry_classes = {(1, 0, 3): '3-2-0', (1, 0, 4): '3-2-0', (1, 0, 5): '3-2-0' ...}
+        all of the above angles (tuples) are of the same type (methyl H-C-H angles in same region)
+        angle_types is just a dict where the keys are the string code from the above and the values are all
+        of the angles with that particular type.
+        """
+
+        angle_symmetry_classes = {}
+        for angle in self.angles:
+            angle_symmetry_classes[angle] = (f'{self.atom_symmetry_classes[angle[0]]}-'
+                                             f'{self.atom_symmetry_classes[angle[1]]}-'
+                                             f'{self.atom_symmetry_classes[angle[2]]}')
+
+        self.angle_types = {}
+        for key, val in angle_symmetry_classes.items():
+            self.angle_types.setdefault(val, []).append(key)
+
     def symmetrise_from_topo(self):
         """
-        Based on the molecule topology, symmetrise the methyl / amine hydrogens.
+        First, if rdkit_mol has been generated, get the bond and angle symmetry dicts.
+        These will be used by L-J and the Harmonic Bond/Angle params
+
+        Then, based on the molecule topology, symmetrise the methyl / amine hydrogens.
         If there's a carbon, does it have 3/2 hydrogens? -> symmetrise
         If there's a nitrogen, does it have 2 hydrogens? -> symmetrise
         Also keep a list of the methyl carbons and amine / nitrile nitrogens
         then exclude these bonds from the rotatable torsions list.
         """
+        if self.rdkit_mol is not None:
+
+            self.atom_symmetry_classes = RDKit().find_symmetry_classes(self.rdkit_mol)
+
+            self.get_bond_equiv_classes()
+            self.get_angle_equiv_classes()
 
         methyl_hs, amine_hs, other_hs = [], [], []
         methyl_amine_nitride_cores = []
 
         for atom in self.atoms:
-            if atom.atomic_name == 'C' or atom.atomic_name == 'N':
+            if atom.atomic_symbol == 'C' or atom.atomic_symbol == 'N':
 
                 hs = []
                 for bonded in self.topology.neighbors(atom.atom_index):
                     if len(list(self.topology.neighbors(bonded))) == 1:
                         # now make sure it is a hydrogen (as halogens could be caught here)
-                        if self.atoms[bonded].atomic_name == 'H':
+                        if self.atoms[bonded].atomic_symbol == 'H':
                             hs.append(bonded)
 
-                if atom.atomic_name == 'C' and len(hs) == 2:    # This is part of a carbon hydrogen chain
+                if atom.atomic_symbol == 'C' and len(hs) == 2:    # This is part of a carbon hydrogen chain
                     other_hs.append(hs)
-                elif atom.atomic_name == 'C' and len(hs) == 3:
+                elif atom.atomic_symbol == 'C' and len(hs) == 3:
                     methyl_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
-                elif atom.atomic_name == 'N' and len(hs) == 2:
+                elif atom.atomic_symbol == 'N' and len(hs) == 2:
                     amine_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
-                elif atom.atomic_name == 'N' and len(hs) == 1:
+                elif atom.atomic_symbol == 'N' and len(hs) == 1:
                     methyl_amine_nitride_cores.append(atom.atom_index)
 
         self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs, 'other': other_hs}
@@ -1119,7 +1169,7 @@ class Ligand(Molecule, Defaults):
             for i, atom in enumerate(molecule):
                 pdb_file.write(
                     f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
-                    f'  1.00  0.00         {self.atoms[i].atomic_name.upper():>3}\n')
+                    f'  1.00  0.00         {self.atoms[i].atomic_symbol.upper():>3}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
@@ -1163,22 +1213,22 @@ class Protein(Molecule, Defaults):
         atom_count = 0
         for line in lines:
             if 'ATOM' in line or 'HETATM' in line:
-                atomic_name = str(line[76:78])
-                atomic_name = re.sub('[0-9]+', '', atomic_name).strip()
+                atomic_symbol = str(line[76:78])
+                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol).strip()
 
-                # If the element column is missing from the pdb, extract the atomic_name from the atom name.
-                if not atomic_name:
-                    atomic_name = str(line.split()[2])
-                    atomic_name = re.sub('[0-9]+', '', atomic_name)
+                # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
+                if not atomic_symbol:
+                    atomic_symbol = str(line.split()[2])
+                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
 
                 # now make sure we have a valid element
-                if atomic_name.lower() == 'cl' or atomic_name.lower() == 'br':
+                if atomic_symbol.lower() == 'cl' or atomic_symbol.lower() == 'br':
                     pass
                 else:
-                    atomic_name = atomic_name[0]
+                    atomic_symbol = atomic_symbol[0]
 
-                atom_name = f'{atomic_name}{atom_count}'
-                qube_atom = Atom(Element().number(atomic_name), atom_count, atom_name)
+                atom_name = f'{atomic_symbol}{atom_count}'
+                qube_atom = Atom(Element().number(atomic_symbol), atom_count, atom_name)
 
                 self.atoms.append(qube_atom)
 
@@ -1233,7 +1283,7 @@ class Protein(Molecule, Defaults):
             for i, atom in enumerate(molecule):
                 pdb_file.write(
                     f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
-                    f'  1.00  0.00         {self.atoms[i].atomic_name.upper():>3}\n')
+                    f'  1.00  0.00         {self.atoms[i].atomic_symbol.upper():>3}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:

@@ -2,14 +2,20 @@
 
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
-from rdkit.Chem import AllChem, MolFromPDBFile, Descriptors, MolToSmiles, MolToSmarts, MolToMolFile, MolFromMol2File, MolFromMolFile, rdPartialCharges
+from collections import defaultdict
+from itertools import groupby
+
+import numpy as np
+
+from rdkit import Chem
+from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem.rdchem import GetPeriodicTable
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 
 
 @for_all_methods(timer_logger)
 class RDKit:
-    """Class for controlling useful RDKit functions; try to keep class static."""
+    """Class for controlling useful RDKit functions."""
     def __init__(self):
         pass
 
@@ -17,15 +23,15 @@ class RDKit:
 
         # Try and read the file
         if filename.suffix == '.pdb':
-            mol = MolFromPDBFile(filename.name, removeHs=False)
+            mol = Chem.MolFromPDBFile(filename.name, removeHs=False)
             try:
-                rdPartialCharges.ComputeGasteigerCharges(mol)
+                Chem.rdPartialCharges.ComputeGasteigerCharges(mol)
             except RuntimeError:
                 print('RDKit could not assign the partial charges')
         elif filename.suffix == '.mol2':
-            mol = MolFromMol2File(filename.name, removeHs=False)
+            mol = Chem.MolFromMol2File(filename.name, removeHs=False)
         elif filename.suffix == '.mol':
-            mol = MolFromMolFile(filename.name, removeHs=False)
+            mol = Chem.MolFromMolFile(filename.name, removeHs=False)
         else:
             mol = None
 
@@ -47,7 +53,7 @@ class RDKit:
         AllChem.EmbedMolecule(mol_hydrogens, AllChem.ETKDG())
         AllChem.SanitizeMol(mol_hydrogens)
         try:
-            rdPartialCharges.ComputeGasteigerCharges(mol_hydrogens)
+            Chem.rdPartialCharges.ComputeGasteigerCharges(mol_hydrogens)
         except RuntimeError:
             print('RDKit could not assign the partial charges')
 
@@ -93,7 +99,7 @@ class RDKit:
 
         mol = RDKit().read_file(filename)
 
-        return MolToSmiles(mol, isomericSmiles=True, allHsExplicit=True)
+        return Chem.MolToSmiles(mol, isomericSmiles=True, allHsExplicit=True)
 
     def get_smarts(self, filename):
         """
@@ -104,7 +110,7 @@ class RDKit:
 
         mol = RDKit().read_file(filename)
 
-        return MolToSmarts(mol)
+        return Chem.MolToSmarts(mol)
 
     def get_mol(self, filename):
         """
@@ -115,8 +121,8 @@ class RDKit:
 
         mol = RDKit().read_file(filename)
 
-        mol_name = f'{filename.steam}.mol'
-        MolToMolFile(mol, mol_name)
+        mol_name = f'{filename.stem}.mol'
+        Chem.MolToMolFile(mol, mol_name)
 
         return mol_name
 
@@ -134,6 +140,33 @@ class RDKit:
         positions = cons.GetConformers()
 
         return [conformer.GetPositions() for conformer in positions]
+
+    def find_symmetry_classes(self, mol):
+        """
+        Generate list of tuples of symmetry-equivalent (homotopic) atoms in the molecular graph
+        based on https://sourceforge.net/p/rdkit/mailman/message/27897393/
+        :param mol: molecule to find symmetry classes for
+        :return: A list of tuples of equivalent atom indices (zero-based)
+        """
+
+        # Check CIPRank is present for first atom (can assume it is present for all afterwards)
+        if not mol.GetAtomWithIdx(0).HasProp('_CIPRank'):
+            Chem.AssignStereochemistry(mol, cleanIt=True, force=True, flagPossibleStereoCenters=True)
+
+        # Array of ranks showing matching atoms
+        cip_ranks = np.array([int(atom.GetProp('_CIPRank')) for atom in mol.GetAtoms()])
+
+        # Map the ranks to the atoms to produce a list of symmetrical atoms
+        atom_symmetry_classes = [np.where(cip_ranks == rank)[0].tolist() for rank in range(max(cip_ranks) + 1)]
+
+        # Convert from list of classes to dict where each key is an atom and each value is its class (just a str)
+        atom_symmetry_classes_dict = {}
+        # i will be used to define the class (just index based)
+        for i, klass in enumerate(atom_symmetry_classes):
+            for atom in klass:
+                atom_symmetry_classes_dict[atom] = str(i)
+
+        return atom_symmetry_classes_dict
 
 
 class Element:

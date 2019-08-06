@@ -22,7 +22,6 @@ class OpenFF(Parametrisation):
 
         self.serialise_system()
         self.gather_parameters()
-        self.get_symmetry()
         self.molecule.parameter_engine = 'OpenFF ' + self.fftype
         self.molecule.combination = self.combination
 
