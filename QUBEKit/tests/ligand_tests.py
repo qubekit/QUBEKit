@@ -1,9 +1,9 @@
 from QUBEKit.ligand import Ligand
 
-import unittest
 import os
-import tempfile
 from shutil import copy
+import tempfile
+import unittest
 
 
 class TestLigands(unittest.TestCase):

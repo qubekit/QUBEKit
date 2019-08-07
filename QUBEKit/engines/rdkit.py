@@ -145,9 +145,11 @@ class RDKit:
     def find_symmetry_classes(self, mol):
         """
         Generate list of tuples of symmetry-equivalent (homotopic) atoms in the molecular graph
-        based on https://sourceforge.net/p/rdkit/mailman/message/27897393/
-        :param mol: molecule to find symmetry classes for
-        :return: A list of tuples of equivalent atom indices (zero-based)
+        based on: https://sourceforge.net/p/rdkit/mailman/message/27897393/
+        Our thanks to Michal Krompiec for the symmetrisation method and its implementation.
+        :param mol: molecule to find symmetry classes for (rdkit mol class object)
+        :return: A dict where the keys are the atom indices and the values are their type
+        (type is arbitrarily based on index; only consistency is needed, no specific values)
         """
 
         # Check CIPRank is present for first atom (can assume it is present for all afterwards)
@@ -163,8 +165,8 @@ class RDKit:
         # Convert from list of classes to dict where each key is an atom and each value is its class (just a str)
         atom_symmetry_classes_dict = {}
         # i will be used to define the class (just index based)
-        for i, klass in enumerate(atom_symmetry_classes):
-            for atom in klass:
+        for i, sym_class in enumerate(atom_symmetry_classes):
+            for atom in sym_class:
                 atom_symmetry_classes_dict[atom] = str(i)
 
         return atom_symmetry_classes_dict

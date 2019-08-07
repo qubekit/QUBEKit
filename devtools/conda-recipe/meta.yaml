@@ -12,10 +12,10 @@ build:
 
 requirements:
   host:
-    - python
+    - python=3.6
     - setuptools
   run:
-    - python
+    - python=3.6
     - numpy
     - networkx
     - matplotlib

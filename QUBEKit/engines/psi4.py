@@ -41,8 +41,8 @@ class PSI4(Engines):
                     'with the command: geometric-optimize')
 
     # TODO add restart from log method
-    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False, energy=False,
-                       fchk=False, restart=False, execute=True):
+    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False,
+                       energy=False, fchk=False, restart=False, execute=True):
         """
         Converts to psi4 input format to be run in psi4 without using geometric.
         :param input_type: The coordinate set of the molecule to be used
