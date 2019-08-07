@@ -251,7 +251,7 @@ class Molecule:
                     continue
 
                 # Ignore NoneTypes and empty lists / dicts etc unless type is int (charge = 0 for example)
-                if val is not None and (val or type(val) is int):
+                if val is not None and (val or isinstance(val, int)):
                     return_str += f'\n{key} = '
 
                     # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".
@@ -274,7 +274,11 @@ class Molecule:
         based on the file suffix, smiles string or qc_json.
         """
 
-        if Path(self.mol_input).exists():
+        if isinstance(self.mol_input, dict):
+            self.qc_json = self.mol_input
+            self.read_qc_json()
+
+        elif Path(self.mol_input).exists():
             self.filename = Path(self.mol_input)
             self.name = self.filename.stem
             try:
@@ -294,10 +298,6 @@ class Molecule:
             self.smiles = self.mol_input
             self.rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
             self.mol_from_rdkit(self.rdkit_mol)
-
-        else:
-            self.qc_json = self.mol_input
-            self.read_qc_json()
 
         self.check_names_are_unique()
 
@@ -521,6 +521,8 @@ class Molecule:
         :param name: The name of the atom we are looking for
         :return: The QUBE Atom object with the name
         """
+
+        # TODO Shouldn't this just be replaced with getattr()?
 
         for atom in self.atoms:
             if atom.atom_name == name:

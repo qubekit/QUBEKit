@@ -31,7 +31,7 @@ def try_load(engine, module):
         module = import_module(module, __name__)
         return getattr(module, engine)
     except (ModuleNotFoundError, AttributeError) as exc:
-        print(f'Failed to load: {engine}; continuing for now.\nError:\n{exc}\n')
+        print(f'Warning, failed to load: {engine}; continuing for now.\nReason: {exc}\n')
         return missing_import(engine, fail_msg=str(exc))
 
 
@@ -61,7 +61,7 @@ class TorsionDriveFailed(Exception):
 
 class PickleFileNotFound(Exception):
     """
-
+    Cannot find .QUBEKit_states.
     """
 
     pass
@@ -69,7 +69,7 @@ class PickleFileNotFound(Exception):
 
 class QUBEKitLogFileNotFound(Exception):
     """
-
+    Cannot find QUBEKit_log.txt. This is only raised when a recursive search fails.
     """
 
     pass
