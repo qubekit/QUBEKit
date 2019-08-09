@@ -103,8 +103,8 @@ class Defaults:
         self.use_pseudo = False
         self.pseudo_potential_block = ""
 
-        self.chargemol = '/home/b8009890/Programs/chargemol_09_26_2017_unchanged'
-        self.log = 'CHR'
+        self.chargemol = '/home/<QUBEKit_user>/chargemol_09_26_2017'
+        self.log = 999
 
 
 class Molecule:
@@ -220,6 +220,7 @@ class Molecule:
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
         self.read_input()
+        self.check_names_are_unique()
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -274,17 +275,21 @@ class Molecule:
         based on the file suffix, smiles string or qc_json.
         """
 
+        # Dicts are used by qc_json
         if isinstance(self.mol_input, dict):
             self.qc_json = self.mol_input
             self.read_qc_json()
 
+        # Check if a file that exists is passed
         elif Path(self.mol_input).exists():
             self.filename = Path(self.mol_input)
             self.name = self.filename.stem
+            # Attempt to use rdkit's file readers
             try:
                 self.rdkit_mol = RDKit().read_file(self.filename)
                 self.mol_from_rdkit(self.rdkit_mol)
 
+            # If that fails, use QUBEKit's file readers
             except AttributeError:
                 if self.filename.suffix == '.pdb':
                     self.read_pdb()
@@ -293,19 +298,20 @@ class Molecule:
                 else:
                     raise FileTypeError('Unsupported file type.')
 
-        # If it's a string, and doesn't contain '.' (not a file that doesn't exist)
+        # If it's a string, and doesn't contain '.' (not a file that doesn't exist) then it's a smiles string
         elif isinstance(self.mol_input, str) and '.' not in self.mol_input:
             self.smiles = self.mol_input
             self.rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
             self.mol_from_rdkit(self.rdkit_mol)
 
-        self.check_names_are_unique()
+        else:
+            raise RuntimeError('Cannot parse input. A valid file type, smiles string or qc json must be provided.')
 
     def check_names_are_unique(self):
         """
         To prevent problems occurring with some atoms perceived to be the same,
         check the atom names to ensure they are all unique.
-        If some are the same, reset all atom names to be: f'{element}{index}'.
+        If some are the same, reset all atom names to be: f'{atomic_symbol}{index}'.
         This ensure they are all unique.
         """
 
@@ -324,7 +330,7 @@ class Molecule:
         """
         Unpack a RDKit molecule into the QUBEKit ligand
         :param rdkit_molecule: The rdkit molecule instance
-        :param input_type: Where the coordintes should be stored
+        :param input_type: Where the coordinates should be stored
         :return: The ligand object with the internal structures
         """
 
@@ -533,7 +539,6 @@ class Molecule:
         """
         Read in the molecule coordinates to the traj holder from a geometric optimisation using qcengine.
         :param trajectory: The qcengine trajectory
-        :return: None
         """
 
         for frame in trajectory:
@@ -605,8 +610,8 @@ class Molecule:
 
     def find_dihedrals(self):
         """
-        Take the topology graph network and again return a dictionary of all possible dihedral combinations stored under
-        the central bond keys which describe the angle.
+        Take the topology graph network and again return a dictionary of all possible dihedral combinations
+        stored under the central bond keys, which describe the angle.
         """
 
         dihedrals = {}
@@ -664,6 +669,7 @@ class Molecule:
         Taking the molecules' xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
+
         if self.dihedrals:
 
             dih_phis = {}
@@ -705,8 +711,7 @@ class Molecule:
 
     def symmetrise_bonded_parameters(self):
         """
-        Try to apply some symmetry to the parameters stored in the molecule based on type from initial FF.
-        :return: The molecule with the symmetry applied.
+        Apply symmetry to the parameters stored in the molecule based on types from rdkit.
         """
 
         if self.bond_types is not None:

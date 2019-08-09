@@ -514,6 +514,9 @@ def pretty_print(molecule, to_file=False, finished=True):
                   * On completion
     Print to terminal: * On call
                        * On completion
+
+    Strictly speaking this should probably be a method of ligand class as it explicitly uses ligand's custom
+    __str__ method with an extra argument.
     """
 
     pre_string = f'\n\nOn {"completion" if finished else "exception"}, the ligand objects are:'
