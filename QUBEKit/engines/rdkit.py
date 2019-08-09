@@ -146,7 +146,7 @@ class RDKit:
         """
         Generate list of tuples of symmetry-equivalent (homotopic) atoms in the molecular graph
         based on: https://sourceforge.net/p/rdkit/mailman/message/27897393/
-        Our thanks to Michal Krompiec for the symmetrisation method and its implementation.
+        Our thanks to Dr Michal Krompiec for the symmetrisation method and its implementation.
         :param mol: molecule to find symmetry classes for (rdkit mol class object)
         :return: A dict where the keys are the atom indices and the values are their type
         (type is arbitrarily based on index; only consistency is needed, no specific values)

@@ -246,7 +246,7 @@ class ArgsAndConfigs:
                             help='Enter whether or not you would like to use a solvent.')
         # Maybe separate into known solvents and IPCM constants?
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
-                            help='Enter the convergence criteria for the optimisation.')
+                            type=str.upper, help='Enter the convergence criteria for the optimisation.')
         parser.add_argument('-param', '--parameter_engine', choices=['xml', 'antechamber', 'openff', 'none'],
                             help='Enter the method of where we should get the initial molecule parameters from, '
                                  'if xml make sure the xml has the same name as the pdb file.')
@@ -817,7 +817,7 @@ class Execute:
                 molecule.coords['temp'] = RDKit().generate_conformers(f'{molecule.name}.pdb')[0]
                 result = qm_engine.generate_input(input_type='temp', optimise=True, execute=molecule.bonds_engine)
 
-            # Some times the user has no given enough iterations so try again
+            # Sometimes the user has not allowed enough iterations so try again
             elif result['error'] == 'Max iterations':
                 result = qm_engine.generate_input(input_type='input', optimise=True, restart=True, execute=molecule.bonds_engine)
 
@@ -877,7 +877,7 @@ class Execute:
 
         mod_sem = ModSeminario(molecule)
         mod_sem.modified_seminario_method()
-        # Try and average out the new parameters
+
         molecule.symmetrise_bonded_parameters()
 
         append_to_log('Finishing Mod_Seminario method')
