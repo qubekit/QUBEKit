@@ -13,7 +13,6 @@ class TestLigands(unittest.TestCase):
         Set up the ligand testing class, make temp folder and copy the pdb and mol2 over
         """
 
-        self.home = os.getcwd()
         self.test_folder = os.path.join(os.path.dirname(__file__), 'files')
 
         # Make the temp folder and move there with the required files
@@ -90,10 +89,6 @@ class TestLigands(unittest.TestCase):
         rot = None
         self.assertEqual(rot, self.molecule_pdb.rotatable)
         self.assertEqual(rot, self.molecule_mol2.rotatable)
-
-    def tearDown(self):
-        """Remove the temp folder"""
-        os.chdir(self.home)
 
 
 if __name__ == '__main__':
