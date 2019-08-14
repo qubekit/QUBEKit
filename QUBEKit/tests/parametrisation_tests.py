@@ -1,6 +1,5 @@
 from QUBEKit.parametrisation import AnteChamber, OpenFF
 from QUBEKit.ligand import Ligand
-from QUBEKit.tests.test_structures import acetone
 
 import os
 import unittest

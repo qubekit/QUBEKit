@@ -304,7 +304,7 @@ class ArgsAndConfigs:
                             help='Enter the name of the csv file you would like to create for bulk runs.'
                                  'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
-        groups.add_argument('-version', '--version', action='version', version='2.5.0')
+        groups.add_argument('-version', '--version', action='version', version='2.5.1')
 
         return parser.parse_args()
 

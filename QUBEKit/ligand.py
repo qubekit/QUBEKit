@@ -22,7 +22,10 @@ from xml.dom.minidom import parseString
 
 
 class Atom:
-    """Class to hold all of the atomic information"""
+    """
+    Class to hold all of the "per atom" information.
+    All atoms in Molecule will have an instance of this Atom class to describe their properties.
+    """
 
     def __init__(self, atomic_number, atom_index, atom_name='', partial_charge=None, formal_charge=None):
 
@@ -63,11 +66,28 @@ class Atom:
         return return_str
 
 
-class Defaults:
+class DefaultsMixin:
+    """
+    This class holds all of the default configs from the config file.
+    It's effectively a placeholder for all of the attributes which may
+    be changed by editing the config file(s).
 
-    def __init__(self):
+    It's a mixin because:
+        * Normal multiple inheritance doesn't make sense in this context
+        * Composition would be a bit messier and may require stuff like:
+            mol = Ligand('methane.pdb', 'methane')
+            mol.defaults.threads
+            >> 2
 
-        super().__init__()
+            rather than the nice clean:
+            mol.threads
+            >> 2
+        * Mixin is cleaner and clearer with respect to super() calls.
+    """
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
 
         self.theory = 'wB97XD'
         self.basis = '6-311++G(d,p)'
@@ -165,8 +185,6 @@ class Molecule:
         config_file             str or path; the config file used for the execution
         restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
-
-        super().__init__()
 
         self.mol_input = mol_input
         self.name = name
@@ -527,8 +545,6 @@ class Molecule:
         :param name: The name of the atom we are looking for
         :return: The QUBE Atom object with the name
         """
-
-        # TODO Shouldn't this just be replaced with getattr()?
 
         for atom in self.atoms:
             if atom.atom_name == name:
@@ -955,7 +971,8 @@ class Molecule:
 
         bond_symmetry_classes = {}
         for bond in self.topology.edges:
-            bond_symmetry_classes[bond] = f'{self.atom_symmetry_classes[bond[0]]}-{self.atom_symmetry_classes[bond[1]]}'
+            bond_symmetry_classes[bond] = (f'{self.atom_symmetry_classes[bond[0]]}-'
+                                           f'{self.atom_symmetry_classes[bond[1]]}')
 
         self.bond_types = {}
         for key, val in bond_symmetry_classes.items():
@@ -1099,7 +1116,7 @@ class Molecule:
         self.scan_order = scan_order
 
 
-class Ligand(Molecule, Defaults):
+class Ligand(DefaultsMixin, Molecule):
 
     def __init__(self, mol_input, name=None):
         """
@@ -1188,7 +1205,7 @@ class Ligand(Molecule, Defaults):
             pdb_file.write('END\n')
 
 
-class Protein(Molecule, Defaults):
+class Protein(DefaultsMixin, Molecule):
     """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
     def __init__(self, filename):

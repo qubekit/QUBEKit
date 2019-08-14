@@ -1,6 +1,6 @@
 package:
   name: qubekit
-  version: 2.5.0
+  version: 2.5.1
 
 source:
   path: ../..
@@ -20,6 +20,9 @@ requirements:
     - networkx
     - matplotlib
     - scipy
+  build:
+    - python=3.6
+    - setuptools
 
 about:
   home: https://github.com/qubekit/QUBEKit

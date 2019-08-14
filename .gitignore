@@ -6,6 +6,7 @@ VEHICLe
 .idea
 *.pdb
 *.mol
+*.mol2
 *.z
 *.csv
 *.dat
