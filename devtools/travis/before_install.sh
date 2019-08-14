@@ -27,10 +27,12 @@ echo ". $MINICONDA_HOME/etc/profile.d/conda.sh" >> ~/.bashrc  # Source the profi
 echo "conda activate" >> ~/.bashrc  # Activate conda
 source ~/.bashrc # source file to get new commands
 
-conda config --add channels cringrose
+conda config --add channels cringrose --add channels conda-forge --add channels omnia
 conda config --set always_yes yes
+conda env create --file environment.yml --name QUBEKit
 conda install conda conda-build jinja2 anaconda-client
 conda update --quiet --all
+conda activate QUBEKit
 
 # Restore original directory
 popd
