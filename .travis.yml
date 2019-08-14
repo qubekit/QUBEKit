@@ -12,6 +12,8 @@ install:
   - conda info
 
   - conda env create --file="devtools/travis/environment.yml"
+  - conda init bash
+  - source ~/.bashrc
   - conda activate QUBEKit
 
 script:
