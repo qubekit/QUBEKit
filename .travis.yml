@@ -10,11 +10,15 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update conda
   - conda info
-
+  # Create environment from yml; includes necessary channels and versions
   - conda env create --file="devtools/travis/environment.yml"
   - conda init bash
+  # Refresh terminal
   - source ~/.bashrc
   - conda activate QUBEKit
+  # Install newest QUBEKit and check its version
+  - python setup.py install
+  - QUBEKit -version
 
 script:
   - python QUBEKit/tests/ligand_tests.py
