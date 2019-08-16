@@ -9,18 +9,15 @@ from shutil import copy, rmtree
 
 class ParametrisationTest(unittest.TestCase):
 
-    def setUp(self):
-        """
-        Set up the ligand testing class, make temp folder and copy the pdb and mol2 over
-        """
-
-        self.test_folder = os.path.join(os.path.dirname(__file__), 'files')
+    @classmethod
+    def setUpClass(cls):
+        cls.files_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
 
         # Make the temp folder and move there with the required files
         os.mkdir('temp')
         os.chdir('temp')
-        copy(os.path.join(self.test_folder, 'acetone.pdb'), 'acetone.pdb')
-        self.molecule = Ligand('acetone.pdb')
+        copy(os.path.join(cls.files_folder, 'acetone.pdb'), 'acetone.pdb')
+        cls.molecule = Ligand('acetone.pdb')
 
     def test_antechamber(self):
         # try to parametrise the molecule with antechamber

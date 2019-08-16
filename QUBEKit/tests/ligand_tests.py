@@ -1,27 +1,23 @@
 from QUBEKit.ligand import Ligand
 
 import os
-from shutil import copy
-import tempfile
+from shutil import copy, rmtree
 import unittest
 
 
 class TestLigands(unittest.TestCase):
 
-    def setUp(self):
-        """
-        Set up the ligand testing class, make temp folder and copy the pdb and mol2 over
-        """
+    @classmethod
+    def setUpClass(cls):
 
-        self.test_folder = os.path.join(os.path.dirname(__file__), 'files')
-
-        # Make the temp folder and move there with the required files
-        with tempfile.TemporaryDirectory() as temp:
-            os.chdir(temp)
-            copy(os.path.join(self.test_folder, 'acetone.pdb'), 'acetone.pdb')
-            self.molecule_pdb = Ligand('acetone.pdb')
-            copy(os.path.join(self.test_folder, 'acetone.mol2'), 'acetone.mol2')
-            self.molecule_mol2 = Ligand('acetone.mol2')
+        cls.files_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
+        os.mkdir('temp')
+        os.chdir('temp')
+        copy(os.path.join(cls.files_folder, 'acetone.pdb'), 'acetone.pdb')
+        cls.molecule_pdb = Ligand('acetone.pdb')
+        copy(os.path.join(cls.files_folder, 'acetone.mol2'), 'acetone.mol2')
+        cls.molecule_mol2 = Ligand('acetone.mol2')
+        os.chdir('../')
 
     def test_pdb_reader(self):
         # Make sure the pdb reader has been used
@@ -107,7 +103,7 @@ class TestLigands(unittest.TestCase):
     def test_smiles(self):
 
         # create a new molecule from a smiles string
-        molecule_smiles = Ligand('CCC', 'ehtane')
+        molecule_smiles = Ligand('CCC', 'ethane')
 
         # check the internal structures
         angles = {(1, 0, 3): 113.51815048217622, (1, 0, 4): 108.585923222101, (1, 0, 5): 106.72547221240829,
@@ -118,6 +114,11 @@ class TestLigands(unittest.TestCase):
                   (8, 2, 9): 111.33448705926884, (8, 2, 10): 107.47750840394838, (9, 2, 10): 105.46240504563437}
 
         self.assertEqual(angles, molecule_smiles.angle_values)
+
+    @classmethod
+    def tearDownClass(cls):
+        """Remove the files produced during testing"""
+        rmtree('temp')
 
 
 if __name__ == '__main__':
