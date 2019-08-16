@@ -84,6 +84,7 @@ class ArgsAndConfigs:
             # Initialise molecule
             if self.args.smiles:
                 self.molecule = Ligand(*self.args.smiles)
+                # Now we should create the initial molecule and
             else:
                 self.molecule = Ligand(self.args.input)
 
@@ -712,7 +713,7 @@ class Execute:
 
                 # This will continue even if we don't converge this is fine
                 # Read the xyz traj and store the frames
-                molecule.read_xyz(f'{molecule.name}_optim.xyz')
+                molecule.read_file(f'{molecule.name}_optim.xyz', input_type='traj')
                 # Store the last from the traj as the mm optimised structure
                 molecule.coords['mm'] = molecule.coords['traj'][-1]
             else:

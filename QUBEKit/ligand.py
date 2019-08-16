@@ -4,7 +4,7 @@
 
 from QUBEKit.engines import RDKit, Element
 from QUBEKit.utils import constants
-from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
 
 from collections import OrderedDict
 from datetime import datetime
@@ -302,28 +302,42 @@ class Molecule:
         elif Path(self.mol_input).exists():
             self.filename = Path(self.mol_input)
             self.name = self.filename.stem
-            # Attempt to use rdkit's file readers
-            try:
-                self.rdkit_mol = RDKit().read_file(self.filename)
-                self.mol_from_rdkit(self.rdkit_mol)
-
-            # If that fails, use QUBEKit's file readers
-            except AttributeError:
-                if self.filename.suffix == '.pdb':
-                    self.read_pdb()
-                elif self.filename.suffix == '.mol2':
-                    self.read_mol2()
-                else:
-                    raise FileTypeError('Unsupported file type.')
+            self.read_file(self.filename, input_type='input')
 
         # If it's a string, and doesn't contain '.' (not a file that doesn't exist) then it's a smiles string
         elif isinstance(self.mol_input, str) and '.' not in self.mol_input:
             self.smiles = self.mol_input
             self.rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
-            self.mol_from_rdkit(self.rdkit_mol)
+            self.mol_from_rdkit(self.rdkit_mol, input_type='input')
 
         else:
             raise RuntimeError('Cannot parse input. A valid file type, smiles string or qc json must be provided.')
+
+    def read_file(self, input_file, input_type):
+        """
+        A general file reader that should not be used to instantiate the class,
+        first we choose which sub file reader to use then ensure that the topology matches that of the original molecule,
+        before storing the new coordinates in the requested type.
+        :param input_file: The name of the file to be read
+        :param input_type: The type of coordinates it contains ie QM geometry/ MM geometry
+        :return: An updated ligand object if the topology matches.
+        """
+
+        input_file = Path(input_file)
+        try:
+            self.rdkit_mol = RDKit().read_file(input_file)
+            self.mol_from_rdkit(self.rdkit_mol, input_type=input_type)
+        except AttributeError:
+            if input_type == 'input':
+                print('Could not create ligand from RDKit using default readers')
+            if input_file.suffix == '.pdb':
+                self.read_pdb(input_file, input_type=input_type)
+            elif input_file.suffix == '.mol2':
+                self.read_mol2(input_file, input_type=input_type)
+            elif input_file.suffix == '.xyz':
+                self.read_xyz(input_file, input_type=input_type)
+            else:
+                raise FileTypeError('Unsupported file type.')
 
     def check_names_are_unique(self):
         """
@@ -343,62 +357,88 @@ class Molecule:
                                partial_charge=atom.partial_charge,
                                formal_charge=atom.formal_charge) for i, atom in enumerate(self.atoms)]
 
-    # TODO add mol file reader
     def mol_from_rdkit(self, rdkit_molecule, input_type='input'):
         """
-        Unpack a RDKit molecule into the QUBEKit ligand
+        Unpack a RDKit molecule into the QUBEKit ligand if instance else just load a valid set of coordinates
         :param rdkit_molecule: The rdkit molecule instance
         :param input_type: Where the coordinates should be stored
-        :return: The ligand object with the internal structures
+        :return: The ligand object with the internal structures if instance
         """
 
-        self.topology = nx.Graph()
-        self.atoms = []
+        topology = nx.Graph()
+        atoms = []
 
         if self.name is None:
             self.name = rdkit_molecule.GetProp('_Name')
         # Collect the atom names and bonds
-        for i, atom in enumerate(rdkit_molecule.GetAtoms()):
+        for atom in rdkit_molecule.GetAtoms():
             # Collect info about each atom
             try:
                 # PDB file extraction
                 atom_name = atom.GetMonomerInfo().GetName().strip()
-                partial_charge = atom.GetProp('_GasteigerCharge')
             except AttributeError:
                 try:
                     # Mol2 file extraction
                     atom_name = atom.GetProp('_TriposAtomName')
-                    partial_charge = atom.GetProp('_TriposPartialCharge')
                 except KeyError:
-                    # Mol from smiles extraction also catch mol files here
-                    partial_charge = atom.GetProp('_GasteigerCharge')
-                    # smiles does not have atom names so generate them here
-                    atom_name = f'{atom.GetSymbol()}{i}'
+                    # This is ether from a smiles string or a mol file so pass for now and get the general info
+                    pass
+
             atomic_number = atom.GetAtomicNum()
             index = atom.GetIdx()
+            # smiles and mol files have no atom names so generate them here if they are not declared
+            try:
+                atom_name
+            except NameError:
+                atom_name = f'{atom.GetSymbol()}{index}'
 
             # Instance the basic qube_atom
-            qube_atom = Atom(atomic_number, index, atom_name, partial_charge, atom.GetFormalCharge())
+            qube_atom = Atom(atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge())
             qube_atom.atom_type = atom.GetSmarts()
 
             # Add the atoms as nodes
-            self.topology.add_node(atom.GetIdx())
+            topology.add_node(atom.GetIdx())
 
             # Add the bonds
             for bonded in atom.GetNeighbors():
-                self.topology.add_edge(atom.GetIdx(), bonded.GetIdx())
+                topology.add_edge(atom.GetIdx(), bonded.GetIdx())
                 qube_atom.add_bond(bonded.GetIdx())
 
             # Now add the atom to the molecule
-            self.atoms.append(qube_atom)
+            atoms.append(qube_atom)
 
-        # Now get the coordinates and store in the right location
-        self.coords[input_type] = rdkit_molecule.GetConformer().GetPositions()
+        # Now get the coordinates
+        coords = rdkit_molecule.GetConformer().GetPositions()
 
         # Now get any descriptors we can find
-        self.descriptors = RDKit().rdkit_descriptors(rdkit_molecule)
+        descriptors = RDKit().rdkit_descriptors(rdkit_molecule)
 
-    def read_pdb(self, input_type='input'):
+        self._validate_info(topology, atoms, coords, input_type, descriptors)
+
+    def _validate_info(self, topology, atoms, coords, input_type, descriptors=None):
+        """
+        Check if the provided infomation should be stored or not
+        :param topology: networkx graph of the topology
+        :param atoms: a list of Atom objects
+        :param coords: a numpy array of the coords
+        :param descriptors: a dictionary of the rdkit descriptors
+        :return: the updated ligand object
+        """
+
+        # Now check we instancing the ligand if we are then store the info
+        if input_type == 'input':
+            self.topology = topology
+            self.atoms = atoms
+            self.descriptors = descriptors
+            self.coords[input_type] = coords
+        else:
+            # Check if the new topology is the same then store the new coordinates
+            if nx.algorithms.is_isomorphic(self.topology, topology):
+                self.coords[input_type] = coords
+            else:
+                raise TopologyMismatch('Topologies are not the same cannot store coordinates.')
+
+    def read_pdb(self, input_file, input_type='input'):
         """
         Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
         Then reads through the connection tags and builds a connectivity network
@@ -407,12 +447,12 @@ class Molecule:
         Can also generate a simple plot of the network.
         """
 
-        with open(self.filename, 'r') as pdb:
+        with open(input_file, 'r') as pdb:
             lines = pdb.readlines()
 
         molecule = []
-        self.topology = nx.Graph()
-        self.atoms = []
+        topology = nx.Graph()
+        atoms = []
 
         # atom counter used for graph node generation
         atom_count = 0
@@ -432,10 +472,10 @@ class Molecule:
                 atomic_number = Element().number(atomic_symbol)
                 # Now instance the qube atom
                 qube_atom = Atom(atomic_number, atom_count, atom_name)
-                self.atoms.append(qube_atom)
+                atoms.append(qube_atom)
 
                 # Also add the atom number as the node in the graph
-                self.topology.add_node(atom_count)
+                topology.add_node(atom_count)
                 atom_count += 1
                 molecule.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
 
@@ -445,14 +485,15 @@ class Molecule:
                 for i in range(2, len(line.split())):
                     if int(line.split()[i]) != 0:
                         bonded_index = int(line.split()[i]) - 1
-                        self.topology.add_edge(atom_index, bonded_index)
-                        self.atoms[atom_index].add_bond(bonded_index)
-                        self.atoms[bonded_index].add_bond(atom_index)
+                        topology.add_edge(atom_index, bonded_index)
+                        atoms[atom_index].add_bond(bonded_index)
+                        atoms[bonded_index].add_bond(atom_index)
 
         # put the object back into the correct place
-        self.coords[input_type] = np.array(molecule)
+        coords = np.array(molecule)
+        self._validate_info(topology, atoms, coords, input_type)
 
-    def read_mol2(self, input_type='input'):
+    def read_mol2(self, input_file, input_type='input'):
         """
         Read an input mol2 file and extract the atom names, positions, atom types and bonds.
         :param input_type: Assign the structure to right holder, input, mm, qm, temp or traj.
@@ -460,37 +501,36 @@ class Molecule:
         """
 
         molecule = []
-        self.topology = nx.Graph()
-        self.atoms = []
+        topology = nx.Graph()
+        atoms = []
 
         # atom counter used for graph node generation
         atom_count = 0
 
-        with open(self.filename, 'r') as mol2:
+        with open(input_file, 'r') as mol2:
             lines = mol2.readlines()
 
-        atoms = False
-        bonds = False
+        atom_flag = False
+        bond_flag = False
 
         for line in lines:
             if '@<TRIPOS>ATOM' in line:
-                atoms = True
+                atom_flag = True
                 continue
             elif '@<TRIPOS>BOND' in line:
-                atoms = False
-                bonds = True
+                atom_flag = False
+                bond_flag = True
                 continue
             elif '@<TRIPOS>SUBSTRUCTURE' in line:
-                bonds = False
+                bond_flag = False
                 continue
 
-            if atoms:
+            if atom_flag:
                 # Add the molecule information
                 atomic_symbol = line.split()[1][:2]
                 atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
-                atomic_symbol = atomic_symbol.strip()
+                atomic_symbol = atomic_symbol.strip().title()
 
-                # TODO May need to use str.title() to make sure elements aren't capitalised.
                 atomic_number = Element().number(atomic_symbol)
 
                 molecule.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
@@ -499,7 +539,7 @@ class Molecule:
                 atom_name = str(line.split()[1])
 
                 # Add the nodes to the topology object
-                self.topology.add_node(atom_count)
+                topology.add_node(atom_count)
                 atom_count += 1
 
                 # Get the atom types
@@ -510,17 +550,52 @@ class Molecule:
                 qube_atom = Atom(atomic_number, atom_count, atom_name)
                 qube_atom.atom_type = atom_type
 
-                self.atoms.append(qube_atom)
+                atoms.append(qube_atom)
 
-            if bonds:
+            if bond_flag:
                 # Add edges to the topology network
                 atom_index, bonded_index = int(line.split()[1]) - 1, int(line.split()[2]) - 1
-                self.topology.add_edge(atom_index, bonded_index)
-                self.atoms[atom_index].add_bond(bonded_index)
-                self.atoms[bonded_index].add_bond(atom_index)
+                topology.add_edge(atom_index, bonded_index)
+                atoms[atom_index].add_bond(bonded_index)
+                atoms[bonded_index].add_bond(atom_index)
 
         # put the object back into the correct place
-        self.coords[input_type] = np.array(molecule)
+        coords = np.array(molecule)
+        self._validate_info(topology, atoms, coords, input_type)
+
+    def read_xyz(self, name, input_type='traj'):
+        """
+        Read an xyz file and get all frames from the file and put in the traj molecule holder by default
+        or if there is only one frame change the input location.
+        """
+
+        traj_molecules = []
+        molecule = []
+        try:
+            with open(name, 'r') as xyz_file:
+                # get the number of atoms
+                n_atoms = len(self.atoms)
+                for line in xyz_file:
+                    line = line.split()
+                    # skip frame heading lines
+                    if len(line) <= 1:
+                        next(xyz_file)
+                        continue
+                    molecule.append([float(line[1]), float(line[2]), float(line[3])])
+
+                    if len(molecule) == n_atoms:
+                        # we have collected the molecule now store the frame
+                        traj_molecules.append(np.array(molecule))
+                        molecule = []
+
+            # check how many frames we have
+            if len(traj_molecules) == 1:
+                self.coords[input_type] = traj_molecules[0]
+            else:
+                self.coords[input_type] = traj_molecules
+
+        except FileNotFoundError:
+            raise FileNotFoundError('Cannot find xyz file to read.')
 
     def read_qc_json(self):
         """
@@ -1148,35 +1223,6 @@ class Ligand(DefaultsMixin, Molecule):
             self.find_bond_lengths()
             self.get_angle_values()
             self.symmetrise_from_topo()
-
-    def read_xyz(self, name, input_type='traj'):
-        """
-        Read an xyz file and get all frames from the file and put in the traj molecule holder by default
-        or if there is only one frame change the input location.
-        """
-
-        traj_molecules = []
-        molecule = []
-        try:
-            with open(name, 'r') as xyz_file:
-                # get the number of atoms
-                n_atoms = len(self.coords['input'])
-                for line in xyz_file:
-                    line = line.split()
-                    # skip frame heading lines
-                    if len(line) <= 1:
-                        next(xyz_file)
-                        continue
-                    molecule.append([float(line[1]), float(line[2]), float(line[3])])
-
-                    if len(molecule) == n_atoms:
-                        # we have collected the molecule now store the frame
-                        traj_molecules.append(np.array(molecule))
-                        molecule = []
-            self.coords[input_type] = traj_molecules
-
-        except FileNotFoundError:
-            raise FileNotFoundError('Cannot find xyz file to read.')
 
     def write_pdb(self, input_type='input', name=None):
         """

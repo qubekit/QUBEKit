@@ -12,6 +12,7 @@ import math
 import os
 import pickle
 import operator
+import decimal
 
 import numpy as np
 
@@ -641,3 +642,21 @@ def collect_archive_tdrive(tdrive_record, client):
         assert opt_struct.get_final_energy() == pair[1], "The energies collected do not match the QCArchive minima."
 
     return [energies, geometry]
+
+
+def set_net(values, net=0, dp=6):
+    """
+    Take a list of values and make sure the sum is equal to net to the required dp
+    :param values: list of values
+    :param net: the desired total of the list
+    :param dp: the amount of decimal places required
+    :return: the list of new values
+    """
+
+    decimal.getcontext().prec = dp
+    new_values = [decimal.Decimal(str(val)) for val in values]
+    extra = net - sum(new_values)
+    if extra:
+        new_values[-1] += extra
+
+    return new_values

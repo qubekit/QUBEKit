@@ -1,27 +1,23 @@
 from QUBEKit.ligand import Ligand
 
 import os
-from shutil import copy
-import tempfile
+from shutil import copy, rmtree
 import unittest
 
 
 class TestLigands(unittest.TestCase):
 
-    def setUp(self):
-        """
-        Set up the ligand testing class, make temp folder and copy the pdb and mol2 over
-        """
+    @classmethod
+    def setUpClass(cls):
 
-        self.test_folder = os.path.join(os.path.dirname(__file__), 'files')
-
-        # Make the temp folder and move there with the required files
-        with tempfile.TemporaryDirectory() as temp:
-            os.chdir(temp)
-            copy(os.path.join(self.test_folder, 'acetone.pdb'), 'acetone.pdb')
-            self.molecule_pdb = Ligand('acetone.pdb')
-            copy(os.path.join(self.test_folder, 'acetone.mol2'), 'acetone.mol2')
-            self.molecule_mol2 = Ligand('acetone.mol2')
+        cls.files_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
+        os.mkdir('temp')
+        os.chdir('temp')
+        copy(os.path.join(cls.files_folder, 'acetone.pdb'), 'acetone.pdb')
+        cls.molecule_pdb = Ligand('acetone.pdb')
+        copy(os.path.join(cls.files_folder, 'acetone.mol2'), 'acetone.mol2')
+        cls.molecule_mol2 = Ligand('acetone.mol2')
+        os.chdir('../')
 
     def test_pdb_reader(self):
         # Make sure the pdb reader has been used
@@ -33,6 +29,13 @@ class TestLigands(unittest.TestCase):
         for atom in self.molecule_pdb.coords['input']:
             self.assertEqual(3, len(atom))
 
+        for atom in self.molecule_pdb.atoms:
+            self.assertIsNotNone(atom.atom_name)
+            self.assertIsNotNone(atom.atom_index)
+            self.assertIsNotNone(atom.atomic_mass)
+            self.assertIsNotNone(atom.atomic_symbol)
+            self.assertIsNotNone(atom.atomic_number)
+
     def test_mol2_reader(self):
         # Make sure the mol2 reader has been used
 
@@ -42,6 +45,13 @@ class TestLigands(unittest.TestCase):
         # Check atom names and coords are extracted for each atom in the molecule
         for atom in self.molecule_mol2.coords['input']:
             self.assertEqual(3, len(atom))
+
+        for atom in self.molecule_pdb.atoms:
+            self.assertIsNotNone(atom.atom_name)
+            self.assertIsNotNone(atom.atom_index)
+            self.assertIsNotNone(atom.atomic_mass)
+            self.assertIsNotNone(atom.atomic_symbol)
+            self.assertIsNotNone(atom.atomic_number)
 
     def test_bonds(self):
 
@@ -89,6 +99,26 @@ class TestLigands(unittest.TestCase):
         rot = None
         self.assertEqual(rot, self.molecule_pdb.rotatable)
         self.assertEqual(rot, self.molecule_mol2.rotatable)
+
+    def test_smiles(self):
+
+        # create a new molecule from a smiles string
+        molecule_smiles = Ligand('CCC', 'ethane')
+
+        # check the internal structures
+        angles = {(1, 0, 3): 113.51815048217622, (1, 0, 4): 108.585923222101, (1, 0, 5): 106.72547221240829,
+                  (3, 0, 4): 108.67471750338844, (3, 0, 5): 109.86966536530876, (4, 0, 5): 109.3960638804494,
+                  (0, 1, 2): 112.47821537702777, (0, 1, 6): 106.25702918976113, (0, 1, 7): 113.72590402122567,
+                  (2, 1, 6): 106.3390387838715, (2, 1, 7): 111.69729882714941, (6, 1, 7): 105.65819247884409,
+                  (1, 2, 8): 108.59874810898711, (1, 2, 9): 112.19545440609062, (1, 2, 10): 111.67294842834627,
+                  (8, 2, 9): 111.33448705926884, (8, 2, 10): 107.47750840394838, (9, 2, 10): 105.46240504563437}
+
+        self.assertEqual(angles, molecule_smiles.angle_values)
+
+    @classmethod
+    def tearDownClass(cls):
+        """Remove the files produced during testing"""
+        rmtree('temp')
 
 
 if __name__ == '__main__':

@@ -1,26 +1,19 @@
 from QUBEKit.ligand import Protein
 
 import os
-from shutil import copy
-import tempfile
+from shutil import copy, rmtree
 import unittest
 
 
 class TestProteins(unittest.TestCase):
 
-    def setUp(self):
-        """
-        Set up a protein testing class, make temp folder and copy capped leu file
-        """
-
-        self.home = os.getcwd()
-        self.test_folder = os.path.join(os.path.dirname(__file__), 'files')
-
-        # Make the temp folder and move there with the required files
-        with tempfile.TemporaryDirectory() as temp:
-            os.chdir(temp)
-            copy(os.path.join(self.test_folder, 'capped_leu.pdb'), 'capped_leu.pdb')
-            self.molecule = Protein('capped_leu.pdb')
+    @classmethod
+    def setUpClass(cls):
+        cls.files_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
+        os.mkdir('temp')
+        os.chdir('temp')
+        copy(os.path.join(cls.files_folder, 'capped_leu.pdb'), 'capped_leu.pdb')
+        cls.molecule = Protein('capped_leu.pdb')
 
     def test_xml_generation(self):
 
@@ -32,9 +25,11 @@ class TestProteins(unittest.TestCase):
 
         # Check for angles and torsions too
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         """Remove the files produced during testing"""
-        os.chdir(self.home)
+        os.chdir('../')
+        rmtree('temp')
 
 
 if __name__ == '__main__':
