@@ -78,8 +78,6 @@ class ArgsAndConfigs:
             # Find the pickled checkpoint file and load it as the molecule
             try:
                 self.molecule = unpickle()[self.args.restart]
-            except FileNotFoundError:
-                raise FileNotFoundError('No checkpoint file found!')
             except KeyError:
                 raise KeyError('This stage was not found in the log file; was the previous stage completed?')
         else:
@@ -249,7 +247,7 @@ class ArgsAndConfigs:
                             help='Enter whether or not you would like to use a solvent.')
         # Maybe separate into known solvents and IPCM constants?
         parser.add_argument('-convergence', '--convergence', choices=['GAU', 'GAU_TIGHT', 'GAU_VERYTIGHT'],
-                            help='Enter the convergence criteria for the optimisation.')
+                            type=str.upper, help='Enter the convergence criteria for the optimisation.')
         parser.add_argument('-param', '--parameter_engine', choices=['xml', 'antechamber', 'openff', 'none'],
                             help='Enter the method of where we should get the initial molecule parameters from, '
                                  'if xml make sure the xml has the same name as the pdb file.')
@@ -307,7 +305,7 @@ class ArgsAndConfigs:
                             help='Enter the name of the csv file you would like to create for bulk runs.'
                                  'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
-        groups.add_argument('-version', '--version', action='version', version='2.5.0')
+        groups.add_argument('-version', '--version', action='version', version='2.5.1')
 
         return parser.parse_args()
 
@@ -580,14 +578,14 @@ class Execute:
 
         # Do the first stage in the order to get the next_key for the following loop
         key = list(self.order)[0]
-        next_key = self.stage_wrapper(key, stage_dict[key][0], stage_dict[key][1], torsion_options)
+        next_key = self.stage_wrapper(key, *stage_dict[key], torsion_options)
 
         # Cannot use for loop as we mutate the dictionary during the loop
         while True:
             if next_key is None:
                 break
             else:
-                next_key = self.stage_wrapper(next_key, stage_dict[next_key][0], stage_dict[next_key][1])
+                next_key = self.stage_wrapper(next_key, *stage_dict[next_key])
 
             if next_key == 'pause':
                 self.pause()
@@ -659,16 +657,22 @@ class Execute:
         # Parametrisation options:
         param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF, 'none': Parametrisation}
 
-        # If we are using xml we have to move it
+        # If we are using xml we have to move it to QUBEKit working dir
         if molecule.parameter_engine == 'xml':
-            copy(os.path.join(molecule.home, f'{molecule.name}.xml'), f'{molecule.name}.xml')
+            try:
+                copy(os.path.join(molecule.home, f'{molecule.name}.xml'), f'{molecule.name}.xml')
+            except FileNotFoundError:
+                raise FileNotFoundError('You need to supply an xml file if you wish to use xml-based parametrisation;\n'
+                                        'put this file in the location you are running QUBEKit from.\n'
+                                        'Alternatively, use a different parametrisation method such as:\n'
+                                        '-param antechamber')
 
         # Perform the parametrisation
         # If the method is none the molecule is not parameterised but the parameter holders are initiated
         if molecule.parameter_engine == 'none':
             param_dict[molecule.parameter_engine](molecule).gather_parameters()
         else:
-            # Write the PDB file this covers us if we have a mol2 or xyz input file
+            # Write the PDB file; this covers us if we have a different input file
             molecule.write_pdb()
             param_dict[molecule.parameter_engine](molecule)
 
@@ -690,7 +694,11 @@ class Execute:
 
         append_to_log('Starting mm_optimisation')
         # Check which method we want then do the optimisation
-        if molecule.mm_opt_method == 'openmm':
+        if molecule.mm_opt_method == 'none':
+            # Skip the optimisation step
+            molecule.coords['mm'] = molecule.coords['input']
+
+        elif molecule.mm_opt_method == 'openmm':
             if molecule.parameter_engine != 'none':
                 # Make the inputs
                 molecule.write_pdb(input_type='input')
@@ -711,10 +719,6 @@ class Execute:
             else:
                 raise OptimisationFailed('You can not optimise a molecule with OpenMM and no initial parameters; '
                                          'consider parametrising or using UFF/MFF in RDKit')
-
-        elif molecule.mm_opt_method == 'none':
-            # Skip the optimisation step
-            molecule.coords['mm'] = molecule.coords['input']
 
         else:
             # TODO change to qcengine as this can already be done
@@ -814,9 +818,9 @@ class Execute:
                 molecule.coords['temp'] = RDKit().generate_conformers(f'{molecule.name}.pdb')[0]
                 result = qm_engine.generate_input(input_type='temp', optimise=True, execute=molecule.bonds_engine)
 
-            # Some times the user has no given enough iterations so try again
+            # Sometimes the user has not allowed enough iterations so try again
             elif result['error'] == 'Max iterations':
-                result = qm_engine.generate_input(input_type='input', optimise=True, restart=True, execute=self.molecule.bonds_engine)
+                result = qm_engine.generate_input(input_type='input', optimise=True, restart=True, execute=molecule.bonds_engine)
 
             restart_count += 1
 
@@ -874,7 +878,7 @@ class Execute:
 
         mod_sem = ModSeminario(molecule)
         mod_sem.modified_seminario_method()
-        # Try and average out the new parameters
+
         molecule.symmetrise_bonded_parameters()
 
         append_to_log('Finishing Mod_Seminario method')
@@ -898,7 +902,7 @@ class Execute:
 
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
-            qm_engine.generate_input(input_type='qm', density=True, solvent=molecule.solvent, execute=molecule.density_engine)
+            qm_engine.generate_input(input_type='qm', density=True, execute=molecule.density_engine)
             append_to_log('Finishing Density calculation')
 
         return molecule
@@ -967,7 +971,7 @@ class Execute:
             scan.collect_scan()
             os.chdir(os.path.join(molecule.home, '10_torsion_optimise'))
 
-        opt = TorsionOptimiser(molecule, vn_bounds=molecule.tor_limit)
+        opt = TorsionOptimiser(molecule)
         opt.run()
 
         append_to_log('Finishing torsion_optimisations')
@@ -1008,7 +1012,7 @@ class Execute:
         return
 
     @staticmethod
-    def store_torsions(molecule, torsions_list):
+    def store_torsions(molecule, torsions_list=None):
         """
         Take the molecule object and the list of torsions and convert them to rotatable centres. Then, put them in the
         scan order object.
@@ -1040,8 +1044,7 @@ class Execute:
             copy(molecule.constraints_file, molecule.constraints_file.name)
 
         # Now we should run the torsion_test method
-        opt = TorsionOptimiser(molecule, refinement=molecule.refinement_method,
-                               vn_bounds=molecule.tor_limit)
+        opt = TorsionOptimiser(molecule)
         opt.torsion_test()
 
         printf('Torsion testing done!')

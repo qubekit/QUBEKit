@@ -269,24 +269,24 @@ class TorsionOptimiser:
     qm_local                the location of the QM torsiondrive
     """
 
-    def __init__(self, molecule, weight_mm=True, step_size=0.02, error_tol=1e-5,
-                 x_tol=1e-5, vn_bounds=20):
+    def __init__(self, molecule, weight_mm=True, step_size=0.02, error_tol=1e-5, x_tol=1e-5):
 
-        # QUBEKit objects
         self.molecule = molecule
         self.qm_engine = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}.get(self.molecule.bonds_engine)(molecule)
 
-        # configurations
-        self.l_pen = self.molecule.l_pen
-        self.t_weight = self.molecule.t_weight
+        # Configurations
         self.weight_mm = weight_mm
         self.step_size = step_size
-        self.methods = {'NM': 'Nelder-Mead', 'BFGS': 'BFGS', None: None}
-        self.method = self.methods[self.molecule.opt_method]
         self.error_tol = error_tol
         self.x_tol = x_tol
-        self.abs_bounds = vn_bounds
+
+        self.l_pen = self.molecule.l_pen
+        self.t_weight = self.molecule.t_weight
+        self.abs_bounds = molecule.tor_limit
         self.refinement = molecule.refinement_method
+
+        methods = {'NM': 'Nelder-Mead', 'BFGS': 'BFGS'}
+        self.method = methods.get(self.molecule.opt_method, None)
 
         # TorsionOptimiser starting parameters
         self.scans_dict = deepcopy(molecule.qm_scans)
@@ -307,6 +307,7 @@ class TorsionOptimiser:
         self.torsion_store = None
         self.index_dict = {}
         self.qm_local = None
+
         # Convert the optimised qm coords to OpenMM format
         self.opt_coords = self.molecule.openmm_coordinates(input_type='qm')
         self.optimiser_log = open('Optimiser_log.txt', 'w')
@@ -378,7 +379,7 @@ class TorsionOptimiser:
 
     def update_tor_vec(self, x):
         """Update the tor_types dict with the parameter vector."""
-        # Round to 6 dp as this is the acuraccy that will be in the xml files.
+        # Round to 6 dp as this is the precision that will be in the xml files.
         x = np.round(x, decimals=6)
 
         # Update the param vector for the right torsions by slicing the vector every 4 places

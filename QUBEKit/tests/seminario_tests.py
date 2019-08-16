@@ -1,10 +1,10 @@
 from QUBEKit.utils.helpers import unpickle
 from QUBEKit.mod_seminario import ModSeminario
 
-import unittest
 import os
-import tempfile
 from shutil import copy
+import tempfile
+import unittest
 
 
 class TestSeminario(unittest.TestCase):
@@ -12,7 +12,6 @@ class TestSeminario(unittest.TestCase):
     def setUp(self):
         """
         Set up the seminario test case by loading a pickled ligand that contains the hessian already
-        :return: None
         """
 
         self.home = os.getcwd()
@@ -53,7 +52,7 @@ class TestSeminario(unittest.TestCase):
             self.assertEqual(self.benzene_hessian.HarmonicAngleForce, self.benzene_mod_sem_vib_1.HarmonicAngleForce)
 
     def test_mod_sem_special_case(self):
-        """Using xB97XD/6-311++G(d,p), scalling 0.957 on benzonitrile"""
+        """Using xB97XD/6-311++G(d,p), scaling 0.957 on benzonitrile"""
         with tempfile.TemporaryDirectory() as temp:
             os.chdir(temp)
             self.mod_sem = ModSeminario(self.benzonitrile_hessian)

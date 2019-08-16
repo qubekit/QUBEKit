@@ -515,6 +515,9 @@ def pretty_print(molecule, to_file=False, finished=True):
                   * On completion
     Print to terminal: * On call
                        * On completion
+
+    Strictly speaking this should probably be a method of ligand class as it explicitly uses ligand's custom
+    __str__ method with an extra argument.
     """
 
     pre_string = f'\n\nOn {"completion" if finished else "exception"}, the ligand objects are:'
@@ -585,11 +588,11 @@ def assert_wrapper(exception_type):
 
     try:
         yield
-    except AssertionError as excep:
-        raise exception_type(*excep.args)
+    except AssertionError as exc:
+        raise exception_type(*exc.args)
 
 
-def check_symmetry(matrix, error=0.00001):
+def check_symmetry(matrix, error=1e-5):
     """Check matrix is symmetric to within some error."""
 
     # Check the matrix transpose is equal to the matrix within error.
@@ -600,7 +603,7 @@ def check_symmetry(matrix, error=0.00001):
     return True
 
 
-def check_net_charge(charges, ideal_net=0, error=0.00001):
+def check_net_charge(charges, ideal_net=0, error=1e-5):
     """Given a list of charges, check if the calculated net charge is within error of the desired net charge."""
 
     # Ensure total charge is near to integer value:
@@ -623,7 +626,7 @@ def collect_archive_tdrive(tdrive_record, client):
     :return: QUBEKit qm_scans data: list of energies and geometries [np.array(energies), [np.array(geometry)]]
     """
 
-    # Sort the dictionary by assending keys
+    # Sort the dictionary by ascending keys
     energy_dict = {int(key.strip('][')): value for key, value in tdrive_record.final_energy_dict.items()}
     sorted_energies = sorted(energy_dict.items(), key=operator.itemgetter(0))
 

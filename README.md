@@ -57,6 +57,9 @@ We welcome any suggestions for additions or changes.
 To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*.
 Git has our latest version which will likely have newer features but may not be stable.
 
+We recommend installing via conda. We have created a conda environment to be used specifically with QUBEKit which is available
+[here](https://github.com/qubekit/QUBEKit/blob/master/devtools/travis/environment.yml).
+
     git clone https://github.com/qubekit/QUBEKit.git
     cd <install location>
     python setup.py install
@@ -68,6 +71,10 @@ Git has our latest version which will likely have newer features but may not be 
 ---
 
     conda install -c cringrose qubekit
+    
+To create the environment using the QUBEKit [environment.yml](https://github.com/qubekit/QUBEKit/blob/master/devtools/travis/environment.yml) 
+
+    conda env create -f environment.yml
 
 ### Requirements
 
@@ -96,6 +103,9 @@ Many packages come pre-installed with Anaconda, however there are some which req
 These packages are on different conda channels, hence needing the extra arguments.
 
 **Core Requirements**
+
+All conda packages are included in the [environment.yml](https://github.com/qubekit/QUBEKit/blob/master/devtools/travis/environment.yml)
+provided, removing the need to install the following manually.
 
 * [PSI4](http://www.psicode.org/)
 

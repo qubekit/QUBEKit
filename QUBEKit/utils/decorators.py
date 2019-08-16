@@ -49,24 +49,31 @@ def timer_logger(orig_func):
         if len(args) >= 1 and hasattr(args[0], 'molecule'):
             if getattr(args[0].molecule, 'home') is not None:
                 log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
+            else:
+                return orig_func(*args, **kwargs)
+        else:
+            if os.path.exists('../QUBEKit_log.txt'):
+                log_file_path = '../QUBEKit_log.txt'
+            else:
+                return orig_func(*args, **kwargs)
 
-                with open(log_file_path, 'a+') as log_file:
-                    log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n    ')
-                    log_file.write(f'Docstring for {orig_func.__qualname__}:\n    {orig_func.__doc__}\n\n')
+        with open(log_file_path, 'a+') as log_file:
+            log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n    ')
+            log_file.write(f'Docstring for {orig_func.__qualname__}:\n    {orig_func.__doc__}\n\n')
 
-                    time_taken = time() - t1
+            time_taken = time() - t1
 
-                    mins, secs = divmod(time_taken, 60)
-                    hours, mins = divmod(mins, 60)
+            mins, secs = divmod(time_taken, 60)
+            hours, mins = divmod(mins, 60)
 
-                    secs, remain = str(float(secs)).split('.')
+            secs, remain = str(float(secs)).split('.')
 
-                    time_taken = f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}'
-                    end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            time_taken = f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}'
+            end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                    log_file.write(f'{orig_func.__qualname__} finished in {time_taken} at {end_time}.\n\n')
-                    # Add some separation space between function / method logs.
-                    log_file.write(f'{"-" * 50}\n\n')
+            log_file.write(f'{orig_func.__qualname__} finished in {time_taken} at {end_time}.\n\n')
+            # Add some separation space between function / method logs.
+            log_file.write(f'{"-" * 50}\n\n')
 
         return orig_func(*args, **kwargs)
     return wrapper
@@ -129,7 +136,7 @@ def exception_logger(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        # Any exception that occurs is logged; this means KeyboardInterrupt and SystemExit are still raised
+        # Any BaseException is logged; KeyboardInterrupt and SystemExit must still be raised (see below)
         except BaseException as exc:
 
             home = getattr(args[0].molecule, 'home', None)
@@ -178,7 +185,7 @@ class ExceptionLogger:
 
         try:
             return self.func(*args, **kwargs)
-        # Any exception that occurs is logged; this means KeyboardInterrupt and SystemExit are still raised
+        # Any BaseException is logged; KeyboardInterrupt and SystemExit must still be raised (see below)
         except Exception as exc:
 
             home = getattr(args[0].molecule, 'home', None)

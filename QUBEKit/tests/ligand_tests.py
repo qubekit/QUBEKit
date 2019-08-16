@@ -1,9 +1,9 @@
 from QUBEKit.ligand import Ligand
 
-import unittest
 import os
-import tempfile
 from shutil import copy
+import tempfile
+import unittest
 
 
 class TestLigands(unittest.TestCase):
@@ -118,7 +118,6 @@ class TestLigands(unittest.TestCase):
                   (8, 2, 9): 111.33448705926884, (8, 2, 10): 107.47750840394838, (9, 2, 10): 105.46240504563437}
 
         self.assertEqual(angles, molecule_smiles.angle_values)
-
 
 
 if __name__ == '__main__':

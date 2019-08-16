@@ -1,9 +1,9 @@
 from QUBEKit.ligand import Protein
 
-import unittest
 import os
-import tempfile
 from shutil import copy
+import tempfile
+import unittest
 
 
 class TestProteins(unittest.TestCase):

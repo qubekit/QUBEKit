@@ -22,7 +22,10 @@ from xml.dom.minidom import parseString
 
 
 class Atom:
-    """Class to hold all of the atomic information"""
+    """
+    Class to hold all of the "per atom" information.
+    All atoms in Molecule will have an instance of this Atom class to describe their properties.
+    """
 
     def __init__(self, atomic_number, atom_index, atom_name='', partial_charge=None, formal_charge=None):
 
@@ -63,11 +66,28 @@ class Atom:
         return return_str
 
 
-class Defaults:
+class DefaultsMixin:
+    """
+    This class holds all of the default configs from the config file.
+    It's effectively a placeholder for all of the attributes which may
+    be changed by editing the config file(s).
 
-    def __init__(self):
+    It's a mixin because:
+        * Normal multiple inheritance doesn't make sense in this context
+        * Composition would be a bit messier and may require stuff like:
+            mol = Ligand('methane.pdb', 'methane')
+            mol.defaults.threads
+            >> 2
 
-        super().__init__()
+            rather than the nice clean:
+            mol.threads
+            >> 2
+        * Mixin is cleaner and clearer with respect to super() calls.
+    """
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
 
         self.theory = 'wB97XD'
         self.basis = '6-311++G(d,p)'
@@ -103,8 +123,8 @@ class Defaults:
         self.use_pseudo = False
         self.pseudo_potential_block = ""
 
-        self.chargemol = '/home/b8009890/Programs/chargemol_09_26_2017_unchanged'
-        self.log = 'CHR'
+        self.chargemol = '/home/<QUBEKit_user>/chargemol_09_26_2017'
+        self.log = 999
 
 
 class Molecule:
@@ -166,8 +186,6 @@ class Molecule:
         restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
 
-        super().__init__()
-
         self.mol_input = mol_input
         self.name = name
 
@@ -220,6 +238,7 @@ class Molecule:
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
         self.read_input()
+        self.check_names_are_unique()
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -251,7 +270,7 @@ class Molecule:
                     continue
 
                 # Ignore NoneTypes and empty lists / dicts etc unless type is int (charge = 0 for example)
-                if val is not None and (val or type(val) is int):
+                if val is not None and (val or isinstance(val, int)):
                     return_str += f'\n{key} = '
 
                     # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".
@@ -274,22 +293,25 @@ class Molecule:
         based on the file suffix, smiles string or qc_json.
         """
 
-        if Path(self.mol_input).exists():
+        # Dicts are used by qc_json
+        if isinstance(self.mol_input, dict):
+            self.qc_json = self.mol_input
+            self.read_qc_json()
+
+        # Check if a file that exists is passed
+        elif Path(self.mol_input).exists():
             self.filename = Path(self.mol_input)
             self.name = self.filename.stem
             self.read_file(self.filename, input_type='input')
 
-        # If it's a string, and doesn't contain '.' (not a file that doesn't exist)
+        # If it's a string, and doesn't contain '.' (not a file that doesn't exist) then it's a smiles string
         elif isinstance(self.mol_input, str) and '.' not in self.mol_input:
             self.smiles = self.mol_input
             self.rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
             self.mol_from_rdkit(self.rdkit_mol, input_type='input')
 
         else:
-            self.qc_json = self.mol_input
-            self.read_qc_json()
-
-        self.check_names_are_unique()
+            raise RuntimeError('Cannot parse input. A valid file type, smiles string or qc json must be provided.')
 
     def read_file(self, input_file, input_type):
         """
@@ -321,7 +343,7 @@ class Molecule:
         """
         To prevent problems occurring with some atoms perceived to be the same,
         check the atom names to ensure they are all unique.
-        If some are the same, reset all atom names to be: f'{element}{index}'.
+        If some are the same, reset all atom names to be: f'{atomic_symbol}{index}'.
         This ensure they are all unique.
         """
 
@@ -339,7 +361,7 @@ class Molecule:
         """
         Unpack a RDKit molecule into the QUBEKit ligand if instance else just load a valid set of coordinates
         :param rdkit_molecule: The rdkit molecule instance
-        :param input_type: Where the coordintes should be stored
+        :param input_type: Where the coordinates should be stored
         :return: The ligand object with the internal structures if instance
         """
 
@@ -608,7 +630,6 @@ class Molecule:
         """
         Read in the molecule coordinates to the traj holder from a geometric optimisation using qcengine.
         :param trajectory: The qcengine trajectory
-        :return: None
         """
 
         for frame in trajectory:
@@ -680,8 +701,8 @@ class Molecule:
 
     def find_dihedrals(self):
         """
-        Take the topology graph network and again return a dictionary of all possible dihedral combinations stored under
-        the central bond keys which describe the angle.
+        Take the topology graph network and again return a dictionary of all possible dihedral combinations
+        stored under the central bond keys, which describe the angle.
         """
 
         dihedrals = {}
@@ -739,6 +760,7 @@ class Molecule:
         Taking the molecules' xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
+
         if self.dihedrals:
 
             dih_phis = {}
@@ -780,8 +802,7 @@ class Molecule:
 
     def symmetrise_bonded_parameters(self):
         """
-        Try to apply some symmetry to the parameters stored in the molecule based on type from initial FF.
-        :return: The molecule with the symmetry applied.
+        Apply symmetry to the parameters stored in the molecule based on types from rdkit.
         """
 
         if self.bond_types is not None:
@@ -1025,7 +1046,8 @@ class Molecule:
 
         bond_symmetry_classes = {}
         for bond in self.topology.edges:
-            bond_symmetry_classes[bond] = f'{self.atom_symmetry_classes[bond[0]]}-{self.atom_symmetry_classes[bond[1]]}'
+            bond_symmetry_classes[bond] = (f'{self.atom_symmetry_classes[bond[0]]}-'
+                                           f'{self.atom_symmetry_classes[bond[1]]}')
 
         self.bond_types = {}
         for key, val in bond_symmetry_classes.items():
@@ -1169,7 +1191,7 @@ class Molecule:
         self.scan_order = scan_order
 
 
-class Ligand(Molecule, Defaults):
+class Ligand(DefaultsMixin, Molecule):
 
     def __init__(self, mol_input, name=None):
         """
@@ -1229,7 +1251,7 @@ class Ligand(Molecule, Defaults):
             pdb_file.write('END\n')
 
 
-class Protein(Molecule, Defaults):
+class Protein(DefaultsMixin, Molecule):
     """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
 
     def __init__(self, filename):

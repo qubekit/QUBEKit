@@ -2,40 +2,23 @@ language: python
 python:
   - '3.6'
 
-matrix:
-  include:
-    - os: linux
-      env:
-        - PYTHON_VER=3.6
-        - PROG=RDKIT
-    - os: linux
-      env:
-        - PYTHON_VER=3.6
-        - PROG=PSI4
-    - os: linux
-      env:
-        - PYTHON_VER=3.6
-        - PROG=OPENMM
-
-before_install:
-  - source devtools/travis/before_install.sh
-  - python -V
-
 install:
-  - |
-    if [ $PROG == "RDKIT" ]; then
-      python devtools/scripts/conda_env.py -n=test -p=$PYTHON_VER devtools/conda-envs/rdkit.yaml
-    elif [ $PROG == "PSI4" ]; then
-      python devtools/scripts/conda_env.py -n=test -p=$PYTHON_VER devtools/conda-envs/psi.yaml
-    elif [ $PROG == "OPENMM" ]; then
-      python devtools/scripts/conda_env.py -n=test -p=$PYTHON_VER devtools/conda-envs/openmm.yaml
-    else
-      echo "ERROR: No match for PROG ($PROG)."
-      exit 1
-    fi
-
-  - conda activate test
-  - python setup.py develop --no-deps
+  # Install conda
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update conda
+  - conda info
+  # Create environment from yml; includes necessary channels and versions
+  - conda env create --file="devtools/travis/environment.yml"
+  - conda init bash
+  # Refresh terminal
+  - source ~/.bashrc
+  - conda activate QUBEKit
+  # Install newest QUBEKit and check its version
+  - python setup.py install
+  - QUBEKit -version
 
 script:
   - python QUBEKit/tests/ligand_tests.py

@@ -30,7 +30,7 @@ class Gaussian(Engines):
                                  'GAU_VERYTIGHT': 'verytight'}
 
     def generate_input(self, input_type='input', optimise=False, hessian=False, energy=False,
-                       density=False, solvent=False, restart=False, execute='g09', red_mode=False):
+                       density=False, restart=False, execute='g09', red_mode=False):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
         :param input_type: The set of coordinates in the molecule that should be used in the job
@@ -38,7 +38,6 @@ class Gaussian(Engines):
         :param hessian: Calculate the hessian matrix
         :param energy: Calculate the single point energy
         :param density: Calculate the electron density
-        :param solvent: Use a solvent when calculating the electron density
         :param restart: Restart from a check point file
         :param execute: Run the calculation after writing the input file
         :param red_mode: If we are doing a redundant mode optimisation this will only add the ModRedundant keyword,
@@ -50,8 +49,6 @@ class Gaussian(Engines):
             print('\nWe do not have the capability to test Gaussian 16; '
                   'as a result, there may be some issues. '
                   'Please let us know if any changes are needed through our Slack, or Github issues page.\n')
-
-        molecule = self.molecule.coords[input_type]
 
         with open(f'gj_{self.molecule.name}.com', 'w+') as input_file:
 
@@ -85,7 +82,7 @@ class Gaussian(Engines):
             if energy:
                 commands += 'SP '
 
-            if solvent:
+            if self.molecule.solvent:
                 commands += 'SCRF=(IPCM,Read) '
 
             if density:
@@ -100,15 +97,15 @@ class Gaussian(Engines):
 
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
-                for i, atom in enumerate(molecule):
-                    input_file.write(f'{self.molecule.atoms[i].atomic_symbol} {float(atom[0]): .10f} {float(atom[1]): .10f} '
-                                     f'{float(atom[2]): .10f}\n')
+                for i, atom in enumerate(self.molecule.coords[input_type]):
+                    input_file.write(f'{self.molecule.atoms[i].atomic_symbol} '
+                                     f'{float(atom[0]): .10f} {float(atom[1]): .10f} {float(atom[2]): .10f}\n')
 
             # TODO finish this block
             if self.molecule.use_pseudo:
                 input_file.write(f'\n{self.molecule.pseudo_potential_block}')
 
-            if solvent:
+            if self.molecule.solvent:
                 # Adds the epsilon and cavity params
                 input_file.write('\n4.0 0.0004')
 
