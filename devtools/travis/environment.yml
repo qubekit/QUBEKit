@@ -132,5 +132,3 @@ dependencies:
   - zipp=0.5.2=py_0
   - zlib=1.2.11=h516909a_1005
   - zstd=1.4.0=h3b9ef0a_0
-prefix: /home/b8009890/Programs/miniconda3/envs/QUBEKit
-
