@@ -136,7 +136,7 @@ def exception_logger(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        # Any exception that occurs is logged; this means KeyboardInterrupt and SystemExit are still raised
+        # Any BaseException is logged; KeyboardInterrupt and SystemExit must still be raised (see below)
         except BaseException as exc:
 
             home = getattr(args[0].molecule, 'home', None)
@@ -185,7 +185,7 @@ class ExceptionLogger:
 
         try:
             return self.func(*args, **kwargs)
-        # Any exception that occurs is logged; this means KeyboardInterrupt and SystemExit are still raised
+        # Any BaseException is logged; KeyboardInterrupt and SystemExit must still be raised (see below)
         except Exception as exc:
 
             home = getattr(args[0].molecule, 'home', None)
