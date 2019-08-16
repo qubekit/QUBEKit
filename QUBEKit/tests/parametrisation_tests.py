@@ -1,22 +1,26 @@
 from QUBEKit.parametrisation import AnteChamber, OpenFF
 from QUBEKit.ligand import Ligand
-from QUBEKit.tests.test_structures import acetone
+
 
 import os
 import unittest
+from shutil import copy, rmtree
 
 
 class ParametrisationTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        """
-        Write the big string above to a file to be used for testing.
-        Cannot use actual files as pathing causes issues.
-        """
-        with open('acetone.pdb', 'w+') as pdb_test_file:
-            pdb_test_file.write(acetone)
 
-        cls.molecule = Ligand('acetone.pdb')
+    def setUp(self):
+        """
+        Set up the ligand testing class, make temp folder and copy the pdb and mol2 over
+        """
+
+        self.test_folder = os.path.join(os.path.dirname(__file__), 'files')
+
+        # Make the temp folder and move there with the required files
+        os.mkdir('temp')
+        os.chdir('temp')
+        copy(os.path.join(self.test_folder, 'acetone.pdb'), 'acetone.pdb')
+        self.molecule = Ligand('acetone.pdb')
 
     def test_antechamber(self):
         # try to parametrise the molecule with antechamber
@@ -49,7 +53,8 @@ class ParametrisationTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """Remove the files produced during testing"""
-        os.system('rm *.frcmod *.inpcrd *.mol2 *.prmtop *.log serialised.xml acetone.pdb')
+        os.chdir('../')
+        rmtree('temp')
 
 
 if __name__ == '__main__':

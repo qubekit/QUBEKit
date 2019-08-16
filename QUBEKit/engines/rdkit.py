@@ -45,10 +45,6 @@ class RDKit:
         mol_hydrogens = AllChem.AddHs(mol)
         AllChem.EmbedMolecule(mol_hydrogens, AllChem.ETKDG())
         AllChem.SanitizeMol(mol_hydrogens)
-        try:
-            Chem.rdPartialCharges.ComputeGasteigerCharges(mol_hydrogens)
-        except RuntimeError:
-            print('RDKit could not assign the partial charges')
 
         return mol_hydrogens
 
