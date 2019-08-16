@@ -2,7 +2,7 @@
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.helpers import check_net_charge
+from QUBEKit.utils.helpers import check_net_charge, set_net
 
 from collections import OrderedDict
 import os
@@ -280,7 +280,14 @@ class LennardJones:
 
                 # Loop through the atoms again and store the new values
                 for atom in sym_set:
-                    self.non_bonded_force[atom] = [charge, sigma, epsilon]
+                    self.non_bonded_force[atom] = [round(charge, 6), round(sigma, 6), round(epsilon, 6)]
+
+        # make sure the net charge is correct for the current precision
+        charges = [non_bonded[0] for non_bonded in self.non_bonded_force.values()]
+        new_charges = set_net(charges, self.molecule.charge, 6)
+        # Put the new charges back into the holder
+        for non_bonded in zip(self.non_bonded_force.values(), new_charges):
+            non_bonded[0][0] = non_bonded[1]
 
     def extract_extra_sites(self):
         """

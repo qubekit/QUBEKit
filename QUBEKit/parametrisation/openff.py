@@ -28,15 +28,14 @@ class OpenFF(Parametrisation):
     def serialise_system(self):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 
-        # Load the molecule using openforcefield
-        pdb_file = app.PDBFile(f'{self.molecule.name}.pdb')
-
-        # Now we need the connection info try using smiles string from rdkit
-        molecule = Molecule.from_smiles(RDKit().get_smiles(f'{self.molecule.name}.pdb'))
+        # Create an openFF molecule from the rdkit molecule
+        try:
+            off_molecule = Molecule.from_rdkit(self.molecule.rdkit_mol, allow_undefined_stereo=True)
+        except AttributeError:
+            raise AttributeError('An rdkit molecule object is required but could not be generated from the input file.')
 
         # Make the openMM system
-        omm_topology = pdb_file.topology
-        off_topology = Topology.from_openmm(omm_topology, unique_molecules=[molecule])
+        off_topology = off_molecule.to_topology()
 
         # Load the smirnoff99Frosst force field.
         forcefield = ForceField('test_forcefields/smirnoff99Frosst.offxml')

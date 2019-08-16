@@ -21,18 +21,10 @@ class RDKit:
         # Try and read the file
         if filename.suffix == '.pdb':
             mol = Chem.MolFromPDBFile(filename.name, removeHs=False)
-            try:
-                Chem.rdPartialCharges.ComputeGasteigerCharges(mol)
-            except RuntimeError:
-                print('RDKit could not assign the partial charges')
         elif filename.suffix == '.mol2':
             mol = Chem.MolFromMol2File(filename.name, removeHs=False)
         elif filename.suffix == '.mol':
             mol = Chem.MolFromMolFile(filename.name, removeHs=False)
-            try:
-                Chem.rdPartialCharges.ComputeGasteigerCharges(mol)
-            except RuntimeError:
-                print('RDKit could not assign the partial charges')
         else:
             mol = None
 
@@ -169,6 +161,16 @@ class RDKit:
 
         return atom_symmetry_classes_dict
 
+    # def get_rmsd(self, mol, coordinates):
+    #     """
+    #     Get the rmsd between the current rdkit molecule and the coordinates provided
+    #     :param mol: rdkit representation of the molecule
+    #     :param coordinates: array of the coordinates to compare to
+    #     :return: the rmsd value
+    #     """
+    #
+    # def add_confomer(self, mol, coordinates):
+    #     """"""
 
 class Element:
     """

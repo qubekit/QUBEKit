@@ -4,8 +4,9 @@ qubekit.egg-info
 VEHICLe
 .pytest_cache
 .idea
-*.pdb
 *.mol
+*.pdb
 *.z
 *.csv
 *.dat
+!QUBEKit/tests/files/*

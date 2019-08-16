@@ -282,6 +282,7 @@ class Molecule:
                 self.mol_from_rdkit(self.rdkit_mol)
 
             except AttributeError:
+                print('Could not create ligand from RDKit using default readers')
                 if self.filename.suffix == '.pdb':
                     self.read_pdb()
                 elif self.filename.suffix == '.mol2':
@@ -319,7 +320,6 @@ class Molecule:
                                partial_charge=atom.partial_charge,
                                formal_charge=atom.formal_charge) for i, atom in enumerate(self.atoms)]
 
-    # TODO add mol file reader
     def mol_from_rdkit(self, rdkit_molecule, input_type='input'):
         """
         Unpack a RDKit molecule into the QUBEKit ligand
@@ -334,27 +334,29 @@ class Molecule:
         if self.name is None:
             self.name = rdkit_molecule.GetProp('_Name')
         # Collect the atom names and bonds
-        for i, atom in enumerate(rdkit_molecule.GetAtoms()):
+        for atom in rdkit_molecule.GetAtoms():
             # Collect info about each atom
             try:
                 # PDB file extraction
                 atom_name = atom.GetMonomerInfo().GetName().strip()
-                partial_charge = atom.GetProp('_GasteigerCharge')
             except AttributeError:
                 try:
                     # Mol2 file extraction
                     atom_name = atom.GetProp('_TriposAtomName')
-                    partial_charge = atom.GetProp('_TriposPartialCharge')
                 except KeyError:
-                    # Mol from smiles extraction also catch mol files here
-                    partial_charge = atom.GetProp('_GasteigerCharge')
-                    # smiles does not have atom names so generate them here
-                    atom_name = f'{atom.GetSymbol()}{i}'
+                    # This is ether from a smiles string or a mol file so pass for now and get the general info
+                    pass
+
             atomic_number = atom.GetAtomicNum()
             index = atom.GetIdx()
+            # smiles and mol files have no atom names so generate them here if they are not decleared
+            try:
+                atom_name
+            except NameError:
+                atom_name = f'{atom.GetSymbol()}{index}'
 
             # Instance the basic qube_atom
-            qube_atom = Atom(atomic_number, index, atom_name, partial_charge, atom.GetFormalCharge())
+            qube_atom = Atom(atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge())
             qube_atom.atom_type = atom.GetSmarts()
 
             # Add the atoms as nodes

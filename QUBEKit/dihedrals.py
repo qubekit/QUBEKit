@@ -137,7 +137,7 @@ class TorsionScan:
             if self.qm_engine.__class__.__name__.lower() == 'psi4':
                 tdrive_engine = 'psi4'
             else:
-                tdrive_engine = f'{self.qm_engine.__class__.__name__.lower() + self.molecule.bonds_engine[1:]}'
+                tdrive_engine = f'{self.qm_engine.__class__.__name__.lower()}'
 
             cmd = f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v ' \
                   f'{"--native_opt" if self.native_opt else ""}'
@@ -165,7 +165,7 @@ class TorsionScan:
     def check_run_history(self, scan):
         """
         Check the contents of a scan folder to see if we should continue the run;
-        if the settings are the same then continue
+        if the settings (theory and basis) are the same then continue
         :return: If we should continue the run
         """
 
@@ -173,9 +173,12 @@ class TorsionScan:
         try:
             file_path = os.path.join(os.getcwd(), os.path.join(f'SCAN_{scan[0]}_{scan[1]}', os.path.join('QM_torsiondrive', 'tdrive.log')))
             with open(file_path) as t_log:
-                header = t_log.readline()
+                header = t_log.readline().split('Basis used:')
 
-            return self.molecule.theory == header.split()[2] and self.molecule.basis == header.split()[5]
+            # This is needed for the case of a split theory e.g. EmpiricalDispersion=GD3BJ B3LYP
+            basis = header[1].strip()
+            theory = header[0].split('Theory used:')[1].strip()
+            return self.molecule.theory == theory and self.molecule.basis == basis
 
         except FileNotFoundError:
             return False
@@ -534,7 +537,7 @@ class TorsionOptimiser:
                 # now we don't want to move to far away from the last set of optimized parameters
                 self.starting_params = opt_parameters
                 # turn on the penalty
-                self.l_pen = 0.01
+                self.l_pen = 0.25
 
                 # optimise using the scipy method for the new structures with a penalty to remain close to the old
                 fitting_error, opt_parameters = self.scipy_optimiser()
