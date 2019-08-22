@@ -5,6 +5,7 @@ from QUBEKit.utils.decorators import for_all_methods, timer_logger
 import numpy as np
 
 from rdkit import Chem
+from rdkit.Geometry.rdGeometry import Point3D
 from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem.rdchem import GetPeriodicTable
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
@@ -159,16 +160,34 @@ class RDKit:
 
         return atom_symmetry_classes_dict
 
-    # def get_rmsd(self, mol, coordinates):
-    #     """
-    #     Get the rmsd between the current rdkit molecule and the coordinates provided
-    #     :param mol: rdkit representation of the molecule
-    #     :param coordinates: array of the coordinates to compare to
-    #     :return: the rmsd value
-    #     """
-    #
-    # def add_confomer(self, mol, coordinates):
-    #     """"""
+    def get_conformer_rmsd(self, mol, ref_index, align_index):
+        """
+        Get the rmsd between the current rdkit molecule and the coordinates provided
+        :param mol: rdkit representation of the molecule, conformer 0 is the base
+        :param ref_index: the conformer index of the refernce
+        :param align_index: the conformer index which should be aligned
+        :return: the rmsd value
+        """
+
+        return Chem.AllChem.GetConformerRMS(mol, ref_index, align_index)
+
+    def add_conformer(self, mol, conformer_coordinates):
+        """
+        Add a new conformation to the rdkit molecule
+        :param conformer_coordinates:  A numpy array of the coordinates to be added
+        :param mol: The rdkit molecule instance
+        :return: The rdkit molecule with the conformer added
+        """
+
+        conformer = Chem.Conformer()
+        for i, coord in enumerate(conformer_coordinates):
+            x, y, z = coord
+            atom_position = Point3D(x, y, z)
+            conformer.SetAtomPosition(i, atom_position)
+
+        mol.AddConformer(conformer, assignId=True)
+
+        return mol
 
 class Element:
     """
