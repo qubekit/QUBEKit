@@ -88,3 +88,11 @@ class TopologyMismatch(Exception):
     """
 
     pass
+
+
+class ChargemolError(Exception):
+    """
+    Chargemol did not execute properly.
+    """
+
+    pass

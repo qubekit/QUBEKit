@@ -373,6 +373,8 @@ class Molecule:
         # Collect the atom names and bonds
         for atom in rdkit_molecule.GetAtoms():
             # Collect info about each atom
+            atomic_number = atom.GetAtomicNum()
+            index = atom.GetIdx()
             try:
                 # PDB file extraction
                 atom_name = atom.GetMonomerInfo().GetName().strip()
@@ -381,19 +383,12 @@ class Molecule:
                     # Mol2 file extraction
                     atom_name = atom.GetProp('_TriposAtomName')
                 except KeyError:
-                    # This is ether from a smiles string or a mol file so pass for now and get the general info
-                    pass
+                    # smiles and mol files have no atom names so generate them here if they are not declared
+                    atom_name = f'{atom.GetSymbol()}{index}'
 
-            atomic_number = atom.GetAtomicNum()
-            index = atom.GetIdx()
-            # smiles and mol files have no atom names so generate them here if they are not declared
-            try:
-                atom_name
-            except NameError:
-                atom_name = f'{atom.GetSymbol()}{index}'
+            qube_atom = Atom(atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge())
 
             # Instance the basic qube_atom
-            qube_atom = Atom(atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge())
             qube_atom.atom_type = atom.GetSmarts()
 
             # Add the atoms as nodes
