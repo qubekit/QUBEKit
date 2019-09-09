@@ -96,3 +96,12 @@ class ChargemolError(Exception):
     """
 
     pass
+
+
+class Psi4Error(Exception):
+    """
+    Psi4 did not execute properly
+    """
+
+    pass
+
