@@ -75,6 +75,9 @@ We recommend installing via conda. We have created a conda environment to be use
 To create the environment using the QUBEKit [environment.yml](https://github.com/qubekit/QUBEKit/blob/master/devtools/travis/environment.yml) 
 
     conda env create -f environment.yml
+    
+This allows you to simply save the environment yml file, then run the above command. 
+This will download all necessary packages to a conda environment from which you can freely run QUBEKit.
 
 ### Requirements
 
