@@ -88,3 +88,20 @@ class TopologyMismatch(Exception):
     """
 
     pass
+
+
+class ChargemolError(Exception):
+    """
+    Chargemol did not execute properly.
+    """
+
+    pass
+
+
+class Psi4Error(Exception):
+    """
+    Psi4 did not execute properly
+    """
+
+    pass
+

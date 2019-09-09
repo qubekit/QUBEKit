@@ -41,7 +41,7 @@ class Gaussian(Engines):
         :param restart: Restart from a check point file
         :param execute: Run the calculation after writing the input file
         :param red_mode: If we are doing a redundant mode optimisation this will only add the ModRedundant keyword,
-        the rest of the input is hand wrote or handeled by tdrive when required.
+        the rest of the input is hand wrote or handled by tdrive when required.
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
 
@@ -82,11 +82,10 @@ class Gaussian(Engines):
             if energy:
                 commands += 'SP '
 
-            if self.molecule.solvent:
-                commands += 'SCRF=(IPCM,Read) '
-
             if density:
                 commands += 'density=current OUTPUT=WFX '
+                if self.molecule.solvent:
+                    commands += 'SCRF=(IPCM,Read) '
 
             if restart:
                 commands += 'geom=check'
@@ -105,7 +104,7 @@ class Gaussian(Engines):
             if self.molecule.use_pseudo:
                 input_file.write(f'\n{self.molecule.pseudo_potential_block}')
 
-            if self.molecule.solvent:
+            if density and self.molecule.solvent:
                 # Adds the epsilon and cavity params
                 input_file.write('\n4.0 0.0004')
 

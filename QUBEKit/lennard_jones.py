@@ -150,6 +150,7 @@ class LennardJones:
             'S': [75.2, 134.0, 2.00],
             'Cl': [65.1, 94.6, 1.88],
             'Br': [95.7, 162.0, 1.96],
+            'Si': [101.64, 305, 2.00]
         }
 
         for pos, atom in enumerate(self.ddec_data):

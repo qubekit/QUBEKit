@@ -108,7 +108,7 @@ class ArgsAndConfigs:
 
         # Now we need to remove torsion_test as it is passed from the command line
         if self.args.torsion_test is False:
-            del self.molecule.torsion_test
+            delattr(self.molecule, 'torsion_test')
 
         # Now check if we have been supplied a dihedral file and a constraints file
         if self.args.dihedral_file:
@@ -694,7 +694,7 @@ class Execute:
 
         append_to_log('Starting mm_optimisation')
         # Check which method we want then do the optimisation
-        if molecule.mm_opt_method == 'none':
+        if molecule.mm_opt_method == 'none' or molecule.parameter_engine == 'OpenFF_generics':
             # Skip the optimisation step
             molecule.coords['mm'] = molecule.coords['input']
 
@@ -1050,7 +1050,7 @@ class Execute:
         printf('Torsion testing done!')
 
         # Now we must remove the torsion_test attrib
-        del molecule.torsion_test
+        delattr(molecule, 'torsion_test')
 
         return molecule
 

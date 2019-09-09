@@ -4,6 +4,7 @@ from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import append_to_log, check_symmetry
+from QUBEKit.utils.exceptions import Psi4Error
 
 import subprocess as sp
 
@@ -26,16 +27,16 @@ class PSI4(Engines):
         self.molecule.theory = self.functional_dict.get(self.molecule.theory.lower(), self.molecule.theory)
 
         # Test if PSI4 is callable
-        psi4_test = sp.Popen('psi4 -h', shell=True, stdout=sp.PIPE)
-        output = psi4_test.communicate()[0].decode('utf-8')
-        if not output.startswith('usage:'):
+        try:
+            sp.run('psi4 -h', shell=True, check=True, stdout=sp.PIPE)
+        except sp.CalledProcessError:
             raise ModuleNotFoundError(
                 'PSI4 not working. Please ensure PSI4 is installed and can be called with the command: psi4')
 
         if self.molecule.geometric:
-            geo_test = sp.Popen('geometric-optimize -h', shell=True, stdout=sp.PIPE)
-            output = geo_test.communicate()[0].decode('utf-8')
-            if not output.startswith('usage: '):
+            try:
+                sp.run('geometric-optimize -h', shell=True, check=True, stdout=sp.PIPE)
+            except sp.CalledProcessError:
                 raise ModuleNotFoundError(
                     'Geometric not working. Please ensure geometric is installed and can be called '
                     'with the command: geometric-optimize')
@@ -123,7 +124,10 @@ class PSI4(Engines):
 
         if execute:
             with open('log.txt', 'w+') as log:
-                sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log)
+                try:
+                    sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log, check=True)
+                except sp.CalledProcessError:
+                    raise Psi4Error('Psi4 did not execute successfully check log file for details.')
 
             # Now check the exit status of the job
             return self.check_for_errors()
@@ -131,8 +135,7 @@ class PSI4(Engines):
         else:
             return {'success': False, 'error': 'Not run'}
 
-    @staticmethod
-    def check_for_errors():
+    def check_for_errors(self):
         """
         Read the output file from the job and check for normal termination and any errors
         :return: A dictionary of the success status and any problems.

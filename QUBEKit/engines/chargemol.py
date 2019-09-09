@@ -3,6 +3,7 @@
 from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import append_to_log
+from QUBEKit.utils.exceptions import ChargemolError
 
 import os
 import subprocess as sp
@@ -42,7 +43,15 @@ class Chargemol(Engines):
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
 
         if execute:
+            # Export a variable to the environment that chargemol will use to work out the threads, must be a string
+            os.environ['OMP_NUM_THREADS'] = str(self.molecule.threads)
             with open('log.txt', 'w+') as log:
                 control_path = 'chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/' \
-                               'Chargemol_09_26_2017_linux_serial job_control.txt'
-                sp.run(os.path.join(self.molecule.chargemol, control_path), shell=True, stdout=log, stderr=log)
+                               'Chargemol_09_26_2017_linux_parallel job_control.txt'
+                try:
+                    sp.run(os.path.join(self.molecule.chargemol, control_path), shell=True, stdout=log, stderr=log,
+                           check=True)
+                except sp.CalledProcessError:
+                    raise ChargemolError('Chargemol did not execute properly check the output file for details.')
+
+                del os.environ['OMP_NUM_THREADS']

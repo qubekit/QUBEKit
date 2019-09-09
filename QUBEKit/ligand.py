@@ -32,7 +32,7 @@ class Atom:
         self.atomic_number = atomic_number
         # The actual atomic name as per periodic table e.g. C, F, Pb, etc
         self.atomic_mass = Element().mass(atomic_number)
-        self.atomic_symbol = Element().name(atomic_number)
+        self.atomic_symbol = Element().name(atomic_number).title()
         # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
         self.atom_name = atom_name
         self.atom_index = atom_index
@@ -325,8 +325,8 @@ class Molecule:
 
         input_file = Path(input_file)
         try:
-            self.rdkit_mol = RDKit().read_file(input_file)
-            self.mol_from_rdkit(self.rdkit_mol, input_type=input_type)
+            rdkit_mol = RDKit().read_file(input_file)
+            self.mol_from_rdkit(rdkit_mol, input_type=input_type)
         except AttributeError:
             if input_type == 'input':
                 print('Could not create ligand from RDKit using default readers')
@@ -373,6 +373,8 @@ class Molecule:
         # Collect the atom names and bonds
         for atom in rdkit_molecule.GetAtoms():
             # Collect info about each atom
+            atomic_number = atom.GetAtomicNum()
+            index = atom.GetIdx()
             try:
                 # PDB file extraction
                 atom_name = atom.GetMonomerInfo().GetName().strip()
@@ -381,19 +383,12 @@ class Molecule:
                     # Mol2 file extraction
                     atom_name = atom.GetProp('_TriposAtomName')
                 except KeyError:
-                    # This is ether from a smiles string or a mol file so pass for now and get the general info
-                    pass
+                    # smiles and mol files have no atom names so generate them here if they are not declared
+                    atom_name = f'{atom.GetSymbol()}{index}'
 
-            atomic_number = atom.GetAtomicNum()
-            index = atom.GetIdx()
-            # smiles and mol files have no atom names so generate them here if they are not declared
-            try:
-                atom_name
-            except NameError:
-                atom_name = f'{atom.GetSymbol()}{index}'
+            qube_atom = Atom(atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge())
 
             # Instance the basic qube_atom
-            qube_atom = Atom(atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge())
             qube_atom.atom_type = atom.GetSmarts()
 
             # Add the atoms as nodes
@@ -413,14 +408,15 @@ class Molecule:
         # Now get any descriptors we can find
         descriptors = RDKit().rdkit_descriptors(rdkit_molecule)
 
-        self._validate_info(topology, atoms, coords, input_type, descriptors)
+        self._validate_info(topology, atoms, coords, input_type, rdkit_molecule, descriptors)
 
-    def _validate_info(self, topology, atoms, coords, input_type, descriptors=None):
+    def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule, descriptors=None):
         """
         Check if the provided infomation should be stored or not
         :param topology: networkx graph of the topology
         :param atoms: a list of Atom objects
         :param coords: a numpy array of the coords
+        :param rdkit_molecule: the rdkit molecule we have extracted the info from
         :param descriptors: a dictionary of the rdkit descriptors
         :return: the updated ligand object
         """
@@ -431,6 +427,7 @@ class Molecule:
             self.atoms = atoms
             self.descriptors = descriptors
             self.coords[input_type] = coords
+            self.rdkit_mol = rdkit_molecule
         else:
             # Check if the new topology is the same then store the new coordinates
             if nx.algorithms.is_isomorphic(self.topology, topology):
@@ -1240,7 +1237,7 @@ class Ligand(DefaultsMixin, Molecule):
             for i, atom in enumerate(molecule):
                 pdb_file.write(
                     f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
-                    f'  1.00  0.00         {self.atoms[i].atomic_symbol.upper():>3}\n')
+                    f'  1.00  0.00         {self.atoms[i].atomic_symbol.title():>3}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:
