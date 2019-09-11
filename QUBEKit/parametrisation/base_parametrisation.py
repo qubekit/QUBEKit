@@ -5,6 +5,7 @@ from collections import OrderedDict
 from copy import deepcopy
 
 import xml.etree.ElementTree as ET
+import numpy as np
 
 
 class Parametrisation:
@@ -161,7 +162,19 @@ class Parametrisation:
                         # if they match tag the dihedral
                         self.molecule.PeriodicTorsionForce[key].append('Improper')
                         # replace the key with the strict improper order first atom is center
-                        improper_torsions[improper] = val
+                        improper_torsions.setdefault(improper, []).append(val)
+
+            # If the improper has been split across multiple combinations we need to collapse them to one
+            for improper, params in improper_torsions.items():
+                if len(params) != 1:
+                    # Now we have to sum the k values across the same terms
+                    # sum the ka values
+                    new_params = params[0]
+                    for values in params[1:]:
+                        for i in range(4):
+                            new_params[i][1] += values[i][1]
+                    # store the summed k values
+                    improper_torsions[improper] = new_params
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
         # Remake the torsion; store in the ligand

@@ -648,8 +648,9 @@ class Molecule:
         for node in self.topology.nodes:
             near = sorted(list(nx.neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
-            # Check if an sp2 carbon
-            if len(near) == 3 and self.atoms[node].atomic_symbol == 'C':
+            # Check if an sp2 carbon or N
+            if len(near) == 3 and (self.atoms[node].atomic_symbol == 'C' or self.atoms[node].atomic_symbol == 'N'):
+                # Store each combination of the improper torsion
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
         if improper_torsions:
@@ -1173,7 +1174,7 @@ class Molecule:
         :return: The molecule with the scan_order saved
         """
 
-        # If we have a QUBE_torsions.txt file get the scan order from there
+        # If we have a QUBE.dihedrals file get the scan order from there
         scan_order = []
         torsions = open(file).readlines()
         for line in torsions[2:]:

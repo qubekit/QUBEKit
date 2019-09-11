@@ -128,6 +128,10 @@ class TorsionScan:
     def start_torsiondrive(self, scan):
         """Start a torsiondrive either using psi4 or native gaussian09"""
 
+        # TODO maybe we should be using the json api to have more control over the engine settings
+        #  we could also run multiple grid points at the same time, progress reporting would also be
+        #  better
+
         # First set up the required files
         self.tdrive_scan_input(scan)
 
@@ -1074,7 +1078,6 @@ class TorsionOptimiser:
         :return:
         """
 
-        print(extra_points)
         # Make sure we have the same number of energy terms in the QM and MM lists
         assert len(self.qm_energy) == len(self.mm_energy)
 
