@@ -412,7 +412,7 @@ class Molecule:
 
     def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule, descriptors=None):
         """
-        Check if the provided infomation should be stored or not
+        Check if the provided information should be stored or not
         :param topology: networkx graph of the topology
         :param atoms: a list of Atom objects
         :param coords: a numpy array of the coords
@@ -441,7 +441,6 @@ class Molecule:
         Then reads through the connection tags and builds a connectivity network
         (only works if connections are present in PDB file).
         Bonds are easily found through the edges of the network.
-        Can also generate a simple plot of the network.
         """
 
         with open(input_file, 'r') as pdb:
@@ -493,6 +492,7 @@ class Molecule:
     def read_mol2(self, input_file, input_type='input'):
         """
         Read an input mol2 file and extract the atom names, positions, atom types and bonds.
+        :param input_file:
         :param input_type: Assign the structure to right holder, input, mm, qm, temp or traj.
         :return: The object back into the right place.
         """
@@ -652,8 +652,7 @@ class Molecule:
             if len(near) == 3 and self.atoms[node].atomic_symbol == 'C':
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
-        if improper_torsions:
-            self.improper_torsions = improper_torsions
+        self.improper_torsions = improper_torsions or None
 
     def find_angles(self):
         """
@@ -677,8 +676,7 @@ class Molecule:
 
                     angles.append((atom1, node, atom3))
 
-        if angles:
-            self.angles = angles
+        self.angles = angles or None
 
     def find_bond_lengths(self, input_type='input'):
         """For the given molecule and topology find the length of all of the bonds."""
@@ -693,8 +691,7 @@ class Molecule:
             bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
 
         # Check if the dictionary is full then store else leave as None
-        if bond_lengths:
-            self.bond_lengths = bond_lengths
+        self.bond_lengths = bond_lengths or None
 
     def find_dihedrals(self):
         """
@@ -725,8 +722,7 @@ class Molecule:
                                 # Add the tuple to the correct key.
                                 dihedrals[edge].append((start, edge[0], edge[1], end))
 
-        if dihedrals:
-            self.dihedrals = dihedrals
+        self.dihedrals = dihedrals or None
 
     def find_rotatable_dihedrals(self):
         """
@@ -749,8 +745,7 @@ class Molecule:
                 # Add edge back to the network and try next key
                 self.topology.add_edge(*key)
 
-            if rotatable:
-                self.rotatable = rotatable
+            self.rotatable = rotatable or None
 
     def get_dihedral_values(self, input_type='input'):
         """
@@ -773,8 +768,7 @@ class Molecule:
                     t2 = np.dot(np.cross(b1, b2), np.cross(b2, b3))
                     dih_phis[torsion] = np.degrees(np.arctan2(t1, t2))
 
-            if dih_phis:
-                self.dih_phis = dih_phis
+            self.dih_phis = dih_phis or None
 
     def get_angle_values(self, input_type='input'):
         """
@@ -794,8 +788,7 @@ class Molecule:
             cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
             angle_values[angle] = np.degrees(np.arccos(cosine_angle))
 
-        if angle_values:
-            self.angle_values = angle_values
+        self.angle_values = angle_values or None
 
     def symmetrise_bonded_parameters(self):
         """
@@ -1261,13 +1254,13 @@ class Protein(DefaultsMixin, Molecule):
         self.residues = None
         self.home = os.getcwd()
 
-    def read_pdb(self, input_type='input'):
+    def read_pdb(self, input_file, input_type='input'):
         """
         Read the pdb file which probably does not have the right connections,
         so we need to find them using QUBE.xml
         """
 
-        with open(self.filename, 'r') as pdb:
+        with open(input_file, 'r') as pdb:
             lines = pdb.readlines()
 
         protein = []

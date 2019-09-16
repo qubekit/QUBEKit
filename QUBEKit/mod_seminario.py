@@ -271,7 +271,7 @@ class ModSeminario:
                 ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(angle[::-1], self.bond_lens, eigenvals, eigenvecs, self.coords, scalings[::-1])
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
-                k_theta[i] = (self.molecule.vib_scaling ** 2) * ((ab_k_theta + ba_k_theta) / 2)
+                k_theta[i] = ((ab_k_theta + ba_k_theta) / 2) * (self.molecule.vib_scaling ** 2)
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
                 angle_file.write(f'{self.molecule.atoms[angle[0]].atom_name}-{self.molecule.atoms[angle[1]].atom_name}-{self.molecule.atoms[angle[2]].atom_name}  ')
