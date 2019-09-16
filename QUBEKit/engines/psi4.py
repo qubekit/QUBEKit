@@ -131,8 +131,7 @@ class PSI4(Engines):
         else:
             return {'success': False, 'error': 'Not run'}
 
-    @staticmethod
-    def check_for_errors():
+    def check_for_errors(self):
         """
         Read the output file from the job and check for normal termination and any errors
         :return: A dictionary of the success status and any problems.
