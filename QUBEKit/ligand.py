@@ -226,6 +226,7 @@ class Molecule:
         self.NonbondedForce = None
         self.bond_types = None
         self.angle_types = None
+        self.dihedral_types = None
 
         self.combination = None
         self.sites = None
@@ -410,7 +411,7 @@ class Molecule:
 
         self._validate_info(topology, atoms, coords, input_type, rdkit_molecule, descriptors)
 
-    def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule, descriptors=None):
+    def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule=None, descriptors=None):
         """
         Check if the provided information should be stored or not
         :param topology: networkx graph of the topology
@@ -648,8 +649,9 @@ class Molecule:
         for node in self.topology.nodes:
             near = sorted(list(nx.neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
-            # Check if an sp2 carbon
-            if len(near) == 3 and self.atoms[node].atomic_symbol == 'C':
+            # Check if an sp2 carbon or N
+            if len(near) == 3 and (self.atoms[node].atomic_symbol == 'C' or self.atoms[node].atomic_symbol == 'N'):
+                # Store each combination of the improper torsion
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
         self.improper_torsions = improper_torsions or None
@@ -671,7 +673,7 @@ class Molecule:
 
             # Find all possible angle combinations from the list
             for i in range(len(bonded)):
-                for j in range(i + 1, len(bonded)):
+                for j in range(i + 1, len(bonded), 1):
                     atom1, atom3 = bonded[i], bonded[j]
 
                     angles.append((atom1, node, atom3))
@@ -1039,9 +1041,11 @@ class Molecule:
             bond_symmetry_classes[bond] = (f'{self.atom_symmetry_classes[bond[0]]}-'
                                            f'{self.atom_symmetry_classes[bond[1]]}')
 
-        self.bond_types = {}
+        bond_types = {}
         for key, val in bond_symmetry_classes.items():
-            self.bond_types.setdefault(val, []).append(key)
+            bond_types.setdefault(val, []).append(key)
+
+        self.bond_types = self._cluster_types(bond_types)
 
     def get_angle_equiv_classes(self):
         """
@@ -1058,9 +1062,52 @@ class Molecule:
                                              f'{self.atom_symmetry_classes[angle[1]]}-'
                                              f'{self.atom_symmetry_classes[angle[2]]}')
 
-        self.angle_types = {}
+        angle_types = {}
         for key, val in angle_symmetry_classes.items():
-            self.angle_types.setdefault(val, []).append(key)
+            angle_types.setdefault(val, []).append(key)
+
+        self.angle_types = self._cluster_types(angle_types)
+
+    def get_dihedral_equiv_classes(self):
+        """
+        Using the symmetry dict, give each dihedral a code. If any codes match, the dihedrals can be clustered and their
+        parameters should be the same, this is to be used in dihedral fitting so all symmetry equivalent dihedrals are
+        optimised at the same time. dihedral_equiv_classes = {(0, 1, 2 ,3): '1-1-2-1'...} all of the tuples are the
+        dihedrals index by topology and the strings are the symmetry equivalent atom combinations.
+        """
+
+        dihedral_symmetry_classes = {}
+        for dihedral_set in self.dihedrals.values():
+            for dihedral in dihedral_set:
+                dihedral_symmetry_classes[tuple(dihedral)] = (f'{self.atom_symmetry_classes[dihedral[0]]}-'
+                                                              f'{self.atom_symmetry_classes[dihedral[1]]}-'
+                                                              f'{self.atom_symmetry_classes[dihedral[2]]}-'
+                                                              f'{self.atom_symmetry_classes[dihedral[3]]}')
+
+        dihedral_types = {}
+        for key, val in dihedral_symmetry_classes.items():
+            dihedral_types.setdefault(val, []).append(key)
+
+        self.dihedral_types = self._cluster_types(dihedral_types)
+
+    def _cluster_types(self, equiv_classes):
+        """
+        Function that helps the bond angle and dihedral class finders in clustering the types based on the forward and
+        backward type strings.
+        :return: clustered equiv class
+        """
+
+        new_classes = {}
+        for key, item in equiv_classes.items():
+            try:
+                new_classes[key].extend(item)
+            except KeyError:
+                try:
+                    new_classes[key[::-1]].extend(item)
+                except KeyError:
+                    new_classes[key] = item
+
+        return new_classes
 
     def symmetrise_from_topo(self):
         """
@@ -1079,6 +1126,7 @@ class Molecule:
 
             self.get_bond_equiv_classes()
             self.get_angle_equiv_classes()
+            self.get_dihedral_equiv_classes()
 
         methyl_hs, amine_hs, other_hs = [], [], []
         methyl_amine_nitride_cores = []
@@ -1166,16 +1214,16 @@ class Molecule:
         :return: The molecule with the scan_order saved
         """
 
-        # If we have a QUBE_torsions.txt file get the scan order from there
+        # If we have a QUBE.dihedrals file get the scan order from there
         scan_order = []
         torsions = open(file).readlines()
         for line in torsions[2:]:
             torsion = line.split()
             if len(torsion) == 4:
                 core = (int(torsion[1]), int(torsion[2]))
-                if core in self.rotatable:
+                if core in self.dihedrals.keys():
                     scan_order.append(core)
-                elif reversed(tuple(core)) in self.rotatable:
+                elif reversed(tuple(core)) in self.dihedrals.keys():
                     scan_order.append(reversed(tuple(core)))
 
         self.scan_order = scan_order

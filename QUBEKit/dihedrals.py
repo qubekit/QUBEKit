@@ -55,7 +55,7 @@ class TorsionScan:
         # We need just a regular convergence criteria at this point
         self.molecule.convergence = 'GAU'
         self.constraints_made = constraints_made
-        self.grid_space = [molecule.increment]
+        self.grid_space = molecule.increment
         self.scan_start = molecule.dih_start
         self.scan_end = molecule.dih_end
 
@@ -109,9 +109,18 @@ class TorsionScan:
         with open('dihedrals.txt', 'w+') as out:
 
             out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering\n'
-                      '# i     j     k     l\n')
+                      '# i     j     k     l     ')
+            # This adds suport for range limited runs but is only need if we move away from the default range
+            if self.molecule.dih_start != -165 or self.molecule.dih_end != 180:
+                out.write('(range_low)     (range_high)\n')
+            else:
+                out.write('\n')
             scan_di = self.molecule.dihedrals[scan][0]
-            out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}\n')
+            out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}     ')
+            if self.molecule.dih_start != -165 or self.molecule.dih_end != 180:
+                out.write(f'{self.molecule.dih_start}     {self.molecule.dih_end}\n')
+            else:
+                out.write('\n')
 
         # Then write the template input file for tdrive in g09 or psi4 format
         if self.native_opt:
@@ -128,6 +137,10 @@ class TorsionScan:
     def start_torsiondrive(self, scan):
         """Start a torsiondrive either using psi4 or native gaussian09"""
 
+        # TODO maybe we should be using the json api to have more control over the engine settings
+        #  we could also run multiple grid points at the same time, progress reporting would also be
+        #  better
+
         # First set up the required files
         self.tdrive_scan_input(scan)
 
@@ -141,7 +154,7 @@ class TorsionScan:
             else:
                 tdrive_engine = f'{self.qm_engine.__class__.__name__.lower()}'
 
-            cmd = f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v ' \
+            cmd = f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -g {self.grid_space} -v ' \
                   f'{"--native_opt" if self.native_opt else ""}'
             sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
 
@@ -889,81 +902,110 @@ class TorsionOptimiser:
         make a vector corresponding to this size.
         """
 
-        # Get a list of which dihedrals parameters are to be varied
+        # Get a list of which dihedrals parameters are to be varied through the scanned bond
         to_fit = [tuple(tor) for tor in list(self.molecule.dihedrals[self.scan])]
+        # Now expand to include all symmetry equivalent dihedrals
+        torsions_and_types = {}
+        for key, dihedral_class in self.molecule.dihedral_types.items():
+            for dihedral in dihedral_class:
+                if dihedral in to_fit or tuple(reversed(dihedral)) in to_fit:
+                    torsions_and_types[key] = dihedral_class
+                    # once the whole class is added move the next
+                    break
 
         # Check which ones have the same parameters and how many torsion vectors we need
         self.tor_types = OrderedDict()
 
+        # now populate the tor_types dict eg {0: [[(torsion key)], [starting param vector]
+        # [openMM system index of first torsion], [symmetry type]]
         i = 0
-        while to_fit:
-            # Get the current torsion
-            torsion = to_fit.pop(0)
-
-            # Get the torsions param vector used to compare to others
-            # The master vector could be backwards so try one way and if keyerror try the other
+        for symmetry_key, torsions in torsions_and_types.items():
+            torsion = torsions[0]
             try:
                 master_vector = [float(self.torsion_store[torsion][i][1]) for i in range(4)]
             except KeyError:
                 torsion = torsion[::-1]
                 master_vector = [float(self.torsion_store[torsion][i][1]) for i in range(4)]
 
-            # Add this type to the torsion type dictionary with the right key index
-            try:
-                self.tor_types[i] = [[torsion], master_vector, [self.index_dict[torsion]]]
-            except KeyError:
-                self.tor_types[i] = [[torsion], master_vector, [self.index_dict[tuple(reversed(torsion))]]]
-
-            to_remove = []
-            # Iterate over what is left of the list to see what other torsions are the same as the master
-            for dihedral in to_fit:
-                # Again, try both directions
+            self.tor_types[i] = [torsions, master_vector, [], symmetry_key]
+            # Now add in all of the openmm system parameter index
+            for torsion in torsions:
                 try:
-                    vector = [float(self.torsion_store[dihedral][i][1]) for i in range(4)]
+                    self.tor_types[i][2].append(self.index_dict[torsion])
                 except KeyError:
-                    dihedral = dihedral[::-1]
-                    vector = [float(self.torsion_store[dihedral][i][1]) for i in range(4)]
+                    self.tor_types[i][2].append(self.index_dict[tuple(reversed(torsion))])
 
-                # See if that vector is the same as the master vector
-                if vector == master_vector:
-                    try:
-                        self.tor_types[i][2].append(self.index_dict[dihedral])
-                        self.tor_types[i][0].append(dihedral)
-                    except KeyError:
-                        self.tor_types[i][2].append(self.index_dict[tuple(reversed(dihedral))])
-                        self.tor_types[i][0].append(tuple(reversed(dihedral)))
-                    to_remove.append(dihedral)
-
-            # Remove all of the dihedrals that have been matched
-            for dihedral in to_remove:
-                try:
-                    to_fit.remove(dihedral)
-                except ValueError:
-                    to_fit.remove(dihedral[::-1])
             i += 1
 
-        # Now that we have grouped by param vectors we need to compare the atom types that make up the torsions
-        # then if they are different we need to further split the torsions
-        # first construct the dictionary of type strings
-        torsion_string_dict = {}
-        for index, tor_info in self.tor_types.items():
-            for j, torsion in enumerate(tor_info[0]):
-                # get the tuple of the torsion string
-                tor_tup = tuple(self.molecule.atoms[torsion[i]].atomic_symbol for i in range(4))
-                # check if its in the torsion string dict
-                try:
-                    torsion_string_dict[tor_tup][0].append(torsion)
-                    torsion_string_dict[tor_tup][2].append(tor_info[2][j])
-                except KeyError:
-                    try:
-                        torsion_string_dict[tuple(reversed(tor_tup))][0].append(torsion)
-                        torsion_string_dict[tuple(reversed(tor_tup))][2].append(tor_info[2][j])
-                    except KeyError:
-                        torsion_string_dict[tor_tup] = [[torsion], tor_info[1], [tor_info[2][j]]]
-
-        self.tor_types = OrderedDict((index, k) for index, k in enumerate(torsion_string_dict.values()))
-        # Make the param_vector of the correct size
-        # self.param_vector = np.zeros((1, 4 * len(self.tor_types)))
+        # i = 0
+        # while to_fit:
+        #     # Get the current torsion
+        #     torsion = to_fit.pop(0)
+        #
+        #     # Get the torsions param vector used to compare to others
+        #     # The master vector could be backwards so try one way and if keyerror try the other
+        #     try:
+        #         master_vector = [float(self.torsion_store[torsion][i][1]) for i in range(4)]
+        #     except KeyError:
+        #         torsion = torsion[::-1]
+        #         master_vector = [float(self.torsion_store[torsion][i][1]) for i in range(4)]
+        #
+        #     # Add this type to the torsion type dictionary with the right key index
+        #     try:
+        #         self.tor_types[i] = [[torsion], master_vector, [self.index_dict[torsion]], symmetry_type]
+        #     except KeyError:
+        #         self.tor_types[i] = [[torsion], master_vector, [self.index_dict[tuple(reversed(torsion))]], symmetry_type]
+        #
+        #     to_remove = []
+        #     # Iterate over what is left of the list to see what other torsions are the same as the master
+        #     for dihedral in to_fit:
+        #         # Again, try both directions
+        #         try:
+        #             vector = [float(self.torsion_store[dihedral][i][1]) for i in range(4)]
+        #         except KeyError:
+        #             dihedral = dihedral[::-1]
+        #             vector = [float(self.torsion_store[dihedral][i][1]) for i in range(4)]
+        #
+        #         # See if that vector is the same as the master vector
+        #         if vector == master_vector:
+        #             try:
+        #                 self.tor_types[i][2].append(self.index_dict[dihedral])
+        #                 self.tor_types[i][0].append(dihedral)
+        #             except KeyError:
+        #                 self.tor_types[i][2].append(self.index_dict[tuple(reversed(dihedral))])
+        #                 self.tor_types[i][0].append(tuple(reversed(dihedral)))
+        #             to_remove.append(dihedral)
+        #
+        #     # Remove all of the dihedrals that have been matched
+        #     for dihedral in to_remove:
+        #         try:
+        #             to_fit.remove(dihedral)
+        #         except ValueError:
+        #             to_fit.remove(dihedral[::-1])
+        #     i += 1
+        #
+        # # Now that we have grouped by param vectors we need to compare the atom types that make up the torsions
+        # # then if they are different we need to further split the torsions
+        # # first construct the dictionary of type strings
+        # torsion_string_dict = {}
+        # for index, tor_info in self.tor_types.items():
+        #     for j, torsion in enumerate(tor_info[0]):
+        #         # get the tuple of the torsion string
+        #         tor_tup = tuple(self.molecule.atoms[torsion[i]].atomic_symbol for i in range(4))
+        #         # check if its in the torsion string dict
+        #         try:
+        #             torsion_string_dict[tor_tup][0].append(torsion)
+        #             torsion_string_dict[tor_tup][2].append(tor_info[2][j])
+        #         except KeyError:
+        #             try:
+        #                 torsion_string_dict[tuple(reversed(tor_tup))][0].append(torsion)
+        #                 torsion_string_dict[tuple(reversed(tor_tup))][2].append(tor_info[2][j])
+        #             except KeyError:
+        #                 torsion_string_dict[tor_tup] = [[torsion], tor_info[1], [tor_info[2][j]]]
+        #
+        # self.tor_types = OrderedDict((index, k) for index, k in enumerate(torsion_string_dict.values()))
+        # # Make the param_vector of the correct size
+        # # self.param_vector = np.zeros((1, 4 * len(self.tor_types)))
         self.param_vector = np.array([0 for _ in range(4) for _ in range(len(self.tor_types))])
 
         # now take the master vectors and make the starting parameter list
@@ -1074,7 +1116,6 @@ class TorsionOptimiser:
         :return:
         """
 
-        print(extra_points)
         # Make sure we have the same number of energy terms in the QM and MM lists
         assert len(self.qm_energy) == len(self.mm_energy)
 
