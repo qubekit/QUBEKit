@@ -411,7 +411,7 @@ class Molecule:
 
         self._validate_info(topology, atoms, coords, input_type, rdkit_molecule, descriptors)
 
-    def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule, descriptors=None):
+    def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule=None, descriptors=None):
         """
         Check if the provided infomation should be stored or not
         :param topology: networkx graph of the topology
@@ -674,7 +674,7 @@ class Molecule:
 
             # Find all possible angle combinations from the list
             for i in range(len(bonded)):
-                for j in range(i + 1, len(bonded)):
+                for j in range(i + 1, len(bonded), 1):
                     atom1, atom3 = bonded[i], bonded[j]
 
                     angles.append((atom1, node, atom3))
