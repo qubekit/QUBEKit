@@ -5,6 +5,7 @@ from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from openforcefield.topology import Molecule
 from openforcefield.typing.engines.smirnoff import ForceField, BondHandler, AngleHandler, ProperTorsionHandler, vdWHandler
+from openforcefield.typing.engines.smirnoff.parameters import UnassignedValenceParameterException, UnassignedValenceParameterException
 
 from simtk.openmm import XmlSerializer
 from simtk import unit
@@ -43,7 +44,7 @@ class OpenFF(Parametrisation):
         try:
             # Parametrize the topology and create an OpenMM System.
             system = forcefield.create_openmm_system(off_topology)
-        except TypeError:
+        except (UnassignedValenceParameterException, TypeError, UnassignedValenceParameterException):
             # If this does not work then we have a moleucle that is not in SMIRNOFF so we must add generics
             # and remove the charge handler to get some basic parameters for the moleucle
             new_bond = BondHandler.BondType(smirks='[*:1]~[*:2]', length="0 * angstrom", k="0.0 * angstrom**-2 * mole**-1 * kilocalorie")

@@ -109,10 +109,18 @@ class TorsionScan:
         with open('dihedrals.txt', 'w+') as out:
 
             out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering\n'
-                      '# i     j     k     l     (range_low)     (range_high)\n')
+                      '# i     j     k     l     ')
+            # This adds suport for range limited runs but is only need if we move away from the default range
+            if self.molecule.dih_start != -165 or self.molecule.dih_end != 180:
+                out.write('(range_low)     (range_high)\n')
+            else:
+                out.write('\n')
             scan_di = self.molecule.dihedrals[scan][0]
-            out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}     {self.molecule.dih_start}'
-                      f'     {self.molecule.dih_end}\n')
+            out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}     ')
+            if self.molecule.dih_start != -165 or self.molecule.dih_end != 180:
+                out.write(f'{self.molecule.dih_start}     {self.molecule.dih_end}\n')
+            else:
+                out.write('\n')
 
         # Then write the template input file for tdrive in g09 or psi4 format
         if self.native_opt:
