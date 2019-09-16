@@ -55,7 +55,7 @@ class TorsionScan:
         # We need just a regular convergence criteria at this point
         self.molecule.convergence = 'GAU'
         self.constraints_made = constraints_made
-        self.grid_space = [molecule.increment]
+        self.grid_space = molecule.increment
         self.scan_start = molecule.dih_start
         self.scan_end = molecule.dih_end
 
@@ -109,9 +109,10 @@ class TorsionScan:
         with open('dihedrals.txt', 'w+') as out:
 
             out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering\n'
-                      '# i     j     k     l\n')
+                      '# i     j     k     l     (range_low)     (range_high)\n')
             scan_di = self.molecule.dihedrals[scan][0]
-            out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}\n')
+            out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}     {self.molecule.dih_start}'
+                      f'     {self.molecule.dih_end}\n')
 
         # Then write the template input file for tdrive in g09 or psi4 format
         if self.native_opt:
@@ -145,7 +146,7 @@ class TorsionScan:
             else:
                 tdrive_engine = f'{self.qm_engine.__class__.__name__.lower()}'
 
-            cmd = f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v ' \
+            cmd = f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -g {self.grid_space} -v ' \
                   f'{"--native_opt" if self.native_opt else ""}'
             sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
 

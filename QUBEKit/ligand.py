@@ -1181,9 +1181,9 @@ class Molecule:
             torsion = line.split()
             if len(torsion) == 4:
                 core = (int(torsion[1]), int(torsion[2]))
-                if core in self.rotatable:
+                if core in self.dihedrals.keys():
                     scan_order.append(core)
-                elif reversed(tuple(core)) in self.rotatable:
+                elif reversed(tuple(core)) in self.dihedrals.keys():
                     scan_order.append(reversed(tuple(core)))
 
         self.scan_order = scan_order

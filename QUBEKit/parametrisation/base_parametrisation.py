@@ -173,8 +173,10 @@ class Parametrisation:
                     for values in params[1:]:
                         for i in range(4):
                             new_params[i][1] += values[i][1]
-                    # store the summed k values
+                    # Store the summed k values
                     improper_torsions[improper] = new_params
+                else:
+                    improper_torsions[improper] = params[0]  # This unpacks the list if we only find one term
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
         # Remake the torsion; store in the ligand
