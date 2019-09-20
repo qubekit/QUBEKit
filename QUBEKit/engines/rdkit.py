@@ -19,17 +19,15 @@ class RDKit:
 
     def read_file(self, filename):
 
-        # Try and read the file
+        # Try to read the file
         if filename.suffix == '.pdb':
-            mol = Chem.MolFromPDBFile(filename.name, removeHs=False)
+            return Chem.MolFromPDBFile(filename.name, removeHs=False)
         elif filename.suffix == '.mol2':
-            mol = Chem.MolFromMol2File(filename.name, removeHs=False)
+            return Chem.MolFromMol2File(filename.name, removeHs=False)
         elif filename.suffix == '.mol':
-            mol = Chem.MolFromMolFile(filename.name, removeHs=False)
+            return Chem.MolFromMolFile(filename.name, removeHs=False)
         else:
-            mol = None
-
-        return mol
+            return None
 
     def smiles_to_rdkit_mol(self, smiles_string, name=None):
         """
@@ -74,11 +72,13 @@ class RDKit:
         """
 
         # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
-        return {'Heavy atoms': Descriptors.HeavyAtomCount(rdkit_mol),
-                'H-bond donors': Descriptors.NumHDonors(rdkit_mol),
-                'H-bond acceptors': Descriptors.NumHAcceptors(rdkit_mol),
-                'Molecular weight': Descriptors.MolWt(rdkit_mol),
-                'LogP': Descriptors.MolLogP(rdkit_mol)}
+        return {
+            'Heavy atoms': Descriptors.HeavyAtomCount(rdkit_mol),
+            'H-bond donors': Descriptors.NumHDonors(rdkit_mol),
+            'H-bond acceptors': Descriptors.NumHAcceptors(rdkit_mol),
+            'Molecular weight': Descriptors.MolWt(rdkit_mol),
+            'LogP': Descriptors.MolLogP(rdkit_mol)
+        }
 
     def get_smiles(self, filename):
         """
@@ -181,13 +181,13 @@ class RDKit:
 
         conformer = Chem.Conformer()
         for i, coord in enumerate(conformer_coordinates):
-            x, y, z = coord
-            atom_position = Point3D(x, y, z)
+            atom_position = Point3D(*coord)
             conformer.SetAtomPosition(i, atom_position)
 
         mol.AddConformer(conformer, assignId=True)
 
         return mol
+
 
 class Element:
     """

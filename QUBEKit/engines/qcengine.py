@@ -91,10 +91,9 @@ class QCEngine(Engines):
                 },
                 'initial_molecule': mol,
             }
-            ret = qcng.compute_procedure(
+            return qcng.compute_procedure(
                 geo_task, 'geometric', return_dict=True, local_options={'memory': self.molecule.memory,
                                                                         'ncores': self.molecule.threads})
-            return ret
 
         else:
             raise KeyError('Invalid engine type provided. Please use "geo" or "psi4".')

@@ -289,12 +289,12 @@ class Molecule:
 
     def read_input(self):
         """
-        The base input reader used upon instancing the class; it will decide which reader to use
+        The base input reader used upon class instantiation; it will decide how to handle the input
         based on the file suffix, smiles string or qc_json.
         """
 
-        # Dicts are used by qc_json
-        if isinstance(self.mol_input, dict):
+        # Molecule classes are used by qc_json
+        if self.mol_input.__class__.__name__ == 'Molecule':
             self.qc_json = self.mol_input
             self.read_qc_json()
 
@@ -315,9 +315,8 @@ class Molecule:
 
     def read_file(self, input_file, input_type):
         """
-        A general file reader that should not be used to instantiate the class,
-        first we choose which sub file reader to use then ensure that the topology matches that of the original molecule,
-        before storing the new coordinates in the requested type.
+        A general file reader that should not be used to instantiate the class.
+        Attempts to read file with rdkit, if that fails, QUBEKit file readers are used instead.
         :param input_file: The name of the file to be read
         :param input_type: The type of coordinates it contains ie QM geometry/ MM geometry
         :return: An updated ligand object if the topology matches.
@@ -410,7 +409,7 @@ class Molecule:
 
         self._validate_info(topology, atoms, coords, input_type, rdkit_molecule, descriptors)
 
-    def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule, descriptors=None):
+    def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule=None, descriptors=None):
         """
         Check if the provided information should be stored or not
         :param topology: networkx graph of the topology
@@ -433,7 +432,7 @@ class Molecule:
             if nx.algorithms.is_isomorphic(self.topology, topology):
                 self.coords[input_type] = coords
             else:
-                raise TopologyMismatch('Topologies are not the same cannot store coordinates.')
+                raise TopologyMismatch('Topologies are not the same; cannot store coordinates.')
 
     def read_pdb(self, input_file, input_type='input'):
         """
@@ -443,47 +442,46 @@ class Molecule:
         Bonds are easily found through the edges of the network.
         """
 
-        with open(input_file, 'r') as pdb:
-            lines = pdb.readlines()
-
         molecule = []
         topology = nx.Graph()
         atoms = []
 
-        # atom counter used for graph node generation
         atom_count = 0
-        for line in lines:
-            if 'ATOM' in line or 'HETATM' in line:
-                # start collecting the atom class info
-                atomic_symbol = str(line[76:78])
-                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
-                atomic_symbol = atomic_symbol.strip()
-                atom_name = str(line.split()[2])
 
-                # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
-                if not atomic_symbol:
-                    atomic_symbol = str(line.split()[2])[:-1]
+        with open(input_file, 'r') as pdb:
+
+            for line in pdb:
+                if 'ATOM' in line or 'HETATM' in line:
+                    # start collecting the atom class info
+                    atomic_symbol = str(line[76:78])
                     atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+                    atomic_symbol = atomic_symbol.strip()
+                    atom_name = str(line.split()[2])
 
-                atomic_number = Element().number(atomic_symbol)
-                # Now instance the qube atom
-                qube_atom = Atom(atomic_number, atom_count, atom_name)
-                atoms.append(qube_atom)
+                    # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
+                    if not atomic_symbol:
+                        atomic_symbol = str(line.split()[2])[:-1]
+                        atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
 
-                # Also add the atom number as the node in the graph
-                topology.add_node(atom_count)
-                atom_count += 1
-                molecule.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+                    atomic_number = Element().number(atomic_symbol)
+                    # Now instance the qube atom
+                    qube_atom = Atom(atomic_number, atom_count, atom_name)
+                    atoms.append(qube_atom)
 
-            if 'CONECT' in line:
-                atom_index = int(line.split()[1]) - 1
-                # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
-                for i in range(2, len(line.split())):
-                    if int(line.split()[i]) != 0:
-                        bonded_index = int(line.split()[i]) - 1
-                        topology.add_edge(atom_index, bonded_index)
-                        atoms[atom_index].add_bond(bonded_index)
-                        atoms[bonded_index].add_bond(atom_index)
+                    # Also add the atom number as the node in the graph
+                    topology.add_node(atom_count)
+                    atom_count += 1
+                    molecule.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+
+                if 'CONECT' in line:
+                    atom_index = int(line.split()[1]) - 1
+                    # Search the connectivity section and add all edges to the graph corresponding to the bonds.
+                    for i in range(2, len(line.split())):
+                        if int(line.split()[i]) != 0:
+                            bonded_index = int(line.split()[i]) - 1
+                            topology.add_edge(atom_index, bonded_index)
+                            atoms[atom_index].add_bond(bonded_index)
+                            atoms[bonded_index].add_bond(atom_index)
 
         # put the object back into the correct place
         coords = np.array(molecule)
@@ -501,60 +499,58 @@ class Molecule:
         topology = nx.Graph()
         atoms = []
 
-        # atom counter used for graph node generation
         atom_count = 0
 
         with open(input_file, 'r') as mol2:
-            lines = mol2.readlines()
 
-        atom_flag = False
-        bond_flag = False
+            atom_flag = False
+            bond_flag = False
 
-        for line in lines:
-            if '@<TRIPOS>ATOM' in line:
-                atom_flag = True
-                continue
-            elif '@<TRIPOS>BOND' in line:
-                atom_flag = False
-                bond_flag = True
-                continue
-            elif '@<TRIPOS>SUBSTRUCTURE' in line:
-                bond_flag = False
-                continue
+            for line in mol2:
+                if '@<TRIPOS>ATOM' in line:
+                    atom_flag = True
+                    continue
+                elif '@<TRIPOS>BOND' in line:
+                    atom_flag = False
+                    bond_flag = True
+                    continue
+                elif '@<TRIPOS>SUBSTRUCTURE' in line:
+                    bond_flag = False
+                    continue
 
-            if atom_flag:
-                # Add the molecule information
-                atomic_symbol = line.split()[1][:2]
-                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
-                atomic_symbol = atomic_symbol.strip().title()
+                if atom_flag:
+                    # Add the molecule information
+                    atomic_symbol = line.split()[1][:2]
+                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+                    atomic_symbol = atomic_symbol.strip().title()
 
-                atomic_number = Element().number(atomic_symbol)
+                    atomic_number = Element().number(atomic_symbol)
 
-                molecule.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
+                    molecule.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
 
-                # Collect the atom names
-                atom_name = str(line.split()[1])
+                    # Collect the atom names
+                    atom_name = str(line.split()[1])
 
-                # Add the nodes to the topology object
-                topology.add_node(atom_count)
-                atom_count += 1
+                    # Add the nodes to the topology object
+                    topology.add_node(atom_count)
+                    atom_count += 1
 
-                # Get the atom types
-                atom_type = line.split()[5]
-                atom_type = atom_type.replace(".", "")
+                    # Get the atom types
+                    atom_type = line.split()[5]
+                    atom_type = atom_type.replace(".", "")
 
-                # Make the qube_atom
-                qube_atom = Atom(atomic_number, atom_count, atom_name)
-                qube_atom.atom_type = atom_type
+                    # Make the qube_atom
+                    qube_atom = Atom(atomic_number, atom_count, atom_name)
+                    qube_atom.atom_type = atom_type
 
-                atoms.append(qube_atom)
+                    atoms.append(qube_atom)
 
-            if bond_flag:
-                # Add edges to the topology network
-                atom_index, bonded_index = int(line.split()[1]) - 1, int(line.split()[2]) - 1
-                topology.add_edge(atom_index, bonded_index)
-                atoms[atom_index].add_bond(bonded_index)
-                atoms[bonded_index].add_bond(atom_index)
+                if bond_flag:
+                    # Add edges to the topology network
+                    atom_index, bonded_index = int(line.split()[1]) - 1, int(line.split()[2]) - 1
+                    topology.add_edge(atom_index, bonded_index)
+                    atoms[atom_index].add_bond(bonded_index)
+                    atoms[bonded_index].add_bond(atom_index)
 
         # put the object back into the correct place
         coords = np.array(molecule)
@@ -602,14 +598,14 @@ class Molecule:
         self.topology = nx.Graph()
         self.atoms = []
 
-        for i, atom in enumerate(self.qc_json['symbols']):
+        for i, atom in enumerate(self.qc_json.symbols):
             self.atoms.append(Atom(atomic_number=Element().number(atom), atom_index=i, atom_name=f'{atom}{i}'))
             self.topology.add_node(i)
 
-        for bond in self.qc_json['connectivity']:
+        for bond in self.qc_json.connectivity:
             self.topology.add_edge(*bond[:2])
 
-        self.coords['input'] = np.array(self.qc_json['geometry']).reshape((len(self.atoms), 3)) * constants.BOHR_TO_ANGS
+        self.coords['input'] = np.array(self.qc_json.geometry).reshape((len(self.atoms), 3)) * constants.BOHR_TO_ANGS
 
     def get_atom_with_name(self, name):
         """
@@ -1119,11 +1115,11 @@ class Molecule:
             for torsion in remove_list:
                 rotatable.remove(torsion)
 
-            self.rotatable = rotatable if rotatable else None
+            self.rotatable = rotatable or None
 
     def openmm_coordinates(self, input_type='input'):
         """
-        Take a set of coordinates from the molecule and convert them to openMM format
+        Take a set of coordinates from the molecule and convert them to OpenMM format
         :param input_type: The set of coordinates that should be used
         :return: A list of tuples of the coords
         """
@@ -1156,8 +1152,8 @@ class Molecule:
                     energy.append(float(line.split()[1]))
 
         qm_scans[bond_scan] = [np.array(energy), scan_coords]
-        if qm_scans:
-            self.qm_scans = qm_scans
+
+        self.qm_scans = qm_scans or None
 
     def read_scan_order(self, file):
         """
@@ -1283,9 +1279,7 @@ class Protein(DefaultsMixin, Molecule):
                     atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
 
                 # now make sure we have a valid element
-                if atomic_symbol.lower() == 'cl' or atomic_symbol.lower() == 'br':
-                    pass
-                else:
+                if atomic_symbol.lower() != 'cl' and atomic_symbol.lower() != 'br':
                     atomic_symbol = atomic_symbol[0]
 
                 atom_name = f'{atomic_symbol}{atom_count}'
@@ -1306,8 +1300,8 @@ class Protein(DefaultsMixin, Molecule):
             elif 'CONECT' in line:
                 # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
                 for i in range(2, len(line.split())):
-                    if int(line.split()[i]) != 0:
-                        self.topology.add_edge(int(line.split()[1]) - 1, int(line.split()[i]) -1)
+                    if not int(line.split()[i]):
+                        self.topology.add_edge(int(line.split()[1]) - 1, int(line.split()[i]) - 1)
 
         self.coords[input_type] = np.array(protein)
 

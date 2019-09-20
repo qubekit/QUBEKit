@@ -6,8 +6,8 @@ from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from collections import OrderedDict
 from copy import deepcopy
 
-import xml.etree.ElementTree as ET
 from simtk.openmm import app, XmlSerializer
+import xml.etree.ElementTree as ET
 
 
 @for_all_methods(timer_logger)
@@ -29,13 +29,7 @@ class XMLProtein(Parametrisation):
         pdb = app.PDBFile(self.molecule.filename)
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
-        if self.input_file:
-            forcefield = app.ForceField(self.input_file)
-        else:
-            try:
-                forcefield = app.ForceField(self.molecule.name + '.xml')
-            except FileNotFoundError:
-                raise FileNotFoundError('No .xml type file found.')
+        forcefield = app.ForceField(self.input_file if self.input_file else f'{self.molecule.name}.xml')
 
         system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
@@ -50,7 +44,7 @@ class XMLProtein(Parametrisation):
 
         # Try to gather the AtomTypes first
         for atom in self.molecule.atoms:
-            self.molecule.AtomTypes[atom.atom_index] = [atom.name, 'QUBE_' + str(atom.atom_index), atom.name]
+            self.molecule.AtomTypes[atom.atom_index] = [atom.name, f'QUBE_{atom.atom_index}', atom.name]
 
         input_xml_file = 'serialised.xml'
         in_root = ET.parse(input_xml_file).getroot()
@@ -89,7 +83,7 @@ class XMLProtein(Parametrisation):
             elif tor_string_back in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_string_back].append(
                     [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
-        # Now we have all of the torsions from the openMM system
+        # Now we have all of the torsions from the OpenMM system
         # we should check if any torsions we found in the molecule do not have parameters
         # if they don't give them the default 0 parameter this will not change the energy
         for tor_list in self.molecule.dihedrals.values():
@@ -98,7 +92,7 @@ class XMLProtein(Parametrisation):
                 if torsion not in self.molecule.PeriodicTorsionForce and tuple(
                         reversed(torsion)) not in self.molecule.PeriodicTorsionForce:
                     self.molecule.PeriodicTorsionForce[torsion] = [['1', '0', '0'], ['2', '0', '3.141592653589793'],
-                                                                 ['3', '0', '0'], ['4', '0', '3.141592653589793']]
+                                                                   ['3', '0', '0'], ['4', '0', '3.141592653589793']]
 
         # Now we need to fill in all blank phases of the Torsions
         for key, val in self.molecule.PeriodicTorsionForce.items():

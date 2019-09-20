@@ -72,6 +72,7 @@ class Parametrisation:
             self.molecule.AtomTypes[atom.atom_index] = [atom.atom_name, 'QUBE_' + str(000 + atom.atom_index),
                                                         str(atom.atomic_symbol) + str(000 + atom.atom_index)]
 
+        phases = [0, constants.PI, 0, constants.PI]
         try:
             in_root = ET.parse('serialised.xml').getroot()
 
@@ -99,7 +100,6 @@ class Parametrisation:
                     i += 1
 
             # Extract all of the torsion data
-            phases = [0, constants.PI, 0, constants.PI]
             for Torsion in in_root.iter('Torsion'):
                 tor_str_forward = tuple(int(Torsion.get(f'p{i}')) for i in range(1, 5))
                 tor_str_back = tuple(reversed(tor_str_forward))
@@ -119,8 +119,8 @@ class Parametrisation:
         except FileNotFoundError:
             # Check what parameter engine we are using if not none then raise an error
             if self.molecule.parameter_engine != 'none':
-                raise FileNotFoundError('Molecule could not be serialised from openMM')
-        # Now we have all of the torsions from the openMM system
+                raise FileNotFoundError('Molecule could not be serialised from OpenMM')
+        # Now we have all of the torsions from the OpenMM system
         # we should check if any torsions we found in the molecule do not have parameters
         # if they don't give them the default 0 parameter this will not change the energy
         if self.molecule.dihedrals is not None:

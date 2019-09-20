@@ -1,6 +1,6 @@
 package:
   name: qubekit
-  version: 2.5.1
+  version: 2.6.0
 
 source:
   path: ../..
@@ -20,6 +20,12 @@ requirements:
     - networkx
     - matplotlib
     - scipy
+    - psi4
+    - openmm
+    - rdkit
+    - openforcefield
+    - qcengine
+    - torsiondrive
   build:
     - python=3.6
     - setuptools

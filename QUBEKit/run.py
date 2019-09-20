@@ -16,7 +16,7 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.exceptions import OptimisationFailed, HessianCalculationFailed
 from QUBEKit.utils.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
-    Configure, unpickle
+    Configure, unpickle, make_and_change_into
 
 import argparse
 from collections import OrderedDict
@@ -305,7 +305,7 @@ class ArgsAndConfigs:
                             help='Enter the name of the csv file you would like to create for bulk runs.'
                                  'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
-        groups.add_argument('-version', '--version', action='version', version='2.5.1')
+        groups.add_argument('-version', '--version', action='version', version='2.6.0')
 
         return parser.parse_args()
 
@@ -336,7 +336,7 @@ class ArgsAndConfigs:
                 self.molecule = Ligand(smiles_string, name)
 
             else:
-                # TODO Different file types
+                # TODO Different file types (should be easy as long as they're rdkit-readable)
                 # Initialise molecule, ready to add configs to it
                 self.molecule = Ligand(f'{name}.pdb')
 
@@ -403,8 +403,8 @@ class Execute:
                                   ('finalise', self.finalise),
                                   ('torsion_test', self.torsion_test)])
 
-        # Keep this for pickling
-        self.immutable_order = list(self.order)
+        # Keep this for reference (used for numbering folders correctly)
+        self.immutable_order = tuple(self.order)
 
         self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian, 'onetep': ONETEP}
 
@@ -584,8 +584,7 @@ class Execute:
         while True:
             if next_key is None:
                 break
-            else:
-                next_key = self.stage_wrapper(next_key, *stage_dict[next_key])
+            next_key = self.stage_wrapper(next_key, *stage_dict[next_key])
 
             if next_key == 'pause':
                 self.pause()
@@ -627,13 +626,8 @@ class Execute:
         home = os.getcwd()
 
         folder_name = f'{str(self.immutable_order.index(start_key) + 1).zfill(2)}_{start_key}'
-        # Make sure you don't get an error if restarting
-        try:
-            os.mkdir(folder_name)
-        except FileExistsError:
-            pass
-        finally:
-            os.chdir(folder_name)
+
+        make_and_change_into(folder_name)
 
         self.order[start_key](mol)
         self.order.pop(start_key, None)
@@ -655,7 +649,7 @@ class Execute:
         append_to_log('Starting parametrisation')
 
         # Parametrisation options:
-        param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF, 'none': Parametrisation}
+        param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF}
 
         # If we are using xml we have to move it to QUBEKit working dir
         if molecule.parameter_engine == 'xml':
@@ -670,7 +664,7 @@ class Execute:
         # Perform the parametrisation
         # If the method is none the molecule is not parameterised but the parameter holders are initiated
         if molecule.parameter_engine == 'none':
-            param_dict[molecule.parameter_engine](molecule).gather_parameters()
+            Parametrisation(molecule).gather_parameters()
         else:
             # Write the PDB file; this covers us if we have a different input file
             molecule.write_pdb()
@@ -748,6 +742,8 @@ class Execute:
                                          input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}')
 
             # Check if converged and get the geometry
+            # TODO Can we just scrap this initial check and instead just use the result of the while loop below?
+            #   This would get rid of lots of repeated code.
             if result['success']:
 
                 # Load all of the frames into the molecule's trajectory holder
@@ -841,9 +837,8 @@ class Execute:
         append_to_log('Starting hessian calculation')
         molecule.find_bond_lengths(input_type='qm')
 
-        # Check what engine to use
         if molecule.bonds_engine == 'g09' or molecule.bonds_engine == 'g16':
-            qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
+            qm_engine = Gaussian(molecule)
 
             # Use the checkpoint file as this has higher xyz precision
             try:
@@ -859,8 +854,7 @@ class Execute:
                 raise HessianCalculationFailed('The hessian was not calculated check the log file.')
 
         else:
-            qceng = QCEngine(molecule)
-            hessian = qceng.call_qcengine('psi4', 'hessian', input_type='qm')
+            hessian = QCEngine(molecule).call_qcengine('psi4', 'hessian', input_type='qm')
 
             np.savetxt('hessian.txt', hessian)
 
@@ -876,8 +870,7 @@ class Execute:
 
         append_to_log('Starting mod_Seminario method')
 
-        mod_sem = ModSeminario(molecule)
-        mod_sem.modified_seminario_method()
+        ModSeminario(molecule).modified_seminario_method()
 
         molecule.symmetrise_bonded_parameters()
 
@@ -931,8 +924,7 @@ class Execute:
             if file.startswith('DDEC'):
                 copy(os.path.join(charges_folder, file), file)
 
-        lj = LennardJones(molecule)
-        molecule.NonbondedForce = lj.calculate_non_bonded_force()
+        molecule.NonbondedForce = LennardJones(molecule).calculate_non_bonded_force()
 
         # This also now implies the opls combination rule
         molecule.combination = 'opls'
@@ -946,11 +938,11 @@ class Execute:
         """Perform torsion scan."""
         append_to_log('Starting torsion_scans')
 
-        scan = TorsionScan(molecule)
-        # Check that we have a scan order for the molecule this should of been captured from the dihedral file
-        scan.find_scan_order()
+        tor_scan = TorsionScan(molecule)
 
-        scan.scan()
+        # Check that we have a scan order for the molecule this should of been captured from the dihedral file
+        tor_scan.find_scan_order()
+        tor_scan.scan()
 
         append_to_log('Finishing torsion_scans')
 
@@ -971,8 +963,7 @@ class Execute:
             scan.collect_scan()
             os.chdir(os.path.join(molecule.home, '10_torsion_optimise'))
 
-        opt = TorsionOptimiser(molecule)
-        opt.run()
+        TorsionOptimiser(molecule).run()
 
         append_to_log('Finishing torsion_optimisations')
 
@@ -1043,13 +1034,9 @@ class Execute:
         if molecule.constraints_file is not None:
             copy(molecule.constraints_file, molecule.constraints_file.name)
 
-        # Now we should run the torsion_test method
-        opt = TorsionOptimiser(molecule)
-        opt.torsion_test()
+        TorsionOptimiser(molecule).torsion_test()
 
         printf('Torsion testing done!')
-
-        # Now we must remove the torsion_test attrib
         delattr(molecule, 'torsion_test')
 
         return molecule
