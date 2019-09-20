@@ -647,6 +647,7 @@ def collect_archive_tdrive(tdrive_record, client):
 def set_net(values, net=0, dp=6):
     """
     Take a list of values and make sure the sum is equal to net to the required dp
+    If they are not, add the extra to the final value in the list.
     :param values: list of values
     :param net: the desired total of the list
     :param dp: the amount of decimal places required
@@ -660,3 +661,17 @@ def set_net(values, net=0, dp=6):
         new_values[-1] += extra
 
     return new_values
+
+
+def make_and_change_into(name):
+    """
+    - Attempt to make a directory, don't fail if it exists.
+    - Change into the directory.
+    """
+
+    try:
+        os.mkdir(name)
+    except FileExistsError:
+        pass
+    finally:
+        os.chdir(name)
