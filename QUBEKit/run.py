@@ -811,7 +811,7 @@ class Execute:
             # 3) If we have already tried the starting structure generate a conformer and try again
             elif result['error'] == 'Distance matrix':
                 molecule.write_pdb()
-                molecule.coords['temp'] = RDKit().generate_conformers(f'{molecule.name}.pdb')[0]
+                molecule.coords['temp'] = RDKit().generate_conformers(molecule.rdkit_mol)[0]
                 result = qm_engine.generate_input(input_type='temp', optimise=True, execute=molecule.bonds_engine)
 
             # Sometimes the user has not allowed enough iterations so try again

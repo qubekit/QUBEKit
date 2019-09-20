@@ -116,17 +116,15 @@ class RDKit:
 
         return mol_name
 
-    def generate_conformers(self, filename, conformer_no=10):
+    def generate_conformers(self, rdkit_mol, conformer_no=10):
         """
         Generate a set of x conformers of the molecule
         :param conformer_no: The amount of conformers made for the molecule
-        :param filename: The name of the input file
+        :param rdkit_mol: The name of the input file
         :return: A list of conformer position arrays
         """
 
-        mol = RDKit().read_file(filename)
-
-        cons = AllChem.EmbedMultipleConfs(mol, numConfs=conformer_no)
+        cons = AllChem.EmbedMultipleConfs(rdkit_mol, numConfs=conformer_no)
         positions = cons.GetConformers()
 
         return [conformer.GetPositions() for conformer in positions]
