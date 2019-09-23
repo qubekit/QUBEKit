@@ -5,7 +5,6 @@ from collections import OrderedDict
 from copy import deepcopy
 
 import xml.etree.ElementTree as ET
-import numpy as np
 
 
 class Parametrisation:

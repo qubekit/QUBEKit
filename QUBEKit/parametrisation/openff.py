@@ -5,7 +5,7 @@ from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from openforcefield.topology import Molecule
 from openforcefield.typing.engines.smirnoff import ForceField, BondHandler, AngleHandler, ProperTorsionHandler, vdWHandler
-from openforcefield.typing.engines.smirnoff.parameters import UnassignedValenceParameterException, UnassignedValenceParameterException
+from openforcefield.typing.engines.smirnoff.parameters import UnassignedValenceParameterException
 
 from simtk import unit
 from simtk.openmm import XmlSerializer
@@ -29,7 +29,6 @@ class OpenFF(Parametrisation):
     def serialise_system(self):
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 
-        print(self.molecule.rdkit_mol)
         # Create an openFF molecule from the rdkit molecule
         off_molecule = Molecule.from_rdkit(self.molecule.rdkit_mol, allow_undefined_stereo=True)
 

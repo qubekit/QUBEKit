@@ -236,6 +236,7 @@ class Molecule:
         self.config_file = 'master_config.ini'
         self.restart = False
         self.atom_symmetry_classes = None
+        self.verbose = True
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
         self.read_input()
@@ -1122,7 +1123,9 @@ class Molecule:
 
             self.get_bond_equiv_classes()
             self.get_angle_equiv_classes()
-            self.get_dihedral_equiv_classes()
+
+            if self.dihedrals:
+                self.get_dihedral_equiv_classes()
 
         methyl_hs, amine_hs, other_hs = [], [], []
         methyl_amine_nitride_cores = []
