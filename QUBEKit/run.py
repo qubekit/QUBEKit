@@ -16,7 +16,7 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.exceptions import OptimisationFailed, HessianCalculationFailed
 from QUBEKit.utils.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
-    Configure, unpickle, make_and_change_into
+    Configure, unpickle, make_and_change_into, COLOURS
 
 import argparse
 from collections import OrderedDict
@@ -119,6 +119,9 @@ class ArgsAndConfigs:
         # If restarting put the molecule back into the checkpoint file with the new configs
         if self.args.restart is not None:
             self.molecule.pickle(state=self.args.restart)
+
+        if not self.args.verbose:
+            self.molecule.verbose = False
 
         # Now that all configs are stored correctly: execute.
         Execute(self.molecule)
@@ -290,6 +293,8 @@ class ArgsAndConfigs:
                             help='The name of the geometric constraints file.')
         parser.add_argument('-dihedrals', '--dihedral_file', type=str,
                             help='The name of the qubekit/tdrive torsion file.')
+        parser.add_argument('-v', '--verbose', choices=[True, False], type=string_to_bool, default=True,
+                            help='Decide whether the log file should contain all the input/output information')
 
         # Add mutually exclusive groups to stop certain combinations of options,
         # e.g. setup should not be run with csv command
@@ -537,11 +542,14 @@ class Execute:
 
             log_file.write(f'Analysing: {self.molecule.name}\n\n')
 
-            log_file.write('The runtime defaults and config options are as follows:\n\n')
-            for key, val in self.molecule.__dict__.items():
-                if val is not None:
-                    log_file.write(f'{key}: {val}\n')
-            log_file.write('\n')
+            if self.molecule.verbose:
+                log_file.write('The runtime defaults and config options are as follows:\n\n')
+                for key, val in self.molecule.__dict__.items():
+                    if val is not None:
+                        log_file.write(f'{key}: {val}\n')
+                log_file.write('\n')
+            else:
+                log_file.write('Ligand state not logged; verbose argument set to false\n\n')
 
     @exception_logger
     def run(self, torsion_options=None):
@@ -616,7 +624,7 @@ class Execute:
 
         skipping = False
         if self.order[start_key] == self.skip:
-            printf(f'Skipping stage: {start_key}')
+            printf(f'{COLOURS.blue}Skipping stage: {start_key}{COLOURS.end}')
             append_to_log(f'skipping stage: {start_key}')
             skipping = True
         else:
@@ -637,7 +645,7 @@ class Execute:
         for key in self.order:
             next_key = key
             if fin_log_msg and not skipping:
-                printf(fin_log_msg)
+                printf(f'{COLOURS.green}{fin_log_msg}{COLOURS.end}')
 
             mol.pickle(state=next_key)
             return next_key
@@ -765,7 +773,7 @@ class Execute:
 
             else:
                 restart_count = 1
-                while not result['success'] and restart_count < 3:
+                while (not result['success']) and (restart_count < 3):
 
                     # If the error was not a straight segfault se if we can get the molecule so far
                     try:
@@ -831,7 +839,8 @@ class Execute:
 
         return molecule
 
-    def hessian(self, molecule):
+    @staticmethod
+    def hessian(molecule):
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
         append_to_log('Starting hessian calculation')
@@ -895,7 +904,8 @@ class Execute:
 
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
-            qm_engine.generate_input(input_type='qm', density=True, execute=molecule.density_engine)
+            qm_engine.generate_input(input_type='qm' if molecule.coords['qm'] else 'input',
+                                     density=True, execute=molecule.density_engine)
             append_to_log('Finishing Density calculation')
 
         return molecule

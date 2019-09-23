@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.exceptions import try_load
+from QUBEKit.utils.helpers import try_load
 
 
 OpenFF = try_load('OpenFF', 'QUBEKit.parametrisation.openff')
