@@ -1,6 +1,6 @@
 package:
   name: qubekit
-  version: 2.6.1
+  version: 2.6.2
 
 source:
   path: ../..
@@ -12,10 +12,10 @@ build:
 
 requirements:
   host:
-    - python=3.6
+    - python
     - setuptools
   run:
-    - python=3.6
+    - python
     - numpy
     - networkx
     - matplotlib
@@ -27,7 +27,7 @@ requirements:
     - qcengine
     - torsiondrive
   build:
-    - python=3.6
+    - python
     - setuptools
 
 about:
