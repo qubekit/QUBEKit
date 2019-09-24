@@ -310,7 +310,7 @@ class ArgsAndConfigs:
                             help='Enter the name of the csv file you would like to create for bulk runs.'
                                  'Optionally, you may also add the maximum number of molecules per file.')
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
-        groups.add_argument('-version', '--version', action='version', version='2.6.1')
+        groups.add_argument('-version', '--version', action='version', version='2.6.2')
 
         return parser.parse_args()
 
@@ -904,7 +904,7 @@ class Execute:
 
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
-            qm_engine.generate_input(input_type='qm' if molecule.coords['qm'] else 'input',
+            qm_engine.generate_input(input_type='qm' if any(molecule.coords['qm']) else 'input',
                                      density=True, execute=molecule.density_engine)
             append_to_log('Finishing Density calculation')
 

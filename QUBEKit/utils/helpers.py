@@ -7,13 +7,12 @@ from collections import OrderedDict, namedtuple
 from configparser import ConfigParser
 from contextlib import contextmanager
 import csv
-from functools import partial
+import decimal
 from importlib import import_module
 import math
+import operator
 import os
 import pickle
-import operator
-import decimal
 
 import numpy as np
 
@@ -364,8 +363,6 @@ def pretty_progress():
     Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
     """
 
-    printf = partial(print, flush=True)
-
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
     for root, dirs, files in os.walk('.', topdown=True):
@@ -393,15 +390,15 @@ def pretty_progress():
         # Create ordered dictionary based on the log file info
         info[name] = populate_progress_dict(file)
 
-    printf('Displaying progress of all analyses in current directory.')
-    printf(f'Progress key: {COLOURS.green}\u2713{COLOURS.end} = Done;', end=' ')
-    printf(f'{COLOURS.blue}S{COLOURS.end} = Skipped;', end=' ')
-    printf(f'{COLOURS.red}E{COLOURS.end} = Error;', end=' ')
-    printf(f'{COLOURS.orange}R{COLOURS.end} = Running;', end=' ')
-    printf(f'{COLOURS.purple}~{COLOURS.end} = Queued')
+    print('Displaying progress of all analyses in current directory.')
+    print(f'Progress key: {COLOURS.green}\u2713{COLOURS.end} = Done;', end=' ')
+    print(f'{COLOURS.blue}S{COLOURS.end} = Skipped;', end=' ')
+    print(f'{COLOURS.red}E{COLOURS.end} = Error;', end=' ')
+    print(f'{COLOURS.orange}R{COLOURS.end} = Running;', end=' ')
+    print(f'{COLOURS.purple}~{COLOURS.end} = Queued')
 
     header_string = '{:15}' + '{:>10}' * 10
-    printf(header_string.format(
+    print(header_string.format(
         'Name', 'Param', 'MM Opt', 'QM Opt', 'Hessian', 'Mod-Sem', 'Density', 'Charges', 'L-J', 'Tor Scan', 'Tor Opt'))
 
     # Sort the info alphabetically
@@ -409,27 +406,27 @@ def pretty_progress():
 
     # Outer dict contains the names of the molecules.
     for key_out, var_out in info.items():
-        printf(f'{key_out[:13]:15}', end=' ')
+        print(f'{key_out[:13]:15}', end=' ')
 
         # Inner dict contains the individual molecules' data.
         for var_in in var_out.values():
 
             if var_in == u'\u2713':
-                printf(f'{COLOURS.green}{var_in:>9}{COLOURS.end}', end=' ')
+                print(f'{COLOURS.green}{var_in:>9}{COLOURS.end}', end=' ')
 
             elif var_in == 'S':
-                printf(f'{COLOURS.blue}{var_in:>9}{COLOURS.end}', end=' ')
+                print(f'{COLOURS.blue}{var_in:>9}{COLOURS.end}', end=' ')
 
             elif var_in == 'E':
-                printf(f'{COLOURS.red}{var_in:>9}{COLOURS.end}', end=' ')
+                print(f'{COLOURS.red}{var_in:>9}{COLOURS.end}', end=' ')
 
             elif var_in == 'R':
-                printf(f'{COLOURS.orange}{var_in:>9}{COLOURS.end}', end=' ')
+                print(f'{COLOURS.orange}{var_in:>9}{COLOURS.end}', end=' ')
 
             elif var_in == '~':
-                printf(f'{COLOURS.purple}{var_in:>9}{COLOURS.end}', end=' ')
+                print(f'{COLOURS.purple}{var_in:>9}{COLOURS.end}', end=' ')
 
-        printf('')
+        print('')
 
 
 def populate_progress_dict(file_name):
@@ -648,7 +645,7 @@ def set_net(values, net=0, dp=6):
     If they are not, add the extra to the final value in the list.
     :param values: list of values
     :param net: the desired total of the list
-    :param dp: the amount of decimal places required
+    :param dp: the number of decimal places required
     :return: the list of new values
     """
 
@@ -663,7 +660,7 @@ def set_net(values, net=0, dp=6):
 
 def make_and_change_into(name):
     """
-    - Attempt to make a directory, don't fail if it exists.
+    - Attempt to make a directory with name <name>, don't fail if it exists.
     - Change into the directory.
     """
 
