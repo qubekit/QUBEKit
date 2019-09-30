@@ -91,7 +91,7 @@ class DefaultsMixin:
 
         self.theory = 'wB97XD'
         self.basis = '6-311++G(d,p)'
-        self.vib_scaling = 0.957
+        self.vib_scaling = 1
         self.threads = 2
         self.memory = 2
         self.convergence = 'GAU_TIGHT'
@@ -1126,7 +1126,8 @@ class Molecule:
 
             self.get_bond_equiv_classes()
             self.get_angle_equiv_classes()
-            self.get_dihedral_equiv_classes()
+            if self.dihedrals:
+                self.get_dihedral_equiv_classes()
 
         methyl_hs, amine_hs, other_hs = [], [], []
         methyl_amine_nitride_cores = []
@@ -1193,7 +1194,8 @@ class Molecule:
 
         scan_coords = []
         energy = []
-        qm_scans = {}
+        if self.qm_scans is None:
+            self.qm_scans = {}
         with open('qdata.txt', 'r') as data:
             for line in data.readlines():
                 if 'COORDS' in line:
@@ -1203,9 +1205,7 @@ class Molecule:
                 elif 'ENERGY' in line:
                     energy.append(float(line.split()[1]))
 
-        qm_scans[bond_scan] = [np.array(energy), scan_coords]
-        if qm_scans:
-            self.qm_scans = qm_scans
+        self.qm_scans[bond_scan] = [np.array(energy), scan_coords]
 
     def read_scan_order(self, file):
         """
