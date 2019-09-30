@@ -563,6 +563,25 @@ def unpickle(location=None):
     return mol_states
 
 
+def display_molecule_objects(*names):
+    """
+    prints the requested molecule objects in a nicely formatted way, easy to copy elsewhere.
+    :param names: list of strings where each item is the name of a molecule object such as 'basis' or 'coords'
+    """
+    try:
+        molecule = unpickle()['finalise']
+    except KeyError:
+        print('QUBEKit encountered an error during execution; returning the initial molecule objects.')
+        molecule = unpickle()['parametrise']
+
+    for name in names:
+        result = getattr(molecule, name, None)
+        if result is not None:
+            print(f'{name}:  {repr(result)}')
+        else:
+            print(f'Invalid molecule object: {name}. Please check the log file for the data you require.')
+
+
 @contextmanager
 def assert_wrapper(exception_type):
     """
@@ -646,7 +665,7 @@ def set_net(values, net=0, dp=6):
     :param values: list of values
     :param net: the desired total of the list
     :param dp: the number of decimal places required
-    :return: the list of new values
+    :return: the list of updated values with the correct net value
     """
 
     decimal.getcontext().prec = dp
