@@ -3,16 +3,16 @@
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import PickleFileNotFound, QUBEKitLogFileNotFound
 
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from configparser import ConfigParser
 from contextlib import contextmanager
 import csv
-from functools import partial
+import decimal
+from importlib import import_module
 import math
+import operator
 import os
 import pickle
-import operator
-import decimal
 
 import numpy as np
 
@@ -224,6 +224,21 @@ class Configure:
         os.system(f'emacs -nw {ini_path}')
 
 
+Colours = namedtuple('colours', 'red green orange blue purple end')
+
+# Uses exit codes to set terminal font colours.
+# \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
+# The second exit code resets the style back to default.
+COLOURS = Colours(
+    red='\033[1;31m',
+    green='\033[1;32m',
+    orange='\033[1;33m',
+    blue='\033[1;34m',
+    purple='\033[1;35m',
+    end='\033[0m'
+)
+
+
 def mol_data_from_csv(csv_name):
     """
     Scan the csv file to find the row with the desired molecule data.
@@ -348,8 +363,6 @@ def pretty_progress():
     Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
     """
 
-    printf = partial(print, flush=True)
-
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
     for root, dirs, files in os.walk('.', topdown=True):
@@ -377,31 +390,15 @@ def pretty_progress():
         # Create ordered dictionary based on the log file info
         info[name] = populate_progress_dict(file)
 
-    # Uses exit codes to set terminal font colours.
-    # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
-    # The second exit code resets the style back to default.
-
-    # Need to add an end tag or terminal colours will persist
-    end = '\033[0m'
-
-    # Bold colours
-    colours = {
-        'red': '\033[1;31m',
-        'green': '\033[1;32m',
-        'orange': '\033[1;33m',
-        'blue': '\033[1;34m',
-        'purple': '\033[1;35m'
-    }
-
-    printf('Displaying progress of all analyses in current directory.')
-    printf(f'Progress key: {colours["green"]}\u2713{end} = Done;', end=' ')
-    printf(f'{colours["blue"]}S{end} = Skipped;', end=' ')
-    printf(f'{colours["red"]}E{end} = Error;', end=' ')
-    printf(f'{colours["orange"]}R{end} = Running;', end=' ')
-    printf(f'{colours["purple"]}~{end} = Queued')
+    print('Displaying progress of all analyses in current directory.')
+    print(f'Progress key: {COLOURS.green}\u2713{COLOURS.end} = Done;', end=' ')
+    print(f'{COLOURS.blue}S{COLOURS.end} = Skipped;', end=' ')
+    print(f'{COLOURS.red}E{COLOURS.end} = Error;', end=' ')
+    print(f'{COLOURS.orange}R{COLOURS.end} = Running;', end=' ')
+    print(f'{COLOURS.purple}~{COLOURS.end} = Queued')
 
     header_string = '{:15}' + '{:>10}' * 10
-    printf(header_string.format(
+    print(header_string.format(
         'Name', 'Param', 'MM Opt', 'QM Opt', 'Hessian', 'Mod-Sem', 'Density', 'Charges', 'L-J', 'Tor Scan', 'Tor Opt'))
 
     # Sort the info alphabetically
@@ -409,27 +406,27 @@ def pretty_progress():
 
     # Outer dict contains the names of the molecules.
     for key_out, var_out in info.items():
-        printf(f'{key_out[:13]:15}', end=' ')
+        print(f'{key_out[:13]:15}', end=' ')
 
         # Inner dict contains the individual molecules' data.
         for var_in in var_out.values():
 
             if var_in == u'\u2713':
-                printf(f'{colours["green"]}{var_in:>9}{end}', end=' ')
+                print(f'{COLOURS.green}{var_in:>9}{COLOURS.end}', end=' ')
 
             elif var_in == 'S':
-                printf(f'{colours["blue"]}{var_in:>9}{end}', end=' ')
+                print(f'{COLOURS.blue}{var_in:>9}{COLOURS.end}', end=' ')
 
             elif var_in == 'E':
-                printf(f'{colours["red"]}{var_in:>9}{end}', end=' ')
+                print(f'{COLOURS.red}{var_in:>9}{COLOURS.end}', end=' ')
 
             elif var_in == 'R':
-                printf(f'{colours["orange"]}{var_in:>9}{end}', end=' ')
+                print(f'{COLOURS.orange}{var_in:>9}{COLOURS.end}', end=' ')
 
             elif var_in == '~':
-                printf(f'{colours["purple"]}{var_in:>9}{end}', end=' ')
+                print(f'{COLOURS.purple}{var_in:>9}{COLOURS.end}', end=' ')
 
-        printf('')
+        print('')
 
 
 def populate_progress_dict(file_name):
@@ -443,14 +440,14 @@ def populate_progress_dict(file_name):
     """
 
     # Indicators in the log file which show a stage has completed
-    search_terms = ['PARAMETRISATION', 'MM_OPT', 'QM_OPT', 'HESSIAN', 'MOD_SEM', 'DENSITY', 'CHARGE', 'LENNARD',
-                    'TORSION_S', 'TORSION_O']
+    search_terms = ('PARAMETRISATION', 'MM_OPT', 'QM_OPT', 'HESSIAN', 'MOD_SEM', 'DENSITY', 'CHARGE', 'LENNARD',
+                    'TORSION_S', 'TORSION_O')
 
     progress = OrderedDict((term, '~') for term in search_terms)
 
     restart_log = False
 
-    with open(file_name, 'r') as file:
+    with open(file_name) as file:
         for line in file:
 
             # Reset progress when restarting (set all progress to incomplete)
@@ -469,20 +466,16 @@ def populate_progress_dict(file_name):
                     # If its finishing tag is present it is done (tick)
                     elif 'FINISHING' in line:
                         progress[term] = u'\u2713'
-                        last_success = term
 
             # If an error is found, then the stage after the last successful stage has errored (E)
             if 'Exception Logger - ERROR' in line:
                 # On the rare occasion that the error occurs after torsion optimisation (the final stage),
                 # a try except is needed to catch the index error (because there's no stage after torsion_optimisation).
-                try:
-                    term = search_terms[search_terms.index(last_success) + 1]
-                except IndexError:
-                    term = search_terms[search_terms.index(last_success)]
-                # If errored immediately, then last_success won't have been defined yet
-                except UnboundLocalError:
-                    term = 'PARAMETRISATION'
-                progress[term] = 'E'
+                for key, value in progress.items():
+                    if value == 'R':
+                        restart_term = search_terms.index(key)
+                        progress[key] = 'E'
+                        break
 
     if restart_log:
         for term, stage in progress.items():
@@ -496,13 +489,13 @@ def populate_progress_dict(file_name):
                 if stage == '~':
                     restart_term = search_terms.index(term)
                     break
-            else:
-                raise UnboundLocalError(
-                    'Cannot find where QUBEKit was restarted from. Please check the log file for progress.')
 
         # Reset anything after the restart term to be `~` even if it was previously completed.
-        for term in search_terms[restart_term + 1:]:
-            progress[term] = '~'
+        try:
+            for term in search_terms[restart_term + 1:]:
+                progress[term] = '~'
+        except UnboundLocalError:
+            pass
 
     return progress
 
@@ -570,6 +563,25 @@ def unpickle(location=None):
     return mol_states
 
 
+def display_molecule_objects(*names):
+    """
+    prints the requested molecule objects in a nicely formatted way, easy to copy elsewhere.
+    :param names: list of strings where each item is the name of a molecule object such as 'basis' or 'coords'
+    """
+    try:
+        molecule = unpickle()['finalise']
+    except KeyError:
+        print('QUBEKit encountered an error during execution; returning the initial molecule objects.')
+        molecule = unpickle()['parametrise']
+
+    for name in names:
+        result = getattr(molecule, name, None)
+        if result is not None:
+            print(f'{name}:  {repr(result)}')
+        else:
+            print(f'Invalid molecule object: {name}. Please check the log file for the data you require.')
+
+
 @contextmanager
 def assert_wrapper(exception_type):
     """
@@ -599,7 +611,8 @@ def check_symmetry(matrix, error=1e-5):
     with assert_wrapper(ValueError):
         assert (np.allclose(matrix, matrix.T, atol=error)), 'Matrix is not symmetric.'
 
-    print(f'Symmetry check successful. The matrix is symmetric within an error of {error}.')
+    print(f'{COLOURS.purple}Symmetry check successful. '
+          f'The matrix is symmetric within an error of {error}.{COLOURS.end}')
     return True
 
 
@@ -613,7 +626,8 @@ def check_net_charge(charges, ideal_net=0, error=1e-5):
         assert (abs(total_charge - ideal_net) < error), ('Total charge is not close enough to desired '
                                                          'integer value in configs.')
 
-    print(f'Charge check successful. Net charge is within {error} of the desired net charge of {ideal_net}.')
+    print(f'{COLOURS.purple}Charge check successful. '
+          f'Net charge is within {error} of the desired net charge of {ideal_net}.{COLOURS.end}')
     return True
 
 
@@ -647,10 +661,11 @@ def collect_archive_tdrive(tdrive_record, client):
 def set_net(values, net=0, dp=6):
     """
     Take a list of values and make sure the sum is equal to net to the required dp
+    If they are not, add the extra to the final value in the list.
     :param values: list of values
     :param net: the desired total of the list
-    :param dp: the amount of decimal places required
-    :return: the list of new values
+    :param dp: the number of decimal places required
+    :return: the list of updated values with the correct net value
     """
 
     decimal.getcontext().prec = dp
@@ -660,3 +675,49 @@ def set_net(values, net=0, dp=6):
         new_values[-1] += extra
 
     return new_values
+
+
+def make_and_change_into(name):
+    """
+    - Attempt to make a directory with name <name>, don't fail if it exists.
+    - Change into the directory.
+    """
+
+    try:
+        os.mkdir(name)
+    except FileExistsError:
+        pass
+    finally:
+        os.chdir(name)
+
+
+def missing_import(name, fail_msg=''):
+    """
+    Generates a class which raises an import error when initialised.
+    e.g. SomeClass = missing_import('SomeClass') will make SomeClass() raise ImportError
+    """
+    def init(self, *args, **kwargs):
+        raise ImportError(
+            f'The class {name} you tried to call is not importable; '
+            f'this is likely due to it not doing installed.\n\n'
+            f'{f"Fail Message: {fail_msg}" if fail_msg else ""}'
+        )
+    return type(name, (), {'__init__': init})
+
+
+def try_load(engine, module):
+    """
+    Try to load a particular engine from a module.
+    If this fails, a dummy class is imported in its place with an import error raised on initialisation.
+
+    :param engine: Name of the engine (PSI4, OpenFF, ONETEP, etc).
+    :param module: Name of the QUBEKit module (.psi4, .openff, .onetep, etc).
+    :return: Either the engine is imported as normal, or it is replaced with dummy class which
+    just raises an import error with a message.
+    """
+    try:
+        module = import_module(module, __name__)
+        return getattr(module, engine)
+    except (ModuleNotFoundError, AttributeError) as exc:
+        print(f'{COLOURS.orange}Warning, failed to load: {engine}; continuing for now.\nReason: {exc}{COLOURS.end}\n')
+        return missing_import(engine, fail_msg=str(exc))

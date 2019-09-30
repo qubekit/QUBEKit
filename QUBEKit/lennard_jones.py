@@ -4,7 +4,7 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import check_net_charge, set_net
 
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 import os
 
 import numpy as np
@@ -90,8 +90,8 @@ class LennardJones:
         """
         From ONETEP output files, extract the necessary parameters for calculation of L-J.
         Desired format:
-        ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'vol']
-        All vals are float except atom number (int) and atom type (str).
+        ['atomic number', 'atomic name', 'x', 'y', 'z', 'charge', 'vol']
+        All vals are float except atom number (int) and atom name (str).
         """
 
         # We know this from the molecule object self.molecule try to get the info from there
@@ -136,30 +136,31 @@ class LennardJones:
         """
 
         # Beware weird units, (wrong in the paper too).
-        # 'elem' : [vfree, bfree, rfree]
-        # Units: [vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs]
+        # Units: vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs
 
+        FreeParams = namedtuple('params', 'vfree bfree rfree')
         elem_dict = {
-            'H': [7.6, 6.5, 1.64],
-            'B': [46.7, 99.5, 2.08],
-            'C': [34.4, 46.6, 2.08],
-            'N': [25.9, 24.2, 1.72],
-            'O': [22.1, 15.6, 1.60],
-            'F': [18.2, 9.5, 1.58],
-            'P': [84.6, 185, 2.07],
-            'S': [75.2, 134.0, 2.00],
-            'Cl': [65.1, 94.6, 1.88],
-            'Br': [95.7, 162.0, 1.96],
-            'Si': [101.64, 305, 2.00]
+            'H': FreeParams(7.6, 6.5, 1.64),
+            'B': FreeParams(46.7, 99.5, 2.08),
+            'C': FreeParams(34.4, 46.6, 2.08),
+            'N': FreeParams(25.9, 24.2, 1.72),
+            'O': FreeParams(22.1, 15.6, 1.60),
+            'F': FreeParams(18.2, 9.5, 1.58),
+            'P': FreeParams(84.6, 185, 2.07),
+            'S': FreeParams(75.2, 134.0, 2.00),
+            'Cl': FreeParams(65.1, 94.6, 1.88),
+            'Br': FreeParams(95.7, 162.0, 1.96),
+            'Si': FreeParams(101.64, 305, 2.00),
         }
 
         for pos, atom in enumerate(self.ddec_data):
             try:
+                atomic_name, atom_vol = atom[1], atom[-1]
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
-                r_aim = elem_dict[f'{atom[1]}'][2] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** (1 / 3))
+                r_aim = elem_dict[atomic_name].rfree * ((atom_vol / elem_dict[atomic_name].vfree) ** (1 / 3))
 
                 # b_i = bfree * ((vol / v_free) ** 2)
-                b_i = elem_dict[f'{atom[1]}'][1] * ((atom[-1] / elem_dict[f'{atom[1]}'][0]) ** 2)
+                b_i = elem_dict[atomic_name].bfree * ((atom_vol / elem_dict[atomic_name].vfree) ** 2)
 
                 a_i = 32 * b_i * (r_aim ** 6)
 

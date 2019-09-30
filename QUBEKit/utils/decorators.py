@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.helpers import pretty_print, unpickle
+from QUBEKit.utils.helpers import pretty_print, unpickle, COLOURS
 
 from datetime import datetime
 from functools import wraps, partial
@@ -41,21 +41,19 @@ def timer_logger(orig_func):
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
 
-        start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        t1 = time()
-
         # All this does is check if the decorated function has a molecule attribute;
         # if it does, the function must therefore have a home path which can be used to write to the log file.
         if len(args) >= 1 and hasattr(args[0], 'molecule'):
-            if getattr(args[0].molecule, 'home') is not None:
-                log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
-            else:
+            if getattr(args[0].molecule, 'home') is None:
                 return orig_func(*args, **kwargs)
+            log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
         else:
-            if os.path.exists('../QUBEKit_log.txt'):
-                log_file_path = '../QUBEKit_log.txt'
-            else:
+            if not os.path.exists('../QUBEKit_log.txt'):
                 return orig_func(*args, **kwargs)
+            log_file_path = '../QUBEKit_log.txt'
+
+        start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        t1 = time()
 
         with open(log_file_path, 'a+') as log_file:
             log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n    ')
@@ -146,14 +144,15 @@ def exception_logger(func):
                 raise
 
             mol = unpickle()[state]
-            pretty_print(mol, to_file=True, finished=False)
+            if getattr(args[0].molecule, 'verbose'):
+                pretty_print(mol, to_file=True, finished=False)
 
             log_file = os.path.join(home, 'QUBEKit_log.txt')
             logger = logger_format(log_file)
 
             logger.exception(f'\nAn exception occurred with: {func.__qualname__}\n')
-            print(f'\n\nAn exception occurred with: {func.__qualname__}\n'
-                  f'Exception: {exc}\nView the log file for details.'.upper())
+            print(f'{COLOURS.red}\n\nAn exception occurred with: {func.__qualname__}{COLOURS.end}\n'
+                  f'Exception: {exc}\nView the log file for details.')
 
             if isinstance(exc, SystemExit) or isinstance(exc, KeyboardInterrupt):
                 raise

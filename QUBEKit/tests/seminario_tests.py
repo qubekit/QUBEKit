@@ -1,5 +1,5 @@
-from QUBEKit.utils.helpers import unpickle
 from QUBEKit.mod_seminario import ModSeminario
+from QUBEKit.utils.helpers import unpickle
 
 import os
 from shutil import copy
@@ -27,7 +27,7 @@ class TestSeminario(unittest.TestCase):
             self.benzonitrile_hessian, self.benzonitrile_mod_sem = self.molecules['benzonitrile_hessian'], self.molecules['benzonitrile_mod_sem']
 
     def test_mod_sem(self):
-        """Using wB97XD/6-311++G(d,p), scalling 0.957"""
+        """Using wB97XD/6-311++G(d,p), scaling 0.957"""
         # Make temp folder and move the pickle file in
         with tempfile.TemporaryDirectory() as temp:
             os.chdir(temp)
@@ -39,7 +39,7 @@ class TestSeminario(unittest.TestCase):
             self.assertEqual(self.benzene_hessian.HarmonicAngleForce, self.benzene_mod_sem.HarmonicAngleForce)
 
     def test_mod_sem_scalling(self):
-        """Using wB97XD/6-311++G(d,p), scalling 1"""
+        """Using wB97XD/6-311++G(d,p), scaling 1"""
         # Make temp folder and move the pickle file in
         with tempfile.TemporaryDirectory() as temp:
             os.chdir(temp)

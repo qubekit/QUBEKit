@@ -68,7 +68,7 @@ class Gaussian(Engines):
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
             if optimise:
                 convergence = self.convergence_dict.get(self.molecule.convergence, "")
-                if convergence != "":
+                if convergence:
                     convergence = f', {convergence}'
                 if red_mode:
                     # Set the redundant mode as the convergence as we just want to use the standard threshold

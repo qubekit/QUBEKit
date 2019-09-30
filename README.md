@@ -47,7 +47,8 @@ Users who have used QUBEKit to derive any new force field parameters should cite
 ### In Development
 
 QUBEKit should currently be considered a work in progress.
-While it is stable we are constantly working to improve the code and broaden its compatibility. 
+While it is stable we are constantly working to improve the code and broaden its compatibilities. 
+
 We use lots of software written by many different people;
 if reporting a bug please (to the best of your ability) make sure it is a bug with QUBEKit and not with a dependency.
 We welcome any suggestions for additions or changes. 
@@ -57,8 +58,7 @@ We welcome any suggestions for additions or changes.
 To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*.
 Git has our latest version which will likely have newer features but may not be stable.
 
-We recommend installing via conda. We have created a conda environment to be used specifically with QUBEKit which is available
-[here](https://github.com/qubekit/QUBEKit/blob/master/devtools/travis/environment.yml).
+We recommend installing via conda. This will install all necessary dependencies.
 
     git clone https://github.com/qubekit/QUBEKit.git
     cd <install location>
@@ -72,12 +72,6 @@ We recommend installing via conda. We have created a conda environment to be use
 
     conda install -c cringrose qubekit
     
-To create the environment using the QUBEKit [environment.yml](https://github.com/qubekit/QUBEKit/blob/master/devtools/travis/environment.yml) 
-
-    conda env create -f environment.yml
-    
-This allows you to simply save the environment yml file, then run the above command. 
-This will download all necessary packages to a conda environment from which you can freely run QUBEKit.
 
 ### Requirements
 
@@ -87,7 +81,7 @@ Download Anaconda from the above link and install with the linux command:
 
     ./Anaconda3<version>.sh
 
-*You may need to use ```chmod +x Anaconda3<version>.sh``` to make it executable.*
+*You may need to use `chmod +x Anaconda3<version>.sh` to make it executable.*
 
 We recommend you add conda to your .bashrc when prompted.
 
@@ -102,13 +96,15 @@ If you do, please make sure Gaussian09 is executable with the command `g09`.
 Chargemol can be downloaded and installed from a zip file in the above link. 
 Be sure to add the path to the QUBEKit configs once you've generated them *([explanation](https://github.com/qubekit/QUBEKit#before-you-start-config-files))*.
 
-Many packages come pre-installed with Anaconda, however there are some which require further installation.
-These packages are on different conda channels, hence needing the extra arguments.
-
 **Core Requirements**
 
-All conda packages are included in the [environment.yml](https://github.com/qubekit/QUBEKit/blob/master/devtools/travis/environment.yml)
-provided, removing the need to install the following manually.
+All conda packages are included in the conda install:
+
+`conda install -c cringrose qubekit`
+
+Below details some of the core requirements included in the conda install of QUBEKit.
+
+---
 
 * [PSI4](http://www.psicode.org/)
 
@@ -166,12 +162,31 @@ For the software not available through Anaconda, or if Anaconda is having troubl
 
 or follow the described steps in the respective documentation.
 
-You should now be able to use QUBEKit straight away from the command line or as an imported Python module.
+#### Installing as dev
+
+If downloading QUBEKit to edit the latest version of the source code, 
+the easiest method is install via conda, then remove the conda version of qubekit and git clone.
+This is accomplished with a few simple commands:
+    
+    # Install QUBEKit as normal
+    conda install -c cringrose qubekit
+    
+    # Remove ONLY the QUBEKit package itself, leaving all dependencies installed
+    # and on their correct version
+    conda remove --force qubekit
+    
+    # Re-download QUBEKit outside of conda
+    git clone https://github.com/qubekit/QUBEKit.git
+    
+    # Re-install QUBEKit outside of conda
+    cd QUBEKit/
+    python setup.py install
 
 ## Help
 
 Below is general help for most of the commands available in QUBEKit.
-There is some short help available through the terminal (invoked with `-h`) but all necessary long-form help is within this document.
+There is some short help available through the terminal (invoked with `-h`) 
+but all necessary long-form help is within this document.
 
 ### Config files
 
@@ -179,7 +194,7 @@ QUBEKit has a lot of settings which are used in production and changing these ca
 The settings are controlled using ini style config files which are easy to edit.
 After installation you should notice a `QUBEKit_configs` 
 folder in your main home directory; now you need to create a master template.
-To do this use the command `QUBEKit -setup` where you will then be presented with some options:
+To do this, use the command `QUBEKit -setup` where you will be presented with the following:
 
     You can now edit config files using QUBEKit, chose an option to continue:
     1) Edit a config file
@@ -233,13 +248,14 @@ you may use whatever case you like for the name of files (e.g. `-i DMSO.pdb`) or
 
 ### QUBEKit Commands: Some Examples
 
-(A full list of the possible command line arguments is given below in the 
-[Cook Book](https://github.com/qubekit/QUBEKit#cook-book) section. This section covers some simple examples)
+*A full list of the possible command line arguments is given below in the 
+[Cook Book](https://github.com/qubekit/QUBEKit#cook-book) section. 
+This section covers some simple examples*
 
-Running a full analysis on molecule.pdb with a non-default charge of 1, the default charge engine (Chargemol) and with GeomeTRIC off:
+Running a full analysis on `molecule.pdb` with a non-default charge of `1`, the default charge engine `Chargemol` and with GeomeTRIC `off`:
 Note, ordering does not matter as long as tuples commands (`-c` `1`) are together.
 
-`-i` is for the file *input* type, `-c` denotes the charge and `-geo` is for (en/dis)abling geomeTRIC.
+`-i` is for the input, `-c` denotes the charge and `-geo` is for (en/dis)abling geomeTRIC.
     
     QUBEKit -i molecule.pdb -c 1 -geo false
     QUBEKit -c 1 -geo false -i molecule.pdb
@@ -250,10 +266,11 @@ Running a full analysis with a non-default bonds engine: Gaussian09 (g09):
 
 The program will tell the user which defaults are being used, and which commands were given.
 Errors will be raised for any invalid commands and the program will not run.
+A full log of what's happening will be created in a `QUBEKit_log.txt` file.
 
 Try running QUBEKit with the command:
 
-    QUBEKit -sm C -end hessian
+    QUBEKit -sm C methane -end hessian
 
 This will generate a methane pdb file (and mol file) using its smiles string: `C`,
 then QUBEKit will analyse it until the hessian is calculated.
@@ -491,7 +508,7 @@ To display the progress of all analyses in your current directory and below, use
 QUBEKit will find the log files in all QUBEKit directories and display a colour-coded table of the progress.  
 
 * Tick marks indicate a stage has completed successfully
-* Tildes indicate a stage has not finished nor has is errored
+* Tildes indicate a stage has not finished nor errored
 * An S indicates a stage has been skipped
 * An E indicates that a stage has started and failed for some reason. 
 Viewing the log file will give more information as to *why* it failed.

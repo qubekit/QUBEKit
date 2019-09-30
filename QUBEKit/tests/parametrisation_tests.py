@@ -1,10 +1,9 @@
-from QUBEKit.parametrisation import AnteChamber, OpenFF
 from QUBEKit.ligand import Ligand
-
+from QUBEKit.parametrisation import AnteChamber, OpenFF
 
 import os
-import unittest
 from shutil import copy, rmtree
+import unittest
 
 
 class ParametrisationTest(unittest.TestCase):
