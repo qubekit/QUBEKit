@@ -146,7 +146,7 @@ class LennardJones:
             'N': FreeParams(25.9, 24.2, 1.72),
             'O': FreeParams(22.1, 15.6, 1.60),
             'F': FreeParams(18.2, 9.5, 1.58),
-            'P': FreeParams(84.6, 185, 2.00),
+            'P': FreeParams(84.6, 185, 2.07),
             'S': FreeParams(75.2, 134.0, 2.00),
             'Cl': FreeParams(65.1, 94.6, 1.88),
             'Br': FreeParams(95.7, 162.0, 1.96),

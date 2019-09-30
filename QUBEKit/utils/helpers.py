@@ -30,7 +30,7 @@ class Configure:
     qm = {
         'theory': 'B3LYP',              # Theory to use in freq and dihedral scans recommended e.g. wB97XD or B3LYP
         'basis': '6-311++G(d,p)',       # Basis set
-        'vib_scaling': '0.967',         # Associated scaling to the theory
+        'vib_scaling': '1',         # Associated scaling to the theory
         'threads': '2',                 # Number of processors used in Gaussian09; affects the bonds and dihedral scans
         'memory': '2',                  # Amount of memory (in GB); specified in the Gaussian09 scripts
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09

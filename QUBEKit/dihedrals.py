@@ -673,7 +673,8 @@ class TorsionOptimiser:
             self.molecule.coords['traj'] = self.molecule.qm_scans[self.scan][1]
             self.scan_coords = self.molecule.openmm_coordinates(input_type='traj')
             # This stores the results of the qm torsiondrive as the reference geometry should only be done once
-            self._create_rdkit_molecules(self.scan_coords)
+            if not self.rmsd_atoms:
+                self._create_rdkit_molecules(self.scan_coords)
             # Set up the fitting folders
             try:
                 os.mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')

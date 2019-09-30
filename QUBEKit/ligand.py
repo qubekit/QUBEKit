@@ -91,7 +91,7 @@ class DefaultsMixin:
 
         self.theory = 'wB97XD'
         self.basis = '6-311++G(d,p)'
-        self.vib_scaling = 0.957
+        self.vib_scaling = 1
         self.threads = 2
         self.memory = 2
         self.convergence = 'GAU_TIGHT'
@@ -1203,8 +1203,10 @@ class Molecule:
                     energy.append(float(line.split()[1]))
 
         qm_scans[bond_scan] = [np.array(energy), scan_coords]
-
-        self.qm_scans = qm_scans or None
+        if self.qm_scans is not None:
+            self.qm_scans = {**self.qm_scans, **qm_scans}
+        else:
+            self.qm_scans = qm_scans or None
 
     def read_scan_order(self, file):
         """
