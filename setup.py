@@ -26,7 +26,7 @@ setup(
             'QUBEKit-gui = QUBEKit.GUI.gui:main'
         ]
     },
-    version='2.6.2',
+    version='2.6.3',
     license='MIT',
     classifiers=[
         'Intended Audience :: Science/Research',
