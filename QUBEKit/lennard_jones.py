@@ -141,7 +141,7 @@ class LennardJones:
         FreeParams = namedtuple('params', 'vfree bfree rfree')
         elem_dict = {
             'H': FreeParams(7.6, 6.5, 1.64),
-            'B': FreeParams(46.7, 99.5, 2.08),
+            'B': FreeParams(46.7, 99.5, 2.04),
             'C': FreeParams(34.4, 46.6, 2.08),
             'N': FreeParams(25.9, 24.2, 1.72),
             'O': FreeParams(22.1, 15.6, 1.60),

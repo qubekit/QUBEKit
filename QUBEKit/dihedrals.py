@@ -12,11 +12,15 @@ import os
 from shutil import rmtree
 import subprocess as sp
 
+
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize, differential_evolution
 from scipy.stats import linregress
 from datetime import datetime
+
+matplotlib.use('Agg') # Fix for clusters?
 
 
 @for_all_methods(timer_logger)
@@ -110,12 +114,15 @@ class TorsionScan:
 
             out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering\n'
                       '# i     j     k     l     ')
-            # This adds suport for range limited runs but is only need if we move away from the default range
+            # This adds support for range limited runs but is only need if we move away from the default range
             if self.molecule.dih_start != -165 or self.molecule.dih_end != 180:
                 out.write('(range_low)     (range_high)\n')
             else:
                 out.write('\n')
-            scan_di = self.molecule.dihedrals[scan][0]
+            if self.molecule.improper_torsions is not None and scan in self.molecule.improper_torsions:  # Adds support for scanning improper torsions
+                scan_di = scan
+            else:
+                scan_di = self.molecule.dihedrals[scan][0]
             out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}     ')
             if self.molecule.dih_start != -165 or self.molecule.dih_end != 180:
                 out.write(f'{self.molecule.dih_start}     {self.molecule.dih_end}\n')
@@ -168,8 +175,15 @@ class TorsionScan:
         :return: The energies and coordinates into the molecule
         """
         for scan in self.molecule.scan_order:
-            os.chdir(os.path.join(self.home, os.path.join(f'SCAN_{scan[0]}_{scan[1]}', 'QM_torsiondrive')))
+            name = self._make_folder_name(scan)
+            os.chdir(os.path.join(self.home, os.path.join(f'SCAN_{name}', 'QM_torsiondrive')))
             self.molecule.read_tdrive(scan)
+
+    def _make_folder_name(self, scan):
+        if self.molecule.improper_torsions is not None:
+            return f'{scan[0]}_{scan[1]}_imp' if scan in self.molecule.improper_torsions else f'{scan[0]}_{scan[1]}'
+        else:
+            return f'{scan[0]}_{scan[1]}'
 
     def check_run_history(self, scan):
         """
@@ -178,9 +192,10 @@ class TorsionScan:
         :return: If we should continue the run
         """
 
+        name = self._make_folder_name(scan)
         # Try and open the tdrive.log file to check the old running options
         try:
-            file_path = os.path.join(os.getcwd(), os.path.join(f'SCAN_{scan[0]}_{scan[1]}', os.path.join('QM_torsiondrive', 'tdrive.log')))
+            file_path = os.path.join(os.getcwd(), os.path.join(f'SCAN_{name}', os.path.join('QM_torsiondrive', 'tdrive.log')))
             with open(file_path) as t_log:
                 header = t_log.readline().split('Basis used:')
 
@@ -203,23 +218,24 @@ class TorsionScan:
         #   e.g. user gives 6 cores for QM and we run two drives that takes 12 cores!
 
         for scan in self.molecule.scan_order:
+            name = self._make_folder_name(scan)
             try:
-                os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
+                os.mkdir(f'SCAN_{name}')
             except FileExistsError:
                 # If there is a run in the folder, check if we are continuing an old run by matching the settings
                 con_scan = self.check_run_history(scan)
                 if not con_scan:
 
-                    print(f'SCAN_{scan[0]}_{scan[1]} folder present backing up folder to SCAN_{scan[0]}_{scan[1]}_tmp')
+                    print(f'SCAN_{name} folder present backing up folder to SCAN_{name}_tmp')
                     # Remove old backups
                     try:
-                        rmtree(f'SCAN_{scan[0]}_{scan[1]}_tmp')
+                        rmtree(f'SCAN_{name}_tmp')
                     except FileNotFoundError:
                         pass
-                    os.system(f'mv SCAN_{scan[0]}_{scan[1]} SCAN_{scan[0]}_{scan[1]}_tmp')
-                    os.mkdir(f'SCAN_{scan[0]}_{scan[1]}')
+                    os.system(f'mv SCAN_{name} SCAN_{name}_tmp')
+                    os.mkdir(f'SCAN_{name}')
 
-            os.chdir(f'SCAN_{scan[0]}_{scan[1]}')
+            os.chdir(f'SCAN_{name}')
 
             make_and_change_into('QM_torsiondrive')
 
@@ -517,26 +533,29 @@ class TorsionOptimiser:
             objective['total'].append(energy_error + sum(rmsd_vector) / len(rmsd_vector))
             objective['parameters'].append(opt_parameters)
 
-            # Check convergence
-            if objective['total'][-1] <= 0.25:
-                converged = True
-                print(f'Fitting converged after {iteration} iterations exiting...')
-                # This takes us out of the refinement loop and stops any parameter changes
-                iteration = 5
-
             # Print the results of the iteration
             self.optimiser_log.write('After refinement the errors are:\n')
             for error, value in objective.items():
                 self.optimiser_log.write(f'{error}: {value}\n')
             self.optimiser_log.flush()
 
+            # Check convergence
+            if objective['total'][-1] <= 0.25:
+                print(f'Fitting converged after {iteration} iterations exiting...')
+                # This takes us out of the refinement loop and stops any parameter changes
+                break
+
             # Has the error converged?
             if iteration < 5:
 
-                # Don't move too far away from the last set of optimised parameters
+                # Don't move too far away from the last set of optimised parameters if they got a good fit
                 self.starting_params = opt_parameters
-                # turn on the penalty
-                self.l_pen = 0.15
+                # turn on the penalty if the error is getting close to the threshold
+                if energy_error <= 1.5:
+                    self.l_pen = 0.15
+                else:
+                    print('turing of penalty due to large errors.')
+                    self.l_pen = 0
 
                 # optimise using the scipy method for the new structures with a penalty to remain close to the old
                 fitting_error, opt_parameters = self.scipy_optimiser()
@@ -576,7 +595,7 @@ class TorsionOptimiser:
         final_error = objective['total'][min_index]
         # final_error = objective['total'][-1]
         self.optimiser_log.write(f'The lowest error:{final_error}\nThe corresponding parameters:{final_parameters}\n'
-                                 f'were found on iteraion {min_index + 1}')
+                                 f'were found on iteraion {min_index + 1}\n')
         self.optimiser_log.flush()
 
         # now we want to see how well we have captured the initial QM energy surface
@@ -726,7 +745,7 @@ class TorsionOptimiser:
             self.optimiser_log.flush()
             # Get the optimisation method if it is a hybrid take the first option
             self.method = self.methods.get(self.molecule.opt_method.split('_')[0], None)
-            error, opt_parameters = self.scipy_optimiser()
+            error, opt_parameters = self.initial_optimiser()
             self.optimiser_log.write(f'fitted parameters {opt_parameters}\n')
             self.optimiser_log.write(f'Fitted error {error}\n')
             self.optimiser_log.flush()
@@ -750,9 +769,6 @@ class TorsionOptimiser:
                 error, opt_parameters = self.single_point_matching(error, opt_parameters)
                 self.param_vector = opt_parameters
 
-            elif self.refinement == 'Steep':
-                error, opt_parameters = self.steepest_decent_refinement(self.param_vector)
-
             # now push the parameters back to the molecule
             self.update_tor_vec(opt_parameters)
             self.update_mol()
@@ -764,88 +780,26 @@ class TorsionOptimiser:
             self.optimiser_log.flush()
             self.optimiser_log.close()
 
-    def steepest_decent_refinement(self, x):
-        """
-        A steepest descent optimiser as implemented in QUBEKit-V1, which will optimise the torsion terms
-        using full relaxed surface scans. SLOW!
-        """
+    def initial_optimiser(self):
+        """This is the initial optimiser which is ran on the qm optimised geometry and determines the best
+        fitting parameters to be used in the other optimisations based on the current optimisation method.
+        1) Fit with no temperature weighting using the optimiser and measure the error.
+        2) Determine if the temperature should be changed when the fit is poor and there are large high energy
+        peaks on the surface
+        3) Fit with the new temperature store the settings of the lowest error."""
 
-        print('Starting optimisation ...')
+        running_options = {}
+        for self.t_weight in ['infinity', 2000]:
+            error, opt_parameters = self.scipy_optimiser()
+            running_options[self.t_weight] = (error, opt_parameters)
+            if error <= 1.5:
+                return error, opt_parameters
+            else:
+                print(f'Current error {error} adjusting temperature wieghting to improve fitting')
 
-        # search steep sizes
-        step_size = [0.1, 0.01, 0.001]
-        step_index = 0
-
-        # set convergence
-        converged = False
-        final_error = None
-        final_parameters = None
-
-        # start main optimizer loop
-        while not converged:
-
-            # when to change the step size
-            un_changed = 0
-
-            # for each Vn parameter in the parameter vector
-            for i in range(len(x)):
-
-                # error dict
-                error = {}
-
-                # First we need to get the initial error with a full relaxed scan
-                self.scan_coords = self.drive_mm('geometric')
-
-                # get the starting energies and errors from the current parameter set
-                normal = self.objective(x)
-
-                error[normal] = x
-                # make a copy of the parameter vector
-                y_plus = deepcopy(x)
-
-                # now make a variation on the parameter set
-                y_plus[i] += step_size[step_index]
-                print(f'y plus {y_plus}')
-                # now find the new error
-                self.scan_coords = self.drive_mm('geometric')
-
-                error_plus = self.objective(y_plus)
-                error[error_plus] = y_plus
-
-                # now make a different variation
-                y_minus = deepcopy(x)
-                y_minus[i] -= step_size[step_index]
-                print(f'y minus {y_minus}')
-
-                # now find the other error
-                self.scan_coords = self.drive_mm('geometric')
-                error_minus = self.objective(y_minus)
-                error[error_minus] = y_minus
-
-                # now work out which has the lowest error
-                min_error = min(normal, error_plus, error_minus)
-                print(f'minimum error {min_error}')
-
-                # now the parameter vector becomes who had the lowest error
-                x = deepcopy(error[min_error])
-                print(f'The new parameter vector {x}')
-
-                # if the error is not changed count how many times this happens
-                if min_error == normal:
-                    # add one to unchanged
-                    un_changed += 1
-
-                # if all Vn have no effect then change the step size
-                if un_changed == len(x) - 1:
-                    step_index += 1
-
-                # now check to see if we have ran out steps
-                if step_index >= len(step_size):
-                    final_parameters = deepcopy(x)
-                    final_error = deepcopy(min_error)
-                    converged = True
-
-        return final_error, final_parameters
+        # If we could not get the error below the threshold then return that with the lowest error
+        self.t_weight, options = min(running_options.items(), key=lambda x: x[1][0])
+        return options[0], options[1]
 
     def load_torsions(self):
         """
@@ -883,7 +837,12 @@ class TorsionOptimiser:
         """
 
         # Get a list of which dihedrals parameters are to be varied through the scanned bond
-        to_fit = [tuple(tor) for tor in list(self.molecule.dihedrals[self.scan])]
+        try:
+            to_fit = [tuple(tor) for tor in list(self.molecule.dihedrals[self.scan])]
+        except KeyError:
+            # here we must have an improper torsion for now only take it to fit
+            #TODO extend dihedral types to cover symmetry equivalent impropers
+            to_fit = [self.scan]
         # Now expand to include all symmetry equivalent dihedrals
         torsions_and_types = {}
         for key, dihedral_class in self.molecule.dihedral_types.items():
@@ -922,6 +881,10 @@ class TorsionOptimiser:
         # now take the master vectors and make the starting parameter list
         # Store the original parameter vectors to use regularisation
         self.starting_params = np.array([list(k)[1][i] for k in self.tor_types.values() for i in range(4)])
+        # Work out what the torsion parameter limit based on the old parameters
+        # should be similar if we have very large barrier heights
+        if self.abs_bounds <= self.starting_params.max():
+            self.abs_bounds = round(self.starting_params.max() + 2)
         self.optimiser_log.write(f'Starting parameters {self.starting_params}\n')
         self.optimiser_log.flush()
 
@@ -984,9 +947,7 @@ class TorsionOptimiser:
 
         elif self.method == 'Genetic':
             # We must create some bounds for this method based on the vn_limits
-            print(self.param_vector)
             bounds = [(-abs(self.abs_bounds), abs(self.abs_bounds)) for _ in range(len(self.param_vector))]
-            print(bounds)
             res = differential_evolution(self.objective, bounds=bounds)
 
         else:
@@ -1011,6 +972,7 @@ class TorsionOptimiser:
         for val in self.tor_types.values():
             for j, dihedral in enumerate(val[0]):
                 for v_n in range(4):
+                    *dihedral, _, _, _ = torsion_force.getTorsionParameters(v_n + val[2][j])
                     torsion_force.setTorsionParameters(
                         index=v_n + val[2][j], periodicity=v_n + 1, phase=self.phases[v_n], k=val[1][v_n],
                         particle1=dihedral[0], particle2=dihedral[1], particle3=dihedral[2], particle4=dihedral[3]

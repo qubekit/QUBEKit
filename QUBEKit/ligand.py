@@ -1017,7 +1017,7 @@ class Molecule:
         mols[self.state] = self
 
         # Open the pickle jar which will always be the ligand object's name
-        with open(f'.QUBEKit_states', 'wb') as pickle_jar:
+        with open('.QUBEKit_states', 'wb') as pickle_jar:
 
             # If there were other molecules of the same state in the jar: overwrite them
             for val in mols.values():
@@ -1218,15 +1218,25 @@ class Molecule:
         # If we have a QUBE.dihedrals file get the scan order from there
         scan_order = []
         torsions = open(file).readlines()
-        for line in torsions[2:]:
-            torsion = line.split()
-            if len(torsion) == 4:
+        for line in torsions:
+            if '#' not in line:
+                torsion = line.split()
+                if len(torsion) == 6:
+                    print('Torsion and dihedral range found, updating scan range:')
+                    self.dih_start = int(torsion[-2])
+                    self.dih_end = int(torsion[-1])
+                    print(f'Dihedral will be scanned in the range: {self.dih_start},  {self.dih_end}')
                 core = (int(torsion[1]), int(torsion[2]))
                 if core in self.dihedrals.keys():
                     scan_order.append(core)
                 elif reversed(tuple(core)) in self.dihedrals.keys():
                     scan_order.append(reversed(tuple(core)))
-
+                else:
+                    # This might be an improper scan so check
+                    improper = (int(torsion[0]), int(torsion[1]), int(torsion[2]), int(torsion[3]))
+                    if improper in self.improper_torsions:
+                        print('Improper torsion found.')
+                        scan_order.append(improper)
         self.scan_order = scan_order
 
 
