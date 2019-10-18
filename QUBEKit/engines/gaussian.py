@@ -211,7 +211,6 @@ class Gaussian(Engines):
             sp.run('formchk lig.chk lig.fchk', shell=True, stdout=formlog, stderr=formlog)
 
         with open('lig.fchk', 'r') as fchk:
-
             lines = fchk.readlines()
 
         start, end, energy = None, None, None

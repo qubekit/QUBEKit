@@ -3,9 +3,8 @@
 
 class Engines:
     """
-    Engines base class containing core information that all other engines (PSI4, Gaussian etc) will have.
-    Provides atoms' coordinates with name tags for each atom and entire molecule.
-    Also gives all configs from the appropriate config file.
+    Engines base class containing core information that all other engines
+    (PSI4, Gaussian etc) will have.
     """
 
     def __init__(self, molecule):

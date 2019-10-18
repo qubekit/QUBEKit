@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
 from QUBEKit.engines.base_engine import Engines
-from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.helpers import append_to_log, check_symmetry
+from QUBEKit.utils.helpers import append_to_log
 from QUBEKit.utils.exceptions import Psi4Error
 
 import subprocess as sp
@@ -29,17 +28,18 @@ class PSI4(Engines):
         # Test if PSI4 is callable
         try:
             sp.run('psi4 -h', shell=True, check=True, stdout=sp.PIPE)
-        except sp.CalledProcessError:
+        except sp.CalledProcessError as exc:
             raise ModuleNotFoundError(
-                'PSI4 not working. Please ensure PSI4 is installed and can be called with the command: psi4')
+                'PSI4 not working. Please ensure PSI4 is installed and can be called with the command: psi4'
+            ) from exc
 
         if self.molecule.geometric:
             try:
                 sp.run('geometric-optimize -h', shell=True, check=True, stdout=sp.PIPE)
-            except sp.CalledProcessError:
+            except sp.CalledProcessError as exc:
                 raise ModuleNotFoundError(
                     'Geometric not working. Please ensure geometric is installed and can be called '
-                    'with the command: geometric-optimize')
+                    'with the command: geometric-optimize') from exc
 
     # TODO add restart from log method
     def generate_input(self, input_type='input', optimise=False, hessian=False, density=False,
@@ -126,8 +126,8 @@ class PSI4(Engines):
             with open('log.txt', 'w+') as log:
                 try:
                     sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log, check=True)
-                except sp.CalledProcessError:
-                    raise Psi4Error('Psi4 did not execute successfully check log file for details.')
+                except sp.CalledProcessError as exc:
+                    raise Psi4Error('Psi4 did not execute successfully check log file for details.') from exc
 
             # Now check the exit status of the job
             return self.check_for_errors()
@@ -152,71 +152,6 @@ class PSI4(Engines):
 
             return {'success': False,
                     'error': 'Segfault'}
-
-    def hessian(self):
-        """
-        Parses the Hessian from the output.dat file (from psi4) into a numpy array;
-        performs check to ensure it is symmetric;
-        has some basic error handling for if the file is missing data etc.
-        """
-
-        hess_size = 3 * len(self.molecule.atoms)
-
-        # output.dat is the psi4 output file.
-        with open('output.dat', 'r') as file:
-
-            lines = file.readlines()
-
-            for count, line in enumerate(lines):
-                if '## Hessian' in line or '## New Matrix (Symmetry' in line:
-                    # Set the start of the hessian to the row of the first value.
-                    hess_start = count + 5
-                    break
-            else:
-                raise EOFError('Cannot locate Hessian matrix in output.dat file.')
-
-            # Check if the hessian continues over onto more lines (i.e. if hess_size is not divisible by 5)
-            extra = 0 if hess_size % 5 == 0 else 1
-
-            # hess_length: # of cols * length of each col
-            #            + # of cols - 1 * #blank lines per row of hess_vals
-            #            + # blank lines per row of hess_vals if the hess_size continues over onto more lines.
-            hess_length = (hess_size // 5) * hess_size + (hess_size // 5 - 1) * 3 + extra * (3 + hess_size)
-
-            hess_end = hess_start + hess_length
-
-            hess_vals = []
-
-            for file_line in lines[hess_start:hess_end]:
-                # Compile lists of the 5 Hessian floats for each row.
-                # Number of floats in last row may be less than 5.
-                # Only the actual floats are added, not the separating numbers.
-                row_vals = [float(val) for val in file_line.split() if len(val) > 5]
-                hess_vals.append(row_vals)
-
-            # Remove blank list entries
-            hess_vals = [elem for elem in hess_vals if elem]
-
-            reshaped = []
-
-            # Convert from list of (lists, length 5) to 2d array of size hess_size x hess_size
-            for old_row in range(hess_size):
-                new_row = []
-                for col_block in range(hess_size // 5 + extra):
-                    new_row += hess_vals[old_row + col_block * hess_size]
-
-                reshaped.append(new_row)
-
-            hess_matrix = np.array(reshaped)
-
-            # Cache the unit conversion.
-            conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
-            # Element-wise multiplication
-            hess_matrix *= conversion
-
-            check_symmetry(hess_matrix)
-
-            return hess_matrix
 
     def optimised_structure(self):
         """

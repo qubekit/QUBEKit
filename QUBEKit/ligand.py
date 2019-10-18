@@ -1177,11 +1177,10 @@ class Molecule:
 
         coordinates = self.coords[input_type]
 
+        # Multiple frames in this case
         if input_type == 'traj' and len(coordinates) != len(self.coords['input']):
-            # Multiple frames in this case
             return [[tuple(atom / 10) for atom in frame] for frame in coordinates]
-        else:
-            return [tuple(atom / 10) for atom in coordinates]
+        return [tuple(atom / 10) for atom in coordinates]
 
     def read_tdrive(self, bond_scan):
         """
