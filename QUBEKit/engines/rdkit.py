@@ -123,8 +123,8 @@ class RDKit:
         :return: A list of conformer position arrays
         """
 
-        cons = AllChem.EmbedMultipleConfs(rdkit_mol, numConfs=conformer_no)
-        positions = cons.GetConformers()
+        AllChem.EmbedMultipleConfs(rdkit_mol, numConfs=conformer_no)
+        positions = rdkit_mol.GetConformers()
 
         return [conformer.GetPositions() for conformer in positions]
 

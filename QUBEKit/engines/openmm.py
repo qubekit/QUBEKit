@@ -13,6 +13,7 @@ from simtk import unit
 import xml.etree.ElementTree as ET
 
 from copy import deepcopy
+import os
 
 
 class OpenMM(Engines):
@@ -27,7 +28,16 @@ class OpenMM(Engines):
         self.combination = molecule.combination
         self.pdb = molecule.name + '.pdb'
         self.xml = molecule.name + '.xml'
+        self.set_threads()
         self.openmm_system()
+
+    def set_threads(self, threads=None):
+        """Set the amount of CPU threads available to OpenMM other wise it will use all logical cores."""
+        #TODO if we use the cpu set to one thread we might be able to speed up the scans using threadding
+
+        # we only need one thread per openmm task when using the CPU
+        threads = threads or 1
+        os.environ['OPENMM_CPU_THREADS'] = str(threads)
 
     @timer_logger
     def openmm_system(self):
@@ -54,10 +64,10 @@ class OpenMM(Engines):
             print('OPLS combination rules found in xml file')
             self.opls_lj()
 
-        temperature = constants.STP * unit.kelvin
-        integrator = mm.LangevinIntegrator(temperature, 5 / unit.picoseconds, 0.001 * unit.picoseconds)
-
-        self.simulation = app.Simulation(modeller.topology, self.system, integrator)
+        # temperature = constants.STP * unit.kelvin
+        integrator = mm.VerletIntegrator(1.0*unit.femtoseconds)
+        platform = mm.Platform.getPlatformByName('Reference')
+        self.simulation = app.Simulation(modeller.topology, self.system, integrator, platform)
         self.simulation.context.setPositions(modeller.positions)
 
     # get_energy is called too many times so timer_logger decorator should not be applied.

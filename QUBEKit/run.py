@@ -755,7 +755,7 @@ class Execute:
 
                     result = qceng.call_qcengine(engine='geometric', driver='gradient', input_type='temp')
 
-                except KeyError:
+                except (KeyError, TypeError):
                     result = qceng.call_qcengine(engine='geometric', driver='gradient',
                                                  input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}')
 
@@ -791,7 +791,7 @@ class Execute:
                 elif result['error'] == 'Max iterations':
                     result = qm_engine.generate_input('input', optimise=True, restart=True, execute=molecule.bonds_engine)
                 else:
-                    molecule.coords['temp'] = RDKit().generate_conformers(molecule.rdkit_mol)[0]
+                    molecule.coords['temp'] = RDKit().generate_conformers(molecule.rdkit_mol)[-1]
                     result = qm_engine.generate_input('temp', optimise=True, execute=molecule.bonds_engine)
 
                 restart_count += 1
