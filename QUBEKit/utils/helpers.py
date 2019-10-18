@@ -513,7 +513,7 @@ def pretty_print(molecule, to_file=False, finished=True):
     __str__ method with an extra argument.
     """
 
-    pre_string = f'\n\nOn {"completion" if finished else "exception"}, the ligand objects are:'
+    pre_string = f'{COLOURS.green}\n\nOn {"completion" if finished else "exception"}, the ligand objects are:{COLOURS.end}'
 
     # Print to log file rather than to terminal
     if to_file:
@@ -566,6 +566,7 @@ def unpickle(location=None):
 def display_molecule_objects(*names):
     """
     prints the requested molecule objects in a nicely formatted way, easy to copy elsewhere.
+    To be used via the -display command
     :param names: list of strings where each item is the name of a molecule object such as 'basis' or 'coords'
     """
     try:
@@ -601,7 +602,7 @@ def assert_wrapper(exception_type):
     try:
         yield
     except AssertionError as exc:
-        raise exception_type(*exc.args)
+        raise exception_type(*exc.args) from None
 
 
 def check_symmetry(matrix, error=1e-5):

@@ -166,8 +166,8 @@ class TorsionScan:
         # Gather the results
         try:
             self.molecule.read_tdrive(scan)
-        except FileNotFoundError:
-            raise TorsionDriveFailed('Torsiondrive output qdata.txt missing; job did not execute or finish properly')
+        except FileNotFoundError as exc:
+            raise TorsionDriveFailed('Torsiondrive output qdata.txt missing; job did not execute or finish properly') from exc
 
     def collect_scan(self):
         """

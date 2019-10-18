@@ -13,6 +13,21 @@ import numpy as np
 @for_all_methods(timer_logger)
 class LennardJones:
 
+    FreeParams = namedtuple('params', 'vfree bfree rfree')
+    elem_dict = {
+        'H': FreeParams(7.6, 6.5, 1.64),
+        'B': FreeParams(46.7, 99.5, 2.04),
+        'C': FreeParams(34.4, 46.6, 2.08),
+        'N': FreeParams(25.9, 24.2, 1.72),
+        'O': FreeParams(22.1, 15.6, 1.60),
+        'F': FreeParams(18.2, 9.5, 1.58),
+        'P': FreeParams(84.6, 185, 2.07),
+        'S': FreeParams(75.2, 134.0, 2.00),
+        'Cl': FreeParams(65.1, 94.6, 1.88),
+        'Br': FreeParams(95.7, 162.0, 1.96),
+        'Si': FreeParams(101.64, 305, 2.00),
+    }
+
     def __init__(self, molecule):
 
         self.molecule = molecule
@@ -99,13 +114,12 @@ class LennardJones:
             self.ddec_data.append([atom.atom_index + 1, atom.atomic_symbol] +
                                   [self.molecule.coords['input'][atom.atom_index][i] for i in range(3)])
 
-        # TODO Just move the ddec.onetep file instead? Handle this in run file?
-        #   At very least, should use abspath
         # Second file contains the rest (charges, dipoles and volumes):
-        with open(f'{"" if os.path.exists("ddec.onetep") else "iter_1/"}ddec.onetep', 'r') as file:
+        ddec_output_file = 'ddec.onetep' if os.path.exists('ddec.onetep') else 'iter_1/ddec.onetep'
+        with open(ddec_output_file, 'r') as file:
             lines = file.readlines()
 
-        charge_pos, vol_pos = False, False
+        charge_pos, vol_pos = None, None
         for pos, line in enumerate(lines):
 
             # Charges marker in file:
@@ -116,7 +130,7 @@ class LennardJones:
             if 'DDEC Radial' in line:
                 vol_pos = pos + 4
 
-        if not (charge_pos and vol_pos):
+        if any(position is None for position in [charge_pos, vol_pos]):
             raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
             
         charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
@@ -138,29 +152,14 @@ class LennardJones:
         # Beware weird units, (wrong in the paper too).
         # Units: vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs
 
-        FreeParams = namedtuple('params', 'vfree bfree rfree')
-        elem_dict = {
-            'H': FreeParams(7.6, 6.5, 1.64),
-            'B': FreeParams(46.7, 99.5, 2.04),
-            'C': FreeParams(34.4, 46.6, 2.08),
-            'N': FreeParams(25.9, 24.2, 1.72),
-            'O': FreeParams(22.1, 15.6, 1.60),
-            'F': FreeParams(18.2, 9.5, 1.58),
-            'P': FreeParams(84.6, 185, 2.07),
-            'S': FreeParams(75.2, 134.0, 2.00),
-            'Cl': FreeParams(65.1, 94.6, 1.88),
-            'Br': FreeParams(95.7, 162.0, 1.96),
-            'Si': FreeParams(101.64, 305, 2.00),
-        }
-
         for pos, atom in enumerate(self.ddec_data):
             try:
                 atomic_name, atom_vol = atom[1], atom[-1]
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
-                r_aim = elem_dict[atomic_name].rfree * ((atom_vol / elem_dict[atomic_name].vfree) ** (1 / 3))
+                r_aim = self.elem_dict[atomic_name].rfree * ((atom_vol / self.elem_dict[atomic_name].vfree) ** (1 / 3))
 
                 # b_i = bfree * ((vol / v_free) ** 2)
-                b_i = elem_dict[atomic_name].bfree * ((atom_vol / elem_dict[atomic_name].vfree) ** 2)
+                b_i = self.elem_dict[atomic_name].bfree * ((atom_vol / self.elem_dict[atomic_name].vfree) ** 2)
 
                 a_i = 32 * b_i * (r_aim ** 6)
 

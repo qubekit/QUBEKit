@@ -26,8 +26,7 @@ class RDKit:
             return Chem.MolFromMol2File(filename.name, removeHs=False)
         elif filename.suffix == '.mol':
             return Chem.MolFromMolFile(filename.name, removeHs=False)
-        else:
-            return None
+        return None
 
     def smiles_to_rdkit_mol(self, smiles_string, name=None):
         """

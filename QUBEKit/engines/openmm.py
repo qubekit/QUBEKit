@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import timer_logger
 
@@ -15,11 +16,13 @@ from copy import deepcopy
 import os
 
 
-class OpenMM:
-    """This class acts as a wrapper around OpenMM so we can many basic functions using the class"""
+class OpenMM(Engines):
+    """This class acts as a wrapper around OpenMM so we can handle many basic functions using the class"""
 
     def __init__(self, molecule):
-        self.molecule = molecule
+
+        super().__init__(molecule)
+
         self.system = None
         self.simulation = None
         self.combination = molecule.combination
@@ -43,7 +46,8 @@ class OpenMM:
         # Load the initial coords into the system and initialise
         pdb = app.PDBFile(self.pdb)
         forcefield = app.ForceField(self.xml)
-        modeller = app.Modeller(pdb.topology, pdb.positions)  # set the initial positions from the pdb
+        # Set the initial positions from the pdb
+        modeller = app.Modeller(pdb.topology, pdb.positions)
         self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
         # Check what combination rule we should be using from the xml
@@ -92,9 +96,9 @@ class OpenMM:
         """
 
         # Get the system information from the openmm system
-        forces = {self.system.getForce(index).__class__.__name__: self.system.getForce(index) for index in
-                  range(self.system.getNumForces())}
-        # Use the nondonded_force to get the same rules
+        forces = {self.system.getForce(index).__class__.__name__: self.system.getForce(index)
+                  for index in range(self.system.getNumForces())}
+        # Use the nonbonded_force to get the same rules
         nonbonded_force = forces['NonbondedForce']
         lorentz = mm.CustomNonbondedForce(
             'epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0')
@@ -161,7 +165,8 @@ class OpenMM:
     @timer_logger
     def calculate_hessian(self, finite_step):
         """
-        Using finite displacement calculate the hessian matrix of the molecule using symmetric difference quotient (SQD) rule.
+        Using finite displacement calculate the hessian matrix of the molecule
+        using symmetric difference quotient (SQD) rule.
         :param finite_step: The finite step size used in the calculation in nm
         :return: A numpy array of the mass weighted hessian of size 3N*3N
         """
@@ -175,7 +180,7 @@ class OpenMM:
         for i in range(3 * len(self.molecule.atoms)):
             for j in range(i, 3 * len(self.molecule.atoms)):
                 # Mutate the atomic coords
-                # Do less energy evaluations on the diagonal of the matrix
+                # Do fewer energy evaluations on the diagonal of the matrix
                 if i == j:
                     coords = deepcopy(input_coords)
                     coords[i] += 2 * finite_step
@@ -203,7 +208,8 @@ class OpenMM:
                     e4 = self.get_energy(self.format_coords(coords))
                     hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass)
 
-        # Now make the matrix symmetric
+        # var hessian is currently just the upper right part of the matrix
+        # reflect across the diagonal, then remove the extra diagonal terms
         sym_hessian = hessian + hessian.T - np.diag(hessian.diagonal())
         return sym_hessian
 
