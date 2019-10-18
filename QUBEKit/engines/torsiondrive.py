@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
+from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 import json
 
 
 @for_all_methods(timer_logger)
-class TorsionDrive:
+class TorsionDrive(Engines):
 
     def __init__(self, molecule, dihedral, json_filename):
 
-        self.molecule = molecule
+        super().__init__(molecule)
+
         self.dihedral = dihedral
         self.json_filename = json_filename
 

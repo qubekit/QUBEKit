@@ -5,18 +5,18 @@
 #  Better handling of torsion_options
 #  Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
 
-from QUBEKit.dihedrals import TorsionScan, TorsionOptimiser
-from QUBEKit.engines import PSI4, Chargemol, Gaussian, ONETEP, QCEngine, RDKit
+from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
+from QUBEKit.engines import Chargemol, Gaussian, ONETEP, PSI4, QCEngine, RDKit
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
-from QUBEKit.parametrisation import OpenFF, AnteChamber, XML
+from QUBEKit.parametrisation import AnteChamber, OpenFF, XML
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import exception_logger
-from QUBEKit.utils.exceptions import OptimisationFailed, HessianCalculationFailed
-from QUBEKit.utils.helpers import mol_data_from_csv, generate_bulk_csv, append_to_log, pretty_progress, pretty_print, \
-    Configure, unpickle, make_and_change_into, COLOURS, display_molecule_objects
+from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
+from QUBEKit.utils.helpers import append_to_log, COLOURS, Configure, display_molecule_objects, generate_bulk_csv, \
+    make_and_change_into, mol_data_from_csv, pretty_progress, pretty_print, unpickle
 
 import argparse
 from collections import OrderedDict
@@ -263,9 +263,9 @@ class ArgsAndConfigs:
                                                               'mod_sem', 'density', 'charges', 'lennard_jones',
                                                               'torsion_scan', 'torsion_optimise'],
                             help='Enter the restart point of a QUBEKit job.')
-        parser.add_argument('-end', '-end', choices=['mm_optimise', 'qm_optimise', 'hessian', 'mod_sem', 'density',
-                                                     'charges', 'lennard_jones', 'torsion_scan', 'torsion_optimise',
-                                                     'finalise'],
+        parser.add_argument('-end', '-end', choices=['parametrise', 'mm_optimise', 'qm_optimise', 'hessian', 'mod_sem',
+                                                     'density', 'charges', 'lennard_jones', 'torsion_scan',
+                                                     'torsion_optimise', 'finalise'],
                             help='Enter the end point of the QUBEKit job.')
         parser.add_argument('-progress', '--progress', nargs='?', const=True,
                             help='Get the current progress of a QUBEKit single or bulk job.', action=ProgressAction)
@@ -289,7 +289,7 @@ class ArgsAndConfigs:
                             help='The name of the geometric constraints file.')
         parser.add_argument('-dihedrals', '--dihedral_file', type=str,
                             help='The name of the qubekit/tdrive torsion file.')
-        parser.add_argument('-v', '--verbose', choices=[True, False], type=string_to_bool, default=True,
+        parser.add_argument('-v', '--verbose', choices=[True, False], type=string_to_bool,
                             help='Decide whether the log file should contain all the input/output information')
         parser.add_argument('-display', '--display', type=str, nargs='+', action=DisplayMolAction,
                             help='Get the molecule object with this name in the cwd')
@@ -364,7 +364,8 @@ class ArgsAndConfigs:
 
             os.chdir(home)
 
-        sys.exit('Bulk analysis complete.\nUse QUBEKit -progress to view the completion progress of your molecules')
+        sys.exit(f'{COLOURS.green}Bulk analysis complete.{COLOURS.end}\n'
+                 f'Use QUBEKit -progress to view the completion progress of your molecules')
 
 
 class Execute:
@@ -433,7 +434,7 @@ class Execute:
         # 1 Skip the finalise step to create a pickled ligand at the torsion_test stage
         # 2 Do the torsion_test and delete the torsion_test attribute
         # 3 Do finalise again to save the ligand with the correct attributes
-        if hasattr(self.molecule, 'torsion_test'):
+        if getattr(self.molecule, 'torsion_test', None) not in [None, False]:
             self.order = OrderedDict([('finalise', self.skip), ('torsion_test', self.torsion_test), ('finalise', self.skip)])
 
         else:
