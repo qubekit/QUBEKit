@@ -360,7 +360,7 @@ class LennardJones:
                         sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 / 10, p2 / 10, p3 / 10), charge]
                         sites_no += 1
 
-        self.molecule.sites = sites
+        self.molecule.extra_sites = sites
 
         # get the parent non bonded values
         for site in sites.values():
