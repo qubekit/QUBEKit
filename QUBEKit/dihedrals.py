@@ -181,9 +181,9 @@ class TorsionScan:
 
     def _make_folder_name(self, scan):
         if self.molecule.improper_torsions is not None:
-            return f'{scan[0]}_{scan[1]}_imp' if scan in self.molecule.improper_torsions else f'{scan[0]}_{scan[1]}'
-        else:
-            return f'{scan[0]}_{scan[1]}'
+            if scan in self.molecule.improper_torsions:
+                return f'{scan[0]}_{scan[1]}_imp'
+        return f'{scan[0]}_{scan[1]}'
 
     def check_run_history(self, scan):
         """
@@ -554,7 +554,7 @@ class TorsionOptimiser:
                 if energy_error <= 1.5:
                     self.l_pen = 0.15
                 else:
-                    print('turing of penalty due to large errors.')
+                    print('Turning off penalty due to large errors.')
                     self.l_pen = 0
 
                 # optimise using the scipy method for the new structures with a penalty to remain close to the old
@@ -841,7 +841,7 @@ class TorsionOptimiser:
             to_fit = [tuple(tor) for tor in list(self.molecule.dihedrals[self.scan])]
         except KeyError:
             # here we must have an improper torsion for now only take it to fit
-            #TODO extend dihedral types to cover symmetry equivalent impropers
+            # TODO extend dihedral types to cover symmetry equivalent impropers
             to_fit = [self.scan]
         # Now expand to include all symmetry equivalent dihedrals
         torsions_and_types = {}
@@ -849,7 +849,7 @@ class TorsionOptimiser:
             for dihedral in dihedral_class:
                 if dihedral in to_fit or tuple(reversed(dihedral)) in to_fit:
                     torsions_and_types[key] = dihedral_class
-                    # once the whole class is added move the next
+                    # once the whole class is added move to the next
                     break
 
         # Check which ones have the same parameters and how many torsion vectors we need
@@ -910,6 +910,7 @@ class TorsionOptimiser:
         """
         # Make sure the amount of coordinates we pass is the same as the amount of reference positions that we have
         assert len(coordinates) == len(self.rmsd_atoms)
+
         rmsd = []
         for coord, molecule in zip(coordinates, self.rmsd_atoms):
             molecule = RDKit().add_conformer(molecule, np.array(coord) * constants.NM_TO_ANGS)
