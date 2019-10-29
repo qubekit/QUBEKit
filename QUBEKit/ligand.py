@@ -561,7 +561,7 @@ class Molecule:
     def read_xyz(self, name, input_type='traj'):
         """
         Read an xyz file and get all frames from the file and put in the traj molecule holder by default
-        or if there is only one frame change the input location.
+        or if there is only one frame change the input location. This will also strip the xyz file of any dummy atoms.
         """
 
         traj_molecules = []
@@ -573,8 +573,8 @@ class Molecule:
                 for line in xyz_file:
                     line = line.split()
                     # skip frame heading lines
-                    if len(line) <= 1:
-                        next(xyz_file)
+                    if len(line) <= 1 or 'X' in line[0]:
+                        #next(xyz_file)
                         continue
                     molecule.append([float(line[1]), float(line[2]), float(line[3])])
 
@@ -1147,8 +1147,6 @@ class Molecule:
                     methyl_amine_nitride_cores.append(atom.atom_index)
                 elif atom.atomic_symbol == 'N' and len(hs) == 2:
                     amine_hs.append(hs)
-                    methyl_amine_nitride_cores.append(atom.atom_index)
-                elif atom.atomic_symbol == 'N' and len(hs) == 1:
                     methyl_amine_nitride_cores.append(atom.atom_index)
 
         self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs, 'other': other_hs}

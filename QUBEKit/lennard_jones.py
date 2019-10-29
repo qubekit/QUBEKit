@@ -6,6 +6,7 @@ from QUBEKit.utils.helpers import check_net_charge, set_net
 
 from collections import OrderedDict, namedtuple
 import os
+import decimal
 
 import numpy as np
 
@@ -16,7 +17,7 @@ class LennardJones:
     FreeParams = namedtuple('params', 'vfree bfree rfree')
     elem_dict = {
         'H': FreeParams(7.6, 6.5, 1.64),
-        'B': FreeParams(46.7, 99.5, 2.04),
+        'B': FreeParams(46.7, 99.5, 2.08),
         'C': FreeParams(34.4, 46.6, 2.08),
         'N': FreeParams(25.9, 24.2, 1.72),
         'O': FreeParams(22.1, 15.6, 1.60),
@@ -25,7 +26,7 @@ class LennardJones:
         'S': FreeParams(75.2, 134.0, 2.00),
         'Cl': FreeParams(65.1, 94.6, 1.88),
         'Br': FreeParams(95.7, 162.0, 1.96),
-        'Si': FreeParams(101.64, 305, 2.00),
+        'Si': FreeParams(101.64, 305, 2.08),
     }
 
     def __init__(self, molecule):
@@ -307,6 +308,9 @@ class LennardJones:
         if not os.path.exists('xyz_with_extra_point_charges.xyz'):
             return
 
+        # load in the xyz file into the molecule into temp so we can work in the new coords
+        # this will strip out the virtual sites though
+        self.molecule.read_file('xyz_with_extra_point_charges.xyz', input_type='temp')
         with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
             lines = xyz_sites.readlines()
 
@@ -333,12 +337,15 @@ class LennardJones:
                         if len(closest_atoms) < 2:
                             # find another atom if we only have one
                             # dont want to get the parent as a close atom
-                            closest_atoms.append(list(self.molecule.topology.neighbors(closest_atoms[0]))[-1])
+                            for atom in list(self.molecule.topology.neighbors(closest_atoms[0])):
+                                if atom not in closest_atoms and atom != parent:
+                                    closest_atoms.append(atom)
+                                    break
 
                         # Get the xyz coordinates of the reference atoms
-                        parent_pos = self.molecule.coords['qm'][parent]
-                        close_a = self.molecule.coords['qm'][closest_atoms[0]]
-                        close_b = self.molecule.coords['qm'][closest_atoms[1]]
+                        parent_pos = self.molecule.coords['temp'][parent]
+                        close_a = self.molecule.coords['temp'][closest_atoms[0]]
+                        close_b = self.molecule.coords['temp'][closest_atoms[1]]
 
                         # work out the local coordinates site using rules from the OpenMM guide
                         orig = w1o * parent_pos + w2o * close_a + close_b * w3o
@@ -354,7 +361,7 @@ class LennardJones:
                         p2 = np.dot((v_pos - orig), y_dir.reshape(3, 1))
                         p3 = np.dot((v_pos - orig), z_dir.reshape(3, 1))
 
-                        charge = float(pos_site.split()[4])
+                        charge = decimal.Decimal(pos_site.split()[4])
 
                         # store the site info [(parent top no, a, b), (p1, p2, p3), charge]]
                         sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 / 10, p2 / 10, p3 / 10), charge]
