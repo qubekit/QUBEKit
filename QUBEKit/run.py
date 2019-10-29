@@ -12,6 +12,7 @@ from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.parametrisation import AnteChamber, OpenFF, XML
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
+
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
@@ -513,9 +514,7 @@ class Execute:
         for file in copy_files:
             try:
                 copy(f'../{file}', file)
-            except FileNotFoundError:
-                pass
-            except TypeError:
+            except (FileNotFoundError, TypeError):
                 pass
 
         with open('QUBEKit_log.txt', 'w+') as log_file:
@@ -797,8 +796,8 @@ class Execute:
                 restart_count += 1
 
             if not result['success']:
-                raise OptimisationFailed(f"{molecule.bonds_engine} "
-                                         f"optimisation did not converge after 3 restarts; last error {result['error']}")
+                raise OptimisationFailed(f"{molecule.bonds_engine} optimisation did not converge after 3 restarts; "
+                                         f"last error {result['error']}")
 
             molecule.coords['qm'], molecule.qm_energy = qm_engine.optimised_structure()
             molecule.write_xyz('qm', name='opt')

@@ -159,7 +159,6 @@ class Molecule:
         xml_tree                An XML class object containing the force field values
         AtomTypes               dict of lists; basic non-symmetrised atoms types for each atom in the molecule
                                 e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
-        Residues                List of residue names in the sequence they are found in the protein
         extra_sites
         qm_scans                Dictionary of central scanned bonds and there energies and structures
 
@@ -177,8 +176,6 @@ class Molecule:
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
 
         combination             str; Combination rules e.g. 'opls'
-        sites                   OrderedDict of virtual site parameters
-                                e.g.{0: [(top nos parent, a .b), (p1, p2, p3), charge]}
 
         # QUBEKit Internals
         state                   str; Describes the stage the analysis is in for pickling and unpickling
@@ -218,7 +215,6 @@ class Molecule:
         # XML Info
         self.xml_tree = None
         self.AtomTypes = None
-        self.Residues = None
         self.extra_sites = None
         self.HarmonicBondForce = None
         self.HarmonicAngleForce = None
@@ -229,7 +225,6 @@ class Molecule:
         self.dihedral_types = None
 
         self.combination = None
-        self.sites = None
 
         # QUBEKit internals
         self.state = None
@@ -911,9 +906,9 @@ class Molecule:
                 'epsilon': f'{self.NonbondedForce[key][2]:.6f}'})
 
         # Add all of the virtual site info if present
-        if self.sites:
+        if self.extra_sites:
             # Add the atom type to the top
-            for key, val in self.sites.items():
+            for key, val in self.extra_sites.items():
                 ET.SubElement(AtomTypes, "Type", attrib={
                     'name': f'v-site{key + 1}', 'class': f'X{key + 1}', 'mass': '0'})
 
@@ -1207,7 +1202,7 @@ class Molecule:
 
     def read_scan_order(self, file):
         """
-        Read a qubekit or tdrive dihedrals file and store the scan order into the ligand class
+        Read a QUBEKit or tdrive dihedrals file and store the scan order into the ligand class
         :param file: The dihedrals input file.
         :return: The molecule with the scan_order saved
         """
@@ -1298,8 +1293,9 @@ class Ligand(DefaultsMixin, Molecule):
 
 
 class Protein(DefaultsMixin, Molecule):
-    """This class handles the protein input to make the qubekit xml files and rewrite the pdb so we can use it."""
-
+    """This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it."""
+    # TODO Currently this class is old and a bit broken due to updates.
+    #  Needs thorough testing and likely a rewrite.
     def __init__(self, filename):
 
         super().__init__(filename)
@@ -1309,6 +1305,8 @@ class Protein(DefaultsMixin, Molecule):
         self.read_pdb(self.filename)
         self.residues = None
         self.home = os.getcwd()
+
+        self.Residues = None
 
     def read_pdb(self, input_file, input_type='input'):
         """
