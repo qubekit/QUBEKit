@@ -980,8 +980,6 @@ class TorsionOptimiser:
                     )
         torsion_force.updateParametersInContext(self.open_mm.simulation.context)
 
-        return self.open_mm
-
     def plot_results(self, name='Plot', torsion_test=False, extra_points=None):
         """
         Plot the results of the scan.
