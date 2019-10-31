@@ -37,22 +37,41 @@ class OpenFF(Parametrisation):
 
         # Load the smirnoff99Frosst force field.
         forcefield = ForceField('test_forcefields/smirnoff99Frosst.offxml')
+        #
+        # forcefield = ForceField('openff-1.0.0.offxml')
+        #
+        # # Run the molecule labeling
+        # molecule_force_list = forcefield.label_molecules(off_topology)
+        #
+        # # Print out a formatted description of the parameters applied to this molecule
+        # for mol_idx, mol_forces in enumerate(molecule_force_list):
+        #     print(f'\n\nForces for molecule {mol_idx}')
+        #     for force_tag, force_dict in mol_forces.items():
+        #         print(f'\n{force_tag}:')
+        #         for (atom_indices, parameter) in force_dict.items():
+        #             atomstr = ''
+        #             for idx in atom_indices:
+        #                 atomstr += f'{idx}'
+        #             print(f'atoms: {atomstr}  parameter_id: {parameter.id}  smirks {parameter.smirks}')
 
         try:
             # Parametrize the topology and create an OpenMM System.
             system = forcefield.create_openmm_system(off_topology)
-        except (UnassignedValenceParameterException, TypeError, UnassignedValenceParameterException):
+        except (UnassignedValenceParameterException, TypeError):
             # If this does not work then we have a moleucle that is not in SMIRNOFF so we must add generics
             # and remove the charge handler to get some basic parameters for the moleucle
-            new_bond = BondHandler.BondType(smirks='[*:1]~[*:2]', length="0 * angstrom", k="0.0 * angstrom**-2 * mole**-1 * kilocalorie")
-            new_angle = AngleHandler.AngleType(smirks='[*:1]~[*:2]~[*:3]',  angle="0.0 * degree", k="0.0 * mole**-1 * radian**-2 * kilocalorie")
+            new_bond = BondHandler.BondType(smirks='[*:1]~[*:2]', length="0 * angstrom",
+                                            k="0.0 * angstrom**-2 * mole**-1 * kilocalorie")
+            new_angle = AngleHandler.AngleType(smirks='[*:1]~[*:2]~[*:3]',  angle="0.0 * degree",
+                                               k="0.0 * mole**-1 * radian**-2 * kilocalorie")
             new_torsion = ProperTorsionHandler.ProperTorsionType(
                 smirks='[*:1]~[*:2]~[*:3]~[*:4]',
                 periodicity1="1", phase1="0.0 * degree", k1="0.0 * mole**-1 * kilocalorie",
                 periodicity2="2", phase2="180.0 * degree", k2="0.0 * mole**-1 * kilocalorie",
                 periodicity3="3", phase3="0.0 * degree", k3="0.0 * mole**-1 * kilocalorie",
                 periodicity4="4", phase4="180.0 * degree", k4="0.0 * mole**-1 * kilocalorie",
-                idivf1="1.0", idivf2="1.0", idivf3="1.0", idivf4="1.0")
+                idivf1="1.0", idivf2="1.0", idivf3="1.0", idivf4="1.0",
+            )
 
             new_vdw = vdWHandler.vdWType(smirks='[*:1]', epsilon=0 * unit.kilocalories_per_mole, sigma=0 * unit.angstroms)
             new_generics = {'Bonds': new_bond, 'Angles': new_angle, 'ProperTorsions': new_torsion, 'vdW': new_vdw}
