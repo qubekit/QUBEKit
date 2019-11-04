@@ -15,6 +15,7 @@ class XML(Parametrisation):
         super().__init__(molecule, input_file, fftype)
 
         # self.check_xml()
+        self.xml = self.input_file if self.input_file else f'{self.molecule.name}.xml'
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = 'XML input ' + self.fftype
@@ -26,9 +27,14 @@ class XML(Parametrisation):
         pdb = app.PDBFile(f'{self.molecule.name}.pdb')
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
-        forcefield = app.ForceField(self.input_file if self.input_file else f'{self.molecule.name}.xml')
-
-        system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+        forcefield = app.ForceField(self.xml)
+        # Check for virtual sites
+        try:
+            system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+        except ValueError:
+            print('Virtual sites were found in the xml file')
+            modeller.addExtraParticles(forcefield)
+            system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
         xml = XmlSerializer.serializeSystem(system)
         with open('serialised.xml', 'w+') as out:

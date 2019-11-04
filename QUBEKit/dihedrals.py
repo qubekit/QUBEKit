@@ -745,7 +745,7 @@ class TorsionOptimiser:
             self.optimiser_log.flush()
             # Get the optimisation method if it is a hybrid take the first option
             self.method = self.methods.get(self.molecule.opt_method.split('_')[0], None)
-            error, opt_parameters = self.initial_optimiser()
+            error, opt_parameters = self.scipy_optimiser()
             self.optimiser_log.write(f'fitted parameters {opt_parameters}\n')
             self.optimiser_log.write(f'Fitted error {error}\n')
             self.optimiser_log.flush()
@@ -789,7 +789,7 @@ class TorsionOptimiser:
         3) Fit with the new temperature store the settings of the lowest error."""
 
         running_options = {}
-        for self.t_weight in ['infinity', 2000]:
+        for self.t_weight in ['infinity']:
             error, opt_parameters = self.scipy_optimiser()
             running_options[self.t_weight] = (error, opt_parameters)
             if error <= 1.5:

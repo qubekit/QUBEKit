@@ -5,34 +5,35 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import timer_logger
 
 from copy import deepcopy
+from collections import namedtuple
 
 import networkx as nx
 import numpy as np
+import xml.etree.ElementTree as ET
 
 from simtk import openmm, unit  # Ignore unit import warnings, blame rampant misuse of import * in OpenMM
 from simtk.openmm import app
+
+AtomParams = namedtuple('params', 'charge sigma epsilon')
 
 
 class OpenMM(Engines):
     """This class acts as a wrapper around OpenMM so we can handle many basic functions using the class"""
 
-    def __init__(self, molecule, filename=None, forcefield=None, temperature=25, state='liquid'):
+    def __init__(self, molecule, filename=None, forcefield=None):
 
         super().__init__(molecule)
 
         self.filename = filename or f'{molecule.name}.pdb'
         self.forcefield = forcefield or f'{molecule.name}.xml'
-        self.temperature = (temperature + 273.15) * unit.kelvin
-        self.state = state
 
         self.system = None
         self.simulation = None
-        self.time_step = 0.0005 if state == 'gas' else 0.001
+        self.combination = molecule.combination or None
 
         self.normal_pairs = None
         self.excep_pairs = None
         self.has_vsites = bool(molecule.extra_sites)
-        self.cut_off = None
 
         self.create_system()
 
@@ -46,43 +47,31 @@ class OpenMM(Engines):
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
         # if there are virtual sites we need to add them here
-        if self.has_vsites:
+        try:
+            self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+        except ValueError:
+            print('Virtual sites were found in the xml file')
             modeller.addExtraParticles(forcefield)
-            app.PDBFile.writeFile(modeller.topology, modeller.positions, open('sites_modeller.pdb', 'w'))
-
-        if self.state == 'liquid':
-            if self.molecule.descriptors['Heavy atoms'] <= 2:
-                self.cut_off = 1.1
-            elif self.molecule.descriptors['Heavy atoms'] <= 5:
-                self.cut_off = 1.3
-            elif self.molecule.descriptors['Heavy atoms'] > 5:
-                self.cut_off = 1.5
-
-            self.system = forcefield.createSystem(
-                modeller.topology, nonbondedMethod=app.PME, ewaldErrorTolerance=0.0005,
-                nonbondedCutoff=self.cut_off * unit.nanometer, constraints=None
-            )
-
-        elif self.state == 'gas':
-            self.cut_off = 'NoCutoff'
             self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
+        if self.combination is None:
+            # Check what combination rule we should be using from the xml
+            xmlstr = open(self.forcefield).read()
+            # check if we have opls combination rules if the xml is present
+            try:
+                self.combination = ET.fromstring(xmlstr).find('NonbondedForce').attrib['combination']
+            except (AttributeError, KeyError):
+                pass
+
         # use the opls combination rules
-        self.opls_lj()
+        if self.combination == 'opls':
+            print('OPLS combination rules found in XML file')
+            self.opls_lj()
 
-        integrator = openmm.LangevinIntegrator(self.temperature, 5 / unit.picosecond, self.time_step * unit.picoseconds)
-
-        print(f'{self.molecule.name} is being run in the {self.state} phase using a time step of {self.time_step}. '
-              f'The nonbonded cut-off is: {self.cut_off}, and virtual sites is set to: {self.has_vsites}.')
-
-        if self.state == 'liquid':
-            self.system.addForce(openmm.MonteCarloBarostat(1 * unit.bar, self.temperature))
-
-        self.simulation = app.Simulation(modeller.topology, self.system, integrator)
+        integrator = openmm.VerletIntegrator(1.0 * unit.femtoseconds)
+        platform = openmm.Platform.getPlatformByName('Reference')
+        self.simulation = app.Simulation(modeller.topology, self.system, integrator, platform)
         self.simulation.context.setPositions(modeller.positions)
-        state = self.simulation.context.getState(getEnergy=True)
-        energy = state.getPotentialEnergy().value_in_unit(unit.kilocalories_per_mole)
-        print(f'the single point energy of the system is {energy}')
 
     # get_energy is called too many times so timer_logger decorator should not be applied.
     def get_energy(self, position):
@@ -92,8 +81,21 @@ class OpenMM(Engines):
         :return: energy: vacuum energy state of the system
         """
 
+        # check that their are the right amount of postions in the vector
+        if len(position) != len(self.molecule.atoms) + len(self.molecule.extra_sites):
+            # we need some dummy postions to fill the vector
+            for i in range(len(self.molecule.extra_sites)):
+                position.append((0, 0, 0))
+
         # update the positions of the system
         self.simulation.context.setPositions(position)
+
+        # now we need to calculate the new sites positions
+        self.simulation.context.computeVirtualSites()
+
+        pos = self.simulation.context.getState(getPositions=True)
+
+        print(pos.getPositions())
 
         # Get the energy from the new state
         state = self.simulation.context.getState(getEnergy=True)
@@ -113,16 +115,7 @@ class OpenMM(Engines):
         lorentz = openmm.CustomNonbondedForce(
             'epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0')
 
-        if self.state == 'gas':
-            lorentz.setNonbondedMethod(nonbonded_force.getNonbondedMethod())
-        elif self.state == 'liquid':
-            lorentz.setNonbondedMethod(openmm.CustomNonbondedForce.CutoffPeriodic)
-            lorentz.setUseSwitchingFunction(True)
-            lorentz.setSwitchingDistance((self.cut_off - 0.05) * unit.nanometer)
-            lorentz.setUseLongRangeCorrection(True)
-        else:
-            raise NotImplementedError('Only liquid and gas supported.')
-
+        lorentz.setNonbondedMethod(nonbonded_force.getNonbondedMethod())
         lorentz.setCutoffDistance(nonbonded_force.getCutoffDistance())
         lorentz.addPerParticleParameter('sigma')
         lorentz.addPerParticleParameter('epsilon')
@@ -131,45 +124,41 @@ class OpenMM(Engines):
         # For each particle, calculate the combination list again
         for index in range(nonbonded_force.getNumParticles()):
             charge, sigma, epsilon = nonbonded_force.getParticleParameters(index)
-            l_j_set[index] = (sigma, epsilon, charge)
+            l_j_set[index] = AtomParams(charge, sigma, epsilon)
             lorentz.addParticle([sigma, epsilon])
             nonbonded_force.setParticleParameters(index, charge, 0, 0)
 
-        sys_exception_index = {}
+        exclusions = {}
         for i in range(nonbonded_force.getNumExceptions()):
             p1, p2, q, _, eps = nonbonded_force.getExceptionParameters(i)
             # store the index of the exception by the sorted atom keys
-            sys_exception_index[tuple(sorted([p1, p2]))] = i
             # ALL THE 12, 13 and 14 interactions are EXCLUDED FROM CUSTOM NONBONDED FORCE
             lorentz.addExclusion(p1, p2)
+            exclusions[tuple(sorted((p1, p2)))] = i
             if eps._value != 0.0:
-                sig14 = np.sqrt(l_j_set[p1][0] * l_j_set[p2][0])
+                sig14 = np.sqrt(l_j_set[p1].sigma * l_j_set[p2].sigma)
                 nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
-                # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
-        if self.has_vsites:
 
+        # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
+        if self.has_vsites:
+            # get the interaction lists
             self.excep_pairs, self.normal_pairs = self.get_vsite_interactions()
-            n_atoms = 267 if self.state == 'liquid' else 1
 
             for pair in self.excep_pairs:  # scale 14 interactions
-                charge1, _, _ = nonbonded_force.getParticleParameters(pair[0])
-                charge2, _, _ = nonbonded_force.getParticleParameters(pair[1])
-                q = charge1 * charge2 * 0.5
-
-                for i in range(n_atoms):
-                    new_pair = (pair[0] + (i * len(self.molecule.atoms)), pair[1] + (i * len(self.molecule.atoms)))
-                    index = sys_exception_index[new_pair]
-                    nonbonded_force.setExceptionParameters(index, *new_pair, q, 0, 0)
+                atom1 = l_j_set[pair[0]]
+                atom2 = l_j_set[pair[1]]
+                q = atom1.charge * atom2.charge * 0.5
+                if pair not in exclusions:
+                    lorentz.addExclusion(*pair)
+                nonbonded_force.addException(*pair, q, 0, 0, True)
 
             for pair in self.normal_pairs:  # add the normal pairs here
-                charge1, _, _ = nonbonded_force.getParticleParameters(pair[0])
-                charge2, _, _ = nonbonded_force.getParticleParameters(pair[1])
-                q = charge1 * charge2
-
-                for i in range(n_atoms):
-                    new_pair = (pair[0] + (i * len(self.molecule.atoms)), pair[1] + (i * len(self.molecule.atoms)))
-                    index = sys_exception_index[new_pair]
-                    nonbonded_force.setExceptionParameters(index, *new_pair, q, 0, 0)
+                atom1 = l_j_set[pair[0]]
+                atom2 = l_j_set[pair[1]]
+                q = atom1.charge * atom2.charge
+                if pair not in exclusions:
+                    lorentz.addExclusion(*pair)
+                nonbonded_force.addException(*pair, q, 0, 0, True)
 
     @timer_logger
     def format_coords(self, coordinates):
@@ -269,9 +258,9 @@ class OpenMM(Engines):
             path_lengths = nx.single_source_shortest_path_length(self.molecule.topology, site_no)
 
             for atom, length in path_lengths.items():
-                if length == 4:
+                if length == 3:
                     exception_pairs.append(tuple(sorted([site_no, atom])))
-                elif length > 4:
+                elif length > 3:
                     normal_pairs.append(tuple(sorted([site_no, atom])))
 
         # return sets to remove the copies

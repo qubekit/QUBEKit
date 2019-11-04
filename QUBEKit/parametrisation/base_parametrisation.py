@@ -57,6 +57,7 @@ class Parametrisation:
         self.molecule.HarmonicAngleForce = {angle: [0, 0] for angle in self.molecule.angle_values.keys()}
         self.molecule.NonbondedForce = OrderedDict((number, [0, 0, 0]) for number in range(len(self.molecule.atoms)))
         self.molecule.PeriodicTorsionForce = OrderedDict()
+        self.sites = {}
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -76,6 +77,10 @@ class Parametrisation:
         try:
             in_root = ET.parse('serialised.xml').getroot()
 
+            # Extract any virtual site data only supports local coords atm, charges are added later
+            for i, virtual_site in enumerate(in_root.iter('LocalCoordinatesSite')):
+                self.sites[i] = [(int(virtual_site.get('p1')), int(virtual_site.get('p2')), int(virtual_site.get('p3'))), (float(virtual_site.get('pos1')), float(virtual_site.get('pos2')), float(virtual_site.get('pos3')))]
+
             # Extract all bond data
             for Bond in in_root.iter('Bond'):
                 bond = (int(Bond.get('p1')), int(Bond.get('p2')))
@@ -92,12 +97,19 @@ class Parametrisation:
                 else:
                     self.molecule.HarmonicAngleForce[angle[::-1]] = [float(Angle.get('a')), float(Angle.get('k'))]
 
-            # Extract all non-bonded data
-            i = 0
+            # Extract all non-bonded data, do not add virtual site info to the nonbonded list
+            atom_num, site_num = 0, 0
             for Atom in in_root.iter('Particle'):
                 if "eps" in Atom.attrib:
-                    self.molecule.NonbondedForce[i] = [float(Atom.get('q')), float(Atom.get('sig')), float(Atom.get('eps'))]
-                    i += 1
+                    if atom_num >= len(self.molecule.atoms):
+                        self.sites[site_num].append(float(Atom.get('q')))
+                        site_num += 1
+                    else:
+                        self.molecule.NonbondedForce[atom_num] = [float(Atom.get('q')), float(Atom.get('sig')), float(Atom.get('eps'))]
+                        atom_num += 1
+
+            # Check if we found any sites
+            self.molecule.extra_sites = self.sites or None
 
             # Extract all of the torsion data
             for Torsion in in_root.iter('Torsion'):
