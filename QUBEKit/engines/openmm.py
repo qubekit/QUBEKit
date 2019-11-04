@@ -5,6 +5,7 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import timer_logger
 
 from copy import deepcopy
+from collections import namedtuple
 
 import networkx as nx
 import numpy as np
@@ -12,6 +13,8 @@ import xml.etree.ElementTree as ET
 
 from simtk import openmm, unit  # Ignore unit import warnings, blame rampant misuse of import * in OpenMM
 from simtk.openmm import app
+
+AtomParams = namedtuple('params', 'charge sigma epsilon')
 
 
 class OpenMM(Engines):
@@ -26,7 +29,7 @@ class OpenMM(Engines):
 
         self.system = None
         self.simulation = None
-        self.combination = None
+        self.combination = molecule.combination or None
 
         self.normal_pairs = None
         self.excep_pairs = None
@@ -51,13 +54,14 @@ class OpenMM(Engines):
             modeller.addExtraParticles(forcefield)
             self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
-        # Check what combination rule we should be using from the xml
-        xmlstr = open(self.forcefield).read()
-        # check if we have opls combination rules if the xml is present
-        try:
-            self.combination = ET.fromstring(xmlstr).find('NonbondedForce').attrib['combination']
-        except (AttributeError, KeyError):
-            pass
+        if self.combination is None:
+            # Check what combination rule we should be using from the xml
+            xmlstr = open(self.forcefield).read()
+            # check if we have opls combination rules if the xml is present
+            try:
+                self.combination = ET.fromstring(xmlstr).find('NonbondedForce').attrib['combination']
+            except (AttributeError, KeyError):
+                pass
 
         # use the opls combination rules
         if self.combination == 'opls':
@@ -77,8 +81,21 @@ class OpenMM(Engines):
         :return: energy: vacuum energy state of the system
         """
 
+        # check that their are the right amount of postions in the vector
+        if len(position) != len(self.molecule.atoms) + len(self.molecule.extra_sites):
+            # we need some dummy postions to fill the vector
+            for i in range(len(self.molecule.extra_sites)):
+                position.append((0, 0, 0))
+
         # update the positions of the system
         self.simulation.context.setPositions(position)
+
+        # now we need to calculate the new sites positions
+        self.simulation.context.computeVirtualSites()
+
+        pos = self.simulation.context.getState(getPositions=True)
+
+        print(pos.getPositions())
 
         # Get the energy from the new state
         state = self.simulation.context.getState(getEnergy=True)
@@ -107,7 +124,7 @@ class OpenMM(Engines):
         # For each particle, calculate the combination list again
         for index in range(nonbonded_force.getNumParticles()):
             charge, sigma, epsilon = nonbonded_force.getParticleParameters(index)
-            l_j_set[index] = (charge, sigma, epsilon)
+            l_j_set[index] = AtomParams(charge, sigma, epsilon)
             lorentz.addParticle([sigma, epsilon])
             nonbonded_force.setParticleParameters(index, charge, 0, 0)
 
@@ -117,9 +134,9 @@ class OpenMM(Engines):
             # store the index of the exception by the sorted atom keys
             # ALL THE 12, 13 and 14 interactions are EXCLUDED FROM CUSTOM NONBONDED FORCE
             lorentz.addExclusion(p1, p2)
-            exclusions[tuple(sorted(p1, p2))] = i
+            exclusions[tuple(sorted((p1, p2)))] = i
             if eps._value != 0.0:
-                sig14 = np.sqrt(l_j_set[p1][0] * l_j_set[p2][0])
+                sig14 = np.sqrt(l_j_set[p1].sigma * l_j_set[p2].sigma)
                 nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
 
         # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
@@ -128,17 +145,17 @@ class OpenMM(Engines):
             self.excep_pairs, self.normal_pairs = self.get_vsite_interactions()
 
             for pair in self.excep_pairs:  # scale 14 interactions
-                charge1, _, _ = l_j_set[pair[0]]
-                charge2, _, _ = l_j_set[pair[1]]
-                q = charge1 * charge2 * 0.5
+                atom1 = l_j_set[pair[0]]
+                atom2 = l_j_set[pair[1]]
+                q = atom1.charge * atom2.charge * 0.5
                 if pair not in exclusions:
                     lorentz.addExclusion(*pair)
                 nonbonded_force.addException(*pair, q, 0, 0, True)
 
             for pair in self.normal_pairs:  # add the normal pairs here
-                charge1, _, _ = l_j_set[pair[0]]
-                charge2, _, _ = l_j_set[pair[1]]
-                q = charge1 * charge2
+                atom1 = l_j_set[pair[0]]
+                atom2 = l_j_set[pair[1]]
+                q = atom1.charge * atom2.charge
                 if pair not in exclusions:
                     lorentz.addExclusion(*pair)
                 nonbonded_force.addException(*pair, q, 0, 0, True)

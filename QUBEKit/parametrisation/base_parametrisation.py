@@ -109,7 +109,7 @@ class Parametrisation:
                         atom_num += 1
 
             # Check if we found any sites
-            self.molecule.sites = self.sites or None
+            self.molecule.extra_sites = self.sites or None
 
             # Extract all of the torsion data
             for Torsion in in_root.iter('Torsion'):
