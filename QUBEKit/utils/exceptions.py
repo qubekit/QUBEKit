@@ -70,4 +70,3 @@ class Psi4Error(Exception):
     """
 
     pass
-

@@ -69,7 +69,8 @@ We recommend installing via conda. This will install all necessary dependencies.
     pip install qubekit
 
 ---
-
+    
+    conda config --add channels conda-forge --add channels omnia
     conda install -c cringrose qubekit
     
 
@@ -96,60 +97,28 @@ If you do, please make sure Gaussian09 is executable with the command `g09`.
 Chargemol can be downloaded and installed from a zip file in the above link. 
 Be sure to add the path to the QUBEKit configs once you've generated them *([explanation](https://github.com/qubekit/QUBEKit#before-you-start-config-files))*.
 
-**Core Requirements**
-
 All conda packages are included in the conda install:
 
-`conda install -c cringrose qubekit`
+```
+conda config --add channels conda-forge --add channels omnia
+conda install -c cringrose qubekit
+```
 
-Below details some of the core requirements included in the conda install of QUBEKit.
+The following table details some of the core requirements included in the conda install of QUBEKit.
 
----
-
-* [PSI4](http://www.psicode.org/)
-
-`conda install -c psi4 psi4`
-
-* [GeomeTRIC](https://github.com/leeping/geomeTRIC)
-
-`conda install -c conda-forge geometric` 
-
-* [OpenMM](http://openmm.org/)
-
-`conda install -c omnia openmm`
-
-* [RDKit](http://rdkit.org/)
-
-`conda install -c rdkit rdkit`
-
-* [OpenForceField](https://openforcefield.org/)
-
-`conda install -c omnia openforcefield`
-
-* [QCEngine](https://pypi.org/project/qcengine/)
-
-`pip install qcengine`
-
-* [TorsionDrive](https://github.com/lpwgroup/torsiondrive)
-
-`conda install -c conda-forge torsiondrive`
-
-* [Ambermini](https://github.com/swails/ambermini)
-
-`conda install -c omnia ambermini`
-
-
-**GUI Requirements**
-
-* [PyQt5](https://pypi.org/project/PyQt5/)
-
-`pip install PyQt5`
-
-* [PyQtWebEngine 5.12.1](https://pypi.org/project/PyQtWebEngine/)
-
-`pip install PyQtWebEngine`
-
----
+| **Package** | Conda Install |
+| :------ | :------ |
+| *Core* |  |
+| [GeomeTRIC](https://github.com/leeping/geomeTRIC) | `conda install -c conda-forge geometric` |
+| [OpenForceField](https://openforcefield.org/) | `conda install -c omnia openforcefield` |
+| [OpenMM](http://openmm.org/) | `conda install -c omnia openmm` |
+| [PSI4](http://www.psicode.org/) | `conda install -c psi4 psi4` |
+| [QCEngine](https://pypi.org/project/qcengine/) | `conda install -c conda-forge qcengine` |
+| [RDKit](http://rdkit.org/) | `conda install -c rdkit rdkit` |
+| [TorsionDrive](https://github.com/lpwgroup/torsiondrive) | `conda install -c conda-forge torsiondrive` |
+| *GUI* |  |
+| [PyQt5](https://pypi.org/project/PyQt5/) | `pip install PyQt5` |
+| [PyQtWebEngine](https://pypi.org/project/PyQtWebEngine/) | `pip install PyQtWebEngine` |
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda should deal with versions and conflicts in your environment.
@@ -175,7 +144,7 @@ This is accomplished with a few simple commands:
     # and on their correct version
     conda remove --force qubekit
     
-    # Re-download QUBEKit outside of conda
+    # Re-download the latest QUBEKit through github
     git clone https://github.com/qubekit/QUBEKit.git
     
     # Re-install QUBEKit outside of conda
@@ -566,6 +535,9 @@ All commands can be viewed by calling `QUBEKit -h`. Below is an explanation of w
 
 * Change the number of threads allocated (int; do not exceed computer's limits!):
 `-threads 4`
+
+* Change the verbosity of the output (bool):
+`-v true` or `-v false`
 
 ---
 

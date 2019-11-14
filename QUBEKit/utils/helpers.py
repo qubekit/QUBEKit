@@ -228,7 +228,7 @@ Colours = namedtuple('colours', 'red green orange blue purple end')
 
 # Uses exit codes to set terminal font colours.
 # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
-# The second exit code resets the style back to default.
+# The end code resets the style back to default.
 COLOURS = Colours(
     red='\033[1;31m',
     green='\033[1;32m',
@@ -365,7 +365,7 @@ def pretty_progress():
 
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
     log_files = []
-    for root, dirs, files in os.walk('.', topdown=True):
+    for root, _, files in os.walk('.', topdown=True):
         for file in files:
             if 'QUBEKit_log.txt' in file and 'backups' not in root:
                 log_files.append(os.path.abspath(f'{root}/{file}'))
@@ -388,7 +388,7 @@ def pretty_progress():
                 print(f'Cannot locate molecule name in {file}\nIs it a valid, QUBEKit-made log file?\n')
 
         # Create ordered dictionary based on the log file info
-        info[name] = populate_progress_dict(file)
+        info[name] = _populate_progress_dict(file)
 
     print('Displaying progress of all analyses in current directory.')
     print(f'Progress key: {COLOURS.green}\u2713{COLOURS.end} = Done;', end=' ')
@@ -429,17 +429,17 @@ def pretty_progress():
         print('')
 
 
-def populate_progress_dict(file_name):
+def _populate_progress_dict(file_name):
     """
     With a log file open:
         Search for a keyword marking the completion or skipping of a stage;
         If that's not found, look for error messages,
         Otherwise, just return that the stage hasn't finished yet.
     Key:
-        tick mark: Done; S: Skipped; E: Error; ~ (tilde): Not done yet, no error found.
+        tick mark (u2713): Done; S: Skipped; E: Error; ~ (tilde): Neither complete nor errored nor skipped.
     """
 
-    # Indicators in the log file which show a stage has completed
+    # Indicators in the log file which describe a stage
     search_terms = ('PARAMETRISATION', 'MM_OPT', 'QM_OPT', 'HESSIAN', 'MOD_SEM', 'DENSITY', 'CHARGE', 'LENNARD',
                     'TORSION_S', 'TORSION_O')
 
@@ -450,27 +450,22 @@ def populate_progress_dict(file_name):
     with open(file_name) as file:
         for line in file:
 
-            # Reset progress when restarting (set all progress to incomplete)
             if 'Continuing log file' in line:
                 restart_log = True
 
             # Look for the specific search terms
             for term in search_terms:
                 if term in line:
-                    # If you find a search term, check if it's skipped (S)
                     if 'SKIP' in line:
                         progress[term] = 'S'
-                    # If we have restarted then we need to
                     elif 'STARTING' in line:
                         progress[term] = 'R'
-                    # If its finishing tag is present it is done (tick)
+                    # If its finishing tag is present it is done (u2713 == tick)
                     elif 'FINISHING' in line:
                         progress[term] = u'\u2713'
 
             # If an error is found, then the stage after the last successful stage has errored (E)
             if 'Exception Logger - ERROR' in line:
-                # On the rare occasion that the error occurs after torsion optimisation (the final stage),
-                # a try except is needed to catch the index error (because there's no stage after torsion_optimisation).
                 for key, value in progress.items():
                     if value == 'R':
                         restart_term = search_terms.index(key)
@@ -513,7 +508,10 @@ def pretty_print(molecule, to_file=False, finished=True):
     __str__ method with an extra argument.
     """
 
-    pre_string = f'{COLOURS.green}\n\nOn {"completion" if finished else "exception"}, the ligand objects are:{COLOURS.end}'
+    pre_string = f'\n\nOn {"completion" if finished else "exception"}, the ligand objects are:'
+
+    if not to_file:
+        pre_string = f'{COLOURS.green}{pre_string}{COLOURS.end}'
 
     # Print to log file rather than to terminal
     if to_file:
@@ -548,7 +546,7 @@ def unpickle(location=None):
         while pickle_file not in os.listdir(search_dir):
             search_dir = os.path.split(search_dir)[0]
             if not search_dir:
-                raise PickleFileNotFound('Pickle file not found; have you deleted it?')
+                raise PickleFileNotFound('Pickle file (.QUBEKit_states) not found; have you deleted it?')
 
         pickle_path = os.path.join(search_dir, pickle_file)
 
@@ -584,7 +582,7 @@ def display_molecule_objects(*names):
 
 
 @contextmanager
-def assert_wrapper(exception_type):
+def _assert_wrapper(exception_type):
     """
     Makes assertions more informative when an Exception is thrown.
     Rather than just getting 'AssertionError' all the time, an actual named exception can be passed.
@@ -609,7 +607,7 @@ def check_symmetry(matrix, error=1e-5):
     """Check matrix is symmetric to within some error."""
 
     # Check the matrix transpose is equal to the matrix within error.
-    with assert_wrapper(ValueError):
+    with _assert_wrapper(ValueError):
         assert (np.allclose(matrix, matrix.T, atol=error)), 'Matrix is not symmetric.'
 
     print(f'{COLOURS.purple}Symmetry check successful. '
@@ -623,7 +621,7 @@ def check_net_charge(charges, ideal_net=0, error=1e-5):
     # Ensure total charge is near to integer value:
     total_charge = sum(atom for atom in charges)
 
-    with assert_wrapper(ValueError):
+    with _assert_wrapper(ValueError):
         assert (abs(total_charge - ideal_net) < error), ('Total charge is not close enough to desired '
                                                          'integer value in configs.')
 
@@ -656,7 +654,7 @@ def collect_archive_tdrive(tdrive_record, client):
         geometry.append(opt_struct.get_final_molecule().geometry * constants.BOHR_TO_ANGS)
         assert opt_struct.get_final_energy() == pair[1], "The energies collected do not match the QCArchive minima."
 
-    return [energies, geometry]
+    return energies, geometry
 
 
 def set_net(values, net=0, dp=6):
@@ -719,6 +717,7 @@ def try_load(engine, module):
     try:
         module = import_module(module, __name__)
         return getattr(module, engine)
+
     except (ModuleNotFoundError, AttributeError) as exc:
         print(f'{COLOURS.orange}Warning, failed to load: {engine}; continuing for now.\nReason: {exc}{COLOURS.end}\n')
         return missing_import(engine, fail_msg=str(exc))

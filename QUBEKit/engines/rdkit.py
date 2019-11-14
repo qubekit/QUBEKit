@@ -5,10 +5,10 @@ from QUBEKit.utils.decorators import for_all_methods, timer_logger
 import numpy as np
 
 from rdkit import Chem
-from rdkit.Geometry.rdGeometry import Point3D
 from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem.rdchem import GetPeriodicTable
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
+from rdkit.Geometry.rdGeometry import Point3D
 
 
 @for_all_methods(timer_logger)

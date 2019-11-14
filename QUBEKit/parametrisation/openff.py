@@ -36,10 +36,10 @@ class OpenFF(Parametrisation):
         off_topology = off_molecule.to_topology()
 
         # Load the smirnoff99Frosst force field.
-        forcefield = ForceField('test_forcefields/smirnoff99Frosst.offxml')
-        #
-        # forcefield = ForceField('openff-1.0.0.offxml')
-        #
+        # forcefield = ForceField('test_forcefields/smirnoff99Frosst.offxml')
+
+        forcefield = ForceField('openff-1.0.0.offxml')
+
         # # Run the molecule labeling
         # molecule_force_list = forcefield.label_molecules(off_topology)
         #
@@ -58,8 +58,8 @@ class OpenFF(Parametrisation):
             # Parametrize the topology and create an OpenMM System.
             system = forcefield.create_openmm_system(off_topology)
         except (UnassignedValenceParameterException, TypeError):
-            # If this does not work then we have a moleucle that is not in SMIRNOFF so we must add generics
-            # and remove the charge handler to get some basic parameters for the moleucle
+            # If this does not work then we have a molecule that is not in SMIRNOFF so we must add generics
+            # and remove the charge handler to get some basic parameters for the molecule
             new_bond = BondHandler.BondType(smirks='[*:1]~[*:2]', length="0 * angstrom",
                                             k="0.0 * angstrom**-2 * mole**-1 * kilocalorie")
             new_angle = AngleHandler.AngleType(smirks='[*:1]~[*:2]~[*:3]',  angle="0.0 * degree",

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO Add remaining xml methods for Protein class
-
 from QUBEKit.engines import RDKit, Element
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
@@ -17,8 +15,8 @@ import re
 import networkx as nx
 import numpy as np
 
-import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
+import xml.etree.ElementTree as ET
 
 
 class Atom:
@@ -293,7 +291,7 @@ class Molecule:
         # Molecule classes are used by qc_json
         if self.mol_input.__class__.__name__ == 'Molecule':
             self.qc_json = self.mol_input
-            self.read_qc_json()
+            self._read_qc_json()
 
         # Check if a file that exists is passed
         elif Path(self.mol_input).exists():
@@ -568,8 +566,7 @@ class Molecule:
                 for line in xyz_file:
                     line = line.split()
                     # skip frame heading lines
-                    if len(line) <= 1 or 'X' in line[0]:
-                        #next(xyz_file)
+                    if len(line) <= 1 or 'Iteration' in line:
                         continue
                     molecule.append([float(line[1]), float(line[2]), float(line[3])])
 
@@ -587,7 +584,7 @@ class Molecule:
         except FileNotFoundError:
             raise FileNotFoundError('Cannot find xyz file to read.')
 
-    def read_qc_json(self):
+    def _read_qc_json(self):
         """
         Using the QC json, extract the atoms and bonds (connectivity) to build a full topology.
         Insert the coords into the molecule too.
@@ -947,13 +944,13 @@ class Molecule:
 
         with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
 
-            if len(self.coords[input_type]) / len(self.atoms) == 1:
+            if len(self.coords[input_type]) == len(self.atoms):
                 message = 'xyz file generated with QUBEKit'
                 end = ''
                 trajectory = [self.coords[input_type]]
 
             else:
-                message = f'QUBEKit xyz trajectory FRAME '
+                message = 'QUBEKit xyz trajectory FRAME '
                 end = 1
                 trajectory = self.coords[input_type]
 
@@ -972,19 +969,6 @@ class Molecule:
                 except TypeError:
                     # This is the result of only printing one frame so catch the error and ignore
                     pass
-
-    def write_gromacs_file(self, input_type='input'):
-        """To a gromacs file, write and format the necessary variables gro."""
-
-        with open(f'{self.name}.gro', 'w+') as gro_file:
-            gro_file.write(f'NEW {self.name.upper()} GRO FILE\n')
-            gro_file.write(f'{len(self.coords[input_type]):>5}\n')
-            for pos, atom in enumerate(self.coords[input_type], 1):
-                # 'mol number''mol name'  'atom name'   'atom count'   'x coord'   'y coord'   'z coord'
-                # 1WATER  OW1    1   0.126   1.624   1.679
-                gro_file.write(
-                    f'    1{self.name.upper()}  {atom[0]}{pos}   {pos}   '
-                    f'{atom[1]: .3f}   {atom[2]: .3f}   {atom[3]: .3f}\n')
 
     def pickle(self, state=None):
         """
@@ -1301,7 +1285,7 @@ class Protein(DefaultsMixin, Molecule):
         super().__init__(filename)
 
         self.pdb_names = None
-        # TODO Needs updating with new Path method of handling filenames
+        # TODO Needs updating with new Path method of handling file names
         self.read_pdb(self.filename)
         self.residues = None
         self.home = os.getcwd()

@@ -108,6 +108,7 @@ class ArgsAndConfigs:
                 setattr(self.molecule, name, val)
 
         # Now we need to remove torsion_test as it is passed from the command line
+        # is False to check it's not True nor None
         if self.args.torsion_test is False:
             delattr(self.molecule, 'torsion_test')
 
@@ -120,6 +121,7 @@ class ArgsAndConfigs:
         # If restarting put the molecule back into the checkpoint file with the new configs
         if self.args.restart is not None:
             self.molecule.pickle(state=self.args.restart)
+            self.molecule.home = os.getcwd()
 
         # Now that all configs are stored correctly: execute.
         Execute(self.molecule)
@@ -131,8 +133,8 @@ class ArgsAndConfigs:
     def parse_commands():
         """
         Parses commands from the terminal using argparse.
-
         Contains classes for handling actions as well as simple arg parsers for config changes.
+        :returns: parsed args
         """
 
         # Action classes
@@ -215,7 +217,7 @@ class ArgsAndConfigs:
 
         def string_to_bool(string):
             """Convert a string to a bool for argparse use when casting to bool"""
-            return string.lower() in ['true', 't', 'yes', 'y']
+            return string.casefold() in ['true', 't', 'yes', 'y']
 
         intro = 'Welcome to QUBEKit! For a list of possible commands, use the help command: -h.' \
                 'Alternatively, take a look through our github page for commands, recipes and common problems:' \
@@ -366,7 +368,7 @@ class ArgsAndConfigs:
             os.chdir(home)
 
         sys.exit(f'{COLOURS.green}Bulk analysis complete.{COLOURS.end}\n'
-                 f'Use QUBEKit -progress to view the completion progress of your molecules')
+                 'Use QUBEKit -progress to view the completion progress of your molecules')
 
 
 class Execute:
@@ -395,18 +397,20 @@ class Execute:
                              'view the log file.\nOur documentation (README.md) '
                              'also contains help on handling the various commands for QUBEKit.\n')
 
-        self.order = OrderedDict([('parametrise', self.parametrise),
-                                  ('mm_optimise', self.mm_optimise),
-                                  ('qm_optimise', self.qm_optimise),
-                                  ('hessian', self.hessian),
-                                  ('mod_sem', self.mod_sem),
-                                  ('density', self.density),
-                                  ('charges', self.charges),
-                                  ('lennard_jones', self.lennard_jones),
-                                  ('torsion_scan', self.torsion_scan),
-                                  ('torsion_optimise', self.torsion_optimise),
-                                  ('finalise', self.finalise),
-                                  ('torsion_test', self.torsion_test)])
+        self.order = OrderedDict([
+            ('parametrise', self.parametrise),
+            ('mm_optimise', self.mm_optimise),
+            ('qm_optimise', self.qm_optimise),
+            ('hessian', self.hessian),
+            ('mod_sem', self.mod_sem),
+            ('density', self.density),
+            ('charges', self.charges),
+            ('lennard_jones', self.lennard_jones),
+            ('torsion_scan', self.torsion_scan),
+            ('torsion_optimise', self.torsion_optimise),
+            ('finalise', self.finalise),
+            ('torsion_test', self.torsion_test)
+        ])
 
         # Keep this for reference (used for numbering folders correctly)
         self.immutable_order = tuple(self.order)
@@ -496,6 +500,8 @@ class Execute:
                 count = 1
                 while os.path.exists(f'QUBEKit_backups/{dir_name}_{str(count).zfill(3)}'):
                     count += 1
+                    if count >= 100:
+                        raise RuntimeError('Cannot create more than 100 backups.')
 
                 # Then, make that backup and make a new working directory
                 move(dir_name, f'QUBEKit_backups/{dir_name}_{str(count).zfill(3)}')
@@ -580,7 +586,8 @@ class Execute:
             'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
             'pause': ['Pausing analysis', 'Analysis paused!'],
             'skip': ['Skipping section', 'Section skipped'],
-            'torsion_test': ['Testing torsion single point energies', 'Torsion testing complete']}
+            'torsion_test': ['Testing torsion single point energies', 'Torsion testing complete']
+        }
 
         # Do the first stage in the order to get the next_key for the following loop
         key = list(self.order)[0]
@@ -662,10 +669,10 @@ class Execute:
             try:
                 copy(os.path.join(molecule.home, f'{molecule.name}.xml'), f'{molecule.name}.xml')
             except FileNotFoundError:
-                raise FileNotFoundError('You need to supply an xml file if you wish to use xml-based parametrisation;\n'
-                                        'put this file in the location you are running QUBEKit from.\n'
-                                        'Alternatively, use a different parametrisation method such as:\n'
-                                        '-param antechamber')
+                raise FileNotFoundError('''You need to supply an xml file if you wish to use xml-based parametrisation;
+                                        put this file in the location you are running QUBEKit from.
+                                        Alternatively, use a different parametrisation method such as:
+                                        -param antechamber''')
 
         # Perform the parametrisation
         # If the method is none the molecule is not parameterised but the parameter holders are initiated
@@ -699,7 +706,10 @@ class Execute:
             molecule.coords['mm'] = molecule.coords['input']
 
         elif molecule.mm_opt_method == 'openmm':
-            if molecule.parameter_engine != 'none':
+            if molecule.parameter_engine == 'none':
+                raise OptimisationFailed('You cannot optimise a molecule with OpenMM and no initial parameters; '
+                                         'consider parametrising or using UFF/MFF in RDKit')
+            else:
                 # Make the inputs
                 molecule.write_pdb(input_type='input')
                 molecule.write_parameters()
@@ -716,15 +726,12 @@ class Execute:
                 molecule.read_file(f'{molecule.name}_optim.xyz', input_type='traj')
                 # Store the last from the traj as the mm optimised structure
                 molecule.coords['mm'] = molecule.coords['traj'][-1]
-            else:
-                raise OptimisationFailed('You can not optimise a molecule with OpenMM and no initial parameters; '
-                                         'consider parametrising or using UFF/MFF in RDKit')
 
         else:
             # TODO change to qcengine as this can already be done
             # Run an rdkit optimisation with the right FF
-            rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}
-            molecule.filename = RDKit().mm_optimise(molecule.filename, ff=rdkit_ff[molecule.mm_opt_method])
+            rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}[molecule.mm_opt_method]
+            molecule.filename = RDKit().mm_optimise(molecule.filename, ff=rdkit_ff)
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}')
 

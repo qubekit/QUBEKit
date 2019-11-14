@@ -9,25 +9,6 @@ import os
 from time import time
 
 
-def timer_func(orig_func):
-    """
-    Prints the runtime of a function when applied as a decorator (@timer_func).
-    Currently only used for debugging.
-    """
-
-    @wraps(orig_func)
-    def wrapper(*args, **kwargs):
-
-        t1 = time()
-        result = orig_func(*args, **kwargs)
-        t2 = time() - t1
-
-        print(f'{orig_func.__qualname__} ran in: {t2} seconds.')
-
-        return result
-    return wrapper
-
-
 def timer_logger(orig_func):
     """
     Logs the various timings of a function in a dated and numbered file.

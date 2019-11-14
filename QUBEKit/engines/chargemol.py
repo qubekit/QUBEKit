@@ -52,6 +52,6 @@ class Chargemol(Engines):
                     sp.run(os.path.join(self.molecule.chargemol, control_path), shell=True, stdout=log, stderr=log,
                            check=True)
                 except sp.CalledProcessError:
-                    raise ChargemolError('Chargemol did not execute properly check the output file for details.')
+                    raise ChargemolError('Chargemol did not execute properly; check the output file for details.')
 
                 del os.environ['OMP_NUM_THREADS']

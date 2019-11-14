@@ -138,7 +138,7 @@ class PSI4(Engines):
     def check_for_errors(self):
         """
         Read the output file from the job and check for normal termination and any errors
-        :return: A dictionary of the success status and any problems.
+        :return: A dictionary of the success status and any errors.
         """
 
         with open('output.dat', 'r') as log:
@@ -147,11 +147,9 @@ class PSI4(Engines):
                     return {'success': True}
 
                 elif '*** Psi4 encountered an error.' in line:
-                    return {'success': False,
-                            'error': 'Not known'}
+                    return {'success': False, 'error': 'Not known'}
 
-            return {'success': False,
-                    'error': 'Segfault'}
+            return {'success': False, 'error': 'Segfault'}
 
     def optimised_structure(self):
         """

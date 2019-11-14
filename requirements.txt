@@ -1,7 +1,8 @@
+matplotlib
+networkx
+numpy
 qcelemental
 qcengine
-matplotlib
-numpy
-networkx
-torsiondrive
+rdkit
 scipy
+torsiondrive

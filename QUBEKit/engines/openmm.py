@@ -81,9 +81,9 @@ class OpenMM(Engines):
         :return: energy: vacuum energy state of the system
         """
 
-        # check that their are the right amount of postions in the vector
+        # check that there are the right number of positions in the vector
         if len(position) != len(self.molecule.atoms) + len(self.molecule.extra_sites):
-            # we need some dummy postions to fill the vector
+            # we need some dummy positions to fill the vector
             for i in range(len(self.molecule.extra_sites)):
                 position.append((0, 0, 0))
 

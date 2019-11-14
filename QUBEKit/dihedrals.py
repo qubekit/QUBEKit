@@ -8,19 +8,18 @@ from QUBEKit.utils.helpers import make_and_change_into
 
 from collections import OrderedDict
 from copy import deepcopy
+from datetime import datetime
 import os
 from shutil import rmtree
 import subprocess as sp
-
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize, differential_evolution
 from scipy.stats import linregress
-from datetime import datetime
 
-matplotlib.use('Agg') # Fix for clusters?
+matplotlib.use('Agg')   # Fix for clusters?
 
 
 @for_all_methods(timer_logger)
@@ -1079,8 +1078,7 @@ class TorsionOptimiser:
         slope_old, intercept_old, r_value_old, _, _ = linregress(self.qm_energy, mm_energy_old)
 
         # Make sure we have the same number of energy terms in the QM and MM lists
-        assert len(self.qm_energy) == len(mm_energy_new)
-        assert len(self.qm_energy) == len(mm_energy_old)
+        assert len(self.qm_energy) == len(mm_energy_new) == len(mm_energy_old)
 
         # now we are just plotting them against each other they are already in the right order
         plt.scatter(self.qm_energy, mm_energy_old, label=rf'starting parameters $r^2$={r_value_old ** 2:.4f}', s=10)
@@ -1105,7 +1103,6 @@ class TorsionOptimiser:
         """
         Plot the convergence of the errors through the iterative fitting methods
         :param objective: A dictionary containing all of the error measurements
-        :return: None
         """
 
         iterations = [x for x in range(len(objective['total']))]
