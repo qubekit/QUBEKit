@@ -6,7 +6,7 @@
 #  Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
 
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
-from QUBEKit.engines import Chargemol, Gaussian, ONETEP, PSI4, QCEngine, RDKit
+from QUBEKit.engines import Chargemol, Gaussian, PSI4, QCEngine, RDKit
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
@@ -415,7 +415,7 @@ class Execute:
         # Keep this for reference (used for numbering folders correctly)
         self.immutable_order = tuple(self.order)
 
-        self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian, 'onetep': ONETEP}
+        self.engine_dict = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}
 
         printf(self.start_up_msg)
 
