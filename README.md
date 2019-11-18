@@ -355,22 +355,21 @@ For a single molecule analysis, this is achieved with the `-end` and `-restart` 
 
 The stages are:
 
-* **parametrise** - The molecule is parametrised using OpenFF, AnteChamber or XML.
-This step also loads in the molecule and extracts key information like the atoms and their coordinates. 
-* **mm_optimise** - This is a quick, preliminary optimisation which speeds up later optimisations.
-* **qm_optimise** - This is the main optimisation stage, default method is to use PSI4 with GeomeTRIC.
-* **hessian** - This again uses PSI4 to calculate the Hessian matrix which is needed for calculating bonding parameters.
-* **mod_sem** - Using the Hessian matrix, the bonds and angles terms are calculated with the Modified Seminario Method.
-* **density** - The density is calculated using Gaussian09. This is where the solvent is applied as well (if configured). 
-* **charges** - The charges are partitioned and calculated using Chargemol with DDEC3 or 6.
-* **lennard_jones** - The charges are extracted and Lennard-Jones parameters calculated, ready to produce an XML.
-* **torsion_scan** - Using the molecule's geometry, a torsion scan is performed.
-The molecule can then be optimised with respect to these parameters.
-* **torsion_optimise** - The optimisation step for the torsional analysis.
-* **finalise** - This step (which is always performed, regardless of end-point) produces an XML for the molecule.
-This stage also prints the final information to the log file and a truncated version to the terminal.
+| Stage | Description |
+| :---: | --- |
+| *parametrise* | The molecule is parametrised using OpenFF, AnteChamber or an xml file. This step also loads in the molecule and extracts key information like the atoms and their coordinates. |
+| *mm_optimise* | This is a quick, preliminary optimisation which speeds up later optimisations. (This stage is skippable.) |
+| *qm_optimise* | This is the main quantum mechanical optimisation stage; default method is to use PSI4 with GeomeTRIC. |
+| *hessian* | This again uses PSI4 or Gaussian to calculate the Hessian matrix which is needed for calculating bonding parameters. |
+| *mod_sem* | Using the Hessian matrix, the bond lengths, angles and force constants are calculated with the Modified Seminario Method. |
+| *density* | The density is calculated using Gaussian09. This is where the solvent is applied as well (if configured). | 
+| *charges* | The charges are partitioned and calculated using Chargemol with DDEC3 or 6. |
+| *lennard_jones* | The charges are extracted and Lennard-Jones parameters (sigma and epsilon) are calculated. |
+| *torsion_scan* | Using the molecule's geometry, a torsion scan is performed. The molecule can then be optimised with respect to these parameters. |
+| *torsion_optimise* | The fitting and optimisation step for the torsional analysis. |
+| *finalise* | This step (which is always performed, regardless of end-point) produces an xml file for the molecule. This stage also prints the final information to the log file and a truncated version to the terminal. |
 
-In a normal run, all of these stages are called sequentially,
+In a normal run, all of these stages are executed sequentially,
 but with `-end` and `-restart` you are free to run *from* any step *to* any step inclusively.
 
 When using `-end`, simply specify the end-point in the proceeding command (default `finalise`),
@@ -476,10 +475,13 @@ To display the progress of all analyses in your current directory and below, use
     
 QUBEKit will find the log files in all QUBEKit directories and display a colour-coded table of the progress.  
 
-* Tick marks indicate a stage has completed successfully
-* Tildes indicate a stage has not finished nor errored
-* An S indicates a stage has been skipped
-* An E indicates that a stage has started and failed for some reason. 
+| Indicator | Meaning |
+| :---: | :---: |
+|  ✓ |  Completed successfully |
+| ~ | Neither finished nor errored |
+| S | Skipped |
+| E | Started and failed for some reason |
+
 Viewing the log file will give more information as to *why* it failed.
 
 ### QUBEKit Commands: Other Commands and Information
@@ -506,38 +508,19 @@ this means they may try to take more than is available, leading to a crash.
 
 All commands can be viewed by calling `QUBEKit -h`. Below is an explanation of what all these commands are:
 
-* Enable or disable GeomeTRIC (bool): 
-`-geo true` or `-geo false`
-
-* Change DDEC version (int; 3 or 6): 
-`-ddec 3` or `-ddec 6`
-
-* Enable or disable the solvent model (bool): 
-`-solvent true` or `-solvent false`
-
-* Change the method for initial parametrisation (str; openff, xml or antechamber): 
-`-param openff`, `-param xml`, `-param antechamber`
-
-* Change the log file name and directory label (str; any):
-`-log Example123`
-
-* Change the functional being used (str; any valid psi4/g09 functional):
-`-func B3LYP`
-
-* Change the basis set (str; any valid psi4/g09 basis set):
-`-basis 6-31G`
-
-* Change the vibrational scaling used with the basis set (float; e.g. 0.997):
-`-vib 0.967`
-
-* Change the amount of memory allocated (int; do not exceed computer's limits!):
-`-memory 4`
-
-* Change the number of threads allocated (int; do not exceed computer's limits!):
-`-threads 4`
-
-* Change the verbosity of the output (bool):
-`-v true` or `-v false`
+| Command | Type | Description |
+| --- | --- | --- |
+| `-geo` | Bool: `True`, `true`, `t`, `False`, `false`, `f` | Enable or disable GeomeTRIC |
+| `-ddec` | Int: `3`, `6` | Change DDEC version |
+| `-solvent` | Bool | Enable or disable the solvent model |
+| `-param` | String: `antechamber`, `openff`, `xml`  | Change the method for initial parametrisation |
+| `-log` | String: `<arbitrary alphanumeric>` | Change the log file name and directory label |
+| `-func` | String: `<any valid PSI4/Gaussian functional` | Change the functional being used |
+| `-basis` | String: `<any valid PSI4/Gaussian basis set` | Change the basis set |
+| `-vib` | Float: `0.0 - 1.0` | Change the vibrational scaling used with the basis set |
+| `-memory` | Int: `1 - PC limit` | Change the amount of memory allocated |
+| `-threads` | Int: `1 - PC limit` | Change the number of threads allocated |
+| `-v` | Bool | Change the verbosity of the output |
 
 ---
 
