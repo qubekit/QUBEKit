@@ -22,7 +22,8 @@ def timer_logger(orig_func):
         # All this does is check if the decorated function has a molecule attribute;
         # if it does, the function must therefore have a home path which can be used to write to the log file.
         if len(args) >= 1 and hasattr(args[0], 'molecule'):
-            if getattr(args[0].molecule, 'home') is None:
+            # If molecule doesn't have a home or is in testing stage, just return
+            if (getattr(args[0].molecule, 'home') is None) or getattr(args[0].molecule, 'testing'):
                 return orig_func(*args, **kwargs)
             log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
         else:

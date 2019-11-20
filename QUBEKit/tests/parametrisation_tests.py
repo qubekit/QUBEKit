@@ -10,19 +10,21 @@ class ParametrisationTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        """Create temp working directory and copy across test files."""
+
         cls.files_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
 
-        # Make the temp folder and move there with the required files
         os.mkdir('temp')
         os.chdir('temp')
         copy(os.path.join(cls.files_folder, 'acetone.pdb'), 'acetone.pdb')
         cls.molecule = Ligand('acetone.pdb')
+        cls.molecule.testing = True
 
     def test_antechamber(self):
-        # try to parametrise the molecule with antechamber
+        """Parametrise with Antechamber and ensure parameters have all been assigned."""
+
         AnteChamber(self.molecule)
 
-        # now make sure we have parameters assigned
         self.assertEqual(len(self.molecule.HarmonicBondForce), len(list(self.molecule.topology.edges)))
 
         self.assertEqual(len(self.molecule.HarmonicAngleForce), len(self.molecule.angles))
@@ -33,10 +35,10 @@ class ParametrisationTest(unittest.TestCase):
         self.assertEqual(len(self.molecule.coords['input']), len(self.molecule.NonbondedForce))
 
     def test_OpenFF(self):
-        # try to parametrise using OpenFF
+        """Parametrise with OpenFF and ensure parameters have all been assigned."""
+
         OpenFF(self.molecule)
 
-        # now make sure we have parameters assigned
         self.assertEqual(len(self.molecule.HarmonicBondForce), len(list(self.molecule.topology.edges)))
 
         self.assertEqual(len(self.molecule.HarmonicAngleForce), len(self.molecule.angles))
@@ -48,7 +50,8 @@ class ParametrisationTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        """Remove the files produced during testing"""
+        """Remove the working directory and any files produced during testing"""
+
         os.chdir('../')
         rmtree('temp')
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from QUBEKit.engines import RDKit, Element
+from QUBEKit.engines import Element, RDKit
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
 
@@ -28,8 +28,8 @@ class Atom:
     def __init__(self, atomic_number, atom_index, atom_name='', partial_charge=None, formal_charge=None):
 
         self.atomic_number = atomic_number
-        # The actual atomic name as per periodic table e.g. C, F, Pb, etc
         self.atomic_mass = Element().mass(atomic_number)
+        # The actual atomic symbol as per periodic table e.g. C, F, Pb, etc
         self.atomic_symbol = Element().name(atomic_number).title()
         # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
         self.atom_name = atom_name
@@ -123,6 +123,7 @@ class DefaultsMixin:
 
         self.chargemol = '/home/<QUBEKit_user>/chargemol_09_26_2017'
         self.log = 999
+        self.testing = False
 
 
 class Molecule:
