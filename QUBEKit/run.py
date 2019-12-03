@@ -17,7 +17,7 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
 from QUBEKit.utils.helpers import append_to_log, COLOURS, Configure, display_molecule_objects, generate_bulk_csv, \
-    make_and_change_into, mol_data_from_csv, pretty_progress, pretty_print, unpickle
+    make_and_change_into, mol_data_from_csv, pretty_progress, pretty_print, unpickle, update_ligand
 
 import argparse
 from collections import OrderedDict
@@ -78,14 +78,13 @@ class ArgsAndConfigs:
         elif self.args.restart is not None:
             # Find the pickled checkpoint file and load it as the molecule
             try:
-                self.molecule = unpickle()[self.args.restart]
+                self.molecule = update_ligand(self.args.restart, Ligand)
             except KeyError:
                 raise KeyError('This stage was not found in the log file; was the previous stage completed?')
         else:
             # Initialise molecule
             if self.args.smiles:
                 self.molecule = Ligand(*self.args.smiles)
-                # Now we should create the initial molecule and
             else:
                 self.molecule = Ligand(self.args.input)
 

@@ -283,6 +283,22 @@ class Molecule:
 
         return return_str
 
+    # def __getattr__(self, attr):
+    #     """
+    #     Used to help future-proof ligand object.
+    #
+    #     If an older version of QUBEKit is used to create a Ligand() object;
+    #     then QUBEKit is updated and -restart is used;
+    #     if a new attribute doesn't exist in the old Ligand() object;
+    #     this method should catch that.
+    #     :param attr: name of attribute which is being accessed
+    #     :return: the attribute itself (get the attr will work again since it has been set)
+    #     """
+    #     print(f'failed to access: {attr}')
+    #     # Re-initialise Ligand() and use it to set, then get any missing attributes
+    #     setattr(self, attr, getattr(Ligand(*self.mol_input), attr, None))
+    #     return getattr(self, attr)
+
     def read_input(self):
         """
         The base input reader used upon class instantiation; it will decide how to handle the input
