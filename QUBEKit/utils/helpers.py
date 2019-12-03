@@ -695,6 +695,7 @@ def missing_import(name, fail_msg=''):
     Generates a class which raises an import error when initialised.
     e.g. SomeClass = missing_import('SomeClass') will make SomeClass() raise ImportError
     """
+
     def init(self, *args, **kwargs):
         raise ImportError(
             f'The class {name} you tried to call is not importable; '
@@ -714,6 +715,7 @@ def try_load(engine, module):
     :return: Either the engine is imported as normal, or it is replaced with dummy class which
     just raises an import error with a message.
     """
+
     try:
         module = import_module(module, __name__)
         return getattr(module, engine)
@@ -721,3 +723,27 @@ def try_load(engine, module):
     except (ModuleNotFoundError, AttributeError) as exc:
         print(f'{COLOURS.orange}Warning, failed to load: {engine}; continuing for now.\nReason: {exc}{COLOURS.end}\n')
         return missing_import(engine, fail_msg=str(exc))
+
+
+def update_ligand(restart_key, cls):
+    """
+    1. Create `old_mol` object by unpickling
+    2. Initialise a `new_mol` with the input from `old_mol`
+    3. Copy any objects in `old_mol` across to `new_mol`
+            - check for attributes which have had names changed
+    4. return `new_mol` as the fixed ligand object to be used from now onwards
+    """
+
+    # Get the old mol from the pickle file (probably in ../)
+    old_mol = unpickle()[restart_key]
+    # Initialise a new molecule based on the same mol_input that was used from before (cls = Ligand)
+    new_mol = cls(old_mol.mol_input, old_mol.name)
+
+    for attr, val in new_mol.__dict__.items():
+        try:
+            setattr(new_mol, attr, getattr(old_mol, attr))
+        # This should only fail on old versions where the custom __getattr__ doesn't exist
+        except AttributeError:
+            setattr(new_mol, attr, val)
+
+    return new_mol

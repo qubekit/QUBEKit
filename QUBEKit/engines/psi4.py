@@ -2,8 +2,8 @@
 
 from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.exceptions import PSI4Error
 from QUBEKit.utils.helpers import append_to_log
-from QUBEKit.utils.exceptions import Psi4Error
 
 import subprocess as sp
 
@@ -127,7 +127,7 @@ class PSI4(Engines):
                 try:
                     sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log, check=True)
                 except sp.CalledProcessError as exc:
-                    raise Psi4Error('Psi4 did not execute successfully check log file for details.') from exc
+                    raise PSI4Error('PSI4 did not execute successfully check log file for details.') from exc
 
             # Now check the exit status of the job
             return self.check_for_errors()

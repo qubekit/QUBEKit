@@ -156,6 +156,10 @@ class TorsionScan:
             log.write(f'Theory used: {self.molecule.theory}   Basis used: {self.molecule.basis}\n')
             log.flush()
             tdrive_engine = self.qm_engine.__class__.__name__.lower()
+            if self.molecule.bonds_engine == 'g09':
+                tdrive_engine = 'gaussian09'
+            elif self.molecule.bonds_engine == 'g16':
+                tdrive_engine = 'gaussian16'
 
             cmd = (f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v '
                    f'{"--native_opt" if self.native_opt else ""}')
@@ -831,7 +835,8 @@ class TorsionOptimiser:
 
     def get_torsion_params(self):
         """
-        Get the torsions and their parameters that will scanned, work out how many different torsion types needed,
+        Get the torsions and their parameters that will be scanned;
+        work out how many different torsion types are needed;
         make a vector corresponding to this size.
         """
 

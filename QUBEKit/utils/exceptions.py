@@ -6,6 +6,7 @@ class OptimisationFailed(Exception):
     Raise for seg faults from PSI4 - geomeTRIC/Torsiondrive/QCEngine interactions.
     This should mean it's more obvious to users when there's a segfault.
     """
+
     pass
 
 
@@ -45,6 +46,7 @@ class FileTypeError(Exception):
     """
     Invalid file type e.g. trying to read a mol file when we only accept pdb or mol2.
     """
+
     pass
 
 
@@ -64,9 +66,9 @@ class ChargemolError(Exception):
     pass
 
 
-class Psi4Error(Exception):
+class PSI4Error(Exception):
     """
-    Psi4 did not execute properly
+    PSI4 did not execute properly
     """
 
     pass

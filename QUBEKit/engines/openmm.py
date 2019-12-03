@@ -82,7 +82,8 @@ class OpenMM(Engines):
         """
 
         # check that there are the right number of positions in the vector
-        if len(position) != len(self.molecule.atoms) + len(self.molecule.extra_sites):
+        extra_sites = self.molecule.extra_sites if self.molecule.extra_sites is not None else []
+        if len(position) != len(self.molecule.atoms) + len(extra_sites):
             # we need some dummy positions to fill the vector
             for i in range(len(self.molecule.extra_sites)):
                 position.append((0, 0, 0))
