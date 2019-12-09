@@ -222,6 +222,11 @@ class Molecule:
         self.bond_types = None
         self.angle_types = None
         self.dihedral_types = None
+        self.improper_types = None
+
+        self.dih_start = {}
+        self.dih_end = {}
+        self.increments = {}
 
         self.combination = None
 
@@ -319,7 +324,7 @@ class Molecule:
         # If it's a string, and doesn't contain '.' (not a file that doesn't exist) then it's a smiles string
         elif isinstance(self.mol_input, str) and '.' not in self.mol_input:
             self.smiles = self.mol_input
-            self.rdkit_mol = RDKit().smiles_to_rdkit_mol(self.smiles, name=self.name)
+            self.rdkit_mol = RDKit.smiles_to_rdkit_mol(self.smiles, name=self.name)
             self.mol_from_rdkit(self.rdkit_mol, input_type='input')
 
         else:
@@ -336,7 +341,7 @@ class Molecule:
 
         input_file = Path(input_file)
         try:
-            rdkit_mol = RDKit().read_file(input_file)
+            rdkit_mol = RDKit.read_file(input_file)
             self.mol_from_rdkit(rdkit_mol, input_type=input_type)
         except AttributeError:
             if input_type == 'input':
@@ -417,7 +422,7 @@ class Molecule:
         coords = rdkit_molecule.GetConformer().GetPositions()
 
         # Now get any descriptors we can find
-        descriptors = RDKit().rdkit_descriptors(rdkit_molecule)
+        descriptors = RDKit.rdkit_descriptors(rdkit_molecule)
 
         self._validate_info(topology, atoms, coords, input_type, rdkit_molecule, descriptors)
 
@@ -879,7 +884,7 @@ class Molecule:
             ET.SubElement(HarmonicBondForce, "Bond", attrib={
                 'class1': self.AtomTypes[key[0]][2],
                 'class2': self.AtomTypes[key[1]][2],
-                'length': f'{val[0]:.6f}', 'k': f'{val[1]:.6f}'})
+                'length': f'{float(val[0]):.6f}', 'k': f'{float(val[1]):.6f}'})
 
         # Add the angles
         for key, val in self.HarmonicAngleForce.items():
@@ -887,7 +892,7 @@ class Molecule:
                 'class1': self.AtomTypes[key[0]][2],
                 'class2': self.AtomTypes[key[1]][2],
                 'class3': self.AtomTypes[key[2]][2],
-                'angle': f'{val[0]:.6f}', 'k': f'{val[1]:.6f}'})
+                'angle': f'{float(val[0]):.6f}', 'k': f'{float(val[1]):.6f}'})
 
         # add the proper and improper torsion terms
         for key in self.PeriodicTorsionForce:
@@ -1083,6 +1088,21 @@ class Molecule:
 
         self.dihedral_types = self._cluster_types(dihedral_types)
 
+    def get_improper_equiv_classes(self):
+
+        improper_symmetry_classes = {}
+        for dihedral in self.improper_torsions:
+            improper_symmetry_classes[tuple(dihedral)] = (f'{self.atom_symmetry_classes[dihedral[0]]}-'
+                                                          f'{self.atom_symmetry_classes[dihedral[1]]}-'
+                                                          f'{self.atom_symmetry_classes[dihedral[2]]}-'
+                                                          f'{self.atom_symmetry_classes[dihedral[3]]}')
+
+        improper_types = {}
+        for key, val in improper_symmetry_classes.items():
+            improper_types.setdefault(val, []).append(key)
+
+        self.improper_types = self._cluster_types(improper_types)
+
     def _cluster_types(self, equiv_classes):
         """
         Function that helps the bond angle and dihedral class finders in clustering the types based on the forward and
@@ -1115,7 +1135,7 @@ class Molecule:
         """
         if self.rdkit_mol is not None:
 
-            self.atom_symmetry_classes = RDKit().find_symmetry_classes(self.rdkit_mol)
+            self.atom_symmetry_classes = RDKit.find_symmetry_classes(self.rdkit_mol)
 
             self.get_bond_equiv_classes()
             self.get_angle_equiv_classes()

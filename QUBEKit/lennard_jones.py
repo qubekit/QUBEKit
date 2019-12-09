@@ -14,6 +14,8 @@ import numpy as np
 @for_all_methods(timer_logger)
 class LennardJones:
 
+    # Beware weird units, (wrong in the paper too).
+    # Units: vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs
     FreeParams = namedtuple('params', 'vfree bfree rfree')
     elem_dict = {
         'H': FreeParams(7.6, 6.5, 1.64),
@@ -149,9 +151,6 @@ class LennardJones:
         Use the AIM parameters from extract_params_*() to calculate a_i and b_i according to paper.
         Calculations from paper have been combined and simplified for faster computation.
         """
-
-        # Beware weird units, (wrong in the paper too).
-        # Units: vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs
 
         for pos, atom in enumerate(self.ddec_data):
             try:
@@ -382,7 +381,6 @@ class LennardJones:
         Calculates the a_i and b_i values;
         Calculates the sigma and epsilon values using those a_i and b_i values;
         Redistributes L-J parameters according to polar Hydrogens, then recalculates epsilon values.
-        returns non_bonded_force for the XML creator in Ligand class.
         """
 
         if self.molecule.charges_engine == 'chargemol':
@@ -410,4 +408,4 @@ class LennardJones:
         if self.molecule.charges_engine == 'onetep':
             self.extract_extra_sites()
 
-        return self.non_bonded_force
+        self.molecule.NonbondedForce = self.non_bonded_force

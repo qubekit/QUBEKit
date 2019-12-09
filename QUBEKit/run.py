@@ -730,7 +730,7 @@ class Execute:
             # TODO change to qcengine as this can already be done
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}[molecule.mm_opt_method]
-            molecule.filename = RDKit().mm_optimise(molecule.filename, ff=rdkit_ff)
+            molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff)
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}')
 
@@ -796,7 +796,7 @@ class Execute:
                 elif result['error'] == 'Max iterations':
                     result = qm_engine.generate_input('input', optimise=True, restart=True, execute=molecule.bonds_engine)
                 else:
-                    molecule.coords['temp'] = RDKit().generate_conformers(molecule.rdkit_mol)[-1]
+                    molecule.coords['temp'] = RDKit.generate_conformers(molecule.rdkit_mol)[-1]
                     result = qm_engine.generate_input('temp', optimise=True, execute=molecule.bonds_engine)
 
                 restart_count += 1
@@ -907,7 +907,7 @@ class Execute:
             if file.startswith('DDEC'):
                 copy(os.path.join(charges_folder, file), file)
 
-        molecule.NonbondedForce = LennardJones(molecule).calculate_non_bonded_force()
+        LennardJones(molecule).calculate_non_bonded_force()
 
         # This also now implies the opls combination rule
         molecule.combination = 'opls'

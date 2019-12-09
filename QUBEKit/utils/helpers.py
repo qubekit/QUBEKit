@@ -360,7 +360,7 @@ def append_to_log(message, msg_type='major'):
 def pretty_progress():
     """
     Neatly displays the state of all QUBEKit running directories in the terminal.
-    Uses the log files to automatically generate a matrix which is then printed to screen in full colour 4k.
+    Uses the log files to automatically generate a table which is then printed to screen in full colour 4k.
     """
 
     # Find the path of all files starting with QUBEKit_log and add their full path to log_files list
@@ -529,8 +529,9 @@ def pretty_print(molecule, to_file=False, finished=True):
 
 def unpickle(location=None):
     """
-    Function to unpickle a set of ligand objects from the pickle file, and return a dictionary of ligands
-    indexed by their progress.
+    Unpickle the pickle file, and return an ordered dictionary of
+    ligand instances--indexed by their progress.
+    :param location: optional location of the pickle file .QUBEKit_states
     """
 
     mol_states = OrderedDict()
@@ -538,17 +539,16 @@ def unpickle(location=None):
     # unpickle the pickle jar
     # try to load a pickle file make sure to get all objects
     pickle_file = '.QUBEKit_states'
-    if location is not None:
-        pickle_path = os.path.join(location, pickle_file)
 
-    else:
-        search_dir = os.getcwd()
-        while pickle_file not in os.listdir(search_dir):
-            search_dir = os.path.split(search_dir)[0]
-            if not search_dir:
-                raise PickleFileNotFound('Pickle file (.QUBEKit_states) not found; have you deleted it?')
+    if location is None:
+        location = os.getcwd()
+        while pickle_file not in os.listdir(location):
+            location = os.path.split(location)[0]
+            if not location:
+                raise PickleFileNotFound()
 
-        pickle_path = os.path.join(search_dir, pickle_file)
+    # Either location is provided or pickle file has been found in loop.
+    pickle_path = os.path.join(location, pickle_file)
 
     with open(pickle_path, 'rb') as jar:
         while True:
@@ -742,7 +742,6 @@ def update_ligand(restart_key, cls):
     for attr, val in new_mol.__dict__.items():
         try:
             setattr(new_mol, attr, getattr(old_mol, attr))
-        # This should only fail on old versions where the custom __getattr__ doesn't exist
         except AttributeError:
             setattr(new_mol, attr, val)
 

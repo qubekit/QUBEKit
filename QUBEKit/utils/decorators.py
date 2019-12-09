@@ -26,6 +26,8 @@ def timer_logger(orig_func):
             if (getattr(args[0].molecule, 'home') is None) or getattr(args[0].molecule, 'testing'):
                 return orig_func(*args, **kwargs)
             log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
+            if not os.path.exists(log_file_path):
+                return orig_func(*args, **kwargs)
         else:
             if not os.path.exists('../QUBEKit_log.txt'):
                 return orig_func(*args, **kwargs)

@@ -9,6 +9,7 @@ from QUBEKit.utils.helpers import make_and_change_into
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime
+import math
 import os
 from shutil import rmtree
 import subprocess as sp
@@ -37,7 +38,7 @@ class TorsionScan:
     ---------------
     qm_engine               An instance of the QM engine used for any calculations
     native_opt              Chosen dynamically whether to use geometric or not (geometric is need to use constraints)
-    inputfile               The name of the template file for tdrive, name depends on the qm_engine used
+    input_file               The name of the template file for tdrive, name depends on the qm_engine used
     grid_space              The distance between the scan points on the surface
     scan_start              The starting angle of the dihedral during the scan
     scan_end                The final angle of the dihedral
@@ -66,6 +67,14 @@ class TorsionScan:
         # working dir
         self.home = os.getcwd()
 
+    def is_short_cc_bond(self, bond):
+        atom_0, atom_1 = [self.molecule.rdkit_mol.GetAtomWithIdx(atom) for atom in bond]
+
+        if atom_0.GetSymbol().upper() == 'C' and atom_1.GetSymbol().upper() == 'C':
+            if atom_0.GetDegree() == 3 and self.molecule.bond_lengths[bond] < 1.42:
+                return True
+        return False
+
     def find_scan_order(self):
         """
         Function takes the molecule and displays the rotatable central bonds,
@@ -77,56 +86,99 @@ class TorsionScan:
         if self.molecule.scan_order:
             return self.molecule
 
-        elif self.molecule.rotatable is None:
-            print('No rotatable torsions found in the molecule')
-            self.molecule.scan_order = []
+        # Get the rotatable dihedrals from the molecule
+        self.molecule.scan_order = []
+        if self.molecule.rotatable is None:
+            self.molecule.rotatable = set()
+        rotatable = set()
+        non_rotatable = set()
+        if self.molecule.dihedral_types is None:
+            self.molecule.dihedral_types = {}
 
-        elif len(self.molecule.rotatable) == 1:
-            print('One rotatable torsion found')
-            self.molecule.scan_order = self.molecule.rotatable
+        for dihedral_class in self.molecule.dihedral_types.values():
+            dihedral = dihedral_class[0]
+            bond = dihedral[1:3]
+            if bond in self.molecule.rotatable:
+                rotatable.add(bond)
+            else:
+                non_rotatable.add(dihedral)
 
-        else:
-            # Get the rotatable dihedrals from the molecule
-            rotatable = list(self.molecule.rotatable)
-            print('Please select the central bonds round which you wish to scan in the order to be scanned')
-            print('Torsion number   Central-Bond   Representative Dihedral')
-            for i, bond in enumerate(rotatable):
-                print(f'  {i + 1}                    {bond[0]}-{bond[1]}             '
-                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][0]].atom_name}-'
-                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][1]].atom_name}-'
-                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][2]].atom_name}-'
-                      f'{self.molecule.atoms[self.molecule.dihedrals[bond][0][3]].atom_name}')
+        for bond in rotatable:
+            dihedral = self.molecule.dihedrals[bond][0]
+            if self.is_short_cc_bond(bond):
+                non_rotatable.add(dihedral)
+                continue
 
-            scans = input('>').split()
+            self.molecule.dih_starts[dihedral] = -170   # self.molecule.dih_start
+            self.molecule.dih_ends[dihedral] = 180      # self.molecule.dih_end
+            rev_dihedral = tuple(reversed(dihedral))
+            self.molecule.dih_starts[rev_dihedral] = -170   # self.molecule.dih_start
+            self.molecule.dih_ends[rev_dihedral] = 180      # self.molecule.dih_end
+            self.molecule.scan_order.append(dihedral)
+            self.molecule.increments[dihedral] = 10
+            self.molecule.increments[rev_dihedral] = 10
 
-            scan_order = []
-            # Add the rotatable dihedral keys to an array
-            for scan in scans:
-                scan_order.append(rotatable[int(scan) - 1])
-            self.molecule.scan_order = scan_order
+        if hasattr(self.molecule, 'skip_nonrotatable'):
+            if self.molecule.skip_nonrotatable == 'no':
+                for dihedral in non_rotatable:
+                    bond = dihedral[1:3]
+                    restricted, half_restricted = False, False
+                    atom_0 = self.molecule.rdkit_mol.GetAtomWithIdx(bond[0])
+                    if atom_0.IsInRingSize(3) or atom_0.IsInRingSize(4) or atom_0.IsInRingSize(5):
+                        restricted = True
+                    if not restricted:
+                        if self.is_short_cc_bond(bond):
+                            restricted = True
+
+                    current_val = self.molecule.dih_phis[dihedral]
+                    if restricted:
+                        atom_0 = self.molecule.rdkit_mol.GetAtomWithIdx(dihedral[0])
+                        atom_3 = self.molecule.rdkit_mol.GetAtomWithIdx(dihedral[3])
+                        half_restricted = not (atom_0.IsInRing() and atom_3.IsInRing())
+
+                    if restricted:
+                        # first or last atom are not part of a ring
+                        if half_restricted:
+                            self.molecule.dih_starts[dihedral] = int(current_val - 45.0)
+                            self.molecule.dih_ends[dihedral] = int(current_val + 45.0)
+                        # first and last part of a ring -> be careful
+                        else:
+                            self.molecule.dih_starts[dihedral] = int(current_val - 15.0)
+                            self.molecule.dih_ends[dihedral] = int(current_val + 15.0)
+
+                    else:
+                        if abs(current_val) <= 90:
+                            self.molecule.dih_starts[dihedral] = -100
+                            self.molecule.dih_ends[dihedral] = 100
+                        else:
+                            self.molecule.dih_starts[dihedral] = 80
+                            self.molecule.dih_ends[dihedral] = 280
+
+                    rev_dihedral = tuple(reversed(dihedral))
+                    self.molecule.dih_starts[rev_dihedral] = self.molecule.dih_starts[dihedral]
+                    self.molecule.dih_ends[rev_dihedral] = self.molecule.dih_ends[dihedral]
+                    self.molecule.scan_order.append(dihedral)
+                    self.molecule.increments[dihedral] = 5
+                    self.molecule.increments[rev_dihedral] = 5
+
+        self.molecule.scan_order.reverse()
+        print(f"scan order: {self.molecule.scan_order}")
 
     def tdrive_scan_input(self, scan):
         """Function takes the rotatable dihedrals requested and writes a scan input file for torsiondrive."""
+
+        scan_di = scan
+        if self.molecule.improper_torsions is None and len(scan) == 2:
+            scan_di = self.molecule.dihedrals[scan][0]
 
         # Write the dihedrals.txt file for tdrive
         with open('dihedrals.txt', 'w+') as out:
 
             out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering\n'
                       '# i     j     k     l     ')
-            # This adds support for range limited runs but is only need if we move away from the default range
-            if self.molecule.dih_start != -165 or self.molecule.dih_end != 180:
-                out.write('(range_low)     (range_high)\n')
-            else:
-                out.write('\n')
-            if self.molecule.improper_torsions is not None and scan in self.molecule.improper_torsions:  # Adds support for scanning improper torsions
-                scan_di = scan
-            else:
-                scan_di = self.molecule.dihedrals[scan][0]
+            out.write('(range_low)     (range_high)')
             out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}     ')
-            if self.molecule.dih_start != -165 or self.molecule.dih_end != 180:
-                out.write(f'{self.molecule.dih_start}     {self.molecule.dih_end}\n')
-            else:
-                out.write('\n')
+            out.write(f'{self.molecule.dih_starts[scan_di]}     {self.molecule.dih_ends[scan_di]}\n')
 
         # Then write the template input file for tdrive in g09 or psi4 format
         if self.native_opt:
@@ -156,37 +208,51 @@ class TorsionScan:
             log.write(f'Theory used: {self.molecule.theory}   Basis used: {self.molecule.basis}\n')
             log.flush()
             tdrive_engine = self.qm_engine.__class__.__name__.lower()
-            if self.molecule.bonds_engine == 'g09':
+
+            if tdrive_engine == 'g09':
                 tdrive_engine = 'gaussian09'
-            elif self.molecule.bonds_engine == 'g16':
+            elif tdrive_engine == 'g16':
                 tdrive_engine = 'gaussian16'
 
-            cmd = (f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v '
-                   f'{"--native_opt" if self.native_opt else ""}')
+            span = self.molecule.dih_ends[scan]-self.molecule.dih_starts[scan]
+            step_size = 10
+            if span / step_size < 15:
+                step_size = span / 35
+                step_size = 5 * math.ceil(step_size / 5)
 
-            sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
+            self.molecule.increments[scan] = step_size
+
+            if self.molecule.tdrive_parallel:
+                cmd = (f'sbatch sub_torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v -g {step_size}'
+                       f'{"--native_opt" if self.native_opt else ""}')
+            else:
+                cmd = (f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v -g {step_size} '
+                       f'{"--native_opt" if self.native_opt else ""}')
+
+            if not os.path.exists('qdata.txt'):
+                sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
 
         # Gather the results
         try:
             self.molecule.read_tdrive(scan)
         except FileNotFoundError as exc:
-            raise TorsionDriveFailed('Torsiondrive output qdata.txt missing; job did not execute or finish properly') from exc
+            if not self.molecule.tdrive_parallel:
+                raise TorsionDriveFailed('Torsiondrive output qdata.txt missing; job did not execute or finish properly') from exc
 
     def collect_scan(self):
         """
         Collect the results of a torsiondrive scan that has not been done using QUBEKit.
         :return: The energies and coordinates into the molecule
         """
+
         for scan in self.molecule.scan_order:
             name = self._make_folder_name(scan)
             os.chdir(os.path.join(self.home, os.path.join(f'SCAN_{name}', 'QM_torsiondrive')))
             self.molecule.read_tdrive(scan)
 
-    def _make_folder_name(self, scan):
-        if self.molecule.improper_torsions is not None:
-            if scan in self.molecule.improper_torsions:
-                return f'{scan[0]}_{scan[1]}_imp'
-        return f'{scan[0]}_{scan[1]}'
+    @staticmethod
+    def _make_folder_name(scan):
+        return f'{scan[0]}_{scan[1]}_{scan[2]}_{scan[3]}'
 
     def check_run_history(self, scan):
         """
@@ -228,13 +294,13 @@ class TorsionScan:
                 # If there is a run in the folder, check if we are continuing an old run by matching the settings
                 con_scan = self.check_run_history(scan)
                 if not con_scan:
-
                     print(f'SCAN_{name} folder present backing up folder to SCAN_{name}_tmp')
                     # Remove old backups
                     try:
                         rmtree(f'SCAN_{name}_tmp')
                     except FileNotFoundError:
                         pass
+
                     os.system(f'mv SCAN_{name} SCAN_{name}_tmp')
                     os.mkdir(f'SCAN_{name}')
 
@@ -549,7 +615,7 @@ class TorsionOptimiser:
                 break
 
             # Has the error converged?
-            if iteration < 5:
+            if iteration < 7:
 
                 # Don't move too far away from the last set of optimised parameters if they got a good fit
                 self.starting_params = opt_parameters
@@ -580,6 +646,7 @@ class TorsionOptimiser:
 
                 # add 1 to the iteration
                 iteration += 1
+
             else:
                 # use the parameters to get the current energies
                 self.mm_energy = deepcopy(self.mm_energies())
@@ -617,13 +684,15 @@ class TorsionOptimiser:
         # plot the results this is a graph of the starting QM surface and how well we can remake it
         self.optimiser_log.write('The final stage 2 fitting results:\n')
         self.optimiser_log.flush()
+
         self.plot_results(name='Stage2_Single_point_fit',
                           extra_points={'Final parameters MM geometry': final_surface_energy})
 
         # Plot the convergence of the energy rmsd and total errors
         self.plot_convergence(objective)
+
         # Plot the correlation between the single point energies over all structures sampled in the fitting
-        # Using the starting parameters and the final ones
+        # Using the initial and final parameters
         self.plot_correlation(final_parameters)
 
         return final_error, final_parameters
@@ -639,7 +708,8 @@ class TorsionOptimiser:
             print('Using the optimised structure!')
 
         else:
-            self.qm_energy -= self.qm_energy.min()  # make relative to lowest energy
+            # Make relative to lowest energy
+            self.qm_energy -= self.qm_energy.min()
 
         self.qm_energy *= constants.HA_TO_KCAL_P_MOL
 
@@ -694,9 +764,7 @@ class TorsionOptimiser:
             # Get the MM coords from the QM torsion drive in OpenMM format
             self.molecule.coords['traj'] = self.molecule.qm_scans[self.scan][1]
             self.scan_coords = self.molecule.openmm_coordinates(input_type='traj')
-            # This stores the results of the qm torsiondrive as the reference geometry should only be done once
-            if not self.rmsd_atoms:
-                self._create_rdkit_molecules(self.scan_coords)
+            self._create_rdkit_molecules(self.scan_coords)
             # Set up the fitting folders
             try:
                 os.mkdir(f'SCAN_{self.scan[0]}_{self.scan[1]}')
@@ -849,6 +917,9 @@ class TorsionOptimiser:
             to_fit = [self.scan]
         # Now expand to include all symmetry equivalent dihedrals
         torsions_and_types = {}
+        if self.molecule.dihedral_types is None:
+            self.molecule.dihedral_types = {}
+
         for key, dihedral_class in self.molecule.dihedral_types.items():
             for dihedral in dihedral_class:
                 if dihedral in to_fit or tuple(reversed(dihedral)) in to_fit:
@@ -900,10 +971,11 @@ class TorsionOptimiser:
         :return: a list of rdkit molecules each corresponding to a point on the torsionscan
         """
 
+        self.rmsd_atoms = []
         for coord in coordinates:
             rdkit_mol = deepcopy(self.molecule.rdkit_mol)
             rdkit_mol.RemoveAllConformers()
-            rdkit_mol = RDKit().add_conformer(rdkit_mol, np.array(coord) * constants.NM_TO_ANGS)
+            rdkit_mol = RDKit.add_conformer(rdkit_mol, np.array(coord) * constants.NM_TO_ANGS)
             self.rmsd_atoms.append(rdkit_mol)
 
     def scan_rmsd(self, coordinates):
@@ -913,12 +985,14 @@ class TorsionOptimiser:
         :return: a list containing the rmsd values for each pair of coordinates
         """
         # Make sure the amount of coordinates we pass is the same as the amount of reference positions that we have
+        if len(coordinates) != len(self.rmsd_atoms):
+            print(f'len(coordinates): {len(coordinates)};  len(self.rmsd_atoms): {len(self.rmsd_atoms)}')
         assert len(coordinates) == len(self.rmsd_atoms)
 
         rmsd = []
         for coord, molecule in zip(coordinates, self.rmsd_atoms):
-            molecule = RDKit().add_conformer(molecule, np.array(coord) * constants.NM_TO_ANGS)
-            rmsd.append(RDKit().get_conformer_rmsd(molecule, 0, molecule.GetNumConformers() - 1))
+            molecule = RDKit.add_conformer(molecule, np.array(coord) * constants.NM_TO_ANGS)
+            rmsd.append(RDKit.get_conformer_rmsd(molecule, 0, molecule.GetNumConformers() - 1))
 
         return rmsd
 
@@ -1022,7 +1096,9 @@ class TorsionOptimiser:
                     extra_points[key] = val - val.min()
 
         # Construct the angle array
-        angles = list(range(self.molecule.dih_start, self.molecule.dih_end + self.molecule.increment, self.molecule.increment))
+        angles = list(range(self.molecule.dih_starts[self.scan],
+                            self.molecule.dih_ends[self.scan] + self.molecule.increments[self.scan],
+                            self.molecule.increments[self.scan]))
 
         # Make sure we have the same angles as data points
         assert len(angles) == len(self.qm_energy)
@@ -1070,10 +1146,16 @@ class TorsionOptimiser:
         # self.molecule.relative_to_global = True
         # self.qm_energy = deepcopy(self.energy_store_qm)
         # self.qm_normalise()
-        self.scan_coords = deepcopy(self.coords_store[:24])
+
+        start_phi = self.molecule.dih_starts[self.scan]
+        end_phi = self.molecule.dih_ends[self.scan]
+        nsteps = int((end_phi - start_phi) / (self.molecule.increments[self.scan])) + 1
+
+        self.scan_coords = deepcopy(self.coords_store[:nsteps])
 
         # Calculate the mm energies of all of the structures with the new torsion parameters
         self.objective(optimised_parameters)
+
         mm_energy_new = self.mm_energy - self.mm_energy.min()
         slope_new, intercept_new, r_value_new, _, _ = linregress(self.qm_energy, mm_energy_new)
 
@@ -1125,7 +1207,7 @@ class TorsionOptimiser:
         ax2.plot(iterations, objective['rmsd'], label='RMSD error', color=color)
         ax2.set_ylabel('RMSD', color=color)
         ax2.tick_params(axis='y', labelcolor=color)
-        # get the plotted lines and labels from matplotlib to combine the legend
+        # get the plotted lines and labels from MatPlotLib to combine the legend
         lines, labels = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax2.legend(lines + lines2, labels + labels2, loc=1)
@@ -1138,8 +1220,11 @@ class TorsionOptimiser:
         """Write a constraint file used by geometric during optimizations."""
 
         with open('qube_constraints.txt', 'w+') as constraint:
-            mol_di = self.molecule.dihedrals[self.scan][0]
-            constraint.write(f'$scan\ndihedral {mol_di[0]} {mol_di[1]} {mol_di[2]} {mol_di[3]} -165.0 180 24\n')
+            mol_di = self.scan
+            start_phi = self.molecule.dih_starts[mol_di]
+            end_phi = self.molecule.dih_ends[mol_di]
+            n_steps = int((end_phi - start_phi) / (self.molecule.increments[mol_di])) + 1
+            constraint.write(f'$scan\ndihedral {mol_di[0]} {mol_di[1]} {mol_di[2]} {mol_di[3]} {start_phi} {end_phi} {n_steps}\n')
 
             if self.molecule.constraints_file:
                 with open(self.molecule.constraints_file) as cons_file:
@@ -1152,8 +1237,11 @@ class TorsionOptimiser:
         with open('dihedrals.txt', 'w+') as out:
             out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering'
                       '\n# i     j     k     l\n')
-            mol_di = self.molecule.dihedrals[self.scan][0]
-            out.write(f'  {mol_di[0]}     {mol_di[1]}     {mol_di[2]}     {mol_di[3]}\n')
+
+            mol_di = self.scan
+            start_phi = self.molecule.dih_starts[self.scan]
+            end_phi = self.molecule.dih_ends[self.scan]
+            out.write(f'  {mol_di[0]}     {mol_di[1]}     {mol_di[2]}     {mol_di[3]}     {start_phi}  {end_phi}\n')
 
     def drive_mm(self, engine):
         """Drive the torsion again using MM to get new structures."""
@@ -1179,27 +1267,34 @@ class TorsionOptimiser:
                 if self.molecule.constraints_file is not None:
                     os.system('mv ../constraints.txt .')
                 self.write_dihedrals()
-                sp.run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt -v '
+
+                step_size = self.molecule.increments[self.scan]
+
+                sp.run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt -v -g {step_size} '
                        f'{self.molecule.constraints_file if self.molecule.constraints_file is not None else ""}',
                        shell=True, stderr=log, stdout=log, check=True)
+
                 self.molecule.read_tdrive(self.scan)
                 self.molecule.coords['traj'] = self.molecule.qm_scans[self.scan][1]
                 positions = self.molecule.openmm_coordinates(input_type='traj')
+
             elif engine == 'geometric':
                 if self.molecule.constraints_file is not None:
                     os.system('mv ../constraints.txt .')
                 else:
                     self.make_constraints()
+
                 sp.run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb '
                        '--openmm state.xml qube_constraints.txt', shell=True, stdout=log, stderr=log, check=True)
+
                 positions = self.molecule.read_xyz('scan.xyz')
+
             else:
                 raise NotImplementedError('Invalid torsion engine. Please use torsiondrive or geometric')
 
         # move back to the master folder
         os.chdir('../')
 
-        # return the new positions
         return positions
 
     def single_point(self):
