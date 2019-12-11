@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from QUBEKit.engines import PSI4, OpenMM, Gaussian, RDKit
+from QUBEKit.engines import Gaussian, OpenMM, PSI4, RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.decorators import timer_logger, for_all_methods
+from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.exceptions import TorsionDriveFailed
 from QUBEKit.utils.helpers import make_and_change_into
 
@@ -17,7 +17,7 @@ import subprocess as sp
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import minimize, differential_evolution
+from scipy.optimize import differential_evolution, minimize
 from scipy.stats import linregress
 
 matplotlib.use('Agg')   # Fix for clusters?
@@ -39,32 +39,24 @@ class TorsionScan:
     qm_engine               An instance of the QM engine used for any calculations
     native_opt              Chosen dynamically whether to use geometric or not (geometric is need to use constraints)
     input_file               The name of the template file for tdrive, name depends on the qm_engine used
-    grid_space              The distance between the scan points on the surface
-    scan_start              The starting angle of the dihedral during the scan
-    scan_end                The final angle of the dihedral
     home                    The starting location of the job, helpful when scanning multiple angles.
     """
 
     def __init__(self, molecule, constraints_made=None):
 
-        # engine info
-        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}.get(molecule.bonds_engine)(molecule)
-        self.native_opt = True
-        # Ensure geometric can only be used with psi4  so far
-        if molecule.geometric and molecule.bonds_engine == 'psi4':
-            self.native_opt = False
-        self.input_file = None
-
-        # molecule
         self.molecule = molecule
-        # We need just a regular convergence criteria at this point
         self.molecule.convergence = 'GAU'
         self.constraints_made = constraints_made
-        self.grid_space = molecule.increment
-        self.scan_start = molecule.dih_start
-        self.scan_end = molecule.dih_end
 
-        # working dir
+        self.qm_engine = {'psi4': PSI4, 'g09': Gaussian, 'g16': Gaussian}.get(molecule.bonds_engine)(molecule)
+        self.native_opt = True
+
+        # Ensure geometric can only be used with psi4 so far
+        if molecule.geometric and molecule.bonds_engine == 'psi4':
+            self.native_opt = False
+
+        self.input_file = None
+
         self.home = os.getcwd()
 
     def is_short_cc_bond(self, bond):
@@ -222,12 +214,8 @@ class TorsionScan:
 
             self.molecule.increments[scan] = step_size
 
-            if self.molecule.tdrive_parallel:
-                cmd = (f'sbatch sub_torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v -g {step_size}'
-                       f'{"--native_opt" if self.native_opt else ""}')
-            else:
-                cmd = (f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v -g {step_size} '
-                       f'{"--native_opt" if self.native_opt else ""}')
+            cmd = (f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v -g {step_size} '
+                   f'{"--native_opt" if self.native_opt else ""}')
 
             if not os.path.exists('qdata.txt'):
                 sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
@@ -339,7 +327,7 @@ class TorsionOptimiser:
     qm_engine
 
     # TorsionOptimiser starting parameters
-    scans_dict             QM scan energies {(scan): [array of qm energies]}
+    scans_dict              QM scan energies {(scan): [array of qm energies]}
     mm_energy               numpy array of the current mm energies
     initial_energy          numpy array of the fitting iteration initial parameter energies
     starting_energy         numpy array of the starting parameter energies
@@ -386,7 +374,7 @@ class TorsionOptimiser:
         self.starting_energy = None
         self.scan_order = molecule.scan_order
         self.scan_coords = None
-        self.starting_params = []
+        self.starting_params = None
         self.energy_store_qm = []
         self.coords_store = []
         self.initial_coords = []
@@ -504,12 +492,12 @@ class TorsionOptimiser:
 
         # Calculate the penalties
         # 1 the movement away from the starting values
-        move_pen = self.l_pen * sum((x - self.starting_params) ** 2)
+        movement_penalty = self.l_pen * sum((x - self.starting_params) ** 2)
 
         # 2 the penalty incurred by going past the bounds
-        bounds_pen = sum(1 for vn in x if abs(vn) >= self.abs_bounds)
+        bounds_penalty = sum(1 for vn in x if abs(vn) >= self.abs_bounds)
 
-        total_error += move_pen + bounds_pen
+        total_error += movement_penalty + bounds_penalty
         return total_error
 
     def steep_objective(self, x):
@@ -545,8 +533,8 @@ class TorsionOptimiser:
 
         # Calculate the penalty
         pen = self.l_pen * sum((x - self.starting_params) ** 2)
-        total_error += pen
 
+        total_error += pen
         return total_error
 
     def single_point_matching(self, fitting_error, opt_parameters):
@@ -965,8 +953,8 @@ class TorsionOptimiser:
 
     def _create_rdkit_molecules(self, coordinates):
         """
-        Create a list of rdkit molecules corresponding to the coordinates of the qm torsionscan, these are used to compute
-        the rmsd.
+        Create a list of rdkit molecules corresponding to the coordinates of the qm torsion scan,
+        these are used to compute the rmsd.
         :param coordinates: A list of numpy arrays used to generate the conformers
         :return: a list of rdkit molecules each corresponding to a point on the torsionscan
         """
@@ -984,7 +972,7 @@ class TorsionOptimiser:
         :param coordinates:  A list of numpy coordinate arrays
         :return: a list containing the rmsd values for each pair of coordinates
         """
-        # Make sure the amount of coordinates we pass is the same as the amount of reference positions that we have
+        # Make sure the number of coordinates we pass is the same as the number of reference positions that we have
         if len(coordinates) != len(self.rmsd_atoms):
             print(f'len(coordinates): {len(coordinates)};  len(self.rmsd_atoms): {len(self.rmsd_atoms)}')
         assert len(coordinates) == len(self.rmsd_atoms)
@@ -1186,7 +1174,8 @@ class TorsionOptimiser:
         # reset the relative to global setting
         # self.molecule.relative_to_global = rel_to_global
 
-    def plot_convergence(self, objective):
+    @staticmethod
+    def plot_convergence(objective):
         """
         Plot the convergence of the errors through the iterative fitting methods
         :param objective: A dictionary containing all of the error measurements

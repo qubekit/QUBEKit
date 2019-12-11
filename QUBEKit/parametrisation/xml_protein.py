@@ -18,18 +18,19 @@ class XMLProtein(Parametrisation):
 
         super().__init__(protein, input_file, fftype)
 
+        self.xml = self.input_file if self.input_file else f'{self.molecule.name}.xml'
         self.serialise_system()
         self.gather_parameters()
-        self.molecule.parameter_engine = 'XML input ' + self.fftype
+        self.molecule.parameter_engine = f'XML input {self.fftype}'
         self.molecule.combination = 'opls'
 
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
 
-        pdb = app.PDBFile(self.molecule.filename)
+        pdb = app.PDBFile(f'{self.molecule.name}.pdb')
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
-        forcefield = app.ForceField(self.input_file if self.input_file else f'{self.molecule.name}.xml')
+        forcefield = app.ForceField(self.xml)
 
         system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
@@ -44,7 +45,7 @@ class XMLProtein(Parametrisation):
 
         # Try to gather the AtomTypes first
         for atom in self.molecule.atoms:
-            self.molecule.AtomTypes[atom.atom_index] = [atom.name, f'QUBE_{atom.atom_index}', atom.name]
+            self.molecule.AtomTypes[atom.atom_index] = [atom.atom_name, f'QUBE_{atom.atom_index}', atom.atom_name]
 
         input_xml_file = 'serialised.xml'
         in_root = ET.parse(input_xml_file).getroot()
@@ -83,6 +84,7 @@ class XMLProtein(Parametrisation):
             elif tor_string_back in self.molecule.PeriodicTorsionForce:
                 self.molecule.PeriodicTorsionForce[tor_string_back].append(
                     [Torsion.get('periodicity'), Torsion.get('k'), phases[int(Torsion.get('periodicity')) - 1]])
+
         # Now we have all of the torsions from the OpenMM system
         # we should check if any torsions we found in the molecule do not have parameters
         # if they don't give them the default 0 parameter this will not change the energy

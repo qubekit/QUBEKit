@@ -4,7 +4,7 @@ from QUBEKit.engines import Element, RDKit
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
 
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
 from datetime import datetime
 from itertools import groupby
 import os
@@ -161,10 +161,7 @@ class Molecule:
         extra_sites
         qm_scans                Dictionary of central scanned bonds and there energies and structures
 
-        Parameters
-        -------------------
-        This section has different units due to it interacting with OpenMM
-
+        # This section has different units due to it interacting with OpenMM
         HarmonicBondForce       Dictionary of equilibrium distances and force constants stored under the bond tuple.
                                 {(1, 2): [0.108, 405.65]} (nano meters, kJ/mol)
         HarmonicAngleForce      Dictionary of equilibrium angles and force constants stored under the angle tuple
@@ -173,6 +170,16 @@ class Molecule:
                                 dihedral tuple with an improper tag only for improper torsions
                                 e.g. {(3, 1, 2, 6): [[1, 0.6, 0], [2, 0, 3.141592653589793], ... Improper]}
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
+
+        # Symmetrisation
+        bond_types
+        angle_types
+        dihedral_types
+        improper_types
+
+        dih_start
+        dih_end
+        increments
 
         combination             str; Combination rules e.g. 'opls'
 
@@ -219,13 +226,22 @@ class Molecule:
         self.HarmonicAngleForce = None
         self.PeriodicTorsionForce = None
         self.NonbondedForce = None
+
+        # Symmetrisation
         self.bond_types = None
         self.angle_types = None
         self.dihedral_types = None
         self.improper_types = None
 
-        self.dih_start = {}
-        self.dih_end = {}
+        # Dihedral settings
+        # TODO Use this instead
+        Torsion = namedtuple('params', 'start end increment')
+        self.scan_settings = {
+            Torsion(None, None, None)
+        }
+
+        self.dih_starts = {}
+        self.dih_ends = {}
         self.increments = {}
 
         self.combination = None
@@ -833,7 +849,9 @@ class Molecule:
                     self.HarmonicAngleForce[angle] = [angle_vals, angle_forces]
 
     def write_parameters(self, name=None, is_protein=False):
-        """Take the molecule's parameter set and write an xml file for the molecule."""
+        """
+        Take the molecule's parameter set and write an xml file for the molecule.
+        """
 
         # First build the xml tree
         self.build_tree(protein=is_protein)
@@ -847,7 +865,9 @@ class Molecule:
             xml_doc.write(pretty_xml_as_string)
 
     def build_tree(self, protein):
-        """Separates the parameters and builds an xml tree ready to be used."""
+        """
+        Separates the parameters and builds an xml tree ready to be used.
+        """
 
         # Create XML layout
         root = ET.Element('ForceField')
@@ -1103,7 +1123,8 @@ class Molecule:
 
         self.improper_types = self._cluster_types(improper_types)
 
-    def _cluster_types(self, equiv_classes):
+    @staticmethod
+    def _cluster_types(equiv_classes):
         """
         Function that helps the bond angle and dihedral class finders in clustering the types based on the forward and
         backward type strings.
@@ -1314,15 +1335,18 @@ class Ligand(DefaultsMixin, Molecule):
 
 
 class Protein(DefaultsMixin, Molecule):
-    """This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it."""
+    """
+    This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it.
+    """
+
     # TODO Currently this class is old and a bit broken due to updates.
     #  Needs thorough testing and likely a rewrite.
+
     def __init__(self, filename):
 
         super().__init__(filename)
 
         self.pdb_names = None
-        # TODO Needs updating with new Path method of handling file names
         self.read_pdb(self.filename)
         self.residues = None
         self.home = os.getcwd()
@@ -1377,17 +1401,17 @@ class Protein(DefaultsMixin, Molecule):
                 protein.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
 
             elif 'CONECT' in line:
-                # Now look through the connectivity section and add all edges to the graph corresponding to the bonds.
-                for i in range(2, len(line.split())):
-                    if not int(line.split()[i]):
-                        self.topology.add_edge(int(line.split()[1]) - 1, int(line.split()[i]) - 1)
+                conect_terms = line.split()
+                for atom in conect_terms[2:]:
+                    if int(atom):
+                        self.topology.add_edge(int(conect_terms[1]) - 1, int(atom) - 1)
 
         self.coords[input_type] = np.array(protein)
 
         # check if there are any conect terms in the file first
         # if not self.topology.edges:
         if not len(self.topology.edges):
-            print('No connections found!')
+            print('No connections found in pdb file; topology will be inferred by OpenMM.')
         else:
             self.find_angles()
             self.find_dihedrals()
