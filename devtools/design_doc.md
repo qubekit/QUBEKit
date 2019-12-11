@@ -39,12 +39,12 @@ It is also easy to add extra information by adding more arguments to the molecul
 #### Engines
 
 QUBEKit is split up into several "Engines" which are usually classes encompassing a particular external package such as Gaussian, PSI4 or RDKit.
-These classes have methods for their respective jobs such as an RDKit file reader: `RDKit().read_file()`.
+These classes have methods for their respective jobs such as an RDKit file reader: `RDKit.read_file()`.
 Engines are designed to be as general as possible, and have a reasonable number of defaults.
 This allows them to be called with minimal user understanding of features they might not need.
     
     # Only requires a filename.
-    RDKit().read_file(<filename>)
+    RDKit.read_file(<filename>)
     # Only requires a molecule object;
     # a PSI4 run file then be written based on the information provided.
     PSI4(<molecule>).generate_input()

@@ -254,8 +254,6 @@ class ModSeminario:
             for j in range(len(central_atoms_angles[i])):
                 scaling_factors_angles_list[scaling_factor_all_angles[i][j][1]].append(scaling_factor_all_angles[i][j][0])
 
-        # Used to find average values
-        unique_values_angles = []
         k_theta, theta_0 = np.zeros(len(self.molecule.angles)), np.zeros(len(self.molecule.angles))
 
         conversion = constants.KCAL_TO_KJ * 2
@@ -280,12 +278,6 @@ class ModSeminario:
                 # Add ModSem values to ligand object.
                 self.molecule.HarmonicAngleForce[angle] = [theta_0[i] * constants.DEG_TO_RAD, k_theta[i] * conversion]
 
-                unique_values_angles.append(
-                    [self.molecule.atoms[angle[0]].atom_name, self.molecule.atoms[angle[1]].atom_name, self.molecule.atoms[angle[2]].atom_name,
-                     k_theta[i] * conversion, theta_0[i] * constants.DEG_TO_RAD, 1])
-
-        return unique_values_angles
-
     def calculate_bonds(self, eigenvals, eigenvecs):
         """Uses the modified Seminario method to find the bond parameters and print them to file."""
 
@@ -293,9 +285,6 @@ class ModSeminario:
         conversion = constants.KCAL_TO_KJ * 200
 
         k_b, bond_len_list = np.zeros(len(bonds)), np.zeros(len(bonds))
-
-        # Used to find average values
-        unique_values_bonds = []
 
         with open('Modified_Seminario_Bonds.txt', f'{"w" if self.molecule.restart else "a+"}') as bond_file:
 
@@ -312,9 +301,3 @@ class ModSeminario:
 
                 # Add ModSem values to ligand object.
                 self.molecule.HarmonicBondForce[bond] = [bond_len_list[pos] / 10, conversion * k_b[pos]]
-
-                unique_values_bonds.append(
-                    [self.molecule.atoms[bond[0]].atom_name, self.molecule.atoms[bond[1]].atom_name,
-                     k_b[pos] * conversion, bond_len_list[pos] / 10, 1])
-
-        return unique_values_bonds
