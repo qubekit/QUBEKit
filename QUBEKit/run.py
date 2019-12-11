@@ -2,7 +2,7 @@
 
 # TODO
 #  Squash unnecessary arguments into self.molecule. Args such as torsion_options.
-#  Better handling of torsion_options
+#  Better handling (or removal?) of torsion_options
 #  Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
 
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
