@@ -4,7 +4,7 @@ from QUBEKit.engines import Element, RDKit
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
 
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict
 from datetime import datetime
 from itertools import groupby
 import os
@@ -234,12 +234,6 @@ class Molecule:
         self.improper_types = None
 
         # Dihedral settings
-        # TODO Use this instead
-        Torsion = namedtuple('params', 'start end increment')
-        self.scan_settings = {
-            Torsion(None, None, None)
-        }
-
         self.dih_starts = {}
         self.dih_ends = {}
         self.increments = {}
