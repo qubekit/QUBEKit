@@ -19,11 +19,12 @@ class OpenFF(Parametrisation):
     """
 
     def __init__(self, molecule, input_file=None, fftype='frost'):
+
         super().__init__(molecule, input_file, fftype)
 
         self.serialise_system()
         self.gather_parameters()
-        self.molecule.parameter_engine = 'OpenFF_' + self.fftype
+        self.molecule.parameter_engine = f'OpenFF_{self.fftype}'
         self.molecule.combination = self.combination
 
     def serialise_system(self):
@@ -35,27 +36,10 @@ class OpenFF(Parametrisation):
         # Make the OpenMM system
         off_topology = off_molecule.to_topology()
 
-        # Load the smirnoff99Frosst force field.
-        # forcefield = ForceField('test_forcefields/smirnoff99Frosst.offxml')
-
         forcefield = ForceField('openff-1.0.0.offxml')
 
-        # # Run the molecule labeling
-        # molecule_force_list = forcefield.label_molecules(off_topology)
-        #
-        # # Print out a formatted description of the parameters applied to this molecule
-        # for mol_idx, mol_forces in enumerate(molecule_force_list):
-        #     print(f'\n\nForces for molecule {mol_idx}')
-        #     for force_tag, force_dict in mol_forces.items():
-        #         print(f'\n{force_tag}:')
-        #         for (atom_indices, parameter) in force_dict.items():
-        #             atomstr = ''
-        #             for idx in atom_indices:
-        #                 atomstr += f'{idx}'
-        #             print(f'atoms: {atomstr}  parameter_id: {parameter.id}  smirks {parameter.smirks}')
-
         try:
-            # Parametrize the topology and create an OpenMM System.
+            # Parametrise the topology and create an OpenMM System.
             system = forcefield.create_openmm_system(off_topology)
         except (UnassignedValenceParameterException, TypeError):
             # If this does not work then we have a molecule that is not in SMIRNOFF so we must add generics
