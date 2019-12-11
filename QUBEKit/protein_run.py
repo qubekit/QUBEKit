@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
+from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Protein
 from QUBEKit.parametrisation import XMLProtein
-from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.protein_tools import qube_general, pdb_reformat, get_water
+from QUBEKit.protein_tools import get_water, pdb_reformat, qube_general
 
 import argparse
 from functools import partial
@@ -55,8 +55,7 @@ def main():
             pro.charge = 0
             pro.charges_engine = 'onetep'
             pro.density_engine = 'onetep'
-            lj = LennardJones(pro)
-            pro.NonbondedForce = lj.calculate_non_bonded_force()
+            LennardJones(pro).calculate_non_bonded_force()
 
             # now we write out the final parameters
             # we should also calculate the charges and lj at this point!
@@ -81,7 +80,7 @@ def main():
         """This class converts the names in a qube taj file to match the reference."""
 
         def __call__(self, pars, namespace, values, option_string=None):
-            """This function is executed when water is called."""
+            """This function is executed when convert is called."""
             reference, target = values
             printf(reference, target)
             printf(f'Rewriting input: {target} to match: {reference}...')

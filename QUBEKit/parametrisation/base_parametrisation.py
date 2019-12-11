@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from QUBEKit.utils import constants
+
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -53,8 +54,12 @@ class Parametrisation:
 
         # could be a problem for boron compounds
         self.molecule.AtomTypes = {}
-        self.molecule.HarmonicBondForce = {bond: [0, 0] for bond in self.molecule.bond_lengths.keys()}
-        self.molecule.HarmonicAngleForce = {angle: [0, 0] for angle in self.molecule.angle_values.keys()}
+        try:
+            self.molecule.HarmonicBondForce = {bond: [0, 0] for bond in self.molecule.bond_lengths.keys()}
+            self.molecule.HarmonicAngleForce = {angle: [0, 0] for angle in self.molecule.angle_values.keys()}
+        except AttributeError:
+            self.molecule.HarmonicBondForce = {}
+            self.molecule.HarmonicAngleForce = {}
         self.molecule.NonbondedForce = OrderedDict((number, [0, 0, 0]) for number in range(len(self.molecule.atoms)))
         self.molecule.PeriodicTorsionForce = OrderedDict()
         self.sites = {}
@@ -79,7 +84,10 @@ class Parametrisation:
 
             # Extract any virtual site data only supports local coords atm, charges are added later
             for i, virtual_site in enumerate(in_root.iter('LocalCoordinatesSite')):
-                self.sites[i] = [(int(virtual_site.get('p1')), int(virtual_site.get('p2')), int(virtual_site.get('p3'))), (float(virtual_site.get('pos1')), float(virtual_site.get('pos2')), float(virtual_site.get('pos3')))]
+                self.sites[i] = [
+                    (int(virtual_site.get('p1')), int(virtual_site.get('p2')), int(virtual_site.get('p3'))),
+                    (float(virtual_site.get('pos1')), float(virtual_site.get('pos2')), float(virtual_site.get('pos3')))
+                ]
 
             # Extract all bond data
             for Bond in in_root.iter('Bond'):
@@ -134,7 +142,7 @@ class Parametrisation:
                 raise FileNotFoundError('Molecule could not be serialised from OpenMM')
         # Now we have all of the torsions from the OpenMM system
         # we should check if any torsions we found in the molecule do not have parameters
-        # if they don't give them the default 0 parameter this will not change the energy
+        # if they don't, give them the default 0 parameter this will not change the energy
         if self.molecule.dihedrals is not None:
             for tor_list in self.molecule.dihedrals.values():
                 for torsion in tor_list:
@@ -179,7 +187,6 @@ class Parametrisation:
             for improper, params in improper_torsions.items():
                 if len(params) != 1:
                     # Now we have to sum the k values across the same terms
-                    # sum the ka values
                     new_params = params[0]
                     for values in params[1:]:
                         for i in range(4):
