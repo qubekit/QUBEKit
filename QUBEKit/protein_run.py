@@ -43,7 +43,9 @@ def main():
         def __call__(self, pars, namespace, values, option_string=None):
             """This function is executed when build is called."""
 
-            pro = Protein(values)
+            filename = values
+            pro_name = values[:-4]
+            pro = Protein(filename)
             # print the QUBE general FF to use in the parametrisation
             qube_general()
             # now we want to add the connections and parametrise the protein
@@ -60,9 +62,9 @@ def main():
             # now we write out the final parameters
             # we should also calculate the charges and lj at this point!
             printf('Writing pdb file with connections...')
-            pro.write_pdb(name='QUBE_pro')
+            pro.write_pdb(name=f'QUBE_pro_{pro_name}')
             printf('Writing XML file for the system...')
-            pro.write_parameters(name='QUBE_pro', is_protein=True)
+            pro.write_parameters(name=f'QUBE_pro_{pro_name}', is_protein=True)
             # now remove the qube general file
             os.remove('QUBE_general_pi.xml')
             printf('Done')

@@ -109,7 +109,7 @@ class DefaultsMixin:
         self.refinement_method = 'SP'
         self.tor_limit = 20
         self.div_index = 0
-        self.parameter_engine = 'xml'
+        self.parameter_engine = 'antechamber'
         self.l_pen = 0.0
         self.mm_opt_method = 'openmm'
         self.relative_to_global = False
@@ -1434,7 +1434,7 @@ class Protein(DefaultsMixin, Molecule):
             # we have to transform the atom name while writing out the pdb file
             for i, atom in enumerate(molecule):
                 pdb_file.write(
-                    f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
+                    f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4} QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
                     f'  1.00  0.00         {self.atoms[i].atomic_symbol.upper():>3}\n')
 
             # Now add the connection terms

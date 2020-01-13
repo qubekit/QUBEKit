@@ -57,11 +57,13 @@ def mol_data_from_csv(csv_name):
 
 def generate_bulk_csv(csv_name, max_execs=None):
     """
-    Generates a csv with name "csv_name" with minimal information inside.
+    Generates a csv with minimal information inside.
     Contains only headers and a row of defaults and populates all of the named files where available.
-    max_execs determines the max number of executions per csv file.
     For example, 10 pdb files with a value of max_execs=6 will generate two csv files,
     one containing 6 of those files, the other with the remaining 4.
+
+    :param csv_name: (str) name of the csv file being generated
+    :param max_execs: (int or None) determines the max number of molecules--and therefore executions--per csv file.
     """
 
     if csv_name[-4:] != '.csv':
@@ -140,6 +142,8 @@ def unpickle(location=None):
     Unpickle the pickle file, and return an ordered dictionary of
     ligand instances--indexed by their progress.
     :param location: optional location of the pickle file .QUBEKit_states
+    :return mol_states: An ordered dictionary of the states of the molecule at various stages
+    (parametrise, mm_optimise, etc).
     """
 
     mol_states = OrderedDict()
@@ -192,7 +196,12 @@ def _assert_wrapper(exception_type):
 
 
 def check_symmetry(matrix, error=1e-5):
-    """Check matrix is symmetric to within some error."""
+    """
+    Check matrix is symmetric to within some error.
+    :param matrix: numpy array of Hessian matrix
+    :param error: allowed error between matrix elements which should be symmetric (i,j), (j,i)
+    :return True or Error: Error is raised if matrix is not symmetric within error, True otherwise
+    """
 
     # Check the matrix transpose is equal to the matrix within error.
     with _assert_wrapper(ValueError):
@@ -204,7 +213,13 @@ def check_symmetry(matrix, error=1e-5):
 
 
 def check_net_charge(charges, ideal_net=0, error=1e-5):
-    """Given a list of charges, check if the calculated net charge is within error of the desired net charge."""
+    """
+    Check if the calculated net charge is within error of the desired net charge.
+    :param charges: list of signed floats
+    :param ideal_net: expected net charge of the molecule (what the sum of the charges should be)
+    :param error: allowed error between ideal_net and calculated net charge
+    :return True or Error: Error is raised if charge is not within error, True otherwise
+    """
 
     # Ensure total charge is near to integer value:
     total_charge = sum(atom for atom in charges)
@@ -222,8 +237,8 @@ def collect_archive_tdrive(tdrive_record, client):
     """
     This function takes in a QCArchive tdrive record and collects all of the final geometries and energies to be used in
     torsion fitting.
-    :param client:  A QCPortal client instance.
     :param tdrive_record: A QCArchive data object containing an optimisation and energy dictionary
+    :param client:  A QCPortal client instance.
     :return: QUBEKit qm_scans data: list of energies and geometries [np.array(energies), [np.array(geometry)]]
     """
 
