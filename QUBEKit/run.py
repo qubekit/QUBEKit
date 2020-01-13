@@ -85,7 +85,7 @@ class ArgsAndConfigs:
             except KeyError:
                 raise KeyError('This stage was not found in the log file; was the previous stage completed?')
         else:
-            # Initialise molecule
+            # Fresh start; initialise molecule from scratch
             if self.args.smiles:
                 self.molecule = Ligand(*self.args.smiles)
             else:
@@ -221,8 +221,8 @@ class ArgsAndConfigs:
             """Convert a string to a bool for argparse use when casting to bool"""
             return string.casefold() in ['true', 't', 'yes', 'y']
 
-        intro = 'Welcome to QUBEKit! For a list of possible commands, use the help command: -h.' \
-                'Alternatively, take a look through our github page for commands, recipes and common problems:' \
+        intro = 'Welcome to QUBEKit! For a list of possible commands, use the help command: -h. ' \
+                'Alternatively, take a look through our github page for commands, recipes and common problems: ' \
                 'https://github.com/qubekit/QUBEKit'
         parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
                                          description=intro)
@@ -315,7 +315,8 @@ class ArgsAndConfigs:
         groups.add_argument('-i', '--input', help='Enter the molecule input pdb file (only pdb so far!)')
         groups.add_argument('-version', '--version', action='version', version='2.6.3')
 
-        return parser.parse_args()
+        # Ensures help is shown (rather than an error) if no arguments are provided.
+        return parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
     def handle_bulk(self):
         """
@@ -473,7 +474,7 @@ class Execute:
             - helpers.append_to_log() is called;
             - helpers.pretty_print() is called with to_file set to True;
             - decorators.exception_logger() wraps a function / method which throws an exception.
-                (This captures almost all errors)
+                (This captures almost all exceptions, rethrows important ones)
 
         This method also makes backups if the working directory already exists.
         """
@@ -644,7 +645,7 @@ class Execute:
 
         make_and_change_into(folder_name)
 
-        self.order[start_key](mol)
+        mol = self.order[start_key](mol)
         self.order.pop(start_key, None)
         os.chdir(home)
 

@@ -39,7 +39,7 @@ class Configure:
         'refinement_method': 'SP',      # The type of QUBE refinement that should be done SP: single point energies
         'tor_limit': '20',              # Torsion Vn limit to speed up fitting
         'div_index': '0',               # Fitting starting index in the division array
-        'parameter_engine': 'xml',      # Method used for initial parametrisation
+        'parameter_engine': 'antechamber',      # Method used for initial parametrisation
         'l_pen': '0.0',                 # The regularisation penalty
         'relative_to_global': 'False'   # If we should compute our relative energy surface
                                         # compared to the global minimum
@@ -95,7 +95,10 @@ class Configure:
     }
 
     def load_config(self, config_file='default_config'):
-        """This method loads and returns the selected config file."""
+        """
+        This method loads and returns the selected config file.
+        It also converts strings to ints, bools or floats where appropriate.
+        """
 
         if config_file == 'default_config':
 
@@ -115,7 +118,7 @@ class Configure:
             else:
                 qm, fitting, excited, descriptions = self.ini_parser(os.path.join(self.config_folder, config_file))
 
-        # Now cast the numbers
+        # List of strings which should be cast to ints
         clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
                       'increment', 'dih_end', 'tor_limit', 'div_index', 'nstates', 'excited_root']
 
@@ -147,7 +150,6 @@ class Configure:
         # Now cast the regularisation penalty to float
         fitting['l_pen'] = float(fitting['l_pen'])
 
-        # return qm, fitting, descriptions
         return {**qm, **fitting, **excited, **descriptions}
 
     @staticmethod
@@ -201,7 +203,9 @@ class Configure:
             config.write(out)
 
     def ini_edit(self, ini_file):
-        """Open the ini file for editing in the command line using whatever program the user wants."""
+        """
+        Open the ini file for editing in the command line using emacs.
+        """
 
         # Make sure the ini file has an ini ending
         if not ini_file.endswith('.ini'):
