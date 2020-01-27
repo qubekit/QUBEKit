@@ -461,10 +461,7 @@ class Execute:
             self.order = OrderedDict(pair for pair in self.order.items() if pair[0] in set(stages))
 
             for pair in self.order.items():
-                if pair[0] in skip:
-                    self.order[pair[0]] = self.skip
-                else:
-                    self.order[pair[0]] = pair[1]
+                self.order[pair[0]] = self.skip if pair[0] in skip else pair[1]
 
     def create_log(self):
         """
@@ -527,7 +524,8 @@ class Execute:
                 pass
 
         with open('QUBEKit_log.txt', 'w+') as log_file:
-            log_file.write(f'Beginning log file; the time is: {datetime.now()}\n\n\n')
+            log_file.write(f'Beginning log file; the time is: {datetime.now()}\n\n\n'
+                           f'Your current QUBEKit version is: 2.6.3\n\n\n')
 
         self.log_configs()
 
@@ -630,6 +628,7 @@ class Execute:
         if torsion_options is not None:
             mol = self.store_torsions(mol, torsion_options)
 
+        # Handle skipping of a stage
         skipping = False
         if self.order[start_key] == self.skip:
             printf(f'{COLOURS.blue}Skipping stage: {start_key}{COLOURS.end}')

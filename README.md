@@ -60,9 +60,8 @@ Git has our latest version which will likely have newer features but may not be 
 
 We recommend installing via conda. This will install all necessary dependencies.
 
-    git clone https://github.com/qubekit/QUBEKit.git
-    cd <install location>
-    python setup.py install
+    conda config --add channels conda-forge --add channels omnia
+    conda install -c cringrose qubekit
 
 ---
     
@@ -70,9 +69,9 @@ We recommend installing via conda. This will install all necessary dependencies.
 
 ---
     
-    conda config --add channels conda-forge --add channels omnia
-    conda install -c cringrose qubekit
-    
+    git clone https://github.com/qubekit/QUBEKit.git
+    cd <install location>
+    python setup.py install    
 
 ### Requirements
 
@@ -125,7 +124,7 @@ This is generally safest, as Anaconda should deal with versions and conflicts in
 Generally, conda packages will have the conda install command on their website or github.
 For the software not available through Anaconda, or if Anaconda is having trouble resolving conflicts, either git clone them and install:
 
-    git clone http://<git_address_here>
+    git clone https://<git_address_here>
     cd <location of cloned package>
     python setup.py install
 
@@ -477,12 +476,12 @@ QUBEKit will find the log files in all QUBEKit directories and display a colour-
 
 | Indicator | Meaning |
 | :---: | :---: |
-|  ✓ |  Completed successfully |
+| ✓ |  Completed successfully |
 | ~ | Neither finished nor errored |
 | S | Skipped |
 | E | Started and failed for some reason |
 
-Viewing the log file will give more information as to *why* it failed.
+Viewing the QUBEKit log file will give more information as to *why* it failed.
 
 ### QUBEKit Commands: Other Commands and Information
 

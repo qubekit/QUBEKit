@@ -27,7 +27,7 @@ class XMLProtein(Parametrisation):
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
 
-        pdb = app.PDBFile(f'{self.molecule.name}.pdb')
+        pdb = app.PDBFile(f'{self.molecule.filename.stem}.pdb')
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
         forcefield = app.ForceField(self.xml)

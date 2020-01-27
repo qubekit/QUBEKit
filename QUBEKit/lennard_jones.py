@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
+# TODO Ensure no index issues (e.g. -1 +1) from the changing of atom_number to atom_index
+#  Ensure SampleNamespace access and looping is working as intended
+
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import check_net_charge, set_net
 
 from collections import OrderedDict, namedtuple
-import os
 import decimal
+import os
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -35,11 +39,9 @@ class LennardJones:
 
         self.molecule = molecule
 
-        # self.ddec_data is the DDEC molecule data in the format:
-        # ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x dipole', 'y dipole', 'z dipole', 'vol']
-        # It will be extended and tweaked by each core method of this class.
-
-        self.ddec_data = []
+        # Will be a dict of SimpleNamespaces (will contain None values until filled later)
+        # self.ddec_data = {atom_index: atomic_symbol, charge, volume, r_aim, b_i, a_i}
+        self.ddec_data = {}
 
         self.epsilon_conversion = constants.BOHR_TO_ANGS ** 6
         self.epsilon_conversion *= constants.HA_TO_KCAL_P_MOL
@@ -52,13 +54,13 @@ class LennardJones:
     def extract_params_chargemol(self):
         """
         From Chargemol output files, extract the necessary parameters for calculation of L-J.
-        Desired format:
-        ['atom number', 'atom type', 'x', 'y', 'z', 'charge', 'x_dipole', 'y_dipole', 'z_dipole', 'vol']
-        All vals are float except atom number (int) and atom type (str).
+
+        Insert data into ddec_data in standard format (see init)
         """
 
         if self.molecule.ddec_version == 6:
             net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
+            # net_charge_file_name = '../../../Documents/benzene/mclf_stuff/DDEC6_even_tempered_net_atomic_charges.xyz'
 
         elif self.molecule.ddec_version == 3:
             net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
@@ -86,36 +88,48 @@ class LennardJones:
         else:
             raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
 
-        # Append the atom number and type, coords, charge, dipoles:
+        # Insert the atomic symbols and charges at correct atom indices:
         for line in lines[start_pos: start_pos + atom_total]:
-            a_number, a_type, *data = line.split()
-            self.ddec_data.append([int(a_number), a_type] + [float(datum) for datum in data])
+            # _s are the xyz coords and xyz dipoles
+            atom_index, atomic_symbol, _, _, _, charge, *_ = line.split()
+            # File counts from 1 not 0; thereby requiring -1 to get the index
+            self.ddec_data[int(atom_index) - 1] = SimpleNamespace(atomic_symbol=atomic_symbol,
+                                                                  charge=float(charge),
+                                                                  volume=None,
+                                                                  r_aim=None,
+                                                                  b_i=None,
+                                                                  a_i=None)
 
-        charges = [atom[5] for atom in self.ddec_data]
+        # Extract charges for checking purposes; var charges not used for calculations
+        charges = [item.charge for item in self.ddec_data.values()]
         check_net_charge(charges, ideal_net=self.molecule.charge)
 
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
+        # r_cubed_file_name = '../../../Documents/benzene/mclf_stuff/DDEC_atomic_Rcubed_moments.xyz'
 
         with open(r_cubed_file_name, 'r+') as vol_file:
             lines = vol_file.readlines()
 
         vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
 
-        for pos, atom in enumerate(self.ddec_data):
-            atom.append(vols[pos])
+        for atom_index in self.ddec_data:
+            self.ddec_data[atom_index].volume = vols[atom_index]
 
     def extract_params_onetep(self):
         """
         From ONETEP output files, extract the necessary parameters for calculation of L-J.
-        Desired format:
-        ['atomic number', 'atomic name', 'x', 'y', 'z', 'charge', 'vol']
-        All vals are float except atom number (int) and atom name (str).
+
+        Insert data into ddec_data in standard format
         """
 
-        # We know this from the molecule object self.molecule try to get the info from there
-        for atom in self.molecule.atoms:
-            self.ddec_data.append([atom.atom_index + 1, atom.atomic_symbol] +
-                                  [self.molecule.coords['input'][atom.atom_index][i] for i in range(3)])
+        # Just fill in None values until they are known
+        self.ddec_data = {i: SimpleNamespace(atomic_symbol=atom.atomic_symbol,
+                                             charge=None,
+                                             volume=None,
+                                             r_aim=None,
+                                             b_i=None,
+                                             a_i=None)
+                          for i, atom in enumerate(self.molecule.atoms)}
 
         # Second file contains the rest (charges, dipoles and volumes):
         ddec_output_file = 'ddec.onetep' if os.path.exists('ddec.onetep') else 'iter_1/ddec.onetep'
@@ -135,16 +149,39 @@ class LennardJones:
 
         if any(position is None for position in [charge_pos, vol_pos]):
             raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
-            
-        charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.ddec_data)]]
+
+        charges = [float(line.split()[-1])
+                   for line in lines[charge_pos: charge_pos + len(self.molecule.atoms)]]
         check_net_charge(charges, ideal_net=self.molecule.charge)
 
         # Add the AIM-Valence and the AIM-Core to get V^AIM
-        volumes = [float(line.split()[2]) + float(line.split()[3]) for line in lines[vol_pos: vol_pos + len(self.ddec_data)]]
+        volumes = [float(line.split()[2]) + float(line.split()[3])
+                   for line in lines[vol_pos: vol_pos + len(self.molecule.atoms)]]
 
-        # Add the charges and volumes to the end of the inner lists (containing coords etc)
-        for pos, atom in enumerate(self.ddec_data):
-            atom.extend((charges[pos], volumes[pos]))
+        for atom_index in self.ddec_data:
+            self.ddec_data[atom_index].charge = charges[atom_index]
+            self.ddec_data[atom_index].volume = volumes[atom_index]
+
+    def extract_c8_params(self):
+        """
+        Extract the C8 dispersion coefficients from the MCLF calculation's output file.
+        :return: c8_params ordered list of the c8 params for each atom in molecule
+        """
+
+        # with open('../../../Documents/benzene/mclf_stuff/MCLF_C8_dispersion_coefficients.xyz') as c8_file:
+        with open('MCLF_C8_dispersion_coefficients.xyz') as c8_file:
+            lines = c8_file.readlines()
+            for i, line in enumerate(lines):
+                if line.startswith(' The following '):
+                    lines = lines[i + 2: -2]
+                    break
+            else:
+                raise EOFError('Cannot locate c8 parameters in file.')
+
+            # c8 params IN ATOMIC UNITS
+            c8_params = [float(line.split()[-1].strip()) for line in lines]
+
+        return c8_params
 
     def append_ais_bis(self):
         """
@@ -152,48 +189,48 @@ class LennardJones:
         Calculations from paper have been combined and simplified for faster computation.
         """
 
-        for pos, atom in enumerate(self.ddec_data):
+        for atom_index, atom in self.ddec_data.items():
             try:
-                atomic_name, atom_vol = atom[1], atom[-1]
+                atomic_symbol, atom_vol = atom.atomic_symbol, atom.volume
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
-                r_aim = self.elem_dict[atomic_name].rfree * ((atom_vol / self.elem_dict[atomic_name].vfree) ** (1 / 3))
+                r_aim = self.elem_dict[atomic_symbol].rfree * ((atom_vol / self.elem_dict[atomic_symbol].vfree) ** (1 / 3))
 
                 # b_i = bfree * ((vol / v_free) ** 2)
-                b_i = self.elem_dict[atomic_name].bfree * ((atom_vol / self.elem_dict[atomic_name].vfree) ** 2)
+                b_i = self.elem_dict[atomic_symbol].bfree * ((atom_vol / self.elem_dict[atomic_symbol].vfree) ** 2)
 
                 a_i = 32 * b_i * (r_aim ** 6)
 
-                self.ddec_data[pos] += [r_aim, b_i, a_i]
-
+            # Element not in elem_dict
             except KeyError:
-                self.ddec_data[pos] += [0, 0, 0]
+                r_aim, b_i, a_i = 0, 0, 0
+
+            self.ddec_data[atom_index].r_aim = r_aim
+            self.ddec_data[atom_index].b_i = b_i
+            self.ddec_data[atom_index].a_i = a_i
 
     def calculate_sig_eps(self):
         """
-        Adds the sigma, epsilon terms to the ligand class object as a dictionary.
+        Adds the charge, sigma and epsilon terms to the ligand class object in a dictionary.
         The ligand class object (NonbondedForce) is stored as an empty dictionary until this method is called.
-        first_pass argument prevents the sigmas being recalculated (unlike the epsilons).
         """
 
         # Creates Nonbondedforce dict for later xml creation.
         # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
         # This follows the usual ordering of the atoms such as in molecule.coords.
+        for atom_index, atom in self.ddec_data.items():
 
-        for pos, atom in enumerate(self.ddec_data):
-
-            if atom[-1]:
+            if not atom.a_i:
+                sigma = epsilon = 0
+            else:
                 # sigma = (a_i / b_i) ** (1 / 6)
-                sigma = (atom[-1] / atom[-2]) ** (1 / 6)
+                sigma = (atom.a_i / atom.b_i) ** (1 / 6)
                 sigma *= self.sigma_conversion
 
                 # epsilon = (b_i ** 2) / (4 * a_i)
-                epsilon = (atom[-2] ** 2) / (4 * atom[-1])
+                epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
                 epsilon *= self.epsilon_conversion
 
-            else:
-                sigma = epsilon = 0
-
-            self.non_bonded_force[pos] = [atom[5], sigma, epsilon]
+            self.non_bonded_force[atom_index] = [atom.charge, sigma, epsilon]
 
     def correct_polar_hydrogens(self):
         """
@@ -220,8 +257,8 @@ class LennardJones:
                     polars.append(pair)
 
         # Find square root of all b_i values so that they can be added easily according to paper's formula.
-        for atom in self.ddec_data:
-            atom[-2] = (atom[-2]) ** 0.5
+        for atom in self.ddec_data.values():
+            atom.b_i = atom.b_i ** 0.5
 
         if polars:
             for pair in polars:
@@ -234,33 +271,32 @@ class LennardJones:
                         polar_son_pos = pair[0].atom_index
 
                     # Calculate the new b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                    self.ddec_data[polar_son_pos][-2] += self.ddec_data[polar_h_pos][-2]
-                    self.ddec_data[polar_h_pos][-2] = 0
+                    self.ddec_data[polar_son_pos].b_i += self.ddec_data[polar_h_pos].b_i
+                    self.ddec_data[polar_h_pos].b_i = 0
 
-        # Square all the b_i values again
-        for atom in self.ddec_data:
-            atom[-2] *= atom[-2]
-
-        # Recalculate the a_i values
-        for atom in self.ddec_data:
-            atom[-1] = 32 * atom[-2] * (atom[-3] ** 6)
+        for atom in self.ddec_data.values():
+            # Square all the b_i values again
+            atom.b_i *= atom.b_i
+            # Recalculate the a_is based on the new b_is
+            atom.a_i = 32 * atom.b_i * (atom.r_aim ** 6)
 
         # Update epsilon (not sigma) according to new a_i and b_i values
-        for pos, atom in enumerate(self.ddec_data):
+        for atom_index, atom in self.ddec_data.items():
 
-            if atom[-1] == 0:
-                epsilon, self.non_bonded_force[pos][1] = 0, 0
-            else:
+            if atom.a_i:
                 # epsilon = (b_i ** 2) / (4 * a_i)
-                epsilon = (atom[-2] ** 2) / (4 * atom[-1])
+                epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
                 epsilon *= self.epsilon_conversion
+            else:
+                epsilon, self.non_bonded_force[atom_index][1] = 0, 0
 
-            self.non_bonded_force[pos] = [atom[5], self.non_bonded_force[pos][1], epsilon]
+            self.non_bonded_force[atom_index] = [atom.charge, self.non_bonded_force[atom_index][1], epsilon]
 
     def apply_symmetrisation(self):
         """
         Using the atoms picked out to be symmetrised,
         apply the symmetry to the charge, sigma and epsilon values.
+        Mutates the non_bonded_force dict
         """
 
         atom_types = {}
@@ -300,7 +336,7 @@ class LennardJones:
         """
 
         # weighting arrays for the virtual sites should not be changed
-        w1o, w2o, w3o = 1.0, 0.0, 0.0  # SUM SHOULD BE 1
+        w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
         w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
         w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
 
@@ -409,3 +445,51 @@ class LennardJones:
             self.extract_extra_sites()
 
         self.molecule.NonbondedForce = self.non_bonded_force
+
+    def new_calculate_non_bonded_force(self):
+        """
+
+        :return:
+        """
+        self.extract_params_chargemol()
+        c8_params = self.extract_c8_params()
+
+        # Get the a_i and b_i params
+        self.append_ais_bis()
+
+        print(self.ddec_data)
+
+        def f(t, sig, eps):
+            """Parametric form of the standard L-J potential terms."""
+            return 4 * eps * ((sig / t) ** 12 - (sig / t) ** 6)
+
+        from scipy import optimize
+        # import matplotlib.pyplot as plt
+
+        r = np.array([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0])
+        bounds = ([0, 0], [1, 1])
+
+        sig_eps = []
+
+        for i, c8 in enumerate(c8_params):
+            # c6 is equivalent to b_i ???
+            c6 = self.ddec_data[i].b_i
+            # a is recalculated rather than using a_i from before
+            ########## UNITS ##########
+            a = ((c6 * r) ** 6) / 2 + ((2 * c8 * r) ** 4) / 3
+            ########## UNITS ##########
+            v = (a / (r ** 12)) - (c6 / (r ** 6)) - (c8 / (r ** 8))
+
+            popt, pcov = optimize.curve_fit(f, r, v, bounds=bounds)
+
+            sig_eps.append(popt)
+
+            # t = np.array([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0])
+            # plt.figure(1)
+            # plt.clf()
+            # plt.plot(r, v, 'bx', label='data')
+            # plt.plot(t, f(t, *popt), 'r-', label=f'fit: sig={popt[0]:5f}, eps={popt[1]:5f}')
+            # plt.legend()
+            # plt.show()
+
+        print(sig_eps)
