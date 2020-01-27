@@ -47,18 +47,19 @@ class QCEngine(Engines):
         """
 
         mol = self.generate_qschema(input_type=input_type)
+        options = {'memory': self.molecule.memory,
+                   'ncores': self.molecule.threads}
 
         # Call psi4 for energy, gradient, hessian or property calculations
         if engine == 'psi4':
-            psi4_task = qcel.models.ResultInput(
+            psi4_task = qcel.models.AtomicInput(
                 molecule=mol,
                 driver=driver,
                 model={'method': self.molecule.theory, 'basis': self.molecule.basis},
                 keywords={'scf_type': 'df'},
             )
 
-            ret = qcng.compute(psi4_task, 'psi4', local_options={'memory': self.molecule.memory,
-                                                                 'ncores': self.molecule.threads})
+            ret = qcng.compute(psi4_task, 'psi4', local_options=options)
 
             if driver == 'hessian':
                 hess_size = 3 * len(self.molecule.atoms)
@@ -91,9 +92,17 @@ class QCEngine(Engines):
                 },
                 'initial_molecule': mol,
             }
-            return qcng.compute_procedure(
-                geo_task, 'geometric', return_dict=True, local_options={'memory': self.molecule.memory,
-                                                                        'ncores': self.molecule.threads})
+            return qcng.compute_procedure(geo_task, 'geometric', return_dict=True, local_options=options)
+
+        elif engine == 'torchani':
+            ani_task = qcel.models.AtomicInput(
+                molecule=mol,
+                driver=driver,
+                model={'method': 'ANI1x', 'basis': None},
+                keywords={'scf_type': 'df'}
+            )
+
+            return qcng.compute(ani_task, 'torchani', local_options=options).return_result
 
         else:
-            raise KeyError('Invalid engine type provided. Please use "geo" or "psi4".')
+            raise KeyError('Invalid engine type provided. Please use "geometric", "psi4" or "torchani".')

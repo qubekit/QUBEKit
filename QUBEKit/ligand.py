@@ -129,13 +129,14 @@ class DefaultsMixin:
 class Molecule:
     """Base class for ligands and proteins."""
 
-    def __init__(self, mol_input, name=None):
+    def __init__(self, mol_input, name=None, is_protein=False):
         """
         # Namings
         smiles                  str; SMILES string for the molecule e.g. 'c1cc[nH]c1'
         filename                str; Full filename e.g. methane.pdb
         qc_json                 json dict; QC json data. Only used if loading from qcarchive/portal
         name                    str; Molecule name e.g. 'methane'
+        is_protein              bool; whether or not the molecule is a protein
 
         # Structure
         coords                  Dict of numpy arrays of the coords where the keys are the input type ('mm', 'qm', etc)
@@ -191,9 +192,10 @@ class Molecule:
 
         self.mol_input = mol_input
         self.name = name
+        self.is_protein = is_protein
 
-        # The three possible input types; these are set in read_input()
-        self.filename = None
+        # The three possible input types; these are set in read_input() (unless it's a protein)
+        self.filename = Path(mol_input) if is_protein else None
         self.smiles = None
         self.qc_json = None
 
@@ -248,6 +250,9 @@ class Molecule:
         self.verbose = True
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
+        if self.is_protein:
+            return
+
         self.read_input()
         self.check_names_are_unique()
 
@@ -588,6 +593,8 @@ class Molecule:
         Read an xyz file and get all frames from the file and put in the traj molecule holder by default
         or if there is only one frame change the input location. This will also strip the xyz file of any dummy atoms.
         """
+
+        # TODO Make this more flexible so that it accepts xyz's with slightly different formatting
 
         traj_molecules = []
         molecule = []
@@ -1336,16 +1343,15 @@ class Protein(DefaultsMixin, Molecule):
     # TODO Currently this class is old and a bit broken due to updates.
     #  Needs thorough testing and likely a rewrite.
 
-    def __init__(self, filename):
+    def __init__(self, filename, is_protein=True):
 
-        super().__init__(filename)
+        super().__init__(filename, is_protein=True)
 
         self.pdb_names = None
-        self.read_pdb(self.filename)
         self.residues = None
-        self.home = os.getcwd()
-
         self.Residues = None
+        self.read_pdb(self.filename)
+        self.home = os.getcwd()
 
     def read_pdb(self, input_file, input_type='input'):
         """
@@ -1420,6 +1426,8 @@ class Protein(DefaultsMixin, Molecule):
         #   Need to store the number of atoms in each amino acid and use that to check instead.
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
+
+        print(self.residues)
 
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""

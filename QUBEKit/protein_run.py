@@ -8,6 +8,7 @@ from QUBEKit.protein_tools import get_water, pdb_reformat, qube_general
 import argparse
 from functools import partial
 import os
+from pathlib import Path
 import sys
 
 
@@ -27,11 +28,10 @@ def main():
         """This class is called when we setup a new protein."""
 
         def __call__(self, pars, namespace, values, option_string=None):
-            """This function is executed when setup is called."""
 
             printf('starting protein prep, reading pdb file...')
             protein = Protein(values)
-            printf(f'{len(protein.Residues)} residues found!')
+            printf(f'{len(protein.residues)} residues found!')
             # TODO find the magic numbers for the box for onetep
             protein.write_xyz(name='protein')
             printf(f'protein.xyz file made for ONETEP\n Run this file')
@@ -41,16 +41,15 @@ def main():
         """This class handles the building of the protein xml and pdb files."""
 
         def __call__(self, pars, namespace, values, option_string=None):
-            """This function is executed when build is called."""
 
-            filename = values
-            pro_name = values[:-4]
+            print(values)
+            filename = Path(values)
+            pro_name = filename.stem
             pro = Protein(filename)
             # print the QUBE general FF to use in the parametrisation
             qube_general()
             # now we want to add the connections and parametrise the protein
             XMLProtein(pro)
-            # this updates the bonded info that is now in the object
 
             # finally we need the non-bonded parameters from onetep
             # TODO should we also have the ability to get DDEC6 charges from the cube file?
