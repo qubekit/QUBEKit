@@ -39,7 +39,8 @@ class XMLProtein(Parametrisation):
             out.write(xml)
 
     def gather_parameters(self):
-        """This method parses the serialised xml file and collects the parameters ready to pass them
+        """
+        This method parses the serialised xml file and collects the parameters ready to pass them
         to build tree.
         """
 
@@ -66,7 +67,8 @@ class XMLProtein(Parametrisation):
         i = 0
         for Atom in in_root.iter('Particle'):
             if "eps" in Atom.attrib:
-                self.molecule.NonbondedForce[i] = [Atom.get('q'), Atom.get('sig'), Atom.get('eps')]
+                self.molecule.NonbondedForce[i] = [float(Atom.get('q')), float(Atom.get('sig')), float(Atom.get('eps'))]
+                self.molecule.atoms[i].partial_charge = float(Atom.get('q'))
                 i += 1
 
         # Extract all of the torsion data

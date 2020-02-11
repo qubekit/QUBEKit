@@ -90,8 +90,8 @@ class DefaultsMixin:
         self.theory = 'wB97XD'
         self.basis = '6-311++G(d,p)'
         self.vib_scaling = 1
-        self.threads = 2
-        self.memory = 2
+        self.threads = 4
+        self.memory = 4
         self.convergence = 'GAU_TIGHT'
         self.iterations = 350
         self.bonds_engine = 'psi4'
@@ -594,7 +594,7 @@ class Molecule:
         or if there is only one frame change the input location. This will also strip the xyz file of any dummy atoms.
         """
 
-        # TODO Make this more flexible so that it accepts xyz's with slightly different formatting
+        # TODO Make this more flexible so that it accepts .xyz files with slightly different formatting
 
         traj_molecules = []
         molecule = []
@@ -1155,6 +1155,9 @@ class Molecule:
         Also keep a list of the methyl carbons and amine / nitrile nitrogens
         then exclude these bonds from the rotatable torsions list.
         """
+
+        # TODO This needs to be more applicable to proteins (e.g. if no rdkit_mol is created).
+
         if self.rdkit_mol is not None:
 
             self.atom_symmetry_classes = RDKit.find_symmetry_classes(self.rdkit_mol)
@@ -1340,9 +1343,6 @@ class Protein(DefaultsMixin, Molecule):
     This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it.
     """
 
-    # TODO Currently this class is old and a bit broken due to updates.
-    #  Needs thorough testing and likely a rewrite.
-
     def __init__(self, filename, is_protein=True):
 
         super().__init__(filename, is_protein=True)
@@ -1413,6 +1413,7 @@ class Protein(DefaultsMixin, Molecule):
         if not len(self.topology.edges):
             print('No connections found in pdb file; topology will be inferred by OpenMM.')
         else:
+            # TODO Consistency w.r.t. get/find
             self.find_angles()
             self.find_dihedrals()
             self.find_rotatable_dihedrals()

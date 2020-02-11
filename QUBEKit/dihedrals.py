@@ -214,8 +214,8 @@ class TorsionScan:
 
             self.molecule.increments[scan] = step_size
 
-            cmd = (f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v -g {step_size} '
-                   f'{"--native_opt" if self.native_opt else ""}')
+            cmd = (f'torsiondrive-launch -e {tdrive_engine} {self.input_file} dihedrals.txt -v -g {step_size}'
+                   f'{" --native_opt" if self.native_opt else ""}')
 
             if not os.path.exists('qdata.txt'):
                 sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
@@ -238,8 +238,7 @@ class TorsionScan:
             os.chdir(os.path.join(self.home, os.path.join(f'SCAN_{name}', 'QM_torsiondrive')))
             self.molecule.read_tdrive(scan)
 
-    @staticmethod
-    def _make_folder_name(scan):
+    def _make_folder_name(self, scan):
         return f'{scan[0]}_{scan[1]}_{scan[2]}_{scan[3]}'
 
     def check_run_history(self, scan):
@@ -1259,8 +1258,8 @@ class TorsionOptimiser:
 
                 step_size = self.molecule.increments[self.scan]
 
-                sp.run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt -v -g {step_size} '
-                       f'{self.molecule.constraints_file if self.molecule.constraints_file is not None else ""}',
+                sp.run(f'torsiondrive-launch -e openmm openmm.pdb dihedrals.txt -v -g {step_size}'
+                       f' {self.molecule.constraints_file if self.molecule.constraints_file is not None else ""}',
                        shell=True, stderr=log, stdout=log, check=True)
 
                 self.molecule.read_tdrive(self.scan)

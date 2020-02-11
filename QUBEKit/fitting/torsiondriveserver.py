@@ -3,14 +3,15 @@
 from QUBEKit.utils.constants import ANGS_TO_BOHR
 
 import os
-from multiprocessing import Process, Queue, current_process
+from multiprocessing import current_process, Process, Queue
 import queue
 
 from geometric.engine import OpenMM
 from geometric.internal import DelocalizedInternalCoordinates
 from geometric.molecule import Molecule
-from geometric.optimize import ParseConstraints, Optimize, OptParams
+from geometric.optimize import Optimize, OptParams, ParseConstraints
 from geometric.run_json import make_constraints_string
+
 from torsiondrive import td_api
 
 import numpy as np
@@ -22,6 +23,7 @@ class TorsionDriveController:
     """
 
     """
+
     def __init__(self, molecule, bond, controller):
 
         self.molecule = molecule
@@ -33,11 +35,11 @@ class TorsionDriveController:
         self.energy_decrease_thresh = None
         self.energy_upper_limit = None
         self.td_state = None
-        self.threads = 10
+        self.threads = molecule.threads
         self.next_jobs = Queue()
         self.job_results = None
         self.results = None
-        self.geo_mol = Molecule(f'{self.molecule.name}.pdb')
+        self.geo_mol = Molecule(f'{molecule.name}.pdb')
         self.params = None
         self.update_params()
         self.create_state()
@@ -50,6 +52,11 @@ class TorsionDriveController:
         self.params = OptParams(**params)
 
     def create_state(self):
+        """
+
+        :return:
+        """
+
         self.td_state = td_api.create_initial_state(
             dihedrals=self.dihedrals,
             grid_spacing=self.grid_spacing,
@@ -61,6 +68,12 @@ class TorsionDriveController:
         )
 
     def get_next_jobs(self, next_jobs):
+        """
+
+        :param next_jobs:
+        :return:
+        """
+
         new_jobs = td_api.next_jobs_from_state(self.td_state, verbose=True)
         # Now put them into the queue
         for grid_id_str, job_geo_list in new_jobs.items():
@@ -71,13 +84,21 @@ class TorsionDriveController:
         return next_jobs
 
     def create_engine(self, engine):
-        if engine == 'openmm':
-            return self._make_openmm_engine()
-        elif engine == 'psi4':
-            return self._make_psi4_engine()
-        elif engine == 'gaussian':
-            return self._make_gaussian_engine()
-        else:
+        """
+
+        :param engine:
+        :return:
+        """
+
+        engine_actions = {
+            'openmm': self._make_openmm_engine(),
+            'psi4': self._make_psi4_engine(),
+            'gaussian': self._make_gaussian_engine()
+        }
+
+        try:
+            engine_actions.get(engine)
+        except KeyError:
             raise NotImplementedError('Please use openmm, psi4 or gaussian.')
 
     def create_diheral_constraints(self, angle):
@@ -117,7 +138,7 @@ class TorsionDriveController:
                 final_energy = opt.Data['qm_energies'][-1]
                 # print(f'opt done! {current_process().name}')
                 output_queue.put((inputs[1], inputs[0], final_geo, final_energy))
-                # print(f'optimisation finished at {inputs[1]} by thred id {current_process().name}')
+                # print(f'optimisation finished at {inputs[1]} by thread id {current_process().name}')
 
     def create_optimiser(self, coordinates, dihedral_angle):
         """Instance and set up the geometric optimiser"""
@@ -126,21 +147,21 @@ class TorsionDriveController:
         cons, cvals = self.create_diheral_constraints(dihedral_angle)
         engine = self._make_openmm_engine()
 
-        # make the coordsystem using default values for now
-        coordclass, connect, addcart = DelocalizedInternalCoordinates, False, False
+        # make the coord system using default values for now
+        coord_class, connect, add_cart = DelocalizedInternalCoordinates, False, False
 
-        ic = coordclass(self.geo_mol, build=True, connect=connect, addcart=addcart, constraints=cons,
-                        cvals=cvals[0] if cvals is not None else None)
+        ic = coord_class(self.geo_mol, build=True, connect=connect, addcart=add_cart, constraints=cons,
+                         cvals=cvals[0] if cvals is not None else None)
 
         return Optimize(coordinates, self.geo_mol, ic, engine, 'test', self.params)
 
     def update_state(self, output_queue):
-        """Using the output queue update the tdrive state"""
+        """Using the output queue, update the tdrive state"""
 
         job_results = {}
         while not output_queue.empty():
             results = output_queue.get_nowait()
-            job_results.setdefault(str(results[0]), []).append((results[1], results[2], results[3]))
+            job_results.setdefault(str(results[0]), []).append(*results[1:])
 
         td_api.update_state(self.td_state, job_results)
 
