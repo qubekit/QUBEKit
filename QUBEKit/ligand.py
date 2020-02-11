@@ -1428,6 +1428,8 @@ class Protein(DefaultsMixin, Molecule):
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
+        print(self.residues)
+
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
 

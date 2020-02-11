@@ -128,6 +128,8 @@ class LennardJones:
             # c8 params IN ATOMIC UNITS
             self.c8_params = [float(line.split()[-1].strip()) for line in lines]
 
+        return c8_params
+
     def append_ais_bis(self):
         """
         Use the AIM parameters from extract_params_*() to calculate a_i and b_i according to paper.
@@ -392,7 +394,6 @@ class LennardJones:
         """
         self.extract_params_chargemol()
         self.extract_c8_params()
-
         # Get the a_i and b_i params
         self.append_ais_bis()
 
