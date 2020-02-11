@@ -42,7 +42,6 @@ def main():
 
         def __call__(self, pars, namespace, values, option_string=None):
 
-            print(values)
             filename = Path(values)
             pro_name = filename.stem
             pro = Protein(filename)
@@ -58,8 +57,7 @@ def main():
             pro.density_engine = 'onetep'
             LennardJones(pro).calculate_non_bonded_force()
 
-            # now we write out the final parameters
-            # we should also calculate the charges and lj at this point!
+            # Write out the final parameters
             printf('Writing pdb file with connections...')
             pro.write_pdb(name=f'QUBE_pro_{pro_name}')
             printf('Writing XML file for the system...')

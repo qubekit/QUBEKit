@@ -355,7 +355,7 @@ def pdb_reformat(reference, target):
 
 
 def qube_general():
-    """Write out the qube general force field to be used in parametersiation."""
+    """Write out the qube general force field to be used in parametrisation."""
 
     with open('QUBE_general_pi.xml', 'w+') as qube:
         qube.write('''<ForceField>

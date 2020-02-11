@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 # TODO Ensure no index issues (e.g. -1 +1) from the changing of atom_number to atom_index
-#  Ensure SampleNamespace access and looping is working as intended
+#  Ensure SampleNamespace access and looping is working as intended (cmol and onetep)
+#  Improve data structures (no more lists!)
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.helpers import check_net_charge, set_net
+from QUBEKit.utils.helpers import check_net_charge, extract_charge_data, set_net
 
 from collections import OrderedDict, namedtuple
 import decimal
@@ -39,9 +40,21 @@ class LennardJones:
 
         self.molecule = molecule
 
-        # Will be a dict of SimpleNamespaces (will contain None values until filled later)
-        # self.ddec_data = {atom_index: atomic_symbol, charge, volume, r_aim, b_i, a_i}
-        self.ddec_data = {}
+        if self.molecule.charges_engine == 'chargemol':
+            self.ddec_data, _, _ = extract_charge_data(self.molecule.ddec_version)
+
+        elif self.molecule.charges_engine == 'onetep':
+            self.ddec_data = self.extract_params_onetep()
+
+        else:
+            raise KeyError('Invalid charges engine provided, cannot extract charges.')
+
+        # TODO Maybe move this to run file (or just elsewhere; it seems odd to have it here)?
+        # Charge check
+        charges = [atom.charge for atom in self.ddec_data.values()]
+        check_net_charge(charges, ideal_net=self.molecule.charge)
+
+        self.c8_params = []
 
         self.epsilon_conversion = constants.BOHR_TO_ANGS ** 6
         self.epsilon_conversion *= constants.HA_TO_KCAL_P_MOL
@@ -51,85 +64,19 @@ class LennardJones:
 
         self.non_bonded_force = {}
 
-    def extract_params_chargemol(self):
-        """
-        From Chargemol output files, extract the necessary parameters for calculation of L-J.
-
-        Insert data into ddec_data in standard format (see init)
-        """
-
-        if self.molecule.ddec_version == 6:
-            net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
-            # net_charge_file_name = '../../../Documents/benzene/mclf_stuff/DDEC6_even_tempered_net_atomic_charges.xyz'
-
-        elif self.molecule.ddec_version == 3:
-            net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
-
-        else:
-            raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
-
-        if not os.path.exists(net_charge_file_name):
-            raise FileNotFoundError(
-                '\nCannot find the DDEC output file.\nThis could be indicative of several issues.\n'
-                'Please check Chargemol is installed in the correct location and that the configs'
-                ' point to that location.')
-
-        with open(net_charge_file_name, 'r+') as charge_file:
-            lines = charge_file.readlines()
-
-        # Find number of atoms
-        atom_total = int(lines[0])
-
-        for pos, row in enumerate(lines):
-            # Data marker:
-            if 'The following XYZ' in row:
-                start_pos = pos + 2
-                break
-        else:
-            raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
-
-        # Insert the atomic symbols and charges at correct atom indices:
-        for line in lines[start_pos: start_pos + atom_total]:
-            # _s are the xyz coords and xyz dipoles
-            atom_index, atomic_symbol, _, _, _, charge, *_ = line.split()
-            # File counts from 1 not 0; thereby requiring -1 to get the index
-            self.ddec_data[int(atom_index) - 1] = SimpleNamespace(atomic_symbol=atomic_symbol,
-                                                                  charge=float(charge),
-                                                                  volume=None,
-                                                                  r_aim=None,
-                                                                  b_i=None,
-                                                                  a_i=None)
-
-        # Extract charges for checking purposes; var charges not used for calculations
-        charges = [item.charge for item in self.ddec_data.values()]
-        check_net_charge(charges, ideal_net=self.molecule.charge)
-
-        r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
-        # r_cubed_file_name = '../../../Documents/benzene/mclf_stuff/DDEC_atomic_Rcubed_moments.xyz'
-
-        with open(r_cubed_file_name, 'r+') as vol_file:
-            lines = vol_file.readlines()
-
-        vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
-
-        for atom_index in self.ddec_data:
-            self.ddec_data[atom_index].volume = vols[atom_index]
-
     def extract_params_onetep(self):
         """
         From ONETEP output files, extract the necessary parameters for calculation of L-J.
-
         Insert data into ddec_data in standard format
+
+        This will exclusively be used by this class.
+        It will also give less information, hence why it is here, not in the helpers file.
         """
 
         # Just fill in None values until they are known
-        self.ddec_data = {i: SimpleNamespace(atomic_symbol=atom.atomic_symbol,
-                                             charge=None,
-                                             volume=None,
-                                             r_aim=None,
-                                             b_i=None,
-                                             a_i=None)
-                          for i, atom in enumerate(self.molecule.atoms)}
+        ddec_data = {i: SimpleNamespace(
+            atomic_symbol=atom.atomic_symbol, charge=None, volume=None, r_aim=None, b_i=None, a_i=None)
+            for i, atom in enumerate(self.molecule.atoms)}
 
         # Second file contains the rest (charges, dipoles and volumes):
         ddec_output_file = 'ddec.onetep' if os.path.exists('ddec.onetep') else 'iter_1/ddec.onetep'
@@ -152,15 +99,16 @@ class LennardJones:
 
         charges = [float(line.split()[-1])
                    for line in lines[charge_pos: charge_pos + len(self.molecule.atoms)]]
-        check_net_charge(charges, ideal_net=self.molecule.charge)
 
         # Add the AIM-Valence and the AIM-Core to get V^AIM
         volumes = [float(line.split()[2]) + float(line.split()[3])
                    for line in lines[vol_pos: vol_pos + len(self.molecule.atoms)]]
 
-        for atom_index in self.ddec_data:
-            self.ddec_data[atom_index].charge = charges[atom_index]
-            self.ddec_data[atom_index].volume = volumes[atom_index]
+        for atom_index in ddec_data:
+            ddec_data[atom_index].charge = charges[atom_index]
+            ddec_data[atom_index].volume = volumes[atom_index]
+
+        return ddec_data
 
     def extract_c8_params(self):
         """
@@ -168,7 +116,6 @@ class LennardJones:
         :return: c8_params ordered list of the c8 params for each atom in molecule
         """
 
-        # with open('../../../Documents/benzene/mclf_stuff/MCLF_C8_dispersion_coefficients.xyz') as c8_file:
         with open('MCLF_C8_dispersion_coefficients.xyz') as c8_file:
             lines = c8_file.readlines()
             for i, line in enumerate(lines):
@@ -179,9 +126,7 @@ class LennardJones:
                 raise EOFError('Cannot locate c8 parameters in file.')
 
             # c8 params IN ATOMIC UNITS
-            c8_params = [float(line.split()[-1].strip()) for line in lines]
-
-        return c8_params
+            self.c8_params = [float(line.split()[-1].strip()) for line in lines]
 
     def append_ais_bis(self):
         """
@@ -413,20 +358,11 @@ class LennardJones:
 
     def calculate_non_bonded_force(self):
         """
-        Main worker method for LennardJones class. Extracts necessary parameters from ONETEP or Chargemol files;
+        Main worker method for LennardJones class.
         Calculates the a_i and b_i values;
         Calculates the sigma and epsilon values using those a_i and b_i values;
         Redistributes L-J parameters according to polar Hydrogens, then recalculates epsilon values.
         """
-
-        if self.molecule.charges_engine == 'chargemol':
-            self.extract_params_chargemol()
-
-        elif self.molecule.charges_engine == 'onetep':
-            self.extract_params_onetep()
-
-        else:
-            raise KeyError('Invalid charges engine provided, cannot extract charges.')
 
         # Calculate initial a_is and b_is
         self.append_ais_bis()
@@ -446,13 +382,16 @@ class LennardJones:
 
         self.molecule.NonbondedForce = self.non_bonded_force
 
+        for i, n_b_f in self.non_bonded_force.items():
+            self.molecule.atoms[i].partial_charge = n_b_f[0]
+
     def new_calculate_non_bonded_force(self):
         """
-
+        Using the extracted C8 params, squash the 3-term potential into two terms using curvefit.
         :return:
         """
         self.extract_params_chargemol()
-        c8_params = self.extract_c8_params()
+        self.extract_c8_params()
 
         # Get the a_i and b_i params
         self.append_ais_bis()
@@ -466,12 +405,20 @@ class LennardJones:
         from scipy import optimize
         # import matplotlib.pyplot as plt
 
-        r = np.array([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0])
+        r = np.array([
+            1.0, 1.2, 1.4, 1.6, 1.8,
+            2.0, 2.2, 2.4, 2.6, 2.8,
+            3.0, 3.2, 3.4, 3.6, 3.8,
+            4.0, 4.2, 4.4, 4.6, 4.8,
+            5.0
+        ])
+
+        # Constrain eps and sigma values
         bounds = ([0, 0], [1, 1])
 
         sig_eps = []
 
-        for i, c8 in enumerate(c8_params):
+        for i, c8 in enumerate(self.c8_params):
             # c6 is equivalent to b_i ???
             c6 = self.ddec_data[i].b_i
             # a is recalculated rather than using a_i from before

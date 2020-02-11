@@ -2,8 +2,8 @@
 
 from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.helpers import append_to_log
 from QUBEKit.utils.exceptions import ChargemolError
+from QUBEKit.utils.helpers import append_to_log
 
 import os
 import subprocess as sp
@@ -41,6 +41,8 @@ class Chargemol(Engines):
             charge_file.write(f'\n\n<charge type>\nDDEC{self.molecule.ddec_version}\n</charge type>')
 
             charge_file.write('\n\n<compute BOs>\n.true.\n</compute BOs>')
+
+            charge_file.write('\n\n<print atomic densities>\n.true.\n</print atomic densities>')
 
         if execute:
             # Export a variable to the environment that chargemol will use to work out the threads, must be a string

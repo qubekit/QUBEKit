@@ -4,8 +4,8 @@ from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import timer_logger
 
-from copy import deepcopy
 from collections import namedtuple
+from copy import deepcopy
 
 import networkx as nx
 import numpy as np

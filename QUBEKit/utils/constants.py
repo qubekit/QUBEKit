@@ -2,6 +2,13 @@
 
 from collections import namedtuple
 
+
+"""
+All conversions are multiplicative, e.g.
+NM_TO_ANGS; 6 nm * NM_TO_ANGS = 60 Angs
+Division will give the wrong conversion.
+"""
+
 KCAL_TO_KJ = 4.184
 KJ_TO_KCAL = 0.23900573613
 

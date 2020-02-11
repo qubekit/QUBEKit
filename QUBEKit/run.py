@@ -2,7 +2,7 @@
 
 # TODO
 #  Squash unnecessary arguments into self.molecule. Args such as torsion_options.
-#  Better handling (or removal?) of torsion_options
+#    Better handling (or removal?) of torsion_options
 #  Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
 
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
@@ -576,7 +576,8 @@ class Execute:
             'mm_optimise': ['Partially optimising with MM', 'Partial optimisation complete'],
             'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimisation complete'],
             'hessian': ['Calculating Hessian matrix', 'Hessian matrix calculated and confirmed to be symmetric'],
-            'mod_sem': ['Calculating bonds and angles with modified Seminario method', 'Bonds and angles calculated'],
+            'mod_sem': ['Calculating bonds and angles with modified Seminario method',
+                        'Bond and angle parameters calculated'],
             'density': [f'Performing density calculation with {self.molecule.density_engine}',
                         'Density calculation complete'],
             'charges': [f'Chargemol calculating charges using DDEC{self.molecule.ddec_version}', 'Charges calculated'],
@@ -716,7 +717,7 @@ class Execute:
                 molecule.write_pdb(input_type='input')
                 molecule.write_parameters()
                 # Run geometric
-                # TODO Should this be moved to allow a decorator?
+                # TODO Should this be moved to allow a decorator? Seems like a likely point of failure
                 with open('log.txt', 'w+') as log:
                     sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations} --pdb '
                            f'{molecule.name}.pdb --openmm {molecule.name}.xml '
