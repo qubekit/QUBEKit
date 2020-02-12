@@ -2,6 +2,7 @@
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.constants import COLOURS
+from QUBEKit.utils.datastructures import CustomNamespace
 from QUBEKit.utils.exceptions import PickleFileNotFound, QUBEKitLogFileNotFound
 
 from collections import OrderedDict
@@ -13,7 +14,6 @@ import math
 import operator
 import os
 import pickle
-from types import SimpleNamespace
 
 import numpy as np
 
@@ -356,7 +356,7 @@ def extract_charge_data(ddec_version=6):
     """
     From Chargemol output files, extract the necessary parameters for calculation of L-J.
 
-    :returns: 3 SimpleNamespaces, ddec_data; dipole_moment_data; and quadrupole_moment_data
+    :returns: 3 CustomNamespaces, ddec_data; dipole_moment_data; and quadrupole_moment_data
     ddec_data used for calculating monopole esp and L-J values (used by both LennardJones and Charges classes)
     dipole_moment_data used for calculating dipole esp
     quadrupole_moment_data used for calculating quadrupole esp
@@ -398,18 +398,18 @@ def extract_charge_data(ddec_version=6):
 
     for line in lines[start_pos: start_pos + atom_total]:
         # _s are the xyz coords, then the quadrupole moment tensor eigenvalues
-        atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, dipole_mag, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
+        atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
         # File counts from 1 not 0; thereby requiring -1 to get the index
         atom_index = int(atom_count) - 1
-        ddec_data[atom_index] = SimpleNamespace(
+        ddec_data[atom_index] = CustomNamespace(
             atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
         )
 
-        dipole_moment_data[atom_index] = SimpleNamespace(
-            x_dipole=float(x_dipole), y_dipole=float(y_dipole), z_dipole=float(z_dipole), dipole_mag=float(dipole_mag)
+        dipole_moment_data[atom_index] = CustomNamespace(
+            x_dipole=float(x_dipole), y_dipole=float(y_dipole), z_dipole=float(z_dipole)
         )
 
-        quadrupole_moment_data[atom_index] = SimpleNamespace(
+        quadrupole_moment_data[atom_index] = CustomNamespace(
             q_xy=float(q_xy), q_xz=float(q_xz), q_yz=float(q_yz), q_x2_y2=float(q_x2_y2), q_3z2_r2=float(q_3z2_r2)
         )
 

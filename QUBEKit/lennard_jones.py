@@ -5,13 +5,13 @@
 #  Improve data structures (no more lists!)
 
 from QUBEKit.utils import constants
+from QUBEKit.utils.datastructures import CustomNamespace
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import check_net_charge, extract_charge_data, set_net
 
 from collections import OrderedDict, namedtuple
 import decimal
 import os
-from types import SimpleNamespace
 
 import numpy as np
 
@@ -74,7 +74,7 @@ class LennardJones:
         """
 
         # Just fill in None values until they are known
-        ddec_data = {i: SimpleNamespace(
+        ddec_data = {i: CustomNamespace(
             atomic_symbol=atom.atomic_symbol, charge=None, volume=None, r_aim=None, b_i=None, a_i=None)
             for i, atom in enumerate(self.molecule.atoms)}
 
@@ -127,8 +127,6 @@ class LennardJones:
 
             # c8 params IN ATOMIC UNITS
             self.c8_params = [float(line.split()[-1].strip()) for line in lines]
-
-        return c8_params
 
     def append_ais_bis(self):
         """
@@ -282,18 +280,19 @@ class LennardJones:
         (users have the option to use sites or no sites this way)
         """
 
+        extra_points_file = 'xyz_with_extra_point_charges.xyz'
+        if not os.path.exists(extra_points_file):
+            return
+
         # weighting arrays for the virtual sites should not be changed
         w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
         w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
         w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
 
-        if not os.path.exists('xyz_with_extra_point_charges.xyz'):
-            return
-
         # load in the xyz file into the molecule into temp so we can work in the new coords
         # this will strip out the virtual sites though
-        self.molecule.read_file('xyz_with_extra_point_charges.xyz', input_type='temp')
-        with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
+        self.molecule.read_file(extra_points_file, input_type='temp')
+        with open(extra_points_file) as xyz_sites:
             lines = xyz_sites.readlines()
 
         sites = OrderedDict()
