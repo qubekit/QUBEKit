@@ -53,8 +53,6 @@ class Chargemol(Engines):
                 try:
                     sp.run(os.path.join(self.molecule.chargemol, control_path), shell=True, stdout=log, stderr=log,
                            check=True)
-                    # sp.run('/home/chrisringrose/Programs/chargemol_11_10_2019/Chargemol_11_10_2019_linux_parallel job_control.txt',
-                    #        shell=True, stdout=log, stderr=log)
 
                 except sp.CalledProcessError:
                     raise ChargemolError('Chargemol did not execute properly; check the output file for details.')

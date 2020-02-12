@@ -303,22 +303,6 @@ class Molecule:
 
         return return_str
 
-    # def __getattr__(self, attr):
-    #     """
-    #     Used to help future-proof ligand object.
-    #
-    #     If an older version of QUBEKit is used to create a Ligand() object;
-    #     then QUBEKit is updated and -restart is used;
-    #     if a new attribute doesn't exist in the old Ligand() object;
-    #     this method should catch that.
-    #     :param attr: name of attribute which is being accessed
-    #     :return: the attribute itself (get the attr will work again since it has been set)
-    #     """
-    #     print(f'failed to access: {attr}')
-    #     # Re-initialise Ligand() and use it to set, then get any missing attributes
-    #     setattr(self, attr, getattr(Ligand(*self.mol_input), attr, None))
-    #     return getattr(self, attr)
-
     def read_input(self):
         """
         The base input reader used upon class instantiation; it will decide how to handle the input
@@ -598,30 +582,28 @@ class Molecule:
 
         traj_molecules = []
         molecule = []
-        try:
-            with open(name, 'r') as xyz_file:
-                # get the number of atoms
-                n_atoms = len(self.atoms)
-                for line in xyz_file:
-                    line = line.split()
-                    # skip frame heading lines
-                    if len(line) <= 1 or 'Iteration' in line:
-                        continue
-                    molecule.append([float(line[1]), float(line[2]), float(line[3])])
 
-                    if len(molecule) == n_atoms:
-                        # we have collected the molecule now store the frame
-                        traj_molecules.append(np.array(molecule))
-                        molecule = []
-
-            # check how many frames we have
-            if len(traj_molecules) == 1:
-                self.coords[input_type] = traj_molecules[0]
-            else:
-                self.coords[input_type] = traj_molecules
-
-        except FileNotFoundError:
+        if not os.path.exists(name):
             raise FileNotFoundError('Cannot find xyz file to read.')
+
+        with open(name, 'r') as xyz_file:
+            for line in xyz_file:
+                line = line.split()
+                # skip frame heading lines
+                if len(line) <= 1 or 'Iteration' in line:
+                    continue
+                molecule.append([float(line[1]), float(line[2]), float(line[3])])
+
+                if len(molecule) == len(self.atoms):
+                    # we have collected the molecule now store the frame
+                    traj_molecules.append(np.array(molecule))
+                    molecule = []
+
+        # check how many frames we have
+        if len(traj_molecules) == 1:
+            self.coords[input_type] = traj_molecules[0]
+        else:
+            self.coords[input_type] = traj_molecules
 
     def _read_qc_json(self):
         """
