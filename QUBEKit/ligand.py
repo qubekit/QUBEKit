@@ -366,11 +366,16 @@ class Molecule:
         # If some atom names aren't unique
         if len(set(atom_names)) < len(atom_names):
             # Change the atom name only; everything else is the same as it was.
-            self.atoms = [Atom(atomic_number=atom.atomic_number,
-                               atom_index=atom.atom_index,
-                               atom_name=f'{atom.atomic_symbol}{i}',
-                               partial_charge=atom.partial_charge,
-                               formal_charge=atom.formal_charge) for i, atom in enumerate(self.atoms)]
+            self.atoms = [
+                Atom(
+                    atomic_number=atom.atomic_number,
+                    atom_index=atom.atom_index,
+                    atom_name=f'{atom.atomic_symbol}{i}',
+                    partial_charge=atom.partial_charge,
+                    formal_charge=atom.formal_charge
+                )
+                for i, atom in enumerate(self.atoms)
+            ]
 
     def mol_from_rdkit(self, rdkit_molecule, input_type='input'):
         """
@@ -683,9 +688,8 @@ class Molecule:
 
             # Find all possible angle combinations from the list
             for i in range(len(bonded)):
-                for j in range(i + 1, len(bonded), 1):
+                for j in range(i + 1, len(bonded)):
                     atom1, atom3 = bonded[i], bonded[j]
-
                     angles.append((atom1, node, atom3))
 
         self.angles = angles or None
@@ -831,13 +835,13 @@ class Molecule:
                 for angle in angles:
                     self.HarmonicAngleForce[angle] = [angle_vals, angle_forces]
 
-    def write_parameters(self, name=None, is_protein=False):
+    def write_parameters(self, name=None):
         """
         Take the molecule's parameter set and write an xml file for the molecule.
         """
 
         # First build the xml tree
-        self.build_tree(protein=is_protein)
+        self.build_tree()
 
         tree = self.xml_tree.getroot()
         messy = ET.tostring(tree, 'utf-8')
@@ -847,7 +851,7 @@ class Molecule:
         with open(f'{name if name is not None else self.name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
-    def build_tree(self, protein):
+    def build_tree(self):
         """
         Separates the parameters and builds an xml tree ready to be used.
         """
@@ -857,7 +861,7 @@ class Molecule:
         AtomTypes = ET.SubElement(root, "AtomTypes")
         Residues = ET.SubElement(root, "Residues")
 
-        Residue = ET.SubElement(Residues, "Residue", name=f'{"QUP" if protein else "UNK"}')
+        Residue = ET.SubElement(Residues, "Residue", name=f'{"QUP" if self.is_protein else "UNK"}')
 
         HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
@@ -903,6 +907,7 @@ class Molecule:
                 tor_type = 'Improper'
             else:
                 tor_type = 'Proper'
+
             ET.SubElement(PeriodicTorsionForce, tor_type, attrib={
                 'class1': self.AtomTypes[key[0]][2],
                 'class2': self.AtomTypes[key[1]][2],
@@ -1262,7 +1267,7 @@ class Molecule:
 
 class Ligand(DefaultsMixin, Molecule):
 
-    def __init__(self, mol_input, name=None):
+    def __init__(self, mol_input, name=None, is_protein=False):
         """
         parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
         hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
@@ -1273,7 +1278,7 @@ class Ligand(DefaultsMixin, Molecule):
                                 the abspath of the constraint.txt file (constrains the execution of geometric)
         """
 
-        super().__init__(mol_input, name)
+        super().__init__(mol_input, name, is_protein)
 
         self.parameter_engine = 'openmm'
         self.hessian = None
@@ -1325,10 +1330,11 @@ class Protein(DefaultsMixin, Molecule):
     This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it.
     """
 
-    def __init__(self, filename, is_protein=True):
+    def __init__(self, mol_input, name=None, is_protein=True):
 
-        super().__init__(filename, is_protein=True)
+        super().__init__(mol_input, name, is_protein)
 
+        self.is_protein = True
         self.pdb_names = None
         self.residues = None
         self.Residues = None
@@ -1410,23 +1416,18 @@ class Protein(DefaultsMixin, Molecule):
         # Remove duplicates
         self.residues = [res for res, group in groupby(self.Residues)]
 
-        print(self.residues)
-
     def write_pdb(self, name=None):
         """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
 
-        molecule = self.coords['input']
-
         with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 
-            # Write out the atomic xyz coordinates
             pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
-            # pdb_file.write(f'COMPND    {self.name:<20}\n')
-            # we have to transform the atom name while writing out the pdb file
-            for i, atom in enumerate(molecule):
+            # Write out the atomic xyz coordinates
+            for i, (coord, atom) in enumerate(zip(self.coords['input'], self.atoms)):
+                x, y, z = coord
                 pdb_file.write(
-                    f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4} QUP     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
-                    f'  1.00  0.00         {self.atoms[i].atomic_symbol.upper():>3}\n')
+                    f'HETATM {i+1:>4}{atom.atom_name:>4} QUP     1{x:12.3f}{y:8.3f}{z:8.3f}'
+                    f'  1.00  0.00         {atom.atomic_symbol.upper():>3}\n')
 
             # Now add the connection terms
             for node in self.topology.nodes:

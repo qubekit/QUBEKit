@@ -61,7 +61,7 @@ def main():
             printf('Writing pdb file with connections...')
             pro.write_pdb(name=f'QUBE_pro_{pro_name}')
             printf('Writing XML file for the system...')
-            pro.write_parameters(name=f'QUBE_pro_{pro_name}', is_protein=True)
+            pro.write_parameters(name=f'QUBE_pro_{pro_name}')
             # now remove the qube general file
             os.remove('QUBE_general_pi.xml')
             printf('Done')
