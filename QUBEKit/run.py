@@ -574,7 +574,7 @@ class Execute:
         stage_dict = {
             'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
             'mm_optimise': ['Partially optimising with MM', 'Partial optimisation complete'],
-            'qm_optimise': ['Optimising molecule, view .xyz file for progress', 'Molecule optimisation complete'],
+            'qm_optimise': ['Optimising molecule with QM', 'Molecule optimisation complete'],
             'hessian': ['Calculating Hessian matrix', 'Hessian matrix calculated and confirmed to be symmetric'],
             'mod_sem': ['Calculating bonds and angles with modified Seminario method',
                         'Bond and angle parameters calculated'],

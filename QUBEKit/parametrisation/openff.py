@@ -36,7 +36,7 @@ class OpenFF(Parametrisation):
         # Make the OpenMM system
         off_topology = off_molecule.to_topology()
 
-        forcefield = ForceField('openff-1.0.0.offxml')
+        forcefield = ForceField('openff_unconstrained-1.0.0.offxml')
 
         try:
             # Parametrise the topology and create an OpenMM System.
