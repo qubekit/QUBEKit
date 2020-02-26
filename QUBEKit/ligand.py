@@ -123,6 +123,7 @@ class DefaultsMixin:
 
         self.chargemol = '/home/<QUBEKit_user>/chargemol_09_26_2017'
         self.log = 999
+        # Internal for QUBEKit testing
         self.testing = False
 
 
@@ -249,10 +250,10 @@ class Molecule:
         self.atom_symmetry_classes = None
         self.verbose = True
 
-        # Read mol_input and generate mol info from file, smiles string or qc_json.
         if self.is_protein:
             return
 
+        # Read mol_input and generate mol info from file, smiles string or qc_json.
         self.read_input()
         self.check_names_are_unique()
 
@@ -1331,6 +1332,12 @@ class Protein(DefaultsMixin, Molecule):
     """
 
     def __init__(self, mol_input, name=None, is_protein=True):
+        """
+        pdb_names
+        residues        List of all residues in the molecule in order e.g. ['ARG', 'HIS', ... ]
+        Residues        List of residue names for each atom e.g. ['ARG', 'ARG', 'ARG', ... 'HIS', 'HIS', ... ]
+        home            Current working directory (location for QUBEKit execution).
+        """
 
         super().__init__(mol_input, name, is_protein)
 

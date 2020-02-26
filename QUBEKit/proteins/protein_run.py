@@ -3,7 +3,7 @@
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Protein
 from QUBEKit.parametrisation import XMLProtein
-from QUBEKit.protein_tools import get_water, pdb_reformat, qube_general
+from QUBEKit.proteins.protein_tools import get_water, pdb_reformat, qube_general
 
 import argparse
 from functools import partial

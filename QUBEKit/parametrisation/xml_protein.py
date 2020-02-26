@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 
 @for_all_methods(timer_logger)
 class XMLProtein(Parametrisation):
-    """Read in the parameters for a protein from the QUBEKit_general XML file and store them into the protein."""
+    """Read in the parameters for a proteins from the QUBEKit_general XML file and store them into the proteins."""
 
     def __init__(self, protein, input_file='QUBE_general_pi.xml', fftype='CM1A/OPLS'):
 

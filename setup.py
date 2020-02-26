@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -22,7 +22,7 @@ setup(
         'console_scripts': [
             'QUBEKit = QUBEKit.run:main',
             'qubekit = QUBEKit.run:main',
-            'QUBEKit-pro = QUBEKit.protein_run:main',
+            'QUBEKit-pro = QUBEKit.proteins.protein_run:main',
             'QUBEKit-gui = QUBEKit.GUI.gui:main'
         ]
     },

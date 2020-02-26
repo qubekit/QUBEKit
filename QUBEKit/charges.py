@@ -8,6 +8,8 @@ from QUBEKit.utils.constants import ANGS_TO_M, BOHR_TO_ANGS, ELECTRON_CHARGE, J_
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import extract_charge_data
 
+import math
+
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
@@ -41,13 +43,15 @@ class Charges:
 
         self.ddec_data, self.dipole_moment_data, self.quadrupole_moment_data = extract_charge_data(self.molecule.ddec_version)
 
+        # TODO Convert to numpy arrays!
         # List of tuples where each tuple is the xyz atom coords, followed by their partial charge
-        self.atom_points = []
-        # List of tuples where each tuple is the xyz esp coords, followed by the esp value
-        self.esp_points = []
+        self.atom_points = [(*coord, atom.partial_charge)       # (x, y, z, q)
+                            for coord, atom in zip(self.molecule.coords['qm'], self.molecule.atoms)]
 
-        self.generate_esp_data_molecule()
-        self.generate_atom_plot_points()
+        # List of tuples where each tuple is the xyz esp coords, followed by the esp value
+        self.esp_points = [points for atom_index in range(len(self.molecule.coords['qm']))
+                           for points in self.generate_esp_data_atom(atom_index)]
+
         self.plot()
 
     @staticmethod
@@ -147,48 +151,48 @@ class Charges:
         atom_coords = self.molecule.coords['qm'][atom_index]
 
         # TODO These need to be set more intelligently.
-        min_points_per_shell = 8
-        shells = 4
+        min_points_per_shell = 16
+        shells = 5
 
         # TODO Change sample points to np array?
         sample_points = []
 
         mono_esp_tot, dipo_esp_tot, quad_esp_tot = 0, 0, 0
 
+        increment = PI * (3 - math.sqrt(5))
+
         for shell in range(1, shells + 1):
-            # (* shell) scales the number of points per shell by the radius squared.
-            # This creates a more uniform sparsity
-            points_in_shell = min_points_per_shell * shell
-            for theta in range(points_in_shell):
-                for phi in range(points_in_shell):
-                    relative_sample_coords = Charges.spherical_to_cartesian((
-                        # TODO Should vdw_radius be the inner-most shell or the outer-most?
-                        shell * vdw_radius,
-                        (2 * PI * theta) / points_in_shell,
-                        (2 * PI * phi) / points_in_shell
-                    ))
-                    # relative coords are centred around an arbitrary sphere at (0, 0, 0).
-                    # Move them to their absolute position around the atom coords
-                    sample_coords = relative_sample_coords + atom_coords
+            points_in_shell = min_points_per_shell * shell ** 2
 
-                    # Absolute distance between sample coords and atom coords
-                    dist = Charges.xyz_distance(sample_coords, atom_coords)
-                    # Distance vector between sample coords and atom coords (caching result saves time)
-                    dist_vector = sample_coords - atom_coords
+            for i in range(points_in_shell):
+                y = ((i * 2) / points_in_shell - 1) + 1 / points_in_shell
+                r = math.sqrt(1 - pow(y, 2)) * shell * vdw_radius
 
-                    mono_esp = Charges.monopole_esp(charge, dist)
-                    dip_esp = Charges.dipole_esp(dist_vector, dipole_moment, dist)
+                phi = ((i + 1) % points_in_shell) * increment
 
-                    m_tensor = Charges.quadrupole_moment_tensor(*quad_data.values())
-                    quad_esp = Charges.quadrupole_esp(dist_vector, m_tensor, dist)
+                x = np.cos(phi) * r
+                z = np.sin(phi) * r
 
-                    mono_esp_tot += mono_esp
-                    dipo_esp_tot += abs(dip_esp)
-                    quad_esp_tot += abs(quad_esp + dip_esp)
+                relative_sample_coords = np.array([x, y, z])
+                sample_coords = relative_sample_coords + atom_coords
 
-                    v_total = mono_esp + dip_esp + quad_esp
+                dist = Charges.xyz_distance(sample_coords, atom_coords)
+                # Distance vector between sample coords and atom coords (caching result saves time)
+                dist_vector = sample_coords - atom_coords
 
-                    sample_points.append((*sample_coords, v_total))
+                mono_esp = Charges.monopole_esp(charge, dist)
+                dip_esp = Charges.dipole_esp(dist_vector, dipole_moment, dist)
+
+                m_tensor = Charges.quadrupole_moment_tensor(*quad_data.values())
+                quad_esp = Charges.quadrupole_esp(dist_vector, m_tensor, dist)
+
+                mono_esp_tot += mono_esp
+                dipo_esp_tot += abs(dip_esp)
+                quad_esp_tot += abs(quad_esp + dip_esp)
+
+                v_total = mono_esp + dip_esp + quad_esp
+
+                sample_points.append((*sample_coords, v_total))
 
         n_points = len(sample_points)
 
@@ -198,24 +202,6 @@ class Charges:
         print(f'Q: {(quad_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ')
 
         return sample_points
-
-    def generate_esp_data_molecule(self):
-        """
-        Fill esp_points list; this is a list of tuples where each tuple is an xyz coord followed by the ESP at that point.
-        This can then be used to colour the point with matplotlib.
-        The list of esp_points is for all atoms in self.molecule.
-        """
-        for atom_index in range(len(self.molecule.coords['qm'])):
-            self.esp_points.extend(self.generate_esp_data_atom(atom_index))
-
-    def generate_atom_plot_points(self):
-        """
-        Small helper for clearer plotting (below).
-        Populates the atom_points list which is just a list of tuples (x, y, z, q)
-        where xyz are the atom coords and q is the atom's partial charge.
-        """
-        self.atom_points = [(*coord, atom.partial_charge)       # (x, y, z, q)
-                            for coord, atom in zip(self.molecule.coords['qm'], self.molecule.atoms)]
 
     def plot(self):
         """
@@ -251,6 +237,9 @@ class Charges:
 
 class FitCharges:
     """
+    Using the sample points generated from the Charges class:
+        * Minimise average_over_points(abs(Vmm-Vqm))
+        * Move the off-site charge to its optimised position.
 
     """
     pass
