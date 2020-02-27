@@ -126,6 +126,7 @@ class Charges:
         For a given atom at <atom_index>:
             * Extract the relevant data such as partial charge
             * Produce a shell of points around that atom.
+                * This uses fibonacci spirals to produce an even spacing of points on a sphere
             * For each point in the shell:
                 * Calculate the monopole, dipole and quadrupole esp
                 * Sum them
