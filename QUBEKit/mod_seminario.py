@@ -181,7 +181,9 @@ class ModSeminario:
         self.calculate_angles(eigenvals, eigenvecs)
 
     def calculate_angles(self, eigenvals, eigenvecs):
-        """Uses the modified Seminario method to find the angle parameters and prints them to file."""
+        """
+        Uses the modified Seminario method to find the angle parameters and prints them to file.
+        """
 
         # A structure is created with the index giving the central atom of the angle;
         # an array then lists the angles with that central atom.
@@ -279,7 +281,9 @@ class ModSeminario:
                 self.molecule.HarmonicAngleForce[angle] = [theta_0[i] * constants.DEG_TO_RAD, k_theta[i] * conversion]
 
     def calculate_bonds(self, eigenvals, eigenvecs):
-        """Uses the modified Seminario method to find the bond parameters and print them to file."""
+        """
+        Uses the modified Seminario method to find the bond parameters and print them to file.
+        """
 
         bonds = self.molecule.topology.edges
         conversion = constants.KCAL_TO_KJ * 200
@@ -301,3 +305,33 @@ class ModSeminario:
 
                 # Add ModSem values to ligand object.
                 self.molecule.HarmonicBondForce[bond] = [bond_len_list[pos] / 10, conversion * k_b[pos]]
+
+    def symmetrise_bonded_parameters(self):
+        """
+        Apply symmetry to the bonded parameters stored in the molecule based on types from rdkit.
+        """
+
+        if self.molecule.bond_types is None:
+            return
+
+        # Collect all of the bond values from the HarmonicBondForce dict
+        for bonds in self.molecule.bond_types.values():
+            bond_lens, bond_forces = zip(*[self.molecule.HarmonicBondForce[bond] for bond in bonds])
+
+            # Average
+            bond_lens, bond_forces = sum(bond_lens) / len(bond_lens), sum(bond_forces) / len(bond_forces)
+
+            # Replace with averaged values
+            for bond in bonds:
+                self.molecule.HarmonicBondForce[bond] = [bond_lens, bond_forces]
+
+        # Collect all of the angle values from the HarmonicAngleForce dict
+        for angles in self.molecule.angle_types.values():
+            angle_vals, angle_forces = zip(*[self.molecule.HarmonicAngleForce[angle] for angle in angles])
+
+            # Average
+            angle_vals, angle_forces = sum(angle_vals) / len(angle_vals), sum(angle_forces) / len(angle_forces)
+
+            # Replace with averaged values
+            for angle in angles:
+                self.molecule.HarmonicAngleForce[angle] = [angle_vals, angle_forces]

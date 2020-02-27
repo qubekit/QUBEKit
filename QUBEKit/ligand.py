@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
 
+# TODO Ligand Refactor:
+#   DO:
+#       Move file handling elsewhere (to utils?)
+#       Move module-specific methods such as openmm_coordinates(); read_tdrive(); read_geometric_traj
+#           to their relevant files/classes
+#       Fix naming; consistency wrt get/find; clarity on all of the dihedral variables
+#           (what is dih_start, how is it different to di_starts etc)
+#       Ensure complete docstring coverage
+#   CONSIDER:
+#       Add typing; especially for class variables
+#           Careful wrt complex variables such as coords, atoms, etc
+#       Remove / replace DefaultsMixin with inheritance, dict or some other solution
+#       Remove any repeated or unnecessary variables
+#           Should state be handled in ligand or run?
+#           Should testing be handled in ligand or tests?
+#           Is is_protein necessary when the name of the class should suffice?
+#       Change the structure and type of some variables for clarity
+#           Should coords actually be a class instead of a dict?
+#           Do we access via index too often; should we use e.g. SimpleNamespaces/NamedTupleS?
+#       Split ligand.py into a package with three+ files:
+#           base/defaults/configs.py; ligand.py; protein.py (where should Atom() go?)
+#       Be more strict about public/private class/method/function naming?
+
 from QUBEKit.engines import Element, RDKit
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
@@ -807,42 +830,13 @@ class Molecule:
 
         self.angle_values = angle_values or None
 
-    def symmetrise_bonded_parameters(self):
-        """
-        Apply symmetry to the parameters stored in the molecule based on types from rdkit.
-        """
-
-        if self.bond_types is not None:
-
-            # Collect all of the bond values from the HarmonicBondForce dict
-            for bonds in self.bond_types.values():
-                bond_lens, bond_forces = zip(*[self.HarmonicBondForce[bond] for bond in bonds])
-
-                # Average
-                bond_lens, bond_forces = sum(bond_lens) / len(bond_lens), sum(bond_forces) / len(bond_forces)
-
-                # Replace with averaged values
-                for bond in bonds:
-                    self.HarmonicBondForce[bond] = [bond_lens, bond_forces]
-
-            # Collect all of the angle values from the HarmonicAngleForce dict
-            for angles in self.angle_types.values():
-                angle_vals, angle_forces = zip(*[self.HarmonicAngleForce[angle] for angle in angles])
-
-                # Average
-                angle_vals, angle_forces = sum(angle_vals) / len(angle_vals), sum(angle_forces) / len(angle_forces)
-
-                # Replace with averaged values
-                for angle in angles:
-                    self.HarmonicAngleForce[angle] = [angle_vals, angle_forces]
-
     def write_parameters(self, name=None):
         """
         Take the molecule's parameter set and write an xml file for the molecule.
         """
 
         # First build the xml tree
-        self.build_tree()
+        self._build_tree()
 
         tree = self.xml_tree.getroot()
         messy = ET.tostring(tree, 'utf-8')
@@ -852,7 +846,7 @@ class Molecule:
         with open(f'{name if name is not None else self.name}.xml', 'w+') as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
-    def build_tree(self):
+    def _build_tree(self):
         """
         Separates the parameters and builds an xml tree ready to be used.
         """
@@ -1132,7 +1126,7 @@ class Molecule:
 
         return new_classes
 
-    def symmetrise_from_topo(self):
+    def symmetrise_from_topology(self):
         """
         First, if rdkit_mol has been generated, get the bond and angle symmetry dicts.
         These will be used by L-J and the Harmonic Bond/Angle params
@@ -1153,7 +1147,7 @@ class Molecule:
             self.get_bond_equiv_classes()
             self.get_angle_equiv_classes()
 
-            if self.dihedrals:
+            if self.dihedrals is not None:
                 self.get_dihedral_equiv_classes()
 
         methyl_hs, amine_hs, other_hs = [], [], []
@@ -1297,7 +1291,7 @@ class Ligand(DefaultsMixin, Molecule):
             self.get_dihedral_values()
             self.find_bond_lengths()
             self.get_angle_values()
-            self.symmetrise_from_topo()
+            self.symmetrise_from_topology()
 
     def write_pdb(self, input_type='input', name=None):
         """
@@ -1416,7 +1410,7 @@ class Protein(DefaultsMixin, Molecule):
             self.get_dihedral_values()
             self.find_bond_lengths()
             self.get_angle_values()
-            self.symmetrise_from_topo()
+            self.symmetrise_from_topology()
 
         # TODO What if there are two or more of the same residue back to back?
         #   Need to store the number of atoms in each amino acid and use that to check instead.
@@ -1462,4 +1456,4 @@ class Protein(DefaultsMixin, Molecule):
         self.get_angle_values(input_type)
         self.find_impropers()
         # this creates the dictionary of terms that should be symmetrise
-        self.symmetrise_from_topo()
+        self.symmetrise_from_topology()

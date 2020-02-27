@@ -856,9 +856,10 @@ class Execute:
 
         append_to_log('Starting mod_Seminario method')
 
-        ModSeminario(molecule).modified_seminario_method()
+        mod_sem = ModSeminario(molecule)
 
-        molecule.symmetrise_bonded_parameters()
+        mod_sem.modified_seminario_method()
+        mod_sem.symmetrise_bonded_parameters()
 
         append_to_log('Finishing Mod_Seminario method')
 
