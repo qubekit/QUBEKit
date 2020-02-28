@@ -16,19 +16,23 @@ class RDKit:
     """Class for controlling useful RDKit functions."""
 
     @staticmethod
-    def read_file(filename):
+    def mol_input_to_rdkit_mol(mol_input, name):
         """
-        :param filename: os.Path of the filename provided.
+        :param mol_input: os.Path of the filename provided or the smiles string
         :return: RDKit molecule object generated from its file (or None if incorrect file type is provided).
         """
+        # Interpret the smiles string
+        if isinstance(mol_input, str):
+            return RDKit.smiles_to_rdkit_mol(mol_input, name)
 
-        # Try to read the file
-        if filename.suffix == '.pdb':
-            return Chem.MolFromPDBFile(filename.name, removeHs=False)
-        elif filename.suffix == '.mol2':
-            return Chem.MolFromMol2File(filename.name, removeHs=False)
-        elif filename.suffix == '.mol':
-            return Chem.MolFromMolFile(filename.name, removeHs=False)
+        # Read the file
+        if mol_input.suffix == '.pdb':
+            return Chem.MolFromPDBFile(mol_input.name, removeHs=False)
+        elif mol_input.suffix == '.mol2':
+            return Chem.MolFromMol2File(mol_input.name, removeHs=False)
+        elif mol_input.suffix == '.mol':
+            return Chem.MolFromMolFile(mol_input.name, removeHs=False)
+
         return None
 
     @staticmethod

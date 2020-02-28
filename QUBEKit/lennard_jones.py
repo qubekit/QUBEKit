@@ -7,10 +7,12 @@
 from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import CustomNamespace
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
+from QUBEKit.utils.file_handling import read_input
 from QUBEKit.utils.helpers import check_net_charge, extract_charge_data, set_net
 
 from collections import OrderedDict, namedtuple
 import decimal
+from pathlib import Path
 import os
 
 import numpy as np
@@ -291,7 +293,8 @@ class LennardJones:
 
         # load in the xyz file into the molecule into temp so we can work in the new coords
         # this will strip out the virtual sites though
-        self.molecule.read_file(extra_points_file, input_type='temp')
+        _, _, coords = read_input(Path(extra_points_file))
+        self.molecule.coords['temp'] = coords
         with open(extra_points_file) as xyz_sites:
             lines = xyz_sites.readlines()
 

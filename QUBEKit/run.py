@@ -19,6 +19,7 @@ from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.display import display_molecule_objects, pretty_print, pretty_progress
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
+from QUBEKit.utils.file_handling import read_input
 from QUBEKit.utils.helpers import append_to_log, generate_bulk_csv, make_and_change_into, mol_data_from_csv, unpickle, \
     update_ligand
 
@@ -27,6 +28,7 @@ from collections import OrderedDict
 from datetime import datetime
 from functools import partial
 import os
+from pathlib import Path
 from shutil import copy, move
 import subprocess as sp
 import sys
@@ -516,7 +518,7 @@ class Execute:
             self.molecule.home = os.getcwd()
 
         # Find external files
-        copy_files = [f'{self.molecule.name}.xml', self.molecule.filename]
+        copy_files = [f'{self.molecule.name}.xml', f'{self.molecule.name}.pdb']
         for file in copy_files:
             try:
                 copy(f'../{file}', file)
@@ -724,11 +726,9 @@ class Execute:
                            f'{molecule.constraints_file if molecule.constraints_file is not None else ""}',
                            shell=True, stdout=log, stderr=log)
 
-                # This will continue even if we don't converge this is fine
-                # Read the xyz traj and store the frames
-                molecule.read_file(f'{molecule.name}_optim.xyz', input_type='traj')
-                # Store the last from the traj as the mm optimised structure
-                molecule.coords['mm'] = molecule.coords['traj'][-1]
+                _, _, _, coords = read_input(Path(f'{molecule.name}_optim.xyz'))
+                molecule.coords['traj'] = coords
+                molecule.coords['mm'] = coords[-1]
 
         else:
             # TODO change to qcengine as this can already be done

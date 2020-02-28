@@ -4,12 +4,14 @@ from QUBEKit.engines import Gaussian, OpenMM, PSI4, RDKit
 from QUBEKit.utils import constants
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.exceptions import TorsionDriveFailed
+from QUBEKit.utils.file_handling import read_input
 from QUBEKit.utils.helpers import make_and_change_into
 
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime
 import math
+from pathlib import Path
 import os
 from shutil import rmtree
 import subprocess as sp
@@ -1275,7 +1277,7 @@ class TorsionOptimiser:
                 sp.run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb '
                        '--openmm state.xml qube_constraints.txt', shell=True, stdout=log, stderr=log, check=True)
 
-                positions = self.molecule.read_xyz('scan.xyz')
+                _, _, _, positions = read_input(Path('scan.xyz'))
 
             else:
                 raise NotImplementedError('Invalid torsion engine. Please use torsiondrive or geometric')

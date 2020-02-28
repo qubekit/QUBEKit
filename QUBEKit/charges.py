@@ -72,7 +72,7 @@ class Charges:
         return np.linalg.norm(point1 - point2)
 
     @staticmethod
-    def monopole_esp(charge, dist):
+    def monopole_esp_one_charge(charge, dist):
         """
         Calculate the esp from a monopole at a given distance
         :param charge: charge at atom centre
@@ -82,6 +82,10 @@ class Charges:
         """
         return (charge * ELECTRON_CHARGE * ELECTRON_CHARGE) / (
                 4 * PI * VACUUM_PERMITTIVITY * dist)
+
+    @staticmethod
+    def monopole_esp_charges(charge1, charge2, dist1, dist2):
+        return
 
     @staticmethod
     def dipole_esp(dist_vector, dipole_moment, dist):
@@ -181,7 +185,7 @@ class Charges:
                 # Distance vector between sample coords and atom coords (caching result saves time)
                 dist_vector = sample_coords - atom_coords
 
-                mono_esp = Charges.monopole_esp(charge, dist)
+                mono_esp = Charges.monopole_esp_one_charge(charge, dist)
                 dip_esp = Charges.dipole_esp(dist_vector, dipole_moment, dist)
 
                 m_tensor = Charges.quadrupole_moment_tensor(*quad_data.values())
@@ -189,7 +193,7 @@ class Charges:
 
                 mono_esp_tot += mono_esp
                 dipo_esp_tot += abs(dip_esp)
-                quad_esp_tot += abs(quad_esp + dip_esp)
+                quad_esp_tot += abs(quad_esp)
 
                 v_total = mono_esp + dip_esp + quad_esp
 

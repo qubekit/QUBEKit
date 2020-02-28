@@ -1,31 +1,32 @@
 #!/usr/bin/env python3
-
-# TODO Ligand Refactor:
-#   DO:
-#       Move file handling elsewhere (to utils?)
-#       Move module-specific methods such as openmm_coordinates(); read_tdrive(); read_geometric_traj
-#           to their relevant files/classes
-#       Fix naming; consistency wrt get/find; clarity on all of the dihedral variables
-#           (what is dih_start, how is it different to di_starts etc)
-#       Ensure complete docstring coverage
-#   CONSIDER:
-#       Add typing; especially for class variables
-#           Careful wrt complex variables such as coords, atoms, etc
-#       Remove / replace DefaultsMixin with inheritance, dict or some other solution
-#       Remove any repeated or unnecessary variables
-#           Should state be handled in ligand or run?
-#           Should testing be handled in ligand or tests?
-#           Is is_protein necessary when the name of the class should suffice?
-#       Change the structure and type of some variables for clarity
-#           Should coords actually be a class instead of a dict?
-#           Do we access via index too often; should we use e.g. SimpleNamespaces/NamedTupleS?
-#       Split ligand.py into a package with three+ files:
-#           base/defaults/configs.py; ligand.py; protein.py (where should Atom() go?)
-#       Be more strict about public/private class/method/function naming?
+"""
+TODO Ligand Refactor:
+    DO:
+        Move ALL file handling elsewhere (most to file_handling.py, but elsewhere where relevant)
+        Move module-specific methods such as openmm_coordinates(); read_tdrive(); read_geometric_traj
+            to their relevant files/classes
+        Fix naming; consistency wrt get/find; clarity on all of the dihedral variables
+            (what is dih_start, how is it different to di_starts etc)
+        Ensure complete docstring coverage
+    CONSIDER:
+        Add typing; especially for class variables
+            Careful wrt complex variables such as coords, atoms, etc
+        Remove / replace DefaultsMixin with inheritance, dict or some other solution
+        Remove any repeated or unnecessary variables
+            Should state be handled in ligand or run?
+            Should testing be handled in ligand or tests?
+            Is is_protein necessary when the name of the class should suffice?
+        Change the structure and type of some variables for clarity
+            Should coords actually be a class instead of a dict?
+            Do we access via index too often; should we use e.g. SimpleNamespaces/NamedTupleS?
+        Split ligand.py into a package with three+ files:
+            base/defaults/configs.py; ligand.py; protein.py (where should Atom() go?)
+        Be more strict about public/private class/method/function naming?
+"""
 
 from QUBEKit.engines import Element, RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
+from QUBEKit.utils.file_handling import read_input
 
 from collections import OrderedDict
 from datetime import datetime
@@ -40,51 +41,6 @@ import numpy as np
 
 from xml.dom.minidom import parseString
 import xml.etree.ElementTree as ET
-
-
-class Atom:
-    """
-    Class to hold all of the "per atom" information.
-    All atoms in Molecule will have an instance of this Atom class to describe their properties.
-    """
-
-    def __init__(self, atomic_number, atom_index, atom_name='', partial_charge=None, formal_charge=None):
-
-        self.atomic_number = atomic_number
-        self.atomic_mass = Element().mass(atomic_number)
-        # The actual atomic symbol as per periodic table e.g. C, F, Pb, etc
-        self.atomic_symbol = Element().name(atomic_number).title()
-        # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
-        self.atom_name = atom_name
-        self.atom_index = atom_index
-        self.partial_charge = partial_charge
-        self.formal_charge = formal_charge
-        self.atom_type = None
-        self.bonds = []
-
-    def add_bond(self, bonded_index):
-        """
-        Add a bond to the atom, this will make sure the bond has not already been described
-        :param bonded_index: The index of the atom bonded to self
-        """
-
-        if bonded_index not in self.bonds:
-            self.bonds.append(bonded_index)
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.__dict__!r})'
-
-    def __str__(self):
-        """
-        Prints the Atom class objects' names and values one after another with new lines between each.
-        """
-
-        return_str = ''
-        for key, val in self.__dict__.items():
-            # Return all objects as {atom object name} = {atom object value(s)}.
-            return_str += f'\n{key} = {val}\n'
-
-        return return_str
 
 
 class DefaultsMixin:
@@ -156,9 +112,6 @@ class Molecule:
     def __init__(self, mol_input, name=None, is_protein=False):
         """
         # Namings
-        smiles                  str; SMILES string for the molecule e.g. 'c1cc[nH]c1'
-        filename                str; Full filename e.g. methane.pdb
-        qc_json                 json dict; QC json data. Only used if loading from qcarchive/portal
         name                    str; Molecule name e.g. 'methane'
         is_protein              bool; whether or not the molecule is a protein
 
@@ -214,19 +167,11 @@ class Molecule:
         restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
 
-        self.mol_input = mol_input
-        self.name = name
+        self.mol_input = Path(mol_input) if Path(mol_input).exists() else mol_input
         self.is_protein = is_protein
 
-        # The three possible input types; these are set in read_input() (unless it's a protein)
-        self.filename = Path(mol_input) if is_protein else None
-        self.smiles = None
-        self.qc_json = None
-
-        self.rdkit_mol = None
-
         # Structure
-        self.coords = {'qm': [], 'mm': [], 'input': [], 'temp': [], 'traj': []}
+        self.coords = {'input': [], 'mm': [], 'qm': [], 'temp': [], 'traj': []}
         self.topology = None
         self.angles = None
         self.dihedrals = None
@@ -277,8 +222,9 @@ class Molecule:
             return
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
-        self.read_input()
-        self.check_names_are_unique()
+        self.name, self.topology, self.atoms, self.coords['input'] = read_input(self.mol_input, name)
+
+        self.rdkit_mol = RDKit.mol_input_to_rdkit_mol(self.mol_input, self.name)
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -327,329 +273,53 @@ class Molecule:
 
         return return_str
 
-    def read_input(self):
-        """
-        The base input reader used upon class instantiation; it will decide how to handle the input
-        based on the file suffix, smiles string or qc_json.
-        """
-
-        # Molecule classes are used by qc_json
-        if self.mol_input.__class__.__name__ == 'Molecule':
-            self.qc_json = self.mol_input
-            self._read_qc_json()
-
-        # Check if a file that exists is passed
-        elif Path(self.mol_input).exists():
-            self.filename = Path(self.mol_input)
-            self.name = self.filename.stem
-            self.read_file(self.filename, input_type='input')
-
-        # If it's a string, and doesn't contain '.' (not a file that doesn't exist) then it's a smiles string
-        elif isinstance(self.mol_input, str) and '.' not in self.mol_input:
-            self.smiles = self.mol_input
-            self.rdkit_mol = RDKit.smiles_to_rdkit_mol(self.smiles, name=self.name)
-            self.mol_from_rdkit(self.rdkit_mol, input_type='input')
-
-        else:
-            raise RuntimeError('Cannot parse input. A valid file type, smiles string or qc json must be provided.')
-
-    def read_file(self, input_file, input_type):
-        """
-        A general file reader that should not be used to instantiate the class.
-        Attempts to read file with rdkit, if that fails, QUBEKit file readers are used instead.
-        :param input_file: The name of the file to be read
-        :param input_type: The type of coordinates it contains ie QM geometry/ MM geometry
-        :return: An updated ligand object if the topology matches.
-        """
-
-        input_file = Path(input_file)
-        try:
-            rdkit_mol = RDKit.read_file(input_file)
-            self.mol_from_rdkit(rdkit_mol, input_type=input_type)
-        except AttributeError:
-            if input_type == 'input':
-                print('Could not create ligand from RDKit using default readers')
-            if input_file.suffix == '.pdb':
-                self.read_pdb(input_file, input_type=input_type)
-            elif input_file.suffix == '.mol2':
-                self.read_mol2(input_file, input_type=input_type)
-            elif input_file.suffix == '.xyz':
-                self.read_xyz(input_file, input_type=input_type)
-            else:
-                raise FileTypeError('Unsupported file type.')
-
-    def check_names_are_unique(self):
-        """
-        To prevent problems occurring with some atoms perceived to be the same,
-        check the atom names to ensure they are all unique.
-        If some are the same, reset all atom names to be: f'{atomic_symbol}{index}'.
-        This ensure they are all unique.
-        """
-
-        atom_names = [atom.atom_name for atom in self.atoms]
-        # If some atom names aren't unique
-        if len(set(atom_names)) < len(atom_names):
-            # Change the atom name only; everything else is the same as it was.
-            self.atoms = [
-                Atom(
-                    atomic_number=atom.atomic_number,
-                    atom_index=atom.atom_index,
-                    atom_name=f'{atom.atomic_symbol}{i}',
-                    partial_charge=atom.partial_charge,
-                    formal_charge=atom.formal_charge
-                )
-                for i, atom in enumerate(self.atoms)
-            ]
-
-    def mol_from_rdkit(self, rdkit_molecule, input_type='input'):
-        """
-        Unpack a RDKit molecule into the QUBEKit ligand if instance else just load a valid set of coordinates
-        :param rdkit_molecule: The rdkit molecule instance
-        :param input_type: Where the coordinates should be stored
-        :return: The ligand object with the internal structures if instance
-        """
-
-        topology = nx.Graph()
-        atoms = []
-
-        if self.name is None:
-            self.name = rdkit_molecule.GetProp('_Name')
-        # Collect the atom names and bonds
-        for atom in rdkit_molecule.GetAtoms():
-            # Collect info about each atom
-            atomic_number = atom.GetAtomicNum()
-            index = atom.GetIdx()
-            try:
-                # PDB file extraction
-                atom_name = atom.GetMonomerInfo().GetName().strip()
-            except AttributeError:
-                try:
-                    # Mol2 file extraction
-                    atom_name = atom.GetProp('_TriposAtomName')
-                except KeyError:
-                    # smiles and mol files have no atom names so generate them here if they are not declared
-                    atom_name = f'{atom.GetSymbol()}{index}'
-
-            qube_atom = Atom(atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge())
-
-            # Instance the basic qube_atom
-            qube_atom.atom_type = atom.GetSmarts()
-
-            # Add the atoms as nodes
-            topology.add_node(atom.GetIdx())
-
-            # Add the bonds
-            for bonded in atom.GetNeighbors():
-                topology.add_edge(atom.GetIdx(), bonded.GetIdx())
-                qube_atom.add_bond(bonded.GetIdx())
-
-            # Now add the atom to the molecule
-            atoms.append(qube_atom)
-
-        # Now get the coordinates
-        coords = rdkit_molecule.GetConformer().GetPositions()
-
-        # Now get any descriptors we can find
-        descriptors = RDKit.rdkit_descriptors(rdkit_molecule)
-
-        self._validate_info(topology, atoms, coords, input_type, rdkit_molecule, descriptors)
-
-    def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule=None, descriptors=None):
-        """
-        Check if the provided information should be stored or not
-        :param topology: networkx graph of the topology
-        :param atoms: a list of Atom objects
-        :param coords: a numpy array of the coords
-        :param rdkit_molecule: the rdkit molecule we have extracted the info from
-        :param descriptors: a dictionary of the rdkit descriptors
-        :return: the updated ligand object
-        """
-
-        # Now check we instancing the ligand if we are then store the info
-        if input_type == 'input':
-            self.topology = topology
-            self.atoms = atoms
-            self.descriptors = descriptors
-            self.coords[input_type] = coords
-            self.rdkit_mol = rdkit_molecule
-        else:
-            # Check if the new topology is the same then store the new coordinates
-            if nx.algorithms.is_isomorphic(self.topology, topology):
-                self.coords[input_type] = coords
-            else:
-                raise TopologyMismatch('Topologies are not the same; cannot store coordinates.')
-
-    def read_pdb(self, input_file, input_type='input'):
-        """
-        Reads the input PDB file to find the ATOM or HETATM tags, extracts the elements and xyz coordinates.
-        Then reads through the connection tags and builds a connectivity network
-        (only works if connections are present in PDB file).
-        Bonds are easily found through the edges of the network.
-        """
-
-        molecule = []
-        topology = nx.Graph()
-        atoms = []
-
-        atom_count = 0
-
-        with open(input_file, 'r') as pdb:
-
-            for line in pdb:
-                if 'ATOM' in line or 'HETATM' in line:
-                    # start collecting the atom class info
-                    atomic_symbol = str(line[76:78])
-                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
-                    atomic_symbol = atomic_symbol.strip()
-                    atom_name = str(line.split()[2])
-
-                    # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
-                    if not atomic_symbol:
-                        atomic_symbol = str(line.split()[2])[:-1]
-                        atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
-
-                    atomic_number = Element().number(atomic_symbol)
-                    # Now instance the qube atom
-                    qube_atom = Atom(atomic_number, atom_count, atom_name)
-                    atoms.append(qube_atom)
-
-                    # Also add the atom number as the node in the graph
-                    topology.add_node(atom_count)
-                    atom_count += 1
-                    molecule.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
-
-                if 'CONECT' in line:
-                    atom_index = int(line.split()[1]) - 1
-                    # Search the connectivity section and add all edges to the graph corresponding to the bonds.
-                    for i in range(2, len(line.split())):
-                        if int(line.split()[i]) != 0:
-                            bonded_index = int(line.split()[i]) - 1
-                            topology.add_edge(atom_index, bonded_index)
-                            atoms[atom_index].add_bond(bonded_index)
-                            atoms[bonded_index].add_bond(atom_index)
-
-        # put the object back into the correct place
-        coords = np.array(molecule)
-        self._validate_info(topology, atoms, coords, input_type)
-
-    def read_mol2(self, input_file, input_type='input'):
-        """
-        Read an input mol2 file and extract the atom names, positions, atom types and bonds.
-        :param input_file:
-        :param input_type: Assign the structure to right holder, input, mm, qm, temp or traj.
-        :return: The object back into the right place.
-        """
-
-        molecule = []
-        topology = nx.Graph()
-        atoms = []
-
-        atom_count = 0
-
-        with open(input_file, 'r') as mol2:
-
-            atom_flag = False
-            bond_flag = False
-
-            for line in mol2:
-                if '@<TRIPOS>ATOM' in line:
-                    atom_flag = True
-                    continue
-                elif '@<TRIPOS>BOND' in line:
-                    atom_flag = False
-                    bond_flag = True
-                    continue
-                elif '@<TRIPOS>SUBSTRUCTURE' in line:
-                    bond_flag = False
-                    continue
-
-                if atom_flag:
-                    # Add the molecule information
-                    atomic_symbol = line.split()[1][:2]
-                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
-                    atomic_symbol = atomic_symbol.strip().title()
-
-                    atomic_number = Element().number(atomic_symbol)
-
-                    molecule.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
-
-                    # Collect the atom names
-                    atom_name = str(line.split()[1])
-
-                    # Add the nodes to the topology object
-                    topology.add_node(atom_count)
-                    atom_count += 1
-
-                    # Get the atom types
-                    atom_type = line.split()[5]
-                    atom_type = atom_type.replace(".", "")
-
-                    # Make the qube_atom
-                    qube_atom = Atom(atomic_number, atom_count, atom_name)
-                    qube_atom.atom_type = atom_type
-
-                    atoms.append(qube_atom)
-
-                if bond_flag:
-                    # Add edges to the topology network
-                    atom_index, bonded_index = int(line.split()[1]) - 1, int(line.split()[2]) - 1
-                    topology.add_edge(atom_index, bonded_index)
-                    atoms[atom_index].add_bond(bonded_index)
-                    atoms[bonded_index].add_bond(atom_index)
-
-        # put the object back into the correct place
-        coords = np.array(molecule)
-        self._validate_info(topology, atoms, coords, input_type)
-
-    def read_xyz(self, name, input_type='traj'):
-        """
-        Read an xyz file and get all frames from the file and put in the traj molecule holder by default
-        or if there is only one frame change the input location. This will also strip the xyz file of any dummy atoms.
-        """
-
-        # TODO Make this more flexible so that it accepts .xyz files with slightly different formatting
-
-        traj_molecules = []
-        molecule = []
-
-        if not os.path.exists(name):
-            raise FileNotFoundError('Cannot find xyz file to read.')
-
-        with open(name, 'r') as xyz_file:
-            for line in xyz_file:
-                line = line.split()
-                # skip frame heading lines
-                if len(line) <= 1 or 'Iteration' in line:
-                    continue
-                molecule.append([float(line[1]), float(line[2]), float(line[3])])
-
-                if len(molecule) == len(self.atoms):
-                    # we have collected the molecule now store the frame
-                    traj_molecules.append(np.array(molecule))
-                    molecule = []
-
-        # check how many frames we have
-        if len(traj_molecules) == 1:
-            self.coords[input_type] = traj_molecules[0]
-        else:
-            self.coords[input_type] = traj_molecules
-
-    def _read_qc_json(self):
-        """
-        Using the QC json, extract the atoms and bonds (connectivity) to build a full topology.
-        Insert the coords into the molecule too.
-        """
-        self.topology = nx.Graph()
-        self.atoms = []
-
-        for i, atom in enumerate(self.qc_json.symbols):
-            self.atoms.append(Atom(atomic_number=Element().number(atom), atom_index=i, atom_name=f'{atom}{i}'))
-            self.topology.add_node(i)
-
-        for bond in self.qc_json.connectivity:
-            self.topology.add_edge(*bond[:2])
-
-        self.coords['input'] = np.array(self.qc_json.geometry).reshape((len(self.atoms), 3)) * constants.BOHR_TO_ANGS
+    # def check_names_are_unique(self):
+    #     """
+    #     To prevent problems occurring with some atoms perceived to be the same,
+    #     check the atom names to ensure they are all unique.
+    #     If some are the same, reset all atom names to be: f'{atomic_symbol}{index}'.
+    #     This ensure they are all unique.
+    #     """
+    #
+    #     atom_names = [atom.atom_name for atom in self.atoms]
+    #     # If some atom names aren't unique
+    #     if len(set(atom_names)) < len(atom_names):
+    #         # Change the atom name only; everything else is the same as it was.
+    #         self.atoms = [
+    #             Atom(
+    #                 atomic_number=atom.atomic_number,
+    #                 atom_index=atom.atom_index,
+    #                 atom_name=f'{atom.atomic_symbol}{i}',
+    #                 partial_charge=atom.partial_charge,
+    #                 formal_charge=atom.formal_charge
+    #             )
+    #             for i, atom in enumerate(self.atoms)
+    #         ]
+    #
+    # def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule=None, descriptors=None):
+    #     """
+    #     Check if the provided information should be stored or not
+    #     :param topology: networkx graph of the topology
+    #     :param atoms: a list of Atom objects
+    #     :param coords: a numpy array of the coords
+    #     :param rdkit_molecule: the rdkit molecule we have extracted the info from
+    #     :param descriptors: a dictionary of the rdkit descriptors
+    #     :return: the updated ligand object
+    #     """
+    #
+    #     # Now check we instancing the ligand if we are then store the info
+    #     if input_type == 'input':
+    #         self.topology = topology
+    #         self.atoms = atoms
+    #         self.descriptors = descriptors
+    #         self.coords[input_type] = coords
+    #         self.rdkit_mol = rdkit_molecule
+    #     else:
+    #         # Check if the new topology is the same then store the new coordinates
+    #         if nx.algorithms.is_isomorphic(self.topology, topology):
+    #             self.coords[input_type] = coords
+    #         else:
+    #             raise TopologyMismatch('Topologies are not the same; cannot store coordinates.')
 
     def get_atom_with_name(self, name):
         """
@@ -667,6 +337,8 @@ class Molecule:
         """
         Read in the molecule coordinates to the traj holder from a geometric optimisation using qcengine.
         :param trajectory: The qcengine trajectory
+
+        TODO Move to QCEngine()
         """
 
         for frame in trajectory:
@@ -1194,6 +866,7 @@ class Molecule:
         Take a set of coordinates from the molecule and convert them to OpenMM format
         :param input_type: The set of coordinates that should be used
         :return: A list of tuples of the coords
+        TODO Move elsewhere
         """
 
         coordinates = self.coords[input_type]
@@ -1208,6 +881,7 @@ class Molecule:
         Read a tdrive qdata file and get the coordinates and scan energies and store in the molecule.
         :type bond_scan: the tuple of the scanned central bond
         :return: None, store the coords in the traj holder and the energies in the qm scan holder
+        TODO Move elsewhere
         """
 
         scan_coords = []
@@ -1233,6 +907,7 @@ class Molecule:
         Read a QUBEKit or tdrive dihedrals file and store the scan order into the ligand class
         :param file: The dihedrals input file.
         :return: The molecule with the scan_order saved
+        TODO Move elsewhere
         """
 
         # If we have a QUBE.dihedrals file get the scan order from there
@@ -1243,6 +918,7 @@ class Molecule:
                 torsion = line.split()
                 if len(torsion) == 6:
                     print('Torsion and dihedral range found, updating scan range:')
+                    # TODO Why are these class attributes?
                     self.dih_start = int(torsion[-2])
                     self.dih_end = int(torsion[-1])
                     print(f'Dihedral will be scanned in the range: {self.dih_start},  {self.dih_end}')
