@@ -76,7 +76,7 @@ class TorsionScan:
         """
 
         if self.molecule.scan_order:
-            return self.molecule
+            return
 
         # Get the rotatable dihedrals from the molecule
         self.molecule.scan_order = []

@@ -15,11 +15,13 @@ class RDKit:
     """Class for controlling useful RDKit functions."""
 
     @staticmethod
-    def mol_input_to_rdkit_mol(mol_input, name):
+    def mol_input_to_rdkit_mol(mol_input, name=None):
         """
-        :param mol_input: os.Path of the filename provided or the smiles string
+        :param mol_input: pathlib.Path of the filename provided or the smiles string
+        :param name:
         :return: RDKit molecule object generated from its file (or None if incorrect file type is provided).
         """
+
         # Interpret the smiles string
         if isinstance(mol_input, str):
             return RDKit.smiles_to_rdkit_mol(mol_input, name)
@@ -63,7 +65,7 @@ class RDKit:
         """
 
         # Get the rdkit molecule
-        mol = RDKit.read_file(filename)
+        mol = RDKit.mol_input_to_rdkit_mol(filename)
 
         {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}[ff](mol)
 
@@ -96,7 +98,7 @@ class RDKit:
         :return: The smiles string
         """
 
-        rdkit_mol = RDKit.read_file(filename)
+        rdkit_mol = RDKit.mol_input_to_rdkit_mol(filename)
 
         return Chem.MolToSmiles(rdkit_mol, isomericSmiles=True, allHsExplicit=True)
 
@@ -108,7 +110,7 @@ class RDKit:
         :return: The smarts string
         """
 
-        mol = RDKit.read_file(filename)
+        mol = RDKit.mol_input_to_rdkit_mol(filename)
 
         return Chem.MolToSmarts(mol)
 
@@ -120,7 +122,7 @@ class RDKit:
         :return: The name of the mol file made
         """
 
-        mol = RDKit.read_file(filename)
+        mol = RDKit.mol_input_to_rdkit_mol(filename)
 
         mol_name = f'{filename.stem}.mol'
         Chem.MolToMolFile(mol, mol_name)

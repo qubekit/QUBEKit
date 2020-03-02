@@ -10,8 +10,7 @@ from QUBEKit.engines import Chargemol, Gaussian, PSI4, QCEngine, RDKit
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
-from QUBEKit.parametrisation import AnteChamber, OpenFF, XML
-from QUBEKit.parametrisation.base_parametrisation import Parametrisation
+from QUBEKit.parametrisation import AnteChamber, OpenFF, Parametrisation, XML
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.configs import Configure

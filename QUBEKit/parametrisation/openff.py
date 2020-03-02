@@ -5,7 +5,11 @@ from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from openforcefield.topology import Molecule
 from openforcefield.typing.engines.smirnoff import ForceField, BondHandler, AngleHandler, ProperTorsionHandler, vdWHandler
-from openforcefield.typing.engines.smirnoff.parameters import UnassignedValenceParameterException
+from openforcefield.typing.engines.smirnoff.parameters import (
+    UnassignedValenceParameterException, UnassignedBondParameterException,
+    UnassignedProperTorsionParameterException, UnassignedAngleParameterException,
+    UnassignedMoleculeChargeException
+)
 
 from simtk import unit
 from simtk.openmm import XmlSerializer
@@ -41,9 +45,11 @@ class OpenFF(Parametrisation):
         try:
             # Parametrise the topology and create an OpenMM System.
             system = forcefield.create_openmm_system(off_topology)
-        except (UnassignedValenceParameterException, TypeError):
+        except (UnassignedValenceParameterException, UnassignedBondParameterException,
+                UnassignedProperTorsionParameterException, UnassignedAngleParameterException,
+                UnassignedMoleculeChargeException, TypeError):
             # If this does not work then we have a molecule that is not in SMIRNOFF so we must add generics
-            # and remove the charge handler to get some basic parameters for the molecule
+            # and remove the charge handler to get some basic parameters for the moleucle
             new_bond = BondHandler.BondType(smirks='[*:1]~[*:2]', length="0 * angstrom",
                                             k="0.0 * angstrom**-2 * mole**-1 * kilocalorie")
             new_angle = AngleHandler.AngleType(smirks='[*:1]~[*:2]~[*:3]',  angle="0.0 * degree",
@@ -56,20 +62,17 @@ class OpenFF(Parametrisation):
                 periodicity4="4", phase4="180.0 * degree", k4="0.0 * mole**-1 * kilocalorie",
                 idivf1="1.0", idivf2="1.0", idivf3="1.0", idivf4="1.0",
             )
-
             new_vdw = vdWHandler.vdWType(smirks='[*:1]', epsilon=0 * unit.kilocalories_per_mole, sigma=0 * unit.angstroms)
             new_generics = {'Bonds': new_bond, 'Angles': new_angle, 'ProperTorsions': new_torsion, 'vdW': new_vdw}
             for key, val in new_generics.items():
                 forcefield.get_parameter_handler(key).parameters.insert(0, val)
-
             # This has to be removed as sqm will fail with unknown elements
             del forcefield._parameter_handlers['ToolkitAM1BCC']
-
+            del forcefield._parameter_handlers['Electrostatics']
             # Parametrize the topology and create an OpenMM System.
             system = forcefield.create_openmm_system(off_topology)
             # This will tag the molecule so run.py knows that generics have been used.
             self.fftype = 'generics'
-
         # Serialise the OpenMM system into the xml file
         with open('serialised.xml', 'w+') as out:
             out.write(XmlSerializer.serializeSystem(system))

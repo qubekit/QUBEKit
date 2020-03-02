@@ -3,7 +3,7 @@
 TODO
     Purpose of this file is to read various inputs and produce the info required for
         Ligand() or Protein()
-        Currently, protein is not handled properly
+        Currently, Protein is not handled properly
     Should be very little calculation here, simply file reading and some small validations / checks
         Need to re-add topology checking and name checking
     Descriptors should be accessed separately if needed (need to re-add)
@@ -22,6 +22,18 @@ import numpy as np
 
 
 class ReadInput:
+    """
+    Called inside Ligand; used to handle reading any kind of input valid in QUBEKit
+        QC JSON object
+        SMILES string
+        PDB, MOL2, XYZ file
+    :param mol_input: One of the accepted input types:
+        QC JSON object
+        SMILES string
+        PDB, MOL2, XYZ file
+    :param name: The name of the molecule. Only necessary for smiles strings but can be
+        provided regardless of input type.
+    """
     def __init__(self, mol_input, name=None):
 
         if Path(mol_input).exists():
@@ -42,9 +54,10 @@ class ReadInput:
 
         self.read_input()
 
-        # Try again for rdkit_mol
-
     def read_input(self):
+        """
+        Figure out what the input is (file, smiles, json) and call the relevant method.
+        """
 
         if self.mol_input.__class__.__name__ == 'Molecule':
             # QCArchive object
@@ -54,7 +67,7 @@ class ReadInput:
             # File (pdb, xyz, etc)
             try:
                 # Try parse with rdkit:
-                self.rdkit_mol = RDKit.mol_input_to_rdkit_mol(self.mol_input, self.name)
+                self.rdkit_mol = RDKit.mol_input_to_rdkit_mol(self.mol_input)
                 self._mol_from_rdkit()
             except AttributeError:
                 # Cannot be parsed by rdkit:
@@ -66,9 +79,13 @@ class ReadInput:
             self._mol_from_rdkit()
 
         else:
-            raise RuntimeError('Cannot read input')
+            raise RuntimeError('Cannot read input. mol_input must be a smiles string, path of a file, or qc json.')
 
     def _read_file(self):
+        """
+        Called when rdkit cannot parse the file.
+        Calls the necessary internal file readers instead.
+        """
 
         if self.mol_input.suffix == '.pdb':
             self._read_pdb()
@@ -77,10 +94,12 @@ class ReadInput:
         elif self.mol_input.suffix == '.xyz':
             self._read_xyz()
         else:
-            raise FileTypeError(f'Could not read file {self.mol_input}')
+            raise FileTypeError(f'Could not read file {self.mol_input}. File type must be pdb, mol2 or xyz.')
 
     def _mol_from_rdkit(self):
-
+        """
+        Using an RDKit Molecule object, extract the name, topology, coordinates and atoms
+        """
         if self.name is None:
             self.name = self.rdkit_mol.GetProp('_Name')
 
@@ -122,6 +141,9 @@ class ReadInput:
         self.atoms = atoms or None
 
     def _read_qc_json(self):
+        """
+        Given a QC JSON object, extracts the topology, atoms and coords of the molecule.
+        """
 
         self.topology = nx.Graph()
         atoms = []
@@ -137,7 +159,10 @@ class ReadInput:
         self.atoms = atoms or None
 
     def _read_pdb(self):
-
+        """
+        Internal pdb reader. Only called when RDKit failed to read the pdb.
+        Extracts the topology, atoms and coords of the molecule.
+        """
         coords = []
         self.topology = nx.Graph()
         atoms = []
@@ -186,6 +211,10 @@ class ReadInput:
         self.atoms = atoms or None
 
     def _read_mol2(self):
+        """
+        Internal mol2 reader. Only called when RDKit failed to read the mol2.
+        Extracts the topology, atoms and coords of the molecule.
+        """
 
         coords = []
         self.topology = nx.Graph()
@@ -249,6 +278,10 @@ class ReadInput:
         self.atoms = atoms or None
 
     def _read_xyz(self):
+        """
+        Internal xyz reader.
+        Extracts the coords of the molecule.
+        """
 
         traj_molecules = []
         coords = []
