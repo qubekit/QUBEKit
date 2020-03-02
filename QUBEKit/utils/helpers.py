@@ -284,6 +284,7 @@ def make_and_change_into(name):
     """
     - Attempt to make a directory with name <name>, don't fail if it exists.
     - Change into the directory.
+    TODO Move to file_handling.py?
     """
 
     try:
@@ -360,6 +361,7 @@ def extract_charge_data(ddec_version=6):
     ddec_data used for calculating monopole esp and L-J values (used by both LennardJones and Charges classes)
     dipole_moment_data used for calculating dipole esp
     quadrupole_moment_data used for calculating quadrupole esp
+    TODO Move to file_handling.py?
     """
 
     if ddec_version == 6:

@@ -24,15 +24,15 @@ TODO Ligand Refactor:
         Be more strict about public/private class/method/function naming?
 """
 
-from QUBEKit.engines import Element, RDKit
+from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.file_handling import read_input
+from QUBEKit.utils.datastructures import Atom
+from QUBEKit.utils.file_handling import ReadInput
 
 from collections import OrderedDict
 from datetime import datetime
 from itertools import groupby
 import os
-from pathlib import Path
 import pickle
 import re
 
@@ -167,8 +167,11 @@ class Molecule:
         restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
 
-        self.mol_input = Path(mol_input) if Path(mol_input).exists() else mol_input
+        self.mol_input = mol_input
+        self.name = name
         self.is_protein = is_protein
+
+        self.rdkit_mol = None
 
         # Structure
         self.coords = {'input': [], 'mm': [], 'qm': [], 'temp': [], 'traj': []}
@@ -222,9 +225,7 @@ class Molecule:
             return
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
-        self.name, self.topology, self.atoms, self.coords['input'] = read_input(self.mol_input, name)
-
-        self.rdkit_mol = RDKit.mol_input_to_rdkit_mol(self.mol_input, self.name)
+        self.save_to_molecule(self.mol_input, self.name)
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
@@ -272,6 +273,28 @@ class Molecule:
                 return_str += f'\n{key} = {repr(val)}\n'
 
         return return_str
+
+    def save_to_molecule(self, mol_input, name=None, input_type='input'):
+        """
+        Used to quietly call file_handlers.read_file() behind the scenes.
+        This means users won't ever need to interface with file_handlers directly.
+        All parameters will be set from a file via this public method.
+        """
+
+        # TODO Perform checks here? (check_names_are_unique(), validate_info(), etc)
+
+        molecule = ReadInput(mol_input, name)
+
+        if molecule.name is not None:
+            self.name = molecule.name
+        if molecule.topology is not None:
+            self.topology = molecule.topology
+        if molecule.atoms is not None:
+            self.atoms = molecule.atoms
+        if molecule.coords is not None:
+            self.coords[input_type] = molecule.coords
+        if molecule.rdkit_mol is not None:
+            self.rdkit_mol = molecule.rdkit_mol
 
     # def check_names_are_unique(self):
     #     """
@@ -846,8 +869,8 @@ class Molecule:
 
         self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs, 'other': other_hs}
 
-        # now modify the rotatable list to remove methyl and amine / nitrile torsions
-        # these are already well represented in most FF's
+        # Modify the rotatable list to remove methyl and amine / nitrile torsions
+        # These are already well represented in most FF's
         remove_list = []
         if self.rotatable is not None:
             rotatable = self.rotatable
@@ -855,7 +878,6 @@ class Molecule:
                 if key[0] in methyl_amine_nitride_cores or key[1] in methyl_amine_nitride_cores:
                     remove_list.append(key)
 
-            # now remove the keys
             for torsion in remove_list:
                 rotatable.remove(torsion)
 
@@ -866,7 +888,7 @@ class Molecule:
         Take a set of coordinates from the molecule and convert them to OpenMM format
         :param input_type: The set of coordinates that should be used
         :return: A list of tuples of the coords
-        TODO Move elsewhere
+        TODO Move elsewhere; currently breaks
         """
 
         coordinates = self.coords[input_type]
@@ -1011,7 +1033,7 @@ class Protein(DefaultsMixin, Molecule):
 
         super().__init__(mol_input, name, is_protein)
 
-        self.is_protein = True
+        self.is_protein = is_protein = True
         self.pdb_names = None
         self.residues = None
         self.Residues = None

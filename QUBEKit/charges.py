@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 
-# TODO
-#  Improved graphing; contour plot?
-#  Convert esp_points / atom_points to np arrays?
+"""
+TODO
+    Improved graphing; contour plot?
+    Convert esp_points / atom_points to np arrays?
+
+    function to calc monopole esp using two charges (atom-centred and v-site)
+    minimise difference between new monopole esp and v_total (mono + dipo + quad from before)
+    minimise wrt to both charge moved from atom to v-site and distance between them.
+
+    Test with ClCH3
+    This will allow just moving the v-site back and forth along the bond
+"""
 
 from QUBEKit.utils.constants import ANGS_TO_M, BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, PI, VACUUM_PERMITTIVITY
 from QUBEKit.utils.decorators import for_all_methods, timer_logger

@@ -19,7 +19,6 @@ from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.display import display_molecule_objects, pretty_print, pretty_progress
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
-from QUBEKit.utils.file_handling import read_input
 from QUBEKit.utils.helpers import append_to_log, generate_bulk_csv, make_and_change_into, mol_data_from_csv, unpickle, \
     update_ligand
 
@@ -28,7 +27,6 @@ from collections import OrderedDict
 from datetime import datetime
 from functools import partial
 import os
-from pathlib import Path
 from shutil import copy, move
 import subprocess as sp
 import sys
@@ -726,15 +724,16 @@ class Execute:
                            f'{molecule.constraints_file if molecule.constraints_file is not None else ""}',
                            shell=True, stdout=log, stderr=log)
 
-                _, _, _, coords = read_input(Path(f'{molecule.name}_optim.xyz'))
-                molecule.coords['traj'] = coords
-                molecule.coords['mm'] = coords[-1]
+                molecule.save_to_molecule(f'{molecule.name}_optim.xyz', input_type='traj')
+                molecule.coords['mm'] = molecule.coords['traj'][-1]
 
         else:
             # TODO change to qcengine as this can already be done
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}[molecule.mm_opt_method]
             molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff)
+            # TODO molecule no longer has filename attribute; replace with call to save_to_molecule()
+            molecule.save_to_molecule()
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}')
 

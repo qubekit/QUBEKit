@@ -1,6 +1,8 @@
-from QUBEKit.engines.rdkit import Element
+#!/usr/bin/env python3
 
 from types import SimpleNamespace
+
+from rdkit.Chem.rdchem import GetPeriodicTable
 
 
 class CustomNamespace(SimpleNamespace):
@@ -22,6 +24,23 @@ class CustomNamespace(SimpleNamespace):
 
     def __iter__(self):
         return self.items()
+
+
+class Element:
+    """
+    Simple wrapper class for getting element info using RDKit.
+    """
+
+    pt = GetPeriodicTable()
+
+    def mass(self, identifier):
+        return self.pt.GetAtomicWeight(identifier)
+
+    def number(self, identifier):
+        return self.pt.GetAtomicNumber(identifier)
+
+    def name(self, identifier):
+        return self.pt.GetElementSymbol(identifier)
 
 
 class Atom:

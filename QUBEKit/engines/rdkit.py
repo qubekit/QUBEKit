@@ -6,7 +6,6 @@ import numpy as np
 
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
-from rdkit.Chem.rdchem import GetPeriodicTable
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 from rdkit.Geometry.rdGeometry import Point3D
 
@@ -201,20 +200,3 @@ class RDKit:
         rdkit_mol.AddConformer(conformer, assignId=True)
 
         return rdkit_mol
-
-
-class Element:
-    """
-    Simple wrapper class for getting element info using RDKit.
-    """
-
-    pt = GetPeriodicTable()
-
-    def mass(self, identifier):
-        return self.pt.GetAtomicWeight(identifier)
-
-    def number(self, identifier):
-        return self.pt.GetAtomicNumber(identifier)
-
-    def name(self, identifier):
-        return self.pt.GetElementSymbol(identifier)
