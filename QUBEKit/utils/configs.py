@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# TODO Move into file_handling.py?
+
 from configparser import ConfigParser
 import os
 

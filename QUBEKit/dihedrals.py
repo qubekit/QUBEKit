@@ -1275,7 +1275,7 @@ class TorsionOptimiser:
                 sp.run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb '
                        '--openmm state.xml qube_constraints.txt', shell=True, stdout=log, stderr=log, check=True)
 
-                positions = self.molecule.read_xyz('scan.xyz')
+                self.molecule.save_to_molecule('scan.xyz')
 
             else:
                 raise NotImplementedError('Invalid torsion engine. Please use torsiondrive or geometric')
