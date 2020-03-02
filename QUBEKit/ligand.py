@@ -276,20 +276,23 @@ class Molecule:
 
     def save_to_molecule(self, mol_input, name=None, input_type='input'):
         """
-        Used to quietly call file_handlers.read_file() behind the scenes.
-        This means users won't ever need to interface with file_handlers directly.
-        All parameters will be set from a file via this public method.
+        Public access to private file_handlers.read_file().
+        Users shouldn't ever need to interface with file_handlers.py directly.
+        All parameters will be set from a file (or other input) via this public method.
+
+        Don't bother updating name, topology or atoms if they are already stored.
+        Do bother updating coords and rdkit_mol
         """
 
         # TODO Perform checks here? (check_names_are_unique(), validate_info(), etc)
 
         molecule = ReadInput(mol_input, name)
 
-        if molecule.name is not None:
+        if molecule.name is not None and self.name is None:
             self.name = molecule.name
-        if molecule.topology is not None:
+        if molecule.topology is not None and self.topology is None:
             self.topology = molecule.topology
-        if molecule.atoms is not None:
+        if molecule.atoms is not None and self.atoms is None:
             self.atoms = molecule.atoms
         if molecule.coords is not None:
             self.coords[input_type] = molecule.coords
