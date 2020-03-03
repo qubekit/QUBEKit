@@ -17,6 +17,7 @@ from QUBEKit.utils.constants import ANGS_TO_M, BOHR_TO_ANGS, ELECTRON_CHARGE, J_
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import extract_charge_data
 
+from functools import lru_cache
 import math
 
 from matplotlib import pyplot as plt
@@ -54,12 +55,14 @@ class Charges:
 
         # TODO Convert to numpy arrays!
         # List of tuples where each tuple is the xyz atom coords, followed by their partial charge
-        self.atom_points = [(*coord, atom.partial_charge)       # (x, y, z, q)
+        self.atom_points = [(coord, atom.partial_charge)       # ((x, y, z), q)
                             for coord, atom in zip(self.molecule.coords['qm'], self.molecule.atoms)]
 
         # List of tuples where each tuple is the xyz esp coords, followed by the esp value
-        self.esp_points = [points for atom_index in range(len(self.molecule.coords['qm']))
-                           for points in self.generate_esp_data_atom(atom_index)]
+        self.esp_points = []
+        for atom_index in range(len(self.molecule.coords['qm'])):
+            for points in self.generate_esp_atom(atom_index):
+                self.esp_points.append(points)
 
         self.plot()
 
@@ -134,47 +137,18 @@ class Charges:
         return (3 * ELECTRON_CHARGE * ELECTRON_CHARGE * dist_vector.dot(m_tensor * (BOHR_TO_ANGS ** 2)).dot(dist_vector)) / (
                 8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
 
-    def generate_esp_data_atom(self, atom_index):
+    @lru_cache(maxsize=None)
+    def generate_sample_points(self, vdw_radius):
         """
-        For a given atom at <atom_index>:
-            * Extract the relevant data such as partial charge
-            * Produce a shell of points around that atom.
-                * This uses fibonacci spirals to produce an even spacing of points on a sphere
-            * For each point in the shell:
-                * Calculate the monopole, dipole and quadrupole esp
-                * Sum them
-                * Create a tuple of (x, y, z, v): xyz are the sample point coords, v is the total esp
-
-        :param atom_index: The index of the atom being analysed.
-        Used to extract relevant data such as partial charges
-        :return: a list of all of the tuples described above
+        Generate evenly distributed points in a series of shells around the point (0, 0, 0)
+        This uses fibonacci spirals to produce an even spacing of points on a sphere.
         """
 
-        charge = self.ddec_data[atom_index].charge
-
-        atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
-        vdw_radius = self.vdw_radii.get(atomic_symbol, None)
-        if vdw_radius is None:
-            raise KeyError(f"Could  not find van der Waal's radius for {atomic_symbol}")
-
-        dip_data = self.dipole_moment_data[atom_index]
-        dipole_moment = np.array([*dip_data.values()]) * BOHR_TO_ANGS
-
-        quad_data = self.quadrupole_moment_data[atom_index]
-
-        atom_coords = self.molecule.coords['qm'][atom_index]
-
-        # TODO These need to be set more intelligently.
         min_points_per_shell = 16
         shells = 5
-
-        # TODO Change sample points to np array?
-        sample_points = []
-
-        mono_esp_tot, dipo_esp_tot, quad_esp_tot = 0, 0, 0
-
         increment = PI * (3 - math.sqrt(5))
 
+        relative_sample_points = []
         for shell in range(1, shells + 1):
             points_in_shell = min_points_per_shell * shell ** 2
 
@@ -187,35 +161,70 @@ class Charges:
                 x = np.cos(phi) * r
                 z = np.sin(phi) * r
 
-                relative_sample_coords = np.array([x, y, z])
-                sample_coords = relative_sample_coords + atom_coords
+                relative_sample_points.append(np.array([x, y, z]))
 
-                dist = Charges.xyz_distance(sample_coords, atom_coords)
-                # Distance vector between sample coords and atom coords (caching result saves time)
-                dist_vector = sample_coords - atom_coords
+        return relative_sample_points
 
-                mono_esp = Charges.monopole_esp_one_charge(charge, dist)
-                dip_esp = Charges.dipole_esp(dist_vector, dipole_moment, dist)
+    def generate_esp_atom(self, atom_index):
+        """
+        For a given atom at <atom_index>:
+            * Extract the relevant data such as partial charge
+            * Produce a shell of points around that atom.
+            * For each point:
+                * Calculate the monopole, dipole and quadrupole esp
+                * Sum them
+                * Create a tuple of ((x, y, z), v): xyz are the sample point coords, v is the total esp
 
-                m_tensor = Charges.quadrupole_moment_tensor(*quad_data.values())
-                quad_esp = Charges.quadrupole_esp(dist_vector, m_tensor, dist)
+        :param atom_index: The index of the atom being analysed.
+        Used to extract relevant data such as partial charges
+        :return: a list of all of the tuples described above
+        """
 
-                mono_esp_tot += mono_esp
-                dipo_esp_tot += abs(dip_esp)
-                quad_esp_tot += abs(quad_esp)
+        atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
+        vdw_radius = self.vdw_radii[atomic_symbol]
 
-                v_total = mono_esp + dip_esp + quad_esp
+        atom_coords = self.molecule.coords['qm'][atom_index]
 
-                sample_points.append((*sample_coords, v_total))
+        charge = self.ddec_data[atom_index].charge
+        dip_data = self.dipole_moment_data[atom_index]
+        dipole_moment = np.array([*dip_data.values()]) * BOHR_TO_ANGS
 
-        n_points = len(sample_points)
+        quad_data = self.quadrupole_moment_data[atom_index]
+
+        mono_esp_tot, dipo_esp_tot, quad_esp_tot = 0, 0, 0
+
+        relative_sample_points = self.generate_sample_points(vdw_radius)
+
+        sample_coords = []
+        for relative_point in relative_sample_points:
+
+            proper_point = relative_point + atom_coords
+
+            dist = Charges.xyz_distance(proper_point, atom_coords)
+            dist_vector = proper_point - atom_coords
+
+            mono_esp = Charges.monopole_esp_one_charge(charge, dist)
+            dipo_esp = Charges.dipole_esp(dist_vector, dipole_moment, dist)
+
+            m_tensor = Charges.quadrupole_moment_tensor(*quad_data.values())
+            quad_esp = Charges.quadrupole_esp(dist_vector, m_tensor, dist)
+
+            mono_esp_tot += mono_esp
+            dipo_esp_tot += abs(dipo_esp)
+            quad_esp_tot += abs(quad_esp)
+
+            v_total = mono_esp + dipo_esp + quad_esp
+
+            sample_coords.append((proper_point, v_total))
+
+        n_points = len(sample_coords)
 
         print(f'{atomic_symbol}  ', end=' ')
         print(f'M: {(mono_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ', end=' ')
         print(f'D: {(dipo_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ', end=' ')
         print(f'Q: {(quad_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ')
 
-        return sample_points
+        return sample_coords
 
     def plot(self):
         """
@@ -228,20 +237,20 @@ class Charges:
 
         # TODO Use numpy to rotate esp_points matrix for faster variable access.
         ax.scatter(
-            xs=[i[0] for i in self.esp_points],
-            ys=[i[1] for i in self.esp_points],
-            zs=[i[2] for i in self.esp_points],
-            c=[i[3] for i in self.esp_points],
+            xs=[i[0][0] for i in self.esp_points],
+            ys=[i[0][1] for i in self.esp_points],
+            zs=[i[0][2] for i in self.esp_points],
+            c=[i[1] for i in self.esp_points],
             marker='o',
             s=2,
             alpha=0.5
         )
 
         ax.scatter(
-            xs=[i[0] for i in self.atom_points],
-            ys=[i[1] for i in self.atom_points],
-            zs=[i[2] for i in self.atom_points],
-            c=[i[3] for i in self.atom_points],
+            xs=[i[0][0] for i in self.atom_points],
+            ys=[i[0][1] for i in self.atom_points],
+            zs=[i[0][2] for i in self.atom_points],
+            c=[i[1] for i in self.atom_points],
             marker='X',
             s=100
         )

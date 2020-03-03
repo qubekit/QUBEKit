@@ -22,15 +22,19 @@ class ModSemMaths:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     @staticmethod
-    def unit_vector_n(u_bc, u_ab):
-        """Calculates unit normal vector which is perpendicular to plane abc."""
+    def normal_unit_vector(u_bc, u_ab):
+        """Calculates unit vector which is normal to the plane abc."""
 
-        return np.cross(u_bc, u_ab) / np.linalg.norm(np.cross(u_bc, u_ab))
+        cross = np.cross(u_bc, u_ab)
+
+        return cross / np.linalg.norm(cross)
 
     @staticmethod
-    def vector_along_bond(coords, bond):
+    def unit_vector_along_bond(coords, bond):
+        """Calculates the unit vector along a bond."""
 
-        diff_ab = coords[bond[1], :] - coords[bond[0], :]
+        atom_a, atom_b = bond
+        diff_ab = coords[atom_b] - coords[atom_a]
 
         return diff_ab / np.linalg.norm(diff_ab)
 
@@ -40,12 +44,12 @@ class ModSemMaths:
 
         atom_a, atom_b, atom_c = angle
 
-        u_ab = ModSemMaths.vector_along_bond(coords, (atom_a, atom_b))
-        u_cb = ModSemMaths.vector_along_bond(coords, (atom_c, atom_b))
+        u_ab = ModSemMaths.unit_vector_along_bond(coords, (atom_a, atom_b))
+        u_cb = ModSemMaths.unit_vector_along_bond(coords, (atom_c, atom_b))
 
-        u_n = ModSemMaths.unit_vector_n(u_cb, u_ab)
+        u_n = ModSemMaths.normal_unit_vector(u_cb, u_ab)
 
-        return ModSemMaths.unit_vector_n(u_n, u_ab)
+        return ModSemMaths.normal_unit_vector(u_n, u_ab)
 
     @staticmethod
     def dot_product(u_pa, eig_ab):
@@ -56,10 +60,11 @@ class ModSemMaths:
     def force_constant_bond(bond, eigenvals, eigenvecs, coords):
         """Force Constant - Equation 10 of Seminario paper - gives force constant for bond."""
 
-        eigenvals_ab = eigenvals[bond[0], bond[1], :]
-        eigenvecs_ab = eigenvecs[:, :, bond[0], bond[1]]
+        atom_a, atom_b = bond
+        eigenvals_ab = eigenvals[atom_a, atom_b, :]
+        eigenvecs_ab = eigenvecs[:, :, atom_a, atom_b]
 
-        unit_vectors_ab = ModSemMaths.vector_along_bond(coords, bond)
+        unit_vectors_ab = ModSemMaths.unit_vector_along_bond(coords, bond)
 
         return -0.5 * sum(eigenvals_ab[i] * abs(np.dot(unit_vectors_ab, eigenvecs_ab[:, i])) for i in range(3))
 
@@ -72,8 +77,10 @@ class ModSemMaths:
 
         atom_a, atom_b, atom_c = angle
 
-        u_ab = ModSemMaths.vector_along_bond(coords, (atom_a, atom_b))
-        u_cb = ModSemMaths.vector_along_bond(coords, (atom_c, atom_b))
+        u_ab = ModSemMaths.unit_vector_along_bond(coords, (atom_a, atom_b))
+        u_cb = ModSemMaths.unit_vector_along_bond(coords, (atom_c, atom_b))
+
+        print(u_ab.sum())
 
         bond_len_ab = bond_lens[atom_a, atom_b]
         eigenvals_ab = eigenvals[atom_a, atom_b, :]
@@ -84,16 +91,17 @@ class ModSemMaths:
         eigenvecs_cb = eigenvecs[:3, :3, atom_c, atom_b]
 
         # Normal vector to angle plane found
-        u_n = ModSemMaths.unit_vector_n(u_cb, u_ab)
+        u_n = ModSemMaths.normal_unit_vector(u_cb, u_ab)
 
-        if abs(sum(u_cb - u_ab)) < 0.01 or (1.99 < abs(sum(u_cb - u_ab)) < 2.01):
+        # Angle is linear:
+        if abs(np.linalg.norm(u_cb - u_ab)) < 0.01 or (1.99 < abs(np.linalg.norm(u_cb - u_ab)) < 2.01):
             # Scalings are set to 1.
             k_theta, theta_0 = ModSemMaths.f_c_a_special_case(
                 u_ab, u_cb, [bond_len_ab, bond_len_bc], [eigenvals_ab, eigenvals_cb], [eigenvecs_ab, eigenvecs_cb])
 
         else:
-            u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
-            u_pc = ModSemMaths.unit_vector_n(u_cb, u_n)
+            u_pa = ModSemMaths.normal_unit_vector(u_n, u_ab)
+            u_pc = ModSemMaths.normal_unit_vector(u_cb, u_n)
 
             # Scaling due to additional angles - Modified Seminario Part
             sum_first = sum(eigenvals_ab[i] * abs(ModSemMaths.dot_product(u_pa, eigenvecs_ab[:, i])) for i in range(3)) / scalings[0]
@@ -127,8 +135,8 @@ class ModSemMaths:
 
             u_n = [np.sin(theta) * np.cos(theta), np.sin(theta) * np.sin(theta), np.cos(theta)]
 
-            u_pa = ModSemMaths.unit_vector_n(u_n, u_ab)
-            u_pc = ModSemMaths.unit_vector_n(u_cb, u_n)
+            u_pa = ModSemMaths.normal_unit_vector(u_n, u_ab)
+            u_pc = ModSemMaths.normal_unit_vector(u_cb, u_n)
 
             sum_first = sum(eigenvals[0][i] * abs(ModSemMaths.dot_product(u_pa, eigenvecs[0][:, i])) for i in range(3))
             sum_second = sum(eigenvals[1][i] * abs(ModSemMaths.dot_product(u_pc, eigenvecs[1][:, i])) for i in range(3))

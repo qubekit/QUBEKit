@@ -52,9 +52,9 @@ class ReadInput:
 
         self.rdkit_mol = None
 
-        self.read_input()
+        self._read_input()
 
-    def read_input(self):
+    def _read_input(self):
         """
         Figure out what the input is (file, smiles, json) and call the relevant method.
         """

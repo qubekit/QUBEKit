@@ -15,7 +15,6 @@ TODO Ligand Refactor:
         Remove any repeated or unnecessary variables
             Should state be handled in ligand or run?
             Should testing be handled in ligand or tests?
-            Is is_protein necessary when the name of the class should suffice?
         Change the structure and type of some variables for clarity
             Should coords actually be a class instead of a dict?
             Do we access via index too often; should we use e.g. SimpleNamespaces/NamedTupleS?
@@ -109,7 +108,7 @@ class DefaultsMixin:
 class Molecule:
     """Base class for ligands and proteins."""
 
-    def __init__(self, mol_input, name=None, is_protein=False):
+    def __init__(self, mol_input, name=None):
         """
         # Namings
         name                    str; Molecule name e.g. 'methane'
@@ -169,7 +168,7 @@ class Molecule:
 
         self.mol_input = mol_input
         self.name = name
-        self.is_protein = is_protein
+        self.is_protein = False
 
         self.rdkit_mol = None
 
@@ -963,7 +962,7 @@ class Molecule:
 
 class Ligand(DefaultsMixin, Molecule):
 
-    def __init__(self, mol_input, name=None, is_protein=False):
+    def __init__(self, mol_input, name=None):
         """
         parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
         hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
@@ -974,7 +973,9 @@ class Ligand(DefaultsMixin, Molecule):
                                 the abspath of the constraint.txt file (constrains the execution of geometric)
         """
 
-        super().__init__(mol_input, name, is_protein)
+        super().__init__(mol_input, name)
+
+        self.is_protein = False
 
         self.parameter_engine = 'openmm'
         self.hessian = None
@@ -1026,7 +1027,7 @@ class Protein(DefaultsMixin, Molecule):
     This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it.
     """
 
-    def __init__(self, mol_input, name=None, is_protein=True):
+    def __init__(self, mol_input, name=None):
         """
         pdb_names
         residues        List of all residues in the molecule in order e.g. ['ARG', 'HIS', ... ]
@@ -1034,9 +1035,9 @@ class Protein(DefaultsMixin, Molecule):
         home            Current working directory (location for QUBEKit execution).
         """
 
-        super().__init__(mol_input, name, is_protein)
+        super().__init__(mol_input, name)
 
-        self.is_protein = is_protein = True
+        self.is_protein = True
         self.pdb_names = None
         self.residues = None
         self.Residues = None
@@ -1047,6 +1048,7 @@ class Protein(DefaultsMixin, Molecule):
         """
         Read the pdb file which probably does not have the right connections,
         so we need to find them using QUBE.xml
+        # TODO Move to file_handling.py
         """
 
         with open(input_file, 'r') as pdb:
