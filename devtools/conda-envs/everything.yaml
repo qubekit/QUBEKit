@@ -9,11 +9,12 @@ dependencies:
   - rdkit
   - torsiondrive
     # extras
-  - qcengine
-  - qcelemental >=0.12.0
+  - qcengine >=0.14.0
+  - qcelemental >=0.13.0
   - openforcefield
   - geometric
   - psi4
   - matplotlib-base
+  - scipy
 
 

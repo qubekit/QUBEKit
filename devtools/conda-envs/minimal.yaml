@@ -10,5 +10,7 @@ dependencies:
   - torsiondrive
   - psi4
   - openmm
-  - qcengine
+  - qcengine >=0.14.0
+  - qcelemental >=0.13.0
   - matplotlib-base
+  - scipy
