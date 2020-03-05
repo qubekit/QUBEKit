@@ -113,7 +113,11 @@ class TestLigands(unittest.TestCase):
                   (1, 2, 8): 108.59874810898711, (1, 2, 9): 112.19545440609062, (1, 2, 10): 111.67294842834627,
                   (8, 2, 9): 111.33448705926884, (8, 2, 10): 107.47750840394838, (9, 2, 10): 105.46240504563437}
 
-        self.assertEqual(angles, molecule_smiles.angle_values)
+        # loop over the angles and make sure they are almost equal to 7 d.p
+        # the dictionaries will always be made in the same order unless the RDKit ordering changes.
+        for angle, value in angles.items():
+            self.assertAlmostEqual(molecule_smiles.angle_values[angle], value)
+
 
     @classmethod
     def tearDownClass(cls):

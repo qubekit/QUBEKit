@@ -1,0 +1,21 @@
+name: test
+channels:
+  - conda-forge
+  - omnia
+  - psi4
+dependencies:
+    # Core
+  - python
+  - rdkit
+  - torsiondrive
+    # extras
+  - qcengine >=0.14.0
+  - openforcefield
+  - geometric
+  - psi4
+  - numpy >=1.18.1
+  - scipy
+  - networkx >=2.4
+  - matplotlib-base
+
+
