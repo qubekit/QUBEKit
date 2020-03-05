@@ -6,6 +6,7 @@ TODO ligand.py Refactor:
             to their relevant files/classes
         Fix naming; consistency wrt get/find; clarity on all of the dihedral variables
             (what is dih_start, how is it different to di_starts etc)
+        Perform checks after reading input (check_names_are_unique(), validate_info(), etc)
     CONSIDER:
         Add typing; especially for class variables
             Careful wrt complex variables such as coords, atoms, etc
@@ -973,8 +974,6 @@ class Ligand(DefaultsMixin, Molecule):
         Don't bother updating name, topology or atoms if they are already stored.
         Do bother updating coords and rdkit_mol
         """
-
-        # TODO Perform checks here? (check_names_are_unique(), validate_info(), etc)
 
         ligand = ReadInput(self.mol_input, self.name)
 

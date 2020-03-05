@@ -16,7 +16,7 @@ TODO
 
 from QUBEKit.utils.constants import ANGS_TO_M, BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, PI, VACUUM_PERMITTIVITY
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.helpers import extract_charge_data
+from QUBEKit.utils.file_handling import extract_charge_data
 
 from functools import lru_cache
 import math
