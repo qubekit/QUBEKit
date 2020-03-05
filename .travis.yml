@@ -1,39 +1,84 @@
 language: python
-python:
-  - '3.6'
+
+branches:
+  only:
+  - master
+
+# We now support osx and linux (not windows due to dependencies)
+# python versions are 3.6+
+# we run the kitchen sink build and a minimal viable build
+matrix:
+  include:
+  # Test osx with everything
+  - os: osx
+    language: generic
+    env:
+      - PYTHON_VER=3.6
+      - ENV=EVERYTHING
+  - os: osx
+    language: generic
+    env:
+      - PYTHON_VER=3.7
+      - ENV=EVERYTHING
+
+  # Test Linux with everything
+  - os: linux
+    python: 3.6
+    env:
+      - PYTHON_VER=3.6
+      - ENV=EVERYTHING
+  - os: linux
+    python: 3.7
+    env:
+      - PYTHON_VER=3.7
+      - ENV=EVERYTHING
+
+  # Test Linux with minimal
+  - os: linux
+    python: 3.6
+    env:
+      - PYTHON_VER=3.6
+      - ENV=MINIMAL
+  - os: linux
+    python: 3.7
+    env:
+      - PYTHON_VER=3.7
+      - ENV=MINIMAL
+
+before_install:
+    # Additional info about the build
+  - uname -a
+  - df -h
+  - ulimit -a
+
+    # Install the Python environemt
+  - source devtools/travis-ci/before_install.sh
+  - python -V
 
 install:
-  # Install conda
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update conda
-  - conda info
-  # Create environment from yml; includes necessary channels and versions
-  - conda env create --file="devtools/travis/environment.yml"
-  - conda init bash
-  # Refresh terminal
-  - source ~/.bashrc
-  - conda activate QUBEKit
-  # Install newest QUBEKit and check its version
-  - python setup.py install
-  - QUBEKit -version
+
+    # Create test environment for package
+  - |
+    if [ $ENV == "EVERYTHING" ]; then
+      python devtools/scripts/conda_env.py -n=test -p=$PYTHON_VER devtools/conda-envs/everything.yaml
+    elif [ $ENV == "MINIMAL" ]; then
+      python devtools/scripts/conda_env.py -n=test -p=$PYTHON_VER devtools/conda-envs/minimal.yaml
+    else
+      echo "ERROR: No match for PROG ($ENV)."
+      exit 1
+    fi
+  - source activate test
+
+  # Build and install package
+  - python setup.py develop --no-deps
 
 script:
+  # we need to sort this so only the relevant tests run on the right builds, do not test missing packages
+  # first make sure qubekit is installed by testing the entry points
+  - QUBEKit -h
+  - qubekit -h
+  # now run tests
   - python QUBEKit/tests/ligand_tests.py
-  - python QUBEKit/tests/protein_tests.py
-  - python QUBEKit/tests/parametrisation_tests.py
-
-after_success:
-  - bash devtools/conda-recipe/conda_upload.sh
 
 notifications:
   email: false
-
-deploy:
-  provider: pypi
-  user: CRingrose
-  password:
-    secure: Aidjq4nxZKI1x/1XttewehYa8h9Zisy4bX/ZPLIRSSX2asZP3YuFqDsBLE3mzlFSAXNvZBrlhzZNrAq8EQdYR92KQ/W5p+w+MzQ/zD3AvNg2HMmkT2+ZsDtexhkcilZqXKTAPqUvL0Ny6Nx427WPsin4xbyHZWmUd17iCZaI45mlQ0/LSOkYGb/poe1HiO70HLg4KEZNKxBQ7jgEoVCZg8YSf57Sg0fkCELbHCHhKUFAKbtV4QJquM0y1SXs4HYHwHfnVsVESnmkZOKazWI6KixHN806VzbGdwjv0WufERmtwpFKqW6bfQJru1Stzu2mIHyEpE4yN1LFoEDDaM/rMTy6JUuLTnhnDxMy6cA1crjODUp8qChAgZosweMrQgDKcVT2m1imyMJVaiWs76VaMIiPW4L8+dQ3yF7mxnkj2LjGwAh1RoKm2ogQpOG2o0E/U9O5cuesPaRRhpy0pPf/jOBfHzbM31Qdl50DasPeODXSs5HJ34NAB9/Nkwew8qKM2B9TxyrYO7fO41fOz3vbf2XKiGzdiKa8Sxv4qzRZCmqgMd2JEF02JuKV/FumC14sFl2KbJhWM+HO9wr+66HGNKUO2epiYCmkGox1NH5aU6/j3fpY10rRQ/ngGjtiFNeH6ByCIY4wJ3m3vO9xywnSD6ICh5WVe0Qi+37Jtgr4mf4=
-  skip_existing: true

@@ -1,0 +1,12 @@
+name: test
+channels:
+  - conda-forge
+  - omnia
+  - psi4
+dependencies:
+    # Core
+  - python
+  - rdkit
+  - torsiondrive
+  - psi4
+  - openmm
