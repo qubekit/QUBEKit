@@ -14,6 +14,7 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import Atom, Element
 from QUBEKit.utils.exceptions import FileTypeError
 
+from itertools import groupby
 from pathlib import Path
 import re
 
@@ -23,7 +24,7 @@ import numpy as np
 
 class ReadInput:
     """
-    Called inside Ligand; used to handle reading any kind of input valid in QUBEKit
+    Called inside Ligand or Protein; used to handle reading any kind of input valid in QUBEKit
         QC JSON object
         SMILES string
         PDB, MOL2, XYZ file
@@ -34,7 +35,8 @@ class ReadInput:
     :param name: The name of the molecule. Only necessary for smiles strings but can be
         provided regardless of input type.
     """
-    def __init__(self, mol_input, name=None):
+
+    def __init__(self, mol_input, name=None, is_protein=False):
 
         if Path(mol_input).exists():
             self.mol_input = Path(mol_input)
@@ -52,7 +54,10 @@ class ReadInput:
 
         self.rdkit_mol = None
 
-        self._read_input()
+        if is_protein:
+            self._read_pdb_protein()
+        else:
+            self._read_input()
 
     def _read_input(self):
         """
@@ -305,3 +310,58 @@ class ReadInput:
                     coords = []
 
         self.coords = traj_molecules[0] if len(traj_molecules) == 1 else traj_molecules
+
+    def _read_pdb_protein(self):
+        """
+
+        :return:
+        """
+        with open(self.mol_input, 'r') as pdb:
+            lines = pdb.readlines()
+
+        coords = []
+        atoms = []
+        self.topology = nx.Graph()
+        self.Residues = []
+        self.pdb_names = []
+
+        # atom counter used for graph node generation
+        atom_count = 0
+        for line in lines:
+            if 'ATOM' in line or 'HETATM' in line:
+                atomic_symbol = str(line[76:78])
+                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol).strip()
+
+                # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
+                if not atomic_symbol:
+                    atomic_symbol = str(line.split()[2])
+                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+
+                # now make sure we have a valid element
+                if atomic_symbol.lower() != 'cl' and atomic_symbol.lower() != 'br':
+                    atomic_symbol = atomic_symbol[0]
+
+                atom_name = f'{atomic_symbol}{atom_count}'
+                qube_atom = Atom(Element().number(atomic_symbol), atom_count, atom_name)
+
+                atoms.append(qube_atom)
+
+                self.pdb_names.append(str(line.split()[2]))
+
+                # also get the residue order from the pdb file so we can rewrite the file
+                self.Residues.append(str(line.split()[3]))
+
+                # Also add the atom number as the node in the graph
+                self.topology.add_node(atom_count)
+                atom_count += 1
+                coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+
+            elif 'CONECT' in line:
+                conect_terms = line.split()
+                for atom in conect_terms[2:]:
+                    if int(atom):
+                        self.topology.add_edge(int(conect_terms[1]) - 1, int(atom) - 1)
+
+        self.atoms = atoms
+        self.coords = np.array(coords)
+        self.residues = [res for res, group in groupby(self.Residues)]

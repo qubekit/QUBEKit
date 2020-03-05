@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO Move into file_handling.py?
-
 from configparser import ConfigParser
 import os
 
@@ -24,7 +22,7 @@ class Configure:
         'memory': '2',                  # Amount of memory (in GB); specified in the Gaussian09 scripts
         'convergence': 'GAU_TIGHT',     # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
         'iterations': '350',            # Max number of optimisation iterations
-        'bonds_engine': 'psi4',         # Engine used for bonds calculations
+        'bonds_engine': 'g09',          # Engine used for bonds calculations
         'density_engine': 'g09',        # Engine used to calculate the electron density
         'charges_engine': 'chargemol',  # Engine used for charge partitioning
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available

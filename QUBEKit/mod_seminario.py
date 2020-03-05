@@ -22,7 +22,7 @@ class ModSemMaths:
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
     @staticmethod
-    def normal_unit_vector(u_bc, u_ab):
+    def unit_vector_normal_to_bond(u_bc, u_ab):
         """Calculates unit vector which is normal to the plane abc."""
 
         cross = np.cross(u_bc, u_ab)
@@ -47,9 +47,9 @@ class ModSemMaths:
         u_ab = ModSemMaths.unit_vector_along_bond(coords, (atom_a, atom_b))
         u_cb = ModSemMaths.unit_vector_along_bond(coords, (atom_c, atom_b))
 
-        u_n = ModSemMaths.normal_unit_vector(u_cb, u_ab)
+        u_n = ModSemMaths.unit_vector_normal_to_bond(u_cb, u_ab)
 
-        return ModSemMaths.normal_unit_vector(u_n, u_ab)
+        return ModSemMaths.unit_vector_normal_to_bond(u_n, u_ab)
 
     @staticmethod
     def dot_product(u_pa, eig_ab):
@@ -80,8 +80,6 @@ class ModSemMaths:
         u_ab = ModSemMaths.unit_vector_along_bond(coords, (atom_a, atom_b))
         u_cb = ModSemMaths.unit_vector_along_bond(coords, (atom_c, atom_b))
 
-        print(u_ab.sum())
-
         bond_len_ab = bond_lens[atom_a, atom_b]
         eigenvals_ab = eigenvals[atom_a, atom_b, :]
         eigenvecs_ab = eigenvecs[:3, :3, atom_a, atom_b]
@@ -91,7 +89,7 @@ class ModSemMaths:
         eigenvecs_cb = eigenvecs[:3, :3, atom_c, atom_b]
 
         # Normal vector to angle plane found
-        u_n = ModSemMaths.normal_unit_vector(u_cb, u_ab)
+        u_n = ModSemMaths.unit_vector_normal_to_bond(u_cb, u_ab)
 
         # Angle is linear:
         if abs(np.linalg.norm(u_cb - u_ab)) < 0.01 or (1.99 < abs(np.linalg.norm(u_cb - u_ab)) < 2.01):
@@ -100,8 +98,8 @@ class ModSemMaths:
                 u_ab, u_cb, [bond_len_ab, bond_len_bc], [eigenvals_ab, eigenvals_cb], [eigenvecs_ab, eigenvecs_cb])
 
         else:
-            u_pa = ModSemMaths.normal_unit_vector(u_n, u_ab)
-            u_pc = ModSemMaths.normal_unit_vector(u_cb, u_n)
+            u_pa = ModSemMaths.unit_vector_normal_to_bond(u_n, u_ab)
+            u_pc = ModSemMaths.unit_vector_normal_to_bond(u_cb, u_n)
 
             # Scaling due to additional angles - Modified Seminario Part
             sum_first = sum(eigenvals_ab[i] * abs(ModSemMaths.dot_product(u_pa, eigenvecs_ab[:, i])) for i in range(3)) / scalings[0]
@@ -135,8 +133,8 @@ class ModSemMaths:
 
             u_n = [np.sin(theta) * np.cos(theta), np.sin(theta) * np.sin(theta), np.cos(theta)]
 
-            u_pa = ModSemMaths.normal_unit_vector(u_n, u_ab)
-            u_pc = ModSemMaths.normal_unit_vector(u_cb, u_n)
+            u_pa = ModSemMaths.unit_vector_normal_to_bond(u_n, u_ab)
+            u_pc = ModSemMaths.unit_vector_normal_to_bond(u_cb, u_n)
 
             sum_first = sum(eigenvals[0][i] * abs(ModSemMaths.dot_product(u_pa, eigenvecs[0][:, i])) for i in range(3))
             sum_second = sum(eigenvals[1][i] * abs(ModSemMaths.dot_product(u_pc, eigenvecs[1][:, i])) for i in range(3))
