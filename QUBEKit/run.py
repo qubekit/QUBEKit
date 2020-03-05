@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
-# TODO
-#  Squash unnecessary arguments into self.molecule. Args such as torsion_options.
-#    Better handling (or removal?) of torsion_options
-#  Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
+"""
+TODO
+    Squash unnecessary arguments into self.molecule. Args such as torsion_options.
+        Better handling (or removal?) of torsion_options
+    Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
+    BULK
+        Add .sdf as possible bulk_run, not just .csv
+        Different file types (should be easy as long as they're rdkit-readable)
+        bulk torsion options need to be checked
+"""
 
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
 from QUBEKit.engines import Chargemol, Gaussian, PSI4, QCEngine, RDKit
@@ -73,7 +79,6 @@ class ArgsAndConfigs:
             self.args.restart = 'finalise'
 
         # If it's a bulk run, handle it separately
-        # TODO Add .sdf as possible bulk_run, not just .csv
         if self.args.bulk_run is not None:
             self.handle_bulk()
 
@@ -344,7 +349,6 @@ class ArgsAndConfigs:
                 self.molecule = Ligand(smiles_string, name)
 
             else:
-                # TODO Different file types (should be easy as long as they're rdkit-readable)
                 # Initialise molecule, ready to add configs to it
                 self.molecule = Ligand(f'{name}.pdb')
 
@@ -557,7 +561,6 @@ class Execute:
 
     @exception_logger
     def run(self, torsion_options=None):
-        # TODO bulk torsion options need to be checked
         """
         Calls all the relevant classes and methods for the full QM calculation in the correct order
             (according to self.order).
