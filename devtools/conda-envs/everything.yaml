@@ -10,11 +10,12 @@ dependencies:
   - torsiondrive
     # extras
   - qcengine >=0.14.0
-  - qcelemental >=0.13.0
   - openforcefield
   - geometric
   - psi4
-  - matplotlib-base
+  - numpy >=1.18.1
   - scipy
+  - networkx >=2.4
+  - matplotlib-base
 
 
