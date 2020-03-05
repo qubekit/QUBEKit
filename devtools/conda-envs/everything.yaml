@@ -14,5 +14,6 @@ dependencies:
   - openforcefield
   - geometric
   - psi4
+  - matplotlib-base
 
 
