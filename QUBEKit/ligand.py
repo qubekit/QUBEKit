@@ -952,7 +952,7 @@ class Ligand(DefaultsMixin, Molecule):
         self.constraints_file = None
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
-        self.save_to_ligand()
+        self.save_to_ligand(self.mol_input, self.name)
 
         # Make sure we have the topology before we calculate the properties
         if self.topology.edges:
@@ -965,7 +965,7 @@ class Ligand(DefaultsMixin, Molecule):
             self.get_angle_values()
             self.symmetrise_from_topology()
 
-    def save_to_ligand(self, input_type='input'):
+    def save_to_ligand(self, mol_input, name=None, input_type='input'):
         """
         Public access to private file_handlers.py file.
         Users shouldn't ever need to interface with file_handlers.py directly.
@@ -975,7 +975,7 @@ class Ligand(DefaultsMixin, Molecule):
         Do bother updating coords and rdkit_mol
         """
 
-        ligand = ReadInput(self.mol_input, self.name)
+        ligand = ReadInput(mol_input, name)
 
         if ligand.name is not None and self.name is None:
             self.name = ligand.name
@@ -1037,10 +1037,10 @@ class Protein(DefaultsMixin, Molecule):
         self.Residues = None
         self.pdb_names = None
 
-        self.save_to_protein()
+        self.save_to_protein(self.mol_input, self.name)
         self.update()
 
-    def save_to_protein(self, input_type='input'):
+    def save_to_protein(self, mol_input, name=None, input_type='input'):
         """
         Public access to private file_handlers.py file.
         Users shouldn't ever need to interface with file_handlers.py directly.
@@ -1050,7 +1050,7 @@ class Protein(DefaultsMixin, Molecule):
         Do bother updating coords, rdkit_mol, residues, Residues, pdb_names
         """
 
-        protein = ReadInput(self.mol_input, self.name, is_protein=True)
+        protein = ReadInput(mol_input, name, is_protein=True)
 
         if protein.name is not None and self.name is None:
             self.name = protein.name
