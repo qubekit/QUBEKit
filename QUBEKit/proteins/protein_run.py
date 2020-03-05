@@ -8,7 +8,6 @@ from QUBEKit.proteins.protein_tools import get_water, pdb_reformat, qube_general
 import argparse
 from functools import partial
 import os
-from pathlib import Path
 import sys
 
 
@@ -42,9 +41,7 @@ def main():
 
         def __call__(self, pars, namespace, values, option_string=None):
 
-            filename = Path(values)
-            pro_name = filename.stem
-            pro = Protein(filename)
+            pro = Protein(values)
             # print the QUBE general FF to use in the parametrisation
             qube_general()
             # now we want to add the connections and parametrise the protein
@@ -59,9 +56,9 @@ def main():
 
             # Write out the final parameters
             printf('Writing pdb file with connections...')
-            pro.write_pdb(name=f'QUBE_pro_{pro_name}')
+            pro.write_pdb(name=f'QUBE_pro_{pro.name}')
             printf('Writing XML file for the system...')
-            pro.write_parameters(name=f'QUBE_pro_{pro_name}')
+            pro.write_parameters(name=f'QUBE_pro_{pro.name}')
             # now remove the qube general file
             os.remove('QUBE_general_pi.xml')
             printf('Done')

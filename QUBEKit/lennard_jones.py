@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-# TODO Ensure no index issues (e.g. -1 +1) from the changing of atom_number to atom_index
-#  Ensure SampleNamespace access and looping is working as intended (cmol and onetep)
-#  Improve data structures (no more lists!)
+# TODO Improve data structures (no more lists!)
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import CustomNamespace
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.helpers import check_net_charge, extract_charge_data, set_net
+from QUBEKit.utils.file_handling import extract_charge_data
+from QUBEKit.utils.helpers import check_net_charge, set_net
 
 from collections import OrderedDict, namedtuple
 import decimal
@@ -49,7 +48,7 @@ class LennardJones:
         else:
             raise KeyError('Invalid charges engine provided, cannot extract charges.')
 
-        # TODO Maybe move this to run file (or just elsewhere; it seems odd to have it here)?
+        # TODO Maybe move this to run/ligand file (or just elsewhere; it seems odd to have it here)?
         # Charge check
         charges = [atom.charge for atom in self.ddec_data.values()]
         check_net_charge(charges, ideal_net=self.molecule.charge)
@@ -291,7 +290,7 @@ class LennardJones:
 
         # load in the xyz file into the molecule into temp so we can work in the new coords
         # this will strip out the virtual sites though
-        self.molecule.save_to_molecule(extra_points_file, input_type='temp')
+        self.molecule.save_to_ligand(extra_points_file, input_type='temp')
         with open(extra_points_file) as xyz_sites:
             lines = xyz_sites.readlines()
 

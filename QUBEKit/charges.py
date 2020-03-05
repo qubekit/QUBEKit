@@ -2,20 +2,21 @@
 
 """
 TODO
-    Improved graphing; contour plot?
-    Convert esp_points / atom_points to np arrays?
-
-    function to calc monopole esp using two charges (atom-centred and v-site)
-    minimise difference between new monopole esp and v_total (mono + dipo + quad from before)
-    minimise wrt to both charge moved from atom to v-site and distance between them.
-
-    Test with ClCH3
-    This will allow just moving the v-site back and forth along the bond
+    Is there some dimension reduction we can do?
+    Can we change the way sample points are generated to cut out computation time?
+        e.g.:
+        Change it so sample coords are precalculated at fixed points, then scaled using vdw_radius
+    Simplify minimisation space
+        Are there regions we don't need to trial v-sites in?
+    Add bounds to stop v-sites being put everywhere
+    futureproof!
+        Make the code cleaner
+        Easier to swap out elements for potential ML improvements
 """
 
 from QUBEKit.utils.constants import ANGS_TO_M, BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, PI, VACUUM_PERMITTIVITY
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.helpers import extract_charge_data
+from QUBEKit.utils.file_handling import extract_charge_data
 
 from functools import lru_cache
 import math
@@ -23,6 +24,7 @@ import math
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+from scipy.optimize import minimize
 
 
 @for_all_methods(timer_logger)
@@ -64,7 +66,9 @@ class Charges:
             for points in self.generate_esp_atom(atom_index):
                 self.esp_points.append(points)
 
-        self.plot()
+        # self.plot()
+        self.minimise(1)
+
 
     @staticmethod
     def spherical_to_cartesian(spherical_coords):
@@ -97,7 +101,7 @@ class Charges:
 
     @staticmethod
     def monopole_esp_charges(charge1, charge2, dist1, dist2):
-        return
+        return ((ELECTRON_CHARGE * ELECTRON_CHARGE) / (4 * PI * VACUUM_PERMITTIVITY)) * (charge1 / dist1 + charge2 / dist2)
 
     @staticmethod
     def dipole_esp(dist_vector, dipole_moment, dist):
@@ -225,6 +229,54 @@ class Charges:
         print(f'Q: {(quad_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ')
 
         return sample_coords
+
+    def generate_atom_mono_esp_two_charges(self, atom_index, site_charge, site_pos):
+
+        atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
+        vdw_radius = self.vdw_radii[atomic_symbol]
+
+        atom_coords = self.molecule.coords['qm'][atom_index]
+
+        charge = self.ddec_data[atom_index].charge - site_charge
+
+        mono_esp_tot = 0
+
+        relative_sample_points = self.generate_sample_points(vdw_radius)
+
+        sample_coords = []
+        for relative_point in relative_sample_points:
+            proper_point = relative_point + atom_coords
+
+            dist = Charges.xyz_distance(proper_point, atom_coords)
+            site_dist = Charges.xyz_distance(proper_point, site_pos)
+            mono_esp = Charges.monopole_esp_charges(charge, site_charge, dist, site_dist)
+
+            mono_esp_tot += mono_esp
+            sample_coords.append((proper_point, mono_esp))
+
+        n_points = len(sample_coords)
+
+        print(f'{atomic_symbol}  ', end=' ')
+        print(f'M: {(mono_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ')
+
+        return sample_coords
+
+    def minimise(self, atom_index):
+
+        # This is what we're aiming for
+        v_no_off_site = [v for coords, v in self.generate_esp_atom(atom_index)]
+
+        # Change q, x, y, z and minimise sum(abs(v_no_off_site - mono_esp))
+        def objective_function(q=0, x=0, y=0, z=0):
+            total = 0
+            for v, m in zip(v_no_off_site, [v for _, v in self.generate_atom_mono_esp_two_charges(atom_index, q, np.array([x, y, z]))]):
+                total += abs((v - m))
+            return total
+
+        # Bounds should be set so that there's a max distance from the atom for the v-site
+        # and it's charge is no greater than a certain amount
+
+        return minimize(objective_function, np.array([0, 0, 0, 0]))
 
     def plot(self):
         """

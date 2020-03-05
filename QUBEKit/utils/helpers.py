@@ -2,7 +2,6 @@
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.constants import COLOURS
-from QUBEKit.utils.datastructures import CustomNamespace
 from QUBEKit.utils.exceptions import PickleFileNotFound, QUBEKitLogFileNotFound
 
 from collections import OrderedDict
@@ -280,21 +279,6 @@ def set_net(values, net=0, dp=6):
     return new_values
 
 
-def make_and_change_into(name):
-    """
-    - Attempt to make a directory with name <name>, don't fail if it exists.
-    - Change into the directory.
-    TODO Move to file_handling.py?
-    """
-
-    try:
-        os.mkdir(name)
-    except FileExistsError:
-        pass
-    finally:
-        os.chdir(name)
-
-
 def missing_import(name, fail_msg=''):
     """
     Generates a class which raises an import error when initialised.
@@ -351,78 +335,3 @@ def update_ligand(restart_key, cls):
             setattr(new_mol, attr, val)
 
     return new_mol
-
-
-def extract_charge_data(ddec_version=6):
-    """
-    From Chargemol output files, extract the necessary parameters for calculation of L-J.
-
-    :returns: 3 CustomNamespaces, ddec_data; dipole_moment_data; and quadrupole_moment_data
-    ddec_data used for calculating monopole esp and L-J values (used by both LennardJones and Charges classes)
-    dipole_moment_data used for calculating dipole esp
-    quadrupole_moment_data used for calculating quadrupole esp
-    TODO Move to file_handling.py?
-    """
-
-    if ddec_version == 6:
-        net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
-
-    elif ddec_version == 3:
-        net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
-
-    else:
-        raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
-
-    if not os.path.exists(net_charge_file_name):
-        raise FileNotFoundError(
-            'Cannot find the DDEC output file.\nThis could be indicative of several issues.\n'
-            'Please check Chargemol is installed in the correct location and that the configs'
-            ' point to that location.'
-        )
-
-    with open(net_charge_file_name, 'r+') as charge_file:
-        lines = charge_file.readlines()
-
-    # Find number of atoms
-    atom_total = int(lines[0])
-
-    for pos, row in enumerate(lines):
-        # Data marker:
-        if 'The following XYZ' in row:
-            start_pos = pos + 2
-            break
-    else:
-        raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
-
-    ddec_data = {}
-    dipole_moment_data = {}
-    quadrupole_moment_data = {}
-
-    for line in lines[start_pos: start_pos + atom_total]:
-        # _s are the xyz coords, then the quadrupole moment tensor eigenvalues
-        atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
-        # File counts from 1 not 0; thereby requiring -1 to get the index
-        atom_index = int(atom_count) - 1
-        ddec_data[atom_index] = CustomNamespace(
-            atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
-        )
-
-        dipole_moment_data[atom_index] = CustomNamespace(
-            x_dipole=float(x_dipole), y_dipole=float(y_dipole), z_dipole=float(z_dipole)
-        )
-
-        quadrupole_moment_data[atom_index] = CustomNamespace(
-            q_xy=float(q_xy), q_xz=float(q_xz), q_yz=float(q_yz), q_x2_y2=float(q_x2_y2), q_3z2_r2=float(q_3z2_r2)
-        )
-
-    r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
-
-    with open(r_cubed_file_name, 'r+') as vol_file:
-        lines = vol_file.readlines()
-
-    vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
-
-    for atom_index in ddec_data:
-        ddec_data[atom_index].volume = vols[atom_index]
-
-    return ddec_data, dipole_moment_data, quadrupole_moment_data

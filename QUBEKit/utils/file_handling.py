@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """
+Purpose of this file is to read various inputs and produce the info required for
+    Ligand() or Protein()
+Should be very little calculation here, simply file reading and some small validations / checks
+
 TODO
-    Purpose of this file is to read various inputs and produce the info required for
-        Ligand() or Protein()
-        Currently, Protein is not handled properly
-    Should be very little calculation here, simply file reading and some small validations / checks
-        Need to re-add topology checking and name checking
+    Need to re-add topology checking and name checking (Do this in ligand.py?)
     Descriptors should be accessed separately if needed (need to re-add)
 """
+import os
 
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import Atom, Element
+from QUBEKit.utils.datastructures import Atom, Element, CustomNamespace
 from QUBEKit.utils.exceptions import FileTypeError
 
+from itertools import groupby
 from pathlib import Path
 import re
 
@@ -23,7 +25,7 @@ import numpy as np
 
 class ReadInput:
     """
-    Called inside Ligand; used to handle reading any kind of input valid in QUBEKit
+    Called inside Ligand or Protein; used to handle reading any kind of input valid in QUBEKit
         QC JSON object
         SMILES string
         PDB, MOL2, XYZ file
@@ -34,7 +36,8 @@ class ReadInput:
     :param name: The name of the molecule. Only necessary for smiles strings but can be
         provided regardless of input type.
     """
-    def __init__(self, mol_input, name=None):
+
+    def __init__(self, mol_input, name=None, is_protein=False):
 
         if Path(mol_input).exists():
             self.mol_input = Path(mol_input)
@@ -52,7 +55,10 @@ class ReadInput:
 
         self.rdkit_mol = None
 
-        self._read_input()
+        if is_protein:
+            self._read_pdb_protein()
+        else:
+            self._read_input()
 
     def _read_input(self):
         """
@@ -305,3 +311,146 @@ class ReadInput:
                     coords = []
 
         self.coords = traj_molecules[0] if len(traj_molecules) == 1 else traj_molecules
+
+    def _read_pdb_protein(self):
+        """
+
+        :return:
+        """
+        with open(self.mol_input, 'r') as pdb:
+            lines = pdb.readlines()
+
+        coords = []
+        atoms = []
+        self.topology = nx.Graph()
+        self.Residues = []
+        self.pdb_names = []
+
+        # atom counter used for graph node generation
+        atom_count = 0
+        for line in lines:
+            if 'ATOM' in line or 'HETATM' in line:
+                atomic_symbol = str(line[76:78])
+                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol).strip()
+
+                # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
+                if not atomic_symbol:
+                    atomic_symbol = str(line.split()[2])
+                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+
+                # now make sure we have a valid element
+                if atomic_symbol.lower() != 'cl' and atomic_symbol.lower() != 'br':
+                    atomic_symbol = atomic_symbol[0]
+
+                atom_name = f'{atomic_symbol}{atom_count}'
+                qube_atom = Atom(Element().number(atomic_symbol), atom_count, atom_name)
+
+                atoms.append(qube_atom)
+
+                self.pdb_names.append(str(line.split()[2]))
+
+                # also get the residue order from the pdb file so we can rewrite the file
+                self.Residues.append(str(line.split()[3]))
+
+                # Also add the atom number as the node in the graph
+                self.topology.add_node(atom_count)
+                atom_count += 1
+                coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+
+            elif 'CONECT' in line:
+                conect_terms = line.split()
+                for atom in conect_terms[2:]:
+                    if int(atom):
+                        self.topology.add_edge(int(conect_terms[1]) - 1, int(atom) - 1)
+
+        self.atoms = atoms
+        self.coords = np.array(coords)
+        self.residues = [res for res, group in groupby(self.Residues)]
+
+
+def extract_charge_data(ddec_version=6):
+    """
+    From Chargemol output files, extract the necessary parameters for calculation of L-J.
+
+    :returns: 3 CustomNamespaces, ddec_data; dipole_moment_data; and quadrupole_moment_data
+    ddec_data used for calculating monopole esp and L-J values (used by both LennardJones and Charges classes)
+    dipole_moment_data used for calculating dipole esp
+    quadrupole_moment_data used for calculating quadrupole esp
+    """
+
+    if ddec_version == 6:
+        net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
+
+    elif ddec_version == 3:
+        net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
+
+    else:
+        raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
+
+    if not os.path.exists(net_charge_file_name):
+        raise FileNotFoundError(
+            'Cannot find the DDEC output file.\nThis could be indicative of several issues.\n'
+            'Please check Chargemol is installed in the correct location and that the configs'
+            ' point to that location.'
+        )
+
+    with open(net_charge_file_name, 'r+') as charge_file:
+        lines = charge_file.readlines()
+
+    # Find number of atoms
+    atom_total = int(lines[0])
+
+    for pos, row in enumerate(lines):
+        # Data marker:
+        if 'The following XYZ' in row:
+            start_pos = pos + 2
+            break
+    else:
+        raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
+
+    ddec_data = {}
+    dipole_moment_data = {}
+    quadrupole_moment_data = {}
+
+    for line in lines[start_pos: start_pos + atom_total]:
+        # _s are the xyz coords, then the quadrupole moment tensor eigenvalues
+        atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
+        # File counts from 1 not 0; thereby requiring -1 to get the index
+        atom_index = int(atom_count) - 1
+        ddec_data[atom_index] = CustomNamespace(
+            atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
+        )
+
+        dipole_moment_data[atom_index] = CustomNamespace(
+            x_dipole=float(x_dipole), y_dipole=float(y_dipole), z_dipole=float(z_dipole)
+        )
+
+        quadrupole_moment_data[atom_index] = CustomNamespace(
+            q_xy=float(q_xy), q_xz=float(q_xz), q_yz=float(q_yz), q_x2_y2=float(q_x2_y2), q_3z2_r2=float(q_3z2_r2)
+        )
+
+    r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
+
+    with open(r_cubed_file_name, 'r+') as vol_file:
+        lines = vol_file.readlines()
+
+    vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
+
+    for atom_index in ddec_data:
+        ddec_data[atom_index].volume = vols[atom_index]
+
+    return ddec_data, dipole_moment_data, quadrupole_moment_data
+
+
+def make_and_change_into(name):
+    """
+    - Attempt to make a directory with name <name>, don't fail if it exists.
+    - Change into the directory.
+    """
+
+    try:
+        os.mkdir(name)
+    except FileExistsError:
+        pass
+    finally:
+        os.chdir(name)
