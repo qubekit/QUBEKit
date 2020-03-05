@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
-TODO Ligand Refactor:
+TODO ligand.py Refactor:
     DO:
-        Move ALL file handling elsewhere (most to file_handling.py, but elsewhere where relevant)
         Move module-specific methods such as openmm_coordinates(); read_tdrive(); read_geometric_traj
             to their relevant files/classes
         Fix naming; consistency wrt get/find; clarity on all of the dihedral variables
             (what is dih_start, how is it different to di_starts etc)
-        Ensure complete docstring coverage
     CONSIDER:
         Add typing; especially for class variables
             Careful wrt complex variables such as coords, atoms, etc
@@ -25,15 +23,12 @@ TODO Ligand Refactor:
 
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import Atom
 from QUBEKit.utils.file_handling import ReadInput
 
 from collections import OrderedDict
 from datetime import datetime
-from itertools import groupby
 import os
 import pickle
-import re
 
 import networkx as nx
 import numpy as np
@@ -72,7 +67,7 @@ class DefaultsMixin:
         self.memory = 4
         self.convergence = 'GAU_TIGHT'
         self.iterations = 350
-        self.bonds_engine = 'psi4'
+        self.bonds_engine = 'g09'
         self.density_engine = 'g09'
         self.charges_engine = 'chargemol'
         self.ddec_version = 6
@@ -220,12 +215,6 @@ class Molecule:
         self.atom_symmetry_classes = None
         self.verbose = True
 
-        if self.is_protein:
-            return
-
-        # Read mol_input and generate mol info from file, smiles string or qc_json.
-        self.save_to_molecule(self.mol_input, self.name)
-
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__!r})'
 
@@ -272,31 +261,6 @@ class Molecule:
                 return_str += f'\n{key} = {repr(val)}\n'
 
         return return_str
-
-    def save_to_molecule(self, mol_input, name=None, input_type='input'):
-        """
-        Public access to private file_handlers.read_file().
-        Users shouldn't ever need to interface with file_handlers.py directly.
-        All parameters will be set from a file (or other input) via this public method.
-
-        Don't bother updating name, topology or atoms if they are already stored.
-        Do bother updating coords and rdkit_mol
-        """
-
-        # TODO Perform checks here? (check_names_are_unique(), validate_info(), etc)
-
-        molecule = ReadInput(mol_input, name)
-
-        if molecule.name is not None and self.name is None:
-            self.name = molecule.name
-        if molecule.topology is not None and self.topology is None:
-            self.topology = molecule.topology
-        if molecule.atoms is not None and self.atoms is None:
-            self.atoms = molecule.atoms
-        if molecule.coords is not None:
-            self.coords[input_type] = molecule.coords
-        if molecule.rdkit_mol is not None:
-            self.rdkit_mol = molecule.rdkit_mol
 
     # def check_names_are_unique(self):
     #     """
@@ -416,7 +380,9 @@ class Molecule:
         self.angles = angles or None
 
     def find_bond_lengths(self, input_type='input'):
-        """For the given molecule and topology find the length of all of the bonds."""
+        """
+        For the given molecule and topology find the length of all of the bonds.
+        """
 
         bond_lengths = {}
 
@@ -984,6 +950,9 @@ class Ligand(DefaultsMixin, Molecule):
 
         self.constraints_file = None
 
+        # Read mol_input and generate mol info from file, smiles string or qc_json.
+        self.save_to_ligand()
+
         # Make sure we have the topology before we calculate the properties
         if self.topology.edges:
             self.find_angles()
@@ -994,6 +963,31 @@ class Ligand(DefaultsMixin, Molecule):
             self.find_bond_lengths()
             self.get_angle_values()
             self.symmetrise_from_topology()
+
+    def save_to_ligand(self, input_type='input'):
+        """
+        Public access to private file_handlers.py file.
+        Users shouldn't ever need to interface with file_handlers.py directly.
+        All parameters will be set from a file (or other input) via this public method.
+
+        Don't bother updating name, topology or atoms if they are already stored.
+        Do bother updating coords and rdkit_mol
+        """
+
+        # TODO Perform checks here? (check_names_are_unique(), validate_info(), etc)
+
+        ligand = ReadInput(self.mol_input, self.name)
+
+        if ligand.name is not None and self.name is None:
+            self.name = ligand.name
+        if ligand.topology is not None and self.topology is None:
+            self.topology = ligand.topology
+        if ligand.atoms is not None and self.atoms is None:
+            self.atoms = ligand.atoms
+        if ligand.coords is not None:
+            self.coords[input_type] = ligand.coords
+        if ligand.rdkit_mol is not None:
+            self.rdkit_mol = ligand.rdkit_mol
 
     def write_pdb(self, input_type='input', name=None):
         """
@@ -1029,99 +1023,57 @@ class Protein(DefaultsMixin, Molecule):
 
     def __init__(self, mol_input, name=None):
         """
-        pdb_names
+        is_protein      Bool; True for Protein class
+        home            Current working directory (location for QUBEKit execution).
         residues        List of all residues in the molecule in order e.g. ['ARG', 'HIS', ... ]
         Residues        List of residue names for each atom e.g. ['ARG', 'ARG', 'ARG', ... 'HIS', 'HIS', ... ]
-        home            Current working directory (location for QUBEKit execution).
+        pdb_names       List
         """
 
         super().__init__(mol_input, name)
 
         self.is_protein = True
-        self.pdb_names = None
+        self.home = os.getcwd()
         self.residues = None
         self.Residues = None
-        self.read_pdb(self.filename)
-        self.home = os.getcwd()
+        self.pdb_names = None
 
-    def read_pdb(self, input_file, input_type='input'):
+        self.save_to_protein()
+        self.update()
+
+    def save_to_protein(self, input_type='input'):
         """
-        Read the pdb file which probably does not have the right connections,
-        so we need to find them using QUBE.xml
-        # TODO Move to file_handling.py
+        Public access to private file_handlers.py file.
+        Users shouldn't ever need to interface with file_handlers.py directly.
+        All parameters will be set from a file (or other input) via this public method.
+
+        Don't bother updating name, topology or atoms if they are already stored.
+        Do bother updating coords, rdkit_mol, residues, Residues, pdb_names
         """
 
-        with open(input_file, 'r') as pdb:
-            lines = pdb.readlines()
+        protein = ReadInput(self.mol_input, self.name, is_protein=True)
 
-        protein = []
-        self.topology = nx.Graph()
-        self.residues = []
-        self.Residues = []
-        self.pdb_names = []
-        self.atoms = []
-
-        # atom counter used for graph node generation
-        atom_count = 0
-        for line in lines:
-            if 'ATOM' in line or 'HETATM' in line:
-                atomic_symbol = str(line[76:78])
-                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol).strip()
-
-                # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
-                if not atomic_symbol:
-                    atomic_symbol = str(line.split()[2])
-                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
-
-                # now make sure we have a valid element
-                if atomic_symbol.lower() != 'cl' and atomic_symbol.lower() != 'br':
-                    atomic_symbol = atomic_symbol[0]
-
-                atom_name = f'{atomic_symbol}{atom_count}'
-                qube_atom = Atom(Element().number(atomic_symbol), atom_count, atom_name)
-
-                self.atoms.append(qube_atom)
-
-                self.pdb_names.append(str(line.split()[2]))
-
-                # also get the residue order from the pdb file so we can rewrite the file
-                self.Residues.append(str(line.split()[3]))
-
-                # Also add the atom number as the node in the graph
-                self.topology.add_node(atom_count)
-                atom_count += 1
-                protein.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
-
-            elif 'CONECT' in line:
-                conect_terms = line.split()
-                for atom in conect_terms[2:]:
-                    if int(atom):
-                        self.topology.add_edge(int(conect_terms[1]) - 1, int(atom) - 1)
-
-        self.coords[input_type] = np.array(protein)
-
-        # check if there are any conect terms in the file first
-        # if not self.topology.edges:
-        if not len(self.topology.edges):
-            print('No connections found in pdb file; topology will be inferred by OpenMM.')
-        else:
-            # TODO Consistency w.r.t. get/find
-            self.find_angles()
-            self.find_dihedrals()
-            self.find_rotatable_dihedrals()
-            self.find_impropers()
-            self.get_dihedral_values()
-            self.find_bond_lengths()
-            self.get_angle_values()
-            self.symmetrise_from_topology()
-
-        # TODO What if there are two or more of the same residue back to back?
-        #   Need to store the number of atoms in each amino acid and use that to check instead.
-        # Remove duplicates
-        self.residues = [res for res, group in groupby(self.Residues)]
+        if protein.name is not None and self.name is None:
+            self.name = protein.name
+        if protein.topology is not None and self.topology is None:
+            self.topology = protein.topology
+        if protein.atoms is not None and self.atoms is None:
+            self.atoms = protein.atoms
+        if protein.coords is not None:
+            self.coords[input_type] = protein.coords
+        if protein.rdkit_mol is not None:
+            self.rdkit_mol = protein.rdkit_mol
+        if protein.residues is not None:
+            self.residues = protein.residues
+        if protein.Residues is not None:
+            self.Residues = protein.Residues
+        if protein.pdb_names is not None:
+            self.pdb_names = protein.pdb_names
 
     def write_pdb(self, name=None):
-        """This method replaces the ligand method as all of the atom names and residue names have to be replaced."""
+        """
+        This method replaces the ligand method as all of the atom names and residue names have to be replaced.
+        """
 
         with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
 
@@ -1147,6 +1099,10 @@ class Protein(DefaultsMixin, Molecule):
         use this to update all missing terms.
         """
 
+        if not self.topology.edges:
+            print('No connections found in pdb file; topology will be inferred by OpenMM.')
+            return
+
         # using the new harmonic bond force dict we can add the bond edges to the topology graph
         for bond in self.HarmonicBondForce:
             self.topology.add_edge(*bond)
@@ -1154,9 +1110,9 @@ class Protein(DefaultsMixin, Molecule):
         self.find_angles()
         self.find_dihedrals()
         self.find_rotatable_dihedrals()
+        self.find_impropers()
         self.get_dihedral_values(input_type)
         self.find_bond_lengths(input_type)
         self.get_angle_values(input_type)
-        self.find_impropers()
         # this creates the dictionary of terms that should be symmetrise
         self.symmetrise_from_topology()

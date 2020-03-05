@@ -723,7 +723,7 @@ class Execute:
                            f'{molecule.constraints_file if molecule.constraints_file is not None else ""}',
                            shell=True, stdout=log, stderr=log)
 
-                molecule.save_to_molecule(f'{molecule.name}_optim.xyz', input_type='traj')
+                molecule.save_to_ligand(f'{molecule.name}_optim.xyz', input_type='traj')
                 molecule.coords['mm'] = molecule.coords['traj'][-1]
 
         else:
@@ -731,8 +731,8 @@ class Execute:
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}[molecule.mm_opt_method]
             molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff)
-            # TODO molecule no longer has filename attribute; replace with call to save_to_molecule()
-            molecule.save_to_molecule()
+            # TODO molecule no longer has filename attribute; replace with call to save_to_ligand()
+            molecule.save_to_ligand()
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}')
 

@@ -51,24 +51,25 @@ While it is stable we are constantly working to improve the code and broaden its
 
 We use lots of software written by many different people;
 if reporting a bug please (to the best of your ability) make sure it is a bug with QUBEKit and not with a dependency.
-We welcome any suggestions for additions or changes. 
+We welcome any suggestions for additions or changes.
 
 ## Installation
 
-To install, it is possible to use git, pip or conda *([help](https://github.com/qubekit/QUBEKit#requirements))*.
-Git has our latest version which will likely have newer features but may not be stable.
+QUBEKit is now available through conda-forge; this is the recommended installation method.
+Github has our latest version which will likely have newer features but may not be stable.
+Pip is not updated as regularly as Anaconda or Github but should also be stable.
 
-We recommend installing via conda. This will install all necessary dependencies.
-
-    conda config --add channels conda-forge --add channels omnia
-    conda install -c cringrose qubekit
+    # Recommended
+    conda install -c conda-forge qubekit
 
 ---
     
+    # Alternative 
     pip install qubekit
 
 ---
     
+    # Recommended for Developers (see below)
     git clone https://github.com/qubekit/QUBEKit.git
     cd <install location>
     python setup.py install    
@@ -96,14 +97,13 @@ If you do, please make sure Gaussian09 is executable with the command `g09`.
 Chargemol can be downloaded and installed from a zip file in the above link. 
 Be sure to add the path to the QUBEKit configs once you've generated them *([explanation](https://github.com/qubekit/QUBEKit#before-you-start-config-files))*.
 
-All conda packages are included in the conda install:
+Most conda packages are included in the conda-forge install.
+Packages not available through conda-forge may need to be installed separately.
 
-```
-conda config --add channels conda-forge --add channels omnia
-conda install -c cringrose qubekit
-```
+    conda install -c conda-forge qubekit
 
 The following table details some of the core requirements included in the conda install of QUBEKit.
+If any packages are missing from the install or causing issues, this table shows how to get them.
 
 | **Package** | Conda Install |
 | :------ | :------ |
@@ -137,10 +137,10 @@ the easiest method is install via conda, then remove the conda version of qubeki
 This is accomplished with a few simple commands:
     
     # Install QUBEKit as normal
-    conda install -c cringrose qubekit
+    conda install -c conda-forge qubekit
     
     # Remove ONLY the QUBEKit package itself, leaving all dependencies installed
-    # and on their correct version
+    # and on the correct version
     conda remove --force qubekit
     
     # Re-download the latest QUBEKit through github

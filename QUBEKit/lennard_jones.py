@@ -291,7 +291,7 @@ class LennardJones:
 
         # load in the xyz file into the molecule into temp so we can work in the new coords
         # this will strip out the virtual sites though
-        self.molecule.save_to_molecule(extra_points_file, input_type='temp')
+        self.molecule.save_to_ligand(extra_points_file, input_type='temp')
         with open(extra_points_file) as xyz_sites:
             lines = xyz_sites.readlines()
 
