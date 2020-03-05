@@ -15,11 +15,12 @@ matrix:
     env:
       - PYTHON_VER=3.6
       - ENV=EVERYTHING
-  - os: osx
-    language: generic
-    env:
-      - PYTHON_VER=3.7
-      - ENV=EVERYTHING
+# mac 3.7 builds have conflicting enviroments try turning on latter.
+#  - os: osx
+#    language: generic
+#    env:
+#      - PYTHON_VER=3.7
+#      - ENV=EVERYTHING
 
   # Test Linux with everything
   - os: linux
