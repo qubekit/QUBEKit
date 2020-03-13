@@ -1038,16 +1038,14 @@ class Protein(DefaultsMixin, Molecule):
         self.pdb_names = None
 
         self.save_to_protein(self.mol_input, self.name)
-        self.update()
 
     def save_to_protein(self, mol_input, name=None, input_type='input'):
         """
         Public access to private file_handlers.py file.
         Users shouldn't ever need to interface with file_handlers.py directly.
         All parameters will be set from a file (or other input) via this public method.
-
-        Don't bother updating name, topology or atoms if they are already stored.
-        Do bother updating coords, rdkit_mol, residues, Residues, pdb_names
+            * Don't bother updating name, topology or atoms if they are already stored.
+            * Do bother updating coords, rdkit_mol, residues, Residues, pdb_names
         """
 
         protein = ReadInput(mol_input, name, is_protein=True)
@@ -1058,6 +1056,7 @@ class Protein(DefaultsMixin, Molecule):
             self.topology = protein.topology
         if protein.atoms is not None and self.atoms is None:
             self.atoms = protein.atoms
+
         if protein.coords is not None:
             self.coords[input_type] = protein.coords
         if protein.rdkit_mol is not None:
@@ -1068,6 +1067,20 @@ class Protein(DefaultsMixin, Molecule):
             self.Residues = protein.Residues
         if protein.pdb_names is not None:
             self.pdb_names = protein.pdb_names
+
+        if not self.topology.edges:
+            print('No connections found in pdb file; topology will be inferred by OpenMM.')
+            return
+
+        self.find_angles()
+        self.find_dihedrals()
+        self.find_rotatable_dihedrals()
+        self.find_impropers()
+        self.get_dihedral_values(input_type)
+        self.find_bond_lengths(input_type)
+        self.get_angle_values(input_type)
+        # this creates the dictionary of terms that should be symmetrise
+        self.symmetrise_from_topology()
 
     def write_pdb(self, name=None):
         """
@@ -1080,8 +1093,10 @@ class Protein(DefaultsMixin, Molecule):
             # Write out the atomic xyz coordinates
             for i, (coord, atom) in enumerate(zip(self.coords['input'], self.atoms)):
                 x, y, z = coord
+                # atom.atom_name = atom.atom_name[0] + str(int(atom.atom_name[1:]) + 515)
+                # May cause issues if protein contains more than 10,000 atoms.
                 pdb_file.write(
-                    f'HETATM {i+1:>4}{atom.atom_name:>4} QUP     1{x:12.3f}{y:8.3f}{z:8.3f}'
+                    f'HETATM {i+1:>4}{atom.atom_name:>5} QUP     1{x:12.3f}{y:8.3f}{z:8.3f}'
                     f'  1.00  0.00         {atom.atomic_symbol.upper():>3}\n')
 
             # Now add the connection terms
@@ -1097,10 +1112,6 @@ class Protein(DefaultsMixin, Molecule):
         After the protein has been passed to the parametrisation class we get back the bond info
         use this to update all missing terms.
         """
-
-        if not self.topology.edges:
-            print('No connections found in pdb file; topology will be inferred by OpenMM.')
-            return
 
         # using the new harmonic bond force dict we can add the bond edges to the topology graph
         for bond in self.HarmonicBondForce:

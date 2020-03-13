@@ -33,12 +33,12 @@ Various files can also be produced from the molecule object:
     >>> molecule.write_pdb()
     >>> molecule.write_parameters() # produce an xml file
     
-Changing the acceptable inputs can be fairly easily achieved by changing the `read_file()` method.
+Changing the acceptable inputs can be fairly easily achieved by changing the available methods in `file_handlers.py`.
 It is also easy to add extra information by adding more arguments to the molecule object. 
 
 #### Engines
 
-QUBEKit is split up into several "Engines" which are usually classes encompassing a particular external package such as Gaussian, PSI4 or RDKit.
+QUBEKit is split up into several "Engines" which are (usually) classes encompassing a particular external package such as Gaussian, PSI4 or RDKit.
 These classes have methods for their respective jobs such as an RDKit file reader: `RDKit.read_file()`.
 Engines are designed to be as general as possible, and have a reasonable number of defaults.
 This allows them to be called with minimal user understanding of features they might not need.
@@ -46,7 +46,7 @@ This allows them to be called with minimal user understanding of features they m
     # Only requires a filename.
     RDKit.read_file(<filename>)
     # Only requires a molecule object;
-    # a PSI4 run file then be written based on the information provided.
+    # a PSI4 run file then be written and executed based on the information provided.
     PSI4(<molecule>).generate_input()
 
 #### run.py
@@ -132,10 +132,11 @@ molecule = Ligand('molecule.pdb')
 hessian = np.load('hessian.npy')
 # Insert hessian into molecule object
 molecule.hessian = hessian
-# Calculate force constants, angles and bond lengths 
-ModSeminario(molecule).modified_seminario_method()
+# Calculate force constants, angles and bond lengths
+mod_sem = ModSeminario(molecule)
+mod_sem.modified_seminario_method()
 # (optional) Symmetrise based on topology
-molecule.symmetrise_bonded_parameters()
+mod_sem.symmetrise_bonded_parameters()
 
 # Return an updated pdb and xml
 molecule.write_parameters()

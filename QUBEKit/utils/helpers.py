@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import csv
 import decimal
 from importlib import import_module
+import logging
 import math
 import operator
 import os
@@ -200,7 +201,7 @@ def check_symmetry(matrix, error=1e-5):
     Check matrix is symmetric to within some error.
     :param matrix: numpy array of Hessian matrix
     :param error: allowed error between matrix elements which should be symmetric (i,j), (j,i)
-    :return True or Error: Error is raised if matrix is not symmetric within error, True otherwise
+    Error is raised if matrix is not symmetric within error
     """
 
     # Check the matrix transpose is equal to the matrix within error.
@@ -209,7 +210,6 @@ def check_symmetry(matrix, error=1e-5):
 
     print(f'{COLOURS.purple}Symmetry check successful. '
           f'The matrix is symmetric within an error of {error}.{COLOURS.end}')
-    return True
 
 
 def check_net_charge(charges, ideal_net=0, error=1e-5):
@@ -218,7 +218,7 @@ def check_net_charge(charges, ideal_net=0, error=1e-5):
     :param charges: list of signed floats
     :param ideal_net: expected net charge of the molecule (what the sum of the charges should be)
     :param error: allowed error between ideal_net and calculated net charge
-    :return True or Error: Error is raised if charge is not within error, True otherwise
+    Error is raised if charge is not within error
     """
 
     # Ensure total charge is near to integer value:
@@ -230,7 +230,6 @@ def check_net_charge(charges, ideal_net=0, error=1e-5):
 
     print(f'{COLOURS.purple}Charge check successful. '
           f'Net charge is within {error} of the desired net charge of {ideal_net}.{COLOURS.end}')
-    return True
 
 
 def collect_archive_tdrive(tdrive_record, client):
@@ -335,3 +334,13 @@ def update_ligand(restart_key, cls):
             setattr(new_mol, attr, val)
 
     return new_mol
+
+
+@contextmanager
+def hide_warnings():
+    """
+    Temporarily hide any warnings for function wrapped with this context manager.
+    """
+    logging.disable(logging.WARNING)
+    yield
+    logging.disable(logging.NOTSET)
