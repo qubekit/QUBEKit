@@ -106,7 +106,6 @@ If any packages are missing from the install or causing issues, this table shows
 
 | **Package** | Conda Install |
 | :------ | :------ |
-| *Core* |  |
 | [GeomeTRIC](https://github.com/leeping/geomeTRIC) | `conda install -c conda-forge geometric` |
 | [OpenForceField](https://openforcefield.org/) | `conda install -c omnia openforcefield` |
 | [OpenMM](http://openmm.org/) | `conda install -c omnia openmm` |
@@ -114,9 +113,7 @@ If any packages are missing from the install or causing issues, this table shows
 | [QCEngine](https://pypi.org/project/qcengine/) | `conda install -c conda-forge qcengine` |
 | [RDKit](http://rdkit.org/) | `conda install -c rdkit rdkit` |
 | [TorsionDrive](https://github.com/lpwgroup/torsiondrive) | `conda install -c conda-forge torsiondrive` |
-| *GUI* |  |
-| [PyQt5](https://pypi.org/project/PyQt5/) | `pip install PyQt5` |
-| [PyQtWebEngine](https://pypi.org/project/PyQtWebEngine/) | `pip install PyQtWebEngine` |
+
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda should deal with versions and conflicts in your environment.

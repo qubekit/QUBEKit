@@ -65,6 +65,7 @@ class LennardJones:
 
     def extract_params_onetep(self):
         """
+        TODO Move this to file_handling.py
         From ONETEP output files, extract the necessary parameters for calculation of L-J.
         Insert data into ddec_data in standard format
 
@@ -186,8 +187,7 @@ class LennardJones:
         # Create new pair list with the atoms
         new_pairs = []
         for pair in self.molecule.topology.edges:
-            new_pair = (self.molecule.atoms[pair[0]], self.molecule.atoms[pair[1]])
-            new_pairs.append(new_pair)
+            new_pairs.append((self.molecule.atoms[pair[0]], self.molecule.atoms[pair[1]]))
 
         # Find all the polar hydrogens and store their positions / atom numbers
         polars = []
@@ -390,6 +390,7 @@ class LennardJones:
         Using the extracted C8 params, squash the 3-term potential into two terms using curvefit.
         :return:
         """
+
         self.extract_params_chargemol()
         self.extract_c8_params()
         # Get the a_i and b_i params

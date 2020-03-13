@@ -2,23 +2,25 @@
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
-
-from openforcefield.topology import Molecule
-from openforcefield.typing.engines.smirnoff import ForceField, BondHandler, AngleHandler, ProperTorsionHandler, vdWHandler
-from openforcefield.typing.engines.smirnoff.parameters import (
-    UnassignedValenceParameterException, UnassignedBondParameterException,
-    UnassignedProperTorsionParameterException, UnassignedAngleParameterException,
-    UnassignedMoleculeChargeException
-)
+from QUBEKit.utils.helpers import hide_warnings
 
 from simtk import unit
 from simtk.openmm import XmlSerializer
+
+with hide_warnings():
+    from openforcefield.topology import Molecule
+    from openforcefield.typing.engines.smirnoff import ForceField, BondHandler, AngleHandler, ProperTorsionHandler, vdWHandler
+    from openforcefield.typing.engines.smirnoff.parameters import (
+        UnassignedValenceParameterException, UnassignedBondParameterException,
+        UnassignedProperTorsionParameterException, UnassignedAngleParameterException,
+        UnassignedMoleculeChargeException
+)
 
 
 @for_all_methods(timer_logger)
 class OpenFF(Parametrisation):
     """
-    This class uses the openFFtoolkit 2 to parametrise a molecule and load an OpenMM simulation.
+    This class uses the OpenFFtoolkit 2 to parametrise a molecule and load an OpenMM simulation.
     A serialised XML is then stored in the parameter dictionaries.
     """
 
