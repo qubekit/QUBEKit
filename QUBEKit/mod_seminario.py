@@ -317,7 +317,7 @@ class ModSeminario:
         Apply symmetry to the bonded parameters stored in the molecule based on types from rdkit.
         """
 
-        if self.molecule.bond_types is None:
+        if (self.molecule.bond_types is None) or (not self.molecule.symmetry):
             return
 
         # Collect all of the bond values from the HarmonicBondForce dict

@@ -28,6 +28,7 @@ class Configure:
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
+        'symmetry': 'True',             # Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters
     }
 
     fitting = {
@@ -73,6 +74,7 @@ class Configure:
         'ddec_version': ';DDEC version used by Chargemol, 6 recommended but 3 is also available',
         'geometric': ';Use geometric for optimised structure (if False, will just use PSI4)',
         'solvent': ';Use a solvent in the psi4/gaussian09 input',
+        'symmetry': ';Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters',
         'dih_start': ';Starting angle of dihedral scan',
         'increment': ';Angle increase increment',
         'dih_end': ';The last dihedral angle in the scan',
@@ -91,7 +93,7 @@ class Configure:
         'nstates': ';The number of states to use',
         'excited_root': ';The root',
         'use_pseudo': ';Use a pseudo potential',
-        'pseudo_potential_block': ';Enter the pseudo potential block here eg'
+        'pseudo_potential_block': ';Enter the pseudo potential block here eg',
     }
 
     def load_config(self, config_file='default_config'):

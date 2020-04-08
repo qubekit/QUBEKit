@@ -302,6 +302,9 @@ class ArgsAndConfigs:
                             help='Decide whether the log file should contain all the input/output information')
         parser.add_argument('-display', '--display', type=str, nargs='+', action=DisplayMolAction,
                             help='Get the molecule object with this name in the cwd')
+        parser.add_argument('-symmetry', '--symmetry', choices=[True, False], type=string_to_bool,
+                            help='Enable or disable the use of symmetrisation for bond, angle, charge, and '
+                                 'Lennard-Jones parameters')
 
         # Add mutually exclusive groups to stop certain combinations of options,
         # e.g. setup should not be run with csv command
@@ -860,7 +863,8 @@ class Execute:
         mod_sem = ModSeminario(molecule)
 
         mod_sem.modified_seminario_method()
-        mod_sem.symmetrise_bonded_parameters()
+        if molecule.symmetry:
+            mod_sem.symmetrise_bonded_parameters()
 
         append_to_log('Finishing Mod_Seminario method')
 

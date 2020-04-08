@@ -74,6 +74,7 @@ class DefaultsMixin:
         self.ddec_version = 6
         self.geometric = True
         self.solvent = True
+        self.symmetry = True
 
         self.dih_start = -165
         self.increment = 15

@@ -69,7 +69,6 @@ class Charges:
         # self.plot()
         self.minimise(1)
 
-
     @staticmethod
     def spherical_to_cartesian(spherical_coords):
         """

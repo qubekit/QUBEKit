@@ -374,7 +374,8 @@ class LennardJones:
         self.correct_polar_hydrogens()
 
         # Tweak the charge, sigma and epsilon for symmetry
-        self.apply_symmetrisation()
+        if self.molecule.symmetry:
+            self.apply_symmetrisation()
 
         # Find extra site positions in local coords if present and tweak the charges of the parent
         if self.molecule.charges_engine == 'onetep':
