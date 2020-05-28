@@ -166,9 +166,9 @@ class TorsionScan:
         # Write the dihedrals.txt file for tdrive
         with open('dihedrals.txt', 'w+') as out:
 
-            out.write('# dihedral definition by atom indices starting from 0\n#zero_based_numbering\n'
+            out.write('# dihedral definition by atom indices starting from 0\n# zero_based_numbering\n'
                       '# i     j     k     l     ')
-            out.write('(range_low)     (range_high)')
+            out.write('(range_low)     (range_high)\n')
             out.write(f'  {scan_di[0]}     {scan_di[1]}     {scan_di[2]}     {scan_di[3]}     ')
             out.write(f'{self.molecule.dih_starts[scan_di]}     {self.molecule.dih_ends[scan_di]}\n')
 
