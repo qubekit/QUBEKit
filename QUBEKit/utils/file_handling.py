@@ -175,12 +175,10 @@ class ReadInput:
 
         atom_count = 0
 
-        print('called!')
         with open(self.mol_input) as pdb:
 
             for line in pdb:
                 if 'ATOM' in line or 'HETATM' in line:
-                    print('reading!')
                     # start collecting the atom class info
                     atomic_symbol = str(line[76:78])
                     atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)

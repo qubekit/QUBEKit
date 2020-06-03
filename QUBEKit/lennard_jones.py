@@ -236,6 +236,32 @@ class LennardJones:
 
             self.non_bonded_force[atom_index] = [atom.charge, self.non_bonded_force[atom_index][1], epsilon]
 
+    def symmetrise_with_symm_hs(self):
+        """
+        Average the non-bonded parameters which should be the same according to molecule.symm_hs.
+        """
+
+        for name, sym_set_type in self.molecule.symm_hs.items():
+            for atom_set in sym_set_type:
+                charges, sigmas, epsilons = [], [], []
+                for atom in atom_set:
+                    charges.append(self.non_bonded_force[atom][0])
+                    sigmas.append(self.non_bonded_force[atom][1])
+                    epsilons.append(self.non_bonded_force[atom][2])
+                # calculate the average values to be used in symmetry
+                charge, sigma, epsilon = sum(charges) / len(charges), sum(sigmas) / len(sigmas), sum(epsilons) / len(epsilons)
+
+                # Loop through the atoms again and store the new values
+                for atom in atom_set:
+                    self.non_bonded_force[atom] = [charge, sigma, epsilon]
+
+        # make sure the net charge is correct for the current precision
+        charges = [non_bonded[0] for non_bonded in self.non_bonded_force.values()]
+        new_charges = set_net(charges, self.molecule.charge, 6)
+        # Put the new charges back into the holder
+        for non_bonded, new_charge in zip(self.non_bonded_force.values(), new_charges):
+            non_bonded[0] = new_charge
+
     def apply_symmetrisation(self):
         """
         Using the atoms picked out to be symmetrised,

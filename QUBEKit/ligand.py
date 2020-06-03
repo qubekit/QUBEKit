@@ -974,6 +974,10 @@ class Ligand(DefaultsMixin, Molecule):
 
         Don't bother updating name, topology or atoms if they are already stored.
         Do bother updating coords and rdkit_mol
+
+        :param mol_input:
+        :param name:
+        :param input_type: "input", "mm", "qm", "traq", or "temp"
         """
 
         ligand = ReadInput(mol_input, name)
@@ -1057,11 +1061,11 @@ class Protein(DefaultsMixin, Molecule):
             self.topology = protein.topology
         if protein.atoms is not None and self.atoms is None:
             self.atoms = protein.atoms
-
         if protein.coords is not None:
             self.coords[input_type] = protein.coords
         if protein.rdkit_mol is not None:
             self.rdkit_mol = protein.rdkit_mol
+
         if protein.residues is not None:
             self.residues = protein.residues
         if protein.Residues is not None:
@@ -1080,7 +1084,7 @@ class Protein(DefaultsMixin, Molecule):
         self.get_dihedral_values(input_type)
         self.find_bond_lengths(input_type)
         self.get_angle_values(input_type)
-        # this creates the dictionary of terms that should be symmetrise
+        # This creates the dictionary of terms that should be symmetrised.
         self.symmetrise_from_topology()
 
     def write_pdb(self, name=None):
@@ -1094,13 +1098,12 @@ class Protein(DefaultsMixin, Molecule):
             # Write out the atomic xyz coordinates
             for i, (coord, atom) in enumerate(zip(self.coords['input'], self.atoms)):
                 x, y, z = coord
-                # atom.atom_name = atom.atom_name[0] + str(int(atom.atom_name[1:]) + 515)
                 # May cause issues if protein contains more than 10,000 atoms.
                 pdb_file.write(
                     f'HETATM {i+1:>4}{atom.atom_name:>5} QUP     1{x:12.3f}{y:8.3f}{z:8.3f}'
                     f'  1.00  0.00         {atom.atomic_symbol.upper():>3}\n')
 
-            # Now add the connection terms
+            # Add the connection terms based on the molecule topology.
             for node in self.topology.nodes:
                 bonded = sorted(list(nx.neighbors(self.topology, node)))
                 if len(bonded) >= 1:
@@ -1125,5 +1128,5 @@ class Protein(DefaultsMixin, Molecule):
         self.get_dihedral_values(input_type)
         self.find_bond_lengths(input_type)
         self.get_angle_values(input_type)
-        # this creates the dictionary of terms that should be symmetrise
+        # This creates the dictionary of terms that should be symmetrised.
         self.symmetrise_from_topology()
