@@ -2,16 +2,11 @@
 
 """
 TODO
-    Is there some dimension reduction we can do?
-    Can we change the way sample points are generated to cut out computation time?
-        e.g.:
-        Change it so sample coords are precalculated at fixed points, then scaled using vdw_radius
-    Simplify minimisation space
-        Are there regions we don't need to trial v-sites in?
-    Add bounds to stop v-sites being put everywhere
-    futureproof!
-        Make the code cleaner
-        Easier to swap out elements for potential ML improvements
+    Convert sample_points to a matrix.
+        Cleaner since you can just broadcast the offset rather than loop over the list
+    There's still a little bit of repetition
+    Plotting is a bit gross (probably only used for testing though?)
+    Make it easier to swap out elements for potential ML improvements
 """
 
 from QUBEKit.utils.constants import ANGS_TO_M, BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, PI, VACUUM_PERMITTIVITY
@@ -60,14 +55,12 @@ class Charges:
         self.atom_points = [(coord, atom.partial_charge)       # ((x, y, z), q)
                             for coord, atom in zip(self.molecule.coords['qm'], self.molecule.atoms)]
 
-        # List of tuples where each tuple is the xyz esp coords, followed by the esp value
-        self.esp_points = []
-        for atom_index in range(len(self.molecule.coords['qm'])):
-            for points in self.generate_esp_atom(atom_index):
-                self.esp_points.append(points)
-
-        # self.plot()
-        self.minimise(1)
+        for atom_index, atom in enumerate(self.molecule.atoms):
+            # TODO Extend allowed element types
+            if atom.atomic_symbol in ['F', 'Cl', 'Br', 'O', 'N']:
+                self.sample_points = self.generate_sample_points_atom(atom_index)
+                self.v_site_coords = self.fit(atom_index)
+                self.plot()
 
     @staticmethod
     def spherical_to_cartesian(spherical_coords):
@@ -141,7 +134,7 @@ class Charges:
                 8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
 
     @lru_cache(maxsize=None)
-    def generate_sample_points(self, vdw_radius):
+    def generate_sample_points_relative(self, vdw_radius):
         """
         Generate evenly distributed points in a series of shells around the point (0, 0, 0)
         This uses fibonacci spirals to produce an even spacing of points on a sphere.
@@ -168,23 +161,35 @@ class Charges:
 
         return relative_sample_points
 
+    def generate_sample_points_atom(self, atom_index):
+        """
+        * Get the vdw radius of the atom which is being analysed
+        * Using the relative sample points generated from generate_sample_points_relative():
+            * Offset all of the points by the position of the atom coords
+        :param atom_index: index of the atom around which a v-site will be fit
+        :return: a list of all the sample points (length 3 np arrays) to be used in the
+        fitting of the v-site.
+        """
+
+        atom = self.molecule.atoms[atom_index]
+        atom_coords = self.molecule.coords['qm'][atom_index]
+        vdw_radius = self.vdw_radii[atom.atomic_symbol]
+
+        sample_points = self.generate_sample_points_relative(vdw_radius)
+        for point in sample_points:
+            point += atom_coords
+
+        return sample_points
+
     def generate_esp_atom(self, atom_index):
         """
-        For a given atom at <atom_index>:
-            * Extract the relevant data such as partial charge
-            * Produce a shell of points around that atom.
-            * For each point:
-                * Calculate the monopole, dipole and quadrupole esp
-                * Sum them
-                * Create a tuple of ((x, y, z), v): xyz are the sample point coords, v is the total esp
-
+        Generate an ordered list of ESP values at each sample point around the atom at <atom_index>
+        ESP is calculated using the monopole, dipole and quadrupole.
         :param atom_index: The index of the atom being analysed.
         Used to extract relevant data such as partial charges
-        :return: a list of all of the tuples described above
+        :return: list of ESP values at each point in the list of relative sample points
+        This is the list to fit TO.
         """
-
-        atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
-        vdw_radius = self.vdw_radii[atomic_symbol]
 
         atom_coords = self.molecule.coords['qm'][atom_index]
 
@@ -194,17 +199,10 @@ class Charges:
 
         quad_data = self.quadrupole_moment_data[atom_index]
 
-        mono_esp_tot, dipo_esp_tot, quad_esp_tot = 0, 0, 0
-
-        relative_sample_points = self.generate_sample_points(vdw_radius)
-
-        sample_coords = []
-        for relative_point in relative_sample_points:
-
-            proper_point = relative_point + atom_coords
-
-            dist = Charges.xyz_distance(proper_point, atom_coords)
-            dist_vector = proper_point - atom_coords
+        no_site_esps = []
+        for point in self.sample_points:
+            dist = Charges.xyz_distance(point, atom_coords)
+            dist_vector = point - atom_coords
 
             mono_esp = Charges.monopole_esp_one_charge(charge, dist)
             dipo_esp = Charges.dipole_esp(dist_vector, dipole_moment, dist)
@@ -212,91 +210,50 @@ class Charges:
             m_tensor = Charges.quadrupole_moment_tensor(*quad_data.values())
             quad_esp = Charges.quadrupole_esp(dist_vector, m_tensor, dist)
 
-            mono_esp_tot += mono_esp
-            dipo_esp_tot += abs(dipo_esp)
-            quad_esp_tot += abs(quad_esp)
-
+            # TODO Should be abs?
+            # v_total = mono_esp + abs(dipo_esp) + abs(quad_esp)
             v_total = mono_esp + dipo_esp + quad_esp
+            no_site_esps.append((v_total / ANGS_TO_M) * J_TO_KCAL_P_MOL)
 
-            sample_coords.append((proper_point, v_total))
+        return no_site_esps
 
-        n_points = len(sample_coords)
-
-        print(f'{atomic_symbol}  ', end=' ')
-        print(f'M: {(mono_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ', end=' ')
-        print(f'D: {(dipo_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ', end=' ')
-        print(f'Q: {(quad_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ')
-
-        return sample_coords
-
-    def generate_atom_mono_esp_two_charges(self, atom_index, site_charge, site_pos):
-
-        atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
-        vdw_radius = self.vdw_radii[atomic_symbol]
+    def generate_atom_mono_esp_two_charges(self, atom_index, site_charge, site_coords):
+        """
+        Generate an ordered list of ESP values at each sample point around the atom at <atom_index>
+        ESP is calculated using just the monopole from the charge on the atom and the virtual site.
+        :param atom_index: The index of the atom being analysed.
+        :param site_charge: The charge of the virtual site.
+        :param site_coords: The coordinates of the virtual site.
+        :return: list of ESP values at each point in the list of relative sample points.
+        This is the list of values which will be adjusted to fit to the values from generate_esp_atom()
+        """
 
         atom_coords = self.molecule.coords['qm'][atom_index]
+        # New charge of the atom, having removed the v-site's charge.
+        atom_charge = self.ddec_data[atom_index].charge - site_charge
 
-        charge = self.ddec_data[atom_index].charge - site_charge
+        # TODO Just append q to each item in self.sample_points (cleaner)
+        v_site_esps = []
+        for point in self.sample_points:
+            dist = Charges.xyz_distance(point, atom_coords)
+            site_dist = Charges.xyz_distance(point, site_coords)
 
-        mono_esp_tot = 0
+            mono_esp = Charges.monopole_esp_charges(atom_charge, site_charge, dist, site_dist)
+            v_site_esps.append((mono_esp / ANGS_TO_M) * J_TO_KCAL_P_MOL)
 
-        relative_sample_points = self.generate_sample_points(vdw_radius)
-
-        sample_coords = []
-        for relative_point in relative_sample_points:
-            proper_point = relative_point + atom_coords
-
-            dist = Charges.xyz_distance(proper_point, atom_coords)
-            site_dist = Charges.xyz_distance(proper_point, site_pos)
-            mono_esp = Charges.monopole_esp_charges(charge, site_charge, dist, site_dist)
-
-            mono_esp_tot += mono_esp
-            sample_coords.append((proper_point, mono_esp))
-
-        n_points = len(sample_coords)
-
-        print(f'{atomic_symbol}  ', end=' ')
-        print(f'M: {(mono_esp_tot / (n_points * ANGS_TO_M)) * J_TO_KCAL_P_MOL: .6f}  ')
-
-        return sample_coords
-
-    def minimise(self, atom_index):
-
-        # This is what we're aiming for
-        v_no_off_site = [v for coords, v in self.generate_esp_atom(atom_index)]
-
-        # Change q, x, y, z and minimise sum(abs(v_no_off_site - mono_esp))
-        def objective_function(q=0, x=0, y=0, z=0):
-            total = 0
-            for v, m in zip(v_no_off_site, [v for _, v in self.generate_atom_mono_esp_two_charges(atom_index, q, np.array([x, y, z]))]):
-                total += abs((v - m))
-            return total
-
-        # Bounds should be set so that there's a max distance from the atom for the v-site
-        # and it's charge is no greater than a certain amount
-
-        return minimize(objective_function, np.array([0, 0, 0, 0]))
+        return v_site_esps
 
     def plot(self):
         """
-        Plot the atoms of a molecule with large crosses; colour is given by their partial charge.
-        Then, plot the esp at all of the sample points with small dots; colour is given by the esp magnitude.
+        Plot the coordinates of the atoms and the virtual site.
+        The atoms are crosses, the virtual site is a dot.
+        Colour represents the charge of the particles.
         """
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=Axes3D.name)
 
-        # TODO Use numpy to rotate esp_points matrix for faster variable access.
-        ax.scatter(
-            xs=[i[0][0] for i in self.esp_points],
-            ys=[i[0][1] for i in self.esp_points],
-            zs=[i[0][2] for i in self.esp_points],
-            c=[i[1] for i in self.esp_points],
-            marker='o',
-            s=2,
-            alpha=0.5
-        )
-
+        # Atoms and their charges
         ax.scatter(
             xs=[i[0][0] for i in self.atom_points],
             ys=[i[0][1] for i in self.atom_points],
@@ -306,14 +263,101 @@ class Charges:
             s=100
         )
 
+        # V-site and its charge
+        ax.scatter(
+            xs=[self.v_site_coords[0][0]],
+            ys=[self.v_site_coords[0][1]],
+            zs=[self.v_site_coords[0][2]],
+            c=[self.v_site_coords[1]],
+            marker='o',
+            s=100
+        )
+
         plt.show()
 
+    def get_vector_from_coords(self, atom_index):
+        """
+        Given the coords of the atom which will have a v-site, as well as its neighbouring atom(s) coords:
+            return the vector along which the v-site will sit.
+        For halogens, this is linear from C-Halo-Site.
+        For oxygen, this bisects the atom-oxygen-atom angle and points away from the two bonds. (like trigonal planar).
+        For nitrogen, this bisects the nitrogen-atom^3 and points away from the three bonds. (like tetrahedal).
+        :param atom_index: The index of the atom being analysed.
+        :return the vector along which the v-site will sit.
+        """
 
-class FitCharges:
-    """
-    Using the sample points generated from the Charges class:
-        * Minimise average_over_points(abs(Vmm-Vqm))
-        * Move the off-site charge to its optimised position.
+        # TODO rewrite; this is gross.
+        atom = self.molecule.atoms[atom_index]
+        atom_coords = self.molecule.coords['qm'][atom_index]
+        if atom.atomic_symbol in ['F', 'Cl', 'Br']:
+            bonded_index = atom.bonds[0]    # [0] is used since bonds is a one item list
+            bonded_coords = self.molecule.coords['qm'][bonded_index]
+            r_ab = bonded_coords - atom_coords
+            return r_ab
 
-    """
-    pass
+        if atom.atomic_symbol in ['O']:
+            bonded_index_b, bonded_index_c = atom.bonds
+            bonded_coords_b = self.molecule.coords['qm'][bonded_index_b]
+            bonded_coords_c = self.molecule.coords['qm'][bonded_index_c]
+            r_ab = bonded_coords_b - atom_coords
+            r_ac = bonded_coords_c - atom_coords
+            return r_ab + r_ac
+
+        if atom.atomic_symbol in ['N']:
+            bonded_index_b, bonded_index_c, bonded_index_d = atom.bonds
+            bonded_coords_b = self.molecule.coords['qm'][bonded_index_b]
+            bonded_coords_c = self.molecule.coords['qm'][bonded_index_c]
+            bonded_coords_d = self.molecule.coords['qm'][bonded_index_d]
+            r_ab = bonded_coords_b - atom_coords
+            r_ac = bonded_coords_c - atom_coords
+            r_ad = bonded_coords_d - atom_coords
+            return np.cross((r_ab - r_ac), (r_ad - r_ac))
+
+    def esp_from_lambda_and_charge(self, atom_index, q, lam, vec):
+        """
+        :param atom_index: index of the atom with a virtual site to be fit to
+        :param q: charge of the virtual site
+        :param lam: scaling of the vector along which the v-site sits
+        :param vec: the vector along which the v-site sits
+        Place a v-site at the correct position along the vector by scaling according to the lambda
+        calculate the esp from the atom and the v-site.
+        """
+
+        # This is the current position of the v-site (moved by the fit() method)
+        site_coords = (-vec * lam) + self.molecule.coords['qm'][atom_index]
+        return self.generate_atom_mono_esp_two_charges(atom_index, q, site_coords)
+
+    def fit(self, atom_index):
+        """
+        Calculate the "ideal" esp using the more precise monopole + dipole + quadrupole method.
+        Calculate the vector along which a v-site would sit.
+        Fit a monopole esp to the "ideal" esp by varying the charge and position of the v-site along the vector
+        :param atom_index: the atom which will have a v-site (halogen, oxygen, nitrogen)
+        :return: The scale factor (lambda) of the vector, and q, the charge of the v-site
+        """
+
+        no_site_esps = self.generate_esp_atom(atom_index)
+        # Vector along which the v-site will sit.
+        vec = self.get_vector_from_coords(atom_index)
+
+        def objective_function(q_lam):
+            """
+            Error is defined as the sum of the absolute differences between the esp at each point,
+            calculated with and without a virtual site.
+            """
+            site_esps = self.esp_from_lambda_and_charge(atom_index, *q_lam, vec)
+            error = sum(abs(no_site_esp - site_esp)
+                        for no_site_esp, site_esp in zip(no_site_esps, site_esps))
+            print(error)
+            return error
+
+        # TODO Are these acceptable bounds? Should they be determined through the vdW radii? (yes)
+        bounds = ((-0.5, 0.5), (0.1, 1.0))
+
+        result = minimize(objective_function, np.array([0, 1]), bounds=bounds)
+        q, lam = result.x
+        v_site_coords = (-vec * lam) + self.molecule.coords['qm'][atom_index]
+
+        print(f'coords: {v_site_coords} charge: {q} scale factor, lambda: {lam}')
+        # TODO Use the coords and charge to add a virtual site to the xml for the molecule.
+        return v_site_coords, q

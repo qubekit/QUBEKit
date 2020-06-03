@@ -101,11 +101,11 @@ class TorsionScan:
                 non_rotatable.add(dihedral)
                 continue
 
-            self.molecule.dih_starts[dihedral] = -170   # self.molecule.dih_start
-            self.molecule.dih_ends[dihedral] = 180      # self.molecule.dih_end
+            self.molecule.dih_starts[dihedral] = -170
+            self.molecule.dih_ends[dihedral] = 180
             rev_dihedral = tuple(reversed(dihedral))
-            self.molecule.dih_starts[rev_dihedral] = -170   # self.molecule.dih_start
-            self.molecule.dih_ends[rev_dihedral] = 180      # self.molecule.dih_end
+            self.molecule.dih_starts[rev_dihedral] = -170
+            self.molecule.dih_ends[rev_dihedral] = 180
             self.molecule.scan_order.append(dihedral)
             self.molecule.increments[dihedral] = 10
             self.molecule.increments[rev_dihedral] = 10
@@ -236,7 +236,7 @@ class TorsionScan:
         for scan in self.molecule.scan_order:
             name = self._make_folder_name(scan)
             os.chdir(os.path.join(self.home, os.path.join(f'SCAN_{name}', 'QM_torsiondrive')))
-            self.molecule.read_tdrive(scan)
+            self.molecule.read_tdrive(scan[1:3])
 
     def _make_folder_name(self, scan):
         return f'{scan[0]}_{scan[1]}_{scan[2]}_{scan[3]}'
@@ -371,7 +371,6 @@ class TorsionOptimiser:
         self.mm_energy = None
         self.initial_energy = None
         self.starting_energy = None
-        self.scan_order = molecule.scan_order
         self.scan_coords = None
         self.starting_params = None
         self.energy_store_qm = []
@@ -747,7 +746,7 @@ class TorsionOptimiser:
         """
 
         # Set up the first fitting
-        for self.scan in self.scan_order:
+        for self.scan in self.molecule.scan_order:
             # Get the MM coords from the QM torsion drive in OpenMM format
             self.molecule.coords['traj'] = self.molecule.qm_scans[self.scan][1]
             self.scan_coords = self.molecule.openmm_coordinates(input_type='traj')
@@ -1117,7 +1116,7 @@ class TorsionOptimiser:
                     plt.plot(angles, values, label=title)
 
         # Label the graph and save the pdf
-        mol_di = self.molecule.dihedrals[self.scan][0]
+        mol_di = self.molecule.dihedrals[self.scan[1:3]][0]
         plt.title(f'Relative energy surface for dihedral {mol_di[0]}-{mol_di[1]}-{mol_di[2]}-{mol_di[3]}')
         plt.ylabel('Relative energy (kcal/mol)')
         plt.legend(loc=1)
@@ -1136,9 +1135,9 @@ class TorsionOptimiser:
 
         start_phi = self.molecule.dih_starts[self.scan]
         end_phi = self.molecule.dih_ends[self.scan]
-        nsteps = int((end_phi - start_phi) / (self.molecule.increments[self.scan])) + 1
+        n_steps = int((end_phi - start_phi) / (self.molecule.increments[self.scan])) + 1
 
-        self.scan_coords = deepcopy(self.coords_store[:nsteps])
+        self.scan_coords = deepcopy(self.coords_store[:n_steps])
 
         # Calculate the mm energies of all of the structures with the new torsion parameters
         self.objective(optimised_parameters)
@@ -1173,8 +1172,7 @@ class TorsionOptimiser:
         # reset the relative to global setting
         # self.molecule.relative_to_global = rel_to_global
 
-    @staticmethod
-    def plot_convergence(objective):
+    def plot_convergence(self, objective):
         """
         Plot the convergence of the errors through the iterative fitting methods
         :param objective: A dictionary containing all of the error measurements
@@ -1227,8 +1225,8 @@ class TorsionOptimiser:
                       '\n# i     j     k     l\n')
 
             mol_di = self.scan
-            start_phi = self.molecule.dih_starts[self.scan]
-            end_phi = self.molecule.dih_ends[self.scan]
+            start_phi = self.molecule.dih_starts[mol_di]
+            end_phi = self.molecule.dih_ends[mol_di]
             out.write(f'  {mol_di[0]}     {mol_di[1]}     {mol_di[2]}     {mol_di[3]}     {start_phi}  {end_phi}\n')
 
     def drive_mm(self, engine):
@@ -1303,10 +1301,10 @@ class TorsionOptimiser:
         for i, x in enumerate(self.scan_coords):
             make_and_change_into(f'SP_{i}')
             print(f'Doing single point calculations on new structures ... {i + 1}/{len(self.scan_coords)}')
-            # now we need to change the positions of the molecule in the molecule array
+            # Change the positions of the molecule in the molecule array
             for y, coord in enumerate(x):
                 for z, pos in enumerate(coord):
-                    # convert from nanometers in openmm to Angs in QM and store in the temp position in the molecule
+                    # Convert from nanometers in openmm to Angs in QM and store in the temp position in the molecule
                     self.qm_engine.molecule.coords['temp'][y][z] = pos * 10
 
             # Write the new coordinate file and run the calculation
