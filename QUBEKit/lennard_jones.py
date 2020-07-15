@@ -53,7 +53,7 @@ class LennardJones:
         charges = [atom.charge for atom in self.ddec_data.values()]
         check_net_charge(charges, ideal_net=self.molecule.charge)
 
-        self.c8_params = []
+        self.c8_params = None
 
         self.epsilon_conversion = constants.BOHR_TO_ANGS ** 6
         self.epsilon_conversion *= constants.HA_TO_KCAL_P_MOL
@@ -330,8 +330,8 @@ class LennardJones:
             if element != 'X':
                 # search the following entries for sites connected to this atom
                 for pos_site in lines[i + 3:]:
+                    # Are there are no sites?
                     if str(pos_site.split()[0]) != 'X':
-                        # if there are no sites break and start the next loop
                         break
                     else:
                         # get the virtual site coords
@@ -370,7 +370,7 @@ class LennardJones:
                         charge = decimal.Decimal(pos_site.split()[4])
 
                         # store the site info [(parent top no, a, b), (p1, p2, p3), charge]]
-                        sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 / 10, p2 / 10, p3 / 10), charge]
+                        sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
                         sites_no += 1
 
         self.molecule.extra_sites = sites
@@ -423,9 +423,7 @@ class LennardJones:
         # Get the a_i and b_i params
         self.append_ais_bis()
 
-        print(self.ddec_data)
-
-        def f(t, sig, eps):
+        def objective_function(t, sig, eps):
             """Parametric form of the standard L-J potential terms."""
             return 4 * eps * ((sig / t) ** 12 - (sig / t) ** 6)
 
@@ -445,16 +443,16 @@ class LennardJones:
 
         sig_eps = []
 
-        for i, c8 in enumerate(self.c8_params):
+        for atom_index, c8 in enumerate(self.c8_params):
             # c6 is equivalent to b_i ???
-            c6 = self.ddec_data[i].b_i
+            c6 = self.ddec_data[atom_index].b_i
             # a is recalculated rather than using a_i from before
             ########## UNITS ##########
             a = ((c6 * r) ** 6) / 2 + ((2 * c8 * r) ** 4) / 3
             ########## UNITS ##########
             v = (a / (r ** 12)) - (c6 / (r ** 6)) - (c8 / (r ** 8))
 
-            popt, pcov = optimize.curve_fit(f, r, v, bounds=bounds)
+            popt, pcov = optimize.curve_fit(objective_function, r, v, bounds=bounds)
 
             sig_eps.append(popt)
 

@@ -33,7 +33,8 @@ KCAL_P_MOL_TO_HA = 0.00159360164            # Kilocalories per mole to Hartrees
 NM_TO_ANGS = 10                             # Nanometres to Angstroms
 ANGS_TO_NM = 0.1                            # Angstroms to nanometres
 
-ANGS_TO_M = 10e-10                          # Angstroms to metres
+ANGS_TO_M = 1e-10                           # Angstroms to metres
+M_TO_ANGS = 1e10                            # Metres to Angstroms
 
 BOHR_TO_ANGS = 0.529177                     # Bohrs to Angstroms
 ANGS_TO_BOHR = 1.88972687777                # Angstroms to Bohrs
@@ -45,7 +46,7 @@ Colours = namedtuple('colours', 'red green orange blue purple end')
 
 # Uses exit codes to set terminal font colours.
 # \033[ is the exit code. 1;32m are the style (bold); colour (green) m reenters the code block.
-# The end code resets the style back to default.
+# The end code resets the style back to default; this MUST be applied to avoid errors.
 COLOURS = Colours(
     red='\033[1;31m',
     green='\033[1;32m',
