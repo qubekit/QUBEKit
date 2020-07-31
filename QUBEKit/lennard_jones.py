@@ -55,12 +55,6 @@ class LennardJones:
 
         self.c8_params = None
 
-        self.epsilon_conversion = constants.BOHR_TO_ANGS ** 6
-        self.epsilon_conversion *= constants.HA_TO_KCAL_P_MOL
-        self.epsilon_conversion *= constants.KCAL_TO_KJ
-
-        self.sigma_conversion = constants.ANGS_TO_NM
-
         self.non_bonded_force = {}
 
     def extract_params_onetep(self):
@@ -128,6 +122,36 @@ class LennardJones:
             # c8 params IN ATOMIC UNITS
             self.c8_params = [float(line.split()[-1].strip()) for line in lines]
 
+    def apply_symmetrisation(self):
+        """
+        Using the atoms picked out to be symmetrised:
+        apply the symmetry to the charge and volume values.
+        Mutates the non_bonded_force dict
+        """
+
+        atom_types = {}
+        for key, val in self.molecule.atom_symmetry_classes.items():
+            atom_types.setdefault(val, []).append(key)
+
+        # Find the average charge / volume values for each sym_set.
+        # A sym_set is atoms which should have the same charge / volume values (e.g. methyl H's).
+        for sym_set in atom_types.values():
+            charge = sum(self.ddec_data[atom].charge for atom in sym_set) / len(sym_set)
+            volume = sum(self.ddec_data[atom].volume for atom in sym_set) / len(sym_set)
+
+            # Store the new values.
+            for atom in sym_set:
+                self.ddec_data[atom].charge = round(charge, 6)
+                self.ddec_data[atom].volume = round(volume, 6)
+
+        # Make sure the net charge is correct for the current precision.
+        charges = [atom.charge for atom in self.ddec_data.values()]
+        new_charges = set_net(charges, self.molecule.charge, 6)
+
+        # Put the new charges back into the holder.
+        for atom, charge in zip(self.ddec_data.values(), new_charges):
+            atom.charge = charge
+
     def append_ais_bis(self):
         """
         Use the AIM parameters from extract_params_*() to calculate a_i and b_i according to paper.
@@ -145,7 +169,7 @@ class LennardJones:
 
                 a_i = 32 * b_i * (r_aim ** 6)
 
-            # Element not in elem_dict
+            # Element not in elem_dict.
             except KeyError:
                 r_aim, b_i, a_i = 0, 0, 0
 
@@ -169,11 +193,11 @@ class LennardJones:
             else:
                 # sigma = (a_i / b_i) ** (1 / 6)
                 sigma = (atom.a_i / atom.b_i) ** (1 / 6)
-                sigma *= self.sigma_conversion
+                sigma *= constants.SIGMA_CONVERSION
 
                 # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
-                epsilon *= self.epsilon_conversion
+                epsilon *= constants.EPSILON_CONVERSION
 
             self.non_bonded_force[atom_index] = [atom.charge, sigma, epsilon]
 
@@ -230,71 +254,11 @@ class LennardJones:
             if atom.a_i:
                 # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
-                epsilon *= self.epsilon_conversion
+                epsilon *= constants.EPSILON_CONVERSION
             else:
                 epsilon, self.non_bonded_force[atom_index][1] = 0, 0
 
             self.non_bonded_force[atom_index] = [atom.charge, self.non_bonded_force[atom_index][1], epsilon]
-
-    def symmetrise_with_symm_hs(self):
-        """
-        Average the non-bonded parameters which should be the same according to molecule.symm_hs.
-        """
-
-        for name, sym_set_type in self.molecule.symm_hs.items():
-            for atom_set in sym_set_type:
-                charges, sigmas, epsilons = [], [], []
-                for atom in atom_set:
-                    charges.append(self.non_bonded_force[atom][0])
-                    sigmas.append(self.non_bonded_force[atom][1])
-                    epsilons.append(self.non_bonded_force[atom][2])
-                # calculate the average values to be used in symmetry
-                charge, sigma, epsilon = sum(charges) / len(charges), sum(sigmas) / len(sigmas), sum(epsilons) / len(epsilons)
-
-                # Loop through the atoms again and store the new values
-                for atom in atom_set:
-                    self.non_bonded_force[atom] = [charge, sigma, epsilon]
-
-        # make sure the net charge is correct for the current precision
-        charges = [non_bonded[0] for non_bonded in self.non_bonded_force.values()]
-        new_charges = set_net(charges, self.molecule.charge, 6)
-        # Put the new charges back into the holder
-        for non_bonded, new_charge in zip(self.non_bonded_force.values(), new_charges):
-            non_bonded[0] = new_charge
-
-    def apply_symmetrisation(self):
-        """
-        Using the atoms picked out to be symmetrised,
-        apply the symmetry to the charge, sigma and epsilon values.
-        Mutates the non_bonded_force dict
-        """
-
-        atom_types = {}
-        for key, val in self.molecule.atom_symmetry_classes.items():
-            atom_types.setdefault(val, []).append(key)
-
-        # get the values to be symmetrised
-        for sym_set in atom_types.values():
-            charges, sigmas, epsilons = [], [], []
-            if len(sym_set) > 1:
-                for atom in sym_set:
-                    charges.append(self.non_bonded_force[atom][0])
-                    sigmas.append(self.non_bonded_force[atom][1])
-                    epsilons.append(self.non_bonded_force[atom][2])
-
-                # calculate the average values to be used in symmetry
-                charge, sigma, epsilon = sum(charges) / len(charges), sum(sigmas) / len(sigmas), sum(epsilons) / len(epsilons)
-
-                # Loop through the atoms again and store the new values
-                for atom in sym_set:
-                    self.non_bonded_force[atom] = [round(charge, 6), round(sigma, 6), round(epsilon, 6)]
-
-        # make sure the net charge is correct for the current precision
-        charges = [non_bonded[0] for non_bonded in self.non_bonded_force.values()]
-        new_charges = set_net(charges, self.molecule.charge, 6)
-        # Put the new charges back into the holder
-        for non_bonded in zip(self.non_bonded_force.values(), new_charges):
-            non_bonded[0][0] = non_bonded[1]
 
     def extract_extra_sites(self):
         """
@@ -393,15 +357,16 @@ class LennardJones:
         # Calculate initial a_is and b_is
         self.append_ais_bis()
 
+        # Tweak the charge and volumes for symmetry
+        if self.molecule.symmetry:
+            self.apply_symmetrisation()
+
         # Use the a_is and b_is to calculate the non_bonded_force dict
         self.calculate_sig_eps()
 
         # Tweak for polar Hydrogens
+        # NB DISABLE FOR FORCEBALANCE
         self.correct_polar_hydrogens()
-
-        # Tweak the charge, sigma and epsilon for symmetry
-        if self.molecule.symmetry:
-            self.apply_symmetrisation()
 
         # Find extra site positions in local coords if present and tweak the charges of the parent
         if self.molecule.charges_engine == 'onetep':
@@ -409,8 +374,8 @@ class LennardJones:
 
         self.molecule.NonbondedForce = self.non_bonded_force
 
-        for i, n_b_f in self.non_bonded_force.items():
-            self.molecule.atoms[i].partial_charge = n_b_f[0]
+        for atom_index, n_b_f in self.non_bonded_force.items():
+            self.molecule.atoms[atom_index].partial_charge = n_b_f[0]
 
     def new_calculate_non_bonded_force(self):
         """

@@ -50,20 +50,23 @@ class Charges:
     def __init__(self, molecule):
 
         self.molecule = molecule
-        self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords['input']
+        self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords[
+            'input']
 
-        self.ddec_data, self.dipole_moment_data, self.quadrupole_moment_data = extract_charge_data(self.molecule.ddec_version)
+        self.ddec_data, self.dipole_moment_data, self.quadrupole_moment_data = extract_charge_data(
+            self.molecule.ddec_version)
 
         # List of tuples where each tuple is the xyz atom coords, followed by their partial charge
-        self.atom_points = [(coord, atom.partial_charge)       # [((x, y, z), q), ... ]
+        self.atom_points = [(coord, atom.partial_charge)  # [((x, y, z), q), ... ]
                             for coord, atom in zip(self.coords, self.molecule.atoms)]
 
-        # List of tuples where each tuple if the xyz coords of the v-site(s), followed by their charge
-        self.v_sites_coords = []        # [((x, y, z), q), ... ]
+        # List of tuples where each tuple is the xyz coords of the v-site(s),
+        # followed by their charge and index of the parent atom
+        self.v_sites_coords = []  # [((x, y, z), q, atom_index), ... ]
 
         # Kept separate for graphing comparisons
-        self.one_site_coords = None     # [((x, y, z), q), ... ]
-        self.two_site_coords = None     # [((x, y, z), q), ... ]
+        self.one_site_coords = None  # [((x, y, z), q, atom_index), ... ]
+        self.two_site_coords = None  # [((x, y, z), q, atom_index), ... ]
 
         self.site_errors = {
             0: None,
@@ -161,8 +164,8 @@ class Charges:
                     (provided as argument to prevent repeated calculation)
         :return: quadrupole esp value
         """
-        return (3 * ELECTRON_CHARGE * ELECTRON_CHARGE * dist_vector.dot(m_tensor * (BOHR_TO_ANGS ** 2)).dot(dist_vector)) / (
-                8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
+        return (3 * ELECTRON_CHARGE * ELECTRON_CHARGE * dist_vector.dot(m_tensor * (BOHR_TO_ANGS ** 2)).dot(
+            dist_vector)) / (8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
 
     @lru_cache(maxsize=None)
     def generate_sample_points_relative(self, vdw_radius):
@@ -313,7 +316,7 @@ class Charges:
 
         # e.g. halogens
         if len(atom.bonds) == 1:
-            bonded_index = atom.bonds[0]    # [0] is used since bonds is a one item list
+            bonded_index = atom.bonds[0]  # [0] is used since bonds is a one item list
             bonded_coords = self.coords[bonded_index]
             r_ab = atom_coords - bonded_coords
             if n_sites == 1:
@@ -433,8 +436,7 @@ class Charges:
             error = sum(abs(no_site_esp - site_esp)
                         for no_site_esp, site_esp in zip(self.no_site_esps, site_esps))
             return error
-        
-        # q_a, q_b, lam_a, lam_b
+
         bounds = ((-1.0, 1.0), (-1.0, 1.0), (0.01, 0.5), (0.01, 0.5))
         n_sample_points = len(self.no_site_esps)
 
@@ -447,26 +449,28 @@ class Charges:
         one_site_fit = minimize(one_site_objective_function, np.array([0, 1]), args=vec, bounds=bounds[1:3])
         self.site_errors[1] = one_site_fit.fun / n_sample_points
         q, lam = one_site_fit.x
-        one_site_coords = [((vec * lam) + self.coords[atom_index], q)]
+        one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
         self.one_site_coords = one_site_coords
 
         # Two sites (first orientation)
         vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2)
-        two_site_fit = minimize(two_sites_objective_function, np.array([0, 0, 1, 1]), args=(vec_a, vec_b), bounds=bounds)
+        two_site_fit = minimize(two_sites_objective_function, np.array([0, 0, 1, 1]), args=(vec_a, vec_b),
+                                bounds=bounds)
         self.site_errors[2] = two_site_fit.fun / n_sample_points
         q_a, q_b, lam_a, lam_b = two_site_fit.x
         site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(atom_index, lam_a, lam_b, vec_a, vec_b)
-        two_site_coords = [(site_a_coords, q_a), (site_b_coords, q_b)]
+        two_site_coords = [(site_a_coords, q_a, atom_index), (site_b_coords, q_b, atom_index)]
         self.two_site_coords = two_site_coords
 
         # Two sites (alternative orientation)
         if len(self.molecule.atoms[atom_index].bonds) == 2:
             vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=True)
-            alt_two_site_fit = minimize(two_sites_objective_function, np.array([0, 0, 1, 1]), args=(vec_a, vec_b), bounds=bounds)
+            alt_two_site_fit = minimize(two_sites_objective_function, np.array([0, 0, 1, 1]), args=(vec_a, vec_b),
+                                        bounds=bounds)
             self.site_errors[2] = alt_two_site_fit.fun / n_sample_points
             q_a, q_b, lam_a, lam_b = alt_two_site_fit.x
             site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(atom_index, lam_a, lam_b, vec_a, vec_b)
-            alt_two_site_coords = [(site_a_coords, q_a), (site_b_coords, q_b)]
+            alt_two_site_coords = [(site_a_coords, q_a, atom_index), (site_b_coords, q_b, atom_index)]
             self.two_site_coords = alt_two_site_coords
 
         if self.site_errors[0] < min(self.site_errors[1] * max_err, self.site_errors[2] * max_err):
@@ -590,5 +594,7 @@ class Charges:
                     f'{self.molecule.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}'
                     f'    {self.molecule.atoms[i].partial_charge}\n')
 
-            for site in self.v_sites_coords:
-                xyz_file.write(f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .10f}\n')
+                for site in self.v_sites_coords:
+                    if site[2] == i:
+                        xyz_file.write(
+                            f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .10f}\n')
