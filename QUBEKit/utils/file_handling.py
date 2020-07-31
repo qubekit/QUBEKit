@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 Purpose of this file is to read various inputs and produce the info required for
     Ligand() or Protein()
@@ -8,14 +9,14 @@ TODO
     Need to re-add topology checking and name checking (Do this in ligand.py?)
     Descriptors should be accessed separately if needed (need to re-add)
 """
-import os
 
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import Atom, Element, CustomNamespace
+from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element
 from QUBEKit.utils.exceptions import FileTypeError
 
 from itertools import groupby
+import os
 from pathlib import Path
 import re
 

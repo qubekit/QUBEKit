@@ -77,8 +77,7 @@ class PSI4(Engines):
 
             tasks += '\nwfn.hessian().print_out()\n\n'
 
-        if density:
-            pass
+        # if density:
         #     append_to_log('Writing PSI4 density calculation input', 'minor')
         #     setters += " cubeprop_tasks ['density']\n"
         #
@@ -94,8 +93,7 @@ class PSI4(Engines):
             tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
 
         # TODO If overage cannot be made to work, delete and just use Gaussian.
-        if self.molecule.solvent:
-            pass
+        # if self.molecule.solvent:
         #     setters += ' pcm true\n pcm_scf_type total\n'
         #     tasks += '\n\npcm = {'
         #     tasks += '\n units = Angstrom\n Medium {\n  SolverType = IEFPCM\n  Solvent = Chloroform\n }'
