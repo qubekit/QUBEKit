@@ -354,12 +354,12 @@ class LennardJones:
         Redistributes L-J parameters according to polar Hydrogens, then recalculates epsilon values.
         """
 
-        # Calculate initial a_is and b_is
-        self.append_ais_bis()
-
         # Tweak the charge and volumes for symmetry
         if self.molecule.symmetry:
             self.apply_symmetrisation()
+
+        # Calculate initial a_is and b_is
+        self.append_ais_bis()
 
         # Use the a_is and b_is to calculate the non_bonded_force dict
         self.calculate_sig_eps()
