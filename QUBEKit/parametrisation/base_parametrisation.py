@@ -49,8 +49,6 @@ class Parametrisation:
         self.molecule = molecule
         self.input_file = input_file
         self.fftype = fftype
-        self.molecule.combination = 'opls'
-        self.combination = 'amber'
 
         # could be a problem for boron compounds
         self.molecule.AtomTypes = {}

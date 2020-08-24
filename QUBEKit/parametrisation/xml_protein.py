@@ -22,7 +22,6 @@ class XMLProtein(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = f'XML input {self.fftype}'
-        self.molecule.combination = 'opls'
 
     def serialise_system(self):
         """Serialise the input XML system using openmm."""

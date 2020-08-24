@@ -170,6 +170,7 @@ class ReadInput:
         Internal pdb reader. Only called when RDKit failed to read the pdb.
         Extracts the topology, atoms and coords of the molecule.
         """
+
         coords = []
         self.topology = nx.Graph()
         atoms = []

@@ -9,7 +9,6 @@ from copy import deepcopy
 
 import networkx as nx
 import numpy as np
-import xml.etree.ElementTree as ET
 
 from simtk import openmm, unit  # Ignore unit import warnings, blame rampant misuse of import * in OpenMM
 from simtk.openmm import app
@@ -18,22 +17,27 @@ AtomParams = namedtuple('params', 'charge sigma epsilon')
 
 
 class OpenMM(Engines):
-    """This class acts as a wrapper around OpenMM so we can handle many basic functions using the class"""
+    """
+    This class acts as a wrapper around OpenMM so we can handle many basic functions using the class.
+    """
 
-    def __init__(self, molecule, filename=None, forcefield=None):
+    def __init__(self, molecule, pdb_file=None, xml_file=None):
+        """
+        molecule:   Ligand class object
+        pdb_file:   str, name of the pdb file of the molecule (contains coords, atom types, connection info)
+        xml_file:   str, name of the xml file of the molecule (contains forcefield info)
+
+        system:     OpenMM system containing forcefield info
+        simulation:     OpenMM simulation
+        """
 
         super().__init__(molecule)
 
-        self.filename = filename or f'{molecule.name}.pdb'
-        self.forcefield = forcefield or f'{molecule.name}.xml'
+        self.pdb_file = pdb_file or f'{molecule.name}.pdb'
+        self.xml_file = xml_file or f'{molecule.name}.xml'
 
         self.system = None
         self.simulation = None
-        self.combination = molecule.combination or None
-
-        self.normal_pairs = None
-        self.excep_pairs = None
-        self.has_vsites = bool(molecule.extra_sites)
 
         self.create_system()
 
@@ -41,8 +45,8 @@ class OpenMM(Engines):
     def create_system(self):
         # set up the system using opls combo rules
         # Load the initial coords into the system and initialise
-        pdb = app.PDBFile(self.filename)
-        forcefield = app.ForceField(self.forcefield)
+        pdb = app.PDBFile(self.pdb_file)
+        forcefield = app.ForceField(self.xml_file)
         # set the initial positions from the pdb
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
@@ -54,17 +58,8 @@ class OpenMM(Engines):
             modeller.addExtraParticles(forcefield)
             self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
 
-        if self.combination is None:
-            # Check what combination rule we should be using from the xml
-            xmlstr = open(self.forcefield).read()
-            # check if we have opls combination rules if the xml is present
-            try:
-                self.combination = ET.fromstring(xmlstr).find('NonbondedForce').attrib['combination']
-            except (AttributeError, KeyError):
-                pass
-
-        # use the opls combination rules
-        if self.combination == 'opls':
+        # Use the opls combination rules.
+        if self.molecule.combination == 'opls':
             print('OPLS combination rules found in XML file')
             self.opls_lj()
 
@@ -73,7 +68,7 @@ class OpenMM(Engines):
         self.simulation = app.Simulation(modeller.topology, self.system, integrator, platform)
         self.simulation.context.setPositions(modeller.positions)
 
-    # get_energy is called too many times so timer_logger decorator should not be applied.
+    # get_energy is called too many times so timer_logger decorator should not be applied to cut down on spam.
     def get_energy(self, position):
         """
         Return the MM calculated energy of the structure
@@ -81,24 +76,20 @@ class OpenMM(Engines):
         :return: energy: vacuum energy state of the system
         """
 
-        # check that there are the right number of positions in the vector
+        # check there are the right number of positions in the vector.
         extra_sites = self.molecule.extra_sites if self.molecule.extra_sites is not None else []
         if len(position) != len(self.molecule.atoms) + len(extra_sites):
-            # we need some dummy positions to fill the vector
+            # Use some dummy positions to fill the vector.
             for i in range(len(self.molecule.extra_sites)):
                 position.append((0, 0, 0))
 
-        # update the positions of the system
+        # Update the positions of the system.
         self.simulation.context.setPositions(position)
 
-        # now we need to calculate the new sites positions
+        # Calculate the new site positions.
         self.simulation.context.computeVirtualSites()
 
-        pos = self.simulation.context.getState(getPositions=True)
-
-        print(pos.getPositions())
-
-        # Get the energy from the new state
+        # Get the energy from the new state.
         state = self.simulation.context.getState(getEnergy=True)
 
         energy = state.getPotentialEnergy().value_in_unit(unit.kilocalories_per_mole)
@@ -107,11 +98,11 @@ class OpenMM(Engines):
 
     @timer_logger
     def opls_lj(self):
-        # Get the system information from the OpenMM system
+        # Get the system information from the OpenMM system.
         forces = {self.system.getForce(index).__class__.__name__: self.system.getForce(index) for index in
                   range(self.system.getNumForces())}
 
-        # Use the nonbonded_force to get the same rules
+        # Use the nonbonded_force to get the same rules.
         nonbonded_force = forces['NonbondedForce']
         lorentz = openmm.CustomNonbondedForce(
             'epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0')
@@ -122,7 +113,7 @@ class OpenMM(Engines):
         lorentz.addPerParticleParameter('epsilon')
         self.system.addForce(lorentz)
         l_j_set = {}
-        # For each particle, calculate the combination list again
+        # For each particle, calculate the combination list again.
         for index in range(nonbonded_force.getNumParticles()):
             charge, sigma, epsilon = nonbonded_force.getParticleParameters(index)
             l_j_set[index] = AtomParams(charge, sigma, epsilon)
@@ -141,11 +132,11 @@ class OpenMM(Engines):
                 nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
 
         # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
-        if self.has_vsites:
+        if bool(self.molecule.extra_sites):
             # get the interaction lists
-            self.excep_pairs, self.normal_pairs = self.get_vsite_interactions()
+            excep_pairs, normal_pairs = self.get_vsite_interactions()
 
-            for pair in self.excep_pairs:  # scale 14 interactions
+            for pair in excep_pairs:  # scale 14 interactions
                 atom1 = l_j_set[pair[0]]
                 atom2 = l_j_set[pair[1]]
                 q = atom1.charge * atom2.charge * 0.5
@@ -153,7 +144,7 @@ class OpenMM(Engines):
                     lorentz.addExclusion(*pair)
                 nonbonded_force.addException(*pair, q, 0, 0, True)
 
-            for pair in self.normal_pairs:  # add the normal pairs here
+            for pair in normal_pairs:  # add the normal pairs here
                 atom1 = l_j_set[pair[0]]
                 atom2 = l_j_set[pair[1]]
                 q = atom1.charge * atom2.charge
@@ -184,7 +175,7 @@ class OpenMM(Engines):
         :return: A numpy array of the mass weighted hessian of size 3N*3N
         """
 
-        # Create the OpenMM coords list from the qm coordinates and convert to nm
+        # Create the OpenMM coords list from the qm coordinates and convert to nm.
         input_coords = self.molecule.coords['qm'].flatten() * constants.ANGS_TO_NM
 
         # We get each hessian element from = [E(dx + dy) + E(-dx - dy) - E(dx - dy) - E(-dx + dy)] / 4 dx dy
@@ -221,26 +212,10 @@ class OpenMM(Engines):
                     e4 = self.get_energy(self.format_coords(coords))
                     hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass)
 
-        # hessian is currently just the upper right part of the matrix
-        # transpose to get the lower left, then remove the extra diagonal terms
+        # Hessian is currently just the upper right half of the matrix.
+        # Transpose to get the lower left, then remove the extra diagonal terms to get the whole matrix.
         sym_hessian = hessian + hessian.T - np.diag(hessian.diagonal())
         return sym_hessian
-
-    @timer_logger
-    def normal_modes(self, finite_step):
-        """
-        Calculate the normal modes of the molecule from the hessian matrix
-        :param finite_step: The finite step size used in the calculation of the matrix
-        :return: A numpy array of the normal modes of the molecule
-        """
-
-        # Get the mass weighted hessian matrix in amu
-        hessian = self.calculate_hessian(finite_step)
-
-        # Now get the eigenvalues and vectors
-        e_vals, e_vectors = np.linalg.eig(hessian)
-        print(e_vals)
-        print(e_vectors)
 
     @timer_logger
     def get_vsite_interactions(self):
