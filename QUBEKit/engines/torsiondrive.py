@@ -23,13 +23,12 @@ class TorsionDrive(Engines):
         :return: json object
         """
 
-        dihedrals = self.dihedral
         grid_spacing = []
         elements = []
         init_coords = self.molecule.coords
         grid_status = dict()
 
-        scan_info = [dihedrals, grid_spacing, elements, init_coords, grid_status]
+        scan_info = [self.dihedral, grid_spacing, elements, init_coords, grid_status]
 
         with open(self.json_filename, 'w') as json_file:
             json.dump(scan_info, json_file)

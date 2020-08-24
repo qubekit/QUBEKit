@@ -235,11 +235,11 @@ class TorsionScan:
 
         for scan in self.molecule.scan_order:
             name = self._make_folder_name(scan)
-            os.chdir(os.path.join(self.home, os.path.join(f'SCAN_{name}', 'QM_torsiondrive')))
+            os.chdir(os.path.join(self.home, os.path.join(f'{name}', 'QM_torsiondrive')))
             self.molecule.read_tdrive(scan[1:3])
 
     def _make_folder_name(self, scan):
-        return f'{scan[0]}_{scan[1]}_{scan[2]}_{scan[3]}'
+        return f'SCAN_{scan[0]}_{scan[1]}_{scan[2]}_{scan[3]}'
 
     def check_run_history(self, scan):
         """
@@ -251,7 +251,7 @@ class TorsionScan:
         name = self._make_folder_name(scan)
         # Try and open the tdrive.log file to check the old running options
         try:
-            file_path = os.path.join(os.getcwd(), os.path.join(f'SCAN_{name}', os.path.join('QM_torsiondrive', 'tdrive.log')))
+            file_path = os.path.join(os.getcwd(), os.path.join(f'{name}', os.path.join('QM_torsiondrive', 'tdrive.log')))
             with open(file_path) as t_log:
                 header = t_log.readline().split('Basis used:')
 
@@ -276,22 +276,22 @@ class TorsionScan:
         for scan in self.molecule.scan_order:
             name = self._make_folder_name(scan)
             try:
-                os.mkdir(f'SCAN_{name}')
+                os.mkdir(name)
             except FileExistsError:
                 # If there is a run in the folder, check if we are continuing an old run by matching the settings
                 con_scan = self.check_run_history(scan)
                 if not con_scan:
-                    print(f'SCAN_{name} folder present backing up folder to SCAN_{name}_tmp')
+                    print(f'{name} folder present backing up folder to {name}_tmp')
                     # Remove old backups
                     try:
-                        rmtree(f'SCAN_{name}_tmp')
+                        rmtree(f'{name}_tmp')
                     except FileNotFoundError:
                         pass
 
-                    os.system(f'mv SCAN_{name} SCAN_{name}_tmp')
-                    os.mkdir(f'SCAN_{name}')
+                    os.system(f'mv {name} {name}_tmp')
+                    os.mkdir(name)
 
-            os.chdir(f'SCAN_{name}')
+            os.chdir(name)
 
             make_and_change_into('QM_torsiondrive')
 

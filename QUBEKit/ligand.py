@@ -189,7 +189,6 @@ class Molecule:
         self.descriptors = None
 
         # XML Info
-        self.xml_tree = None
         self.AtomTypes = None
         self.extra_sites = None
         self.HarmonicBondForce = None
@@ -208,7 +207,7 @@ class Molecule:
         self.dih_ends = {}
         self.increments = {}
 
-        self.combination = None
+        self.combination = 'amber'
 
         # QUBEKit internals
         self.state = None
@@ -500,10 +499,7 @@ class Molecule:
         Take the molecule's parameter set and write an xml file for the molecule.
         """
 
-        # First build the xml tree
-        self._build_tree()
-
-        tree = self.xml_tree.getroot()
+        tree = self._build_tree().getroot()
         messy = ET.tostring(tree, 'utf-8')
 
         pretty_xml_as_string = parseString(messy).toprettyxml(indent="")
@@ -623,7 +619,7 @@ class Molecule:
                     'epsilon': '0.000000'})
 
         # Store the tree back into the molecule
-        self.xml_tree = ET.ElementTree(root)
+        return ET.ElementTree(root)
 
     def write_xyz(self, input_type='input', name=None):
         """
@@ -1041,6 +1037,8 @@ class Protein(DefaultsMixin, Molecule):
         self.residues = None
         self.Residues = None
         self.pdb_names = None
+
+        self.combination = 'opls'
 
         self.save_to_protein(self.mol_input, self.name)
 
