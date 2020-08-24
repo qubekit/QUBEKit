@@ -736,7 +736,7 @@ class Execute:
             # TODO change to qcengine as this can already be done
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}[molecule.mm_opt_method]
-            molecule.filename = RDKit.mm_optimise(molecule.filename, ff=rdkit_ff)
+            molecule.pdb_file = RDKit.mm_optimise(molecule.pdb_file, ff=rdkit_ff)
             # TODO molecule no longer has filename attribute; replace with call to save_to_ligand()
             molecule.save_to_ligand()
 
@@ -918,9 +918,6 @@ class Execute:
                 copy(os.path.join(charges_folder, file), file)
 
         LennardJones(molecule).calculate_non_bonded_force()
-
-        # This also now implies the opls combination rule
-        molecule.combination = 'opls'
 
         append_to_log('Finishing Lennard-Jones parameter calculation')
 

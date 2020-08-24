@@ -28,7 +28,6 @@ class AnteChamber(Parametrisation):
         self.prmtop = None
         self.inpcrd = None
         self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
-        self.molecule.combination = self.combination
 
     def serialise_system(self):
         """Serialise the amber style files into an openmm object."""

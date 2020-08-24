@@ -31,7 +31,6 @@ class OpenFF(Parametrisation):
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = f'OpenFF_{self.fftype}'
-        self.molecule.combination = self.combination
 
     def serialise_system(self):
         """Create the OpenMM system; parametrise using frost; serialise the system."""

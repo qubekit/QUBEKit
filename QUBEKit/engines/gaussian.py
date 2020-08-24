@@ -66,7 +66,7 @@ class Gaussian(Engines):
                     f'Root={self.molecule.excited_root}) SCF=XQC '
 
             else:
-                commands = f'# {self.molecule.theory}/{self.molecule.basis} SCF=XQC '
+                commands = f'# {self.molecule.theory}/{self.molecule.basis} SCF=XQC nosymm '
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
             if optimise:
@@ -99,9 +99,9 @@ class Gaussian(Engines):
 
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
-                for i, atom in enumerate(self.molecule.coords[input_type]):
-                    input_file.write(f'{self.molecule.atoms[i].atomic_symbol} '
-                                     f'{float(atom[0]): .10f} {float(atom[1]): .10f} {float(atom[2]): .10f}\n')
+                for atom_index, coord in enumerate(self.molecule.coords[input_type]):
+                    input_file.write(f'{self.molecule.atoms[atom_index].atomic_symbol} '
+                                     f'{float(coord[0]): .10f} {float(coord[1]): .10f} {float(coord[2]): .10f}\n')
 
             # TODO finish this block
             if self.molecule.use_pseudo:
