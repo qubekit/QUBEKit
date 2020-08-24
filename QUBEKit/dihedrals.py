@@ -199,7 +199,7 @@ class TorsionScan:
             # When we start the run write the options used here to be used during restarts
             log.write(f'Theory used: {self.molecule.theory}   Basis used: {self.molecule.basis}\n')
             log.flush()
-            tdrive_engine = self.qm_engine.__class__.__name__.lower()
+            tdrive_engine = self.molecule.bonds_engine
 
             if tdrive_engine == 'g09':
                 tdrive_engine = 'gaussian09'
