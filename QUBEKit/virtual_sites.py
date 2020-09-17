@@ -17,7 +17,7 @@ from scipy.optimize import minimize
 
 
 @for_all_methods(timer_logger)
-class Charges:
+class VirtualSites:
     """
     * Identify atoms which need a v-site.
     * Generate sample points in shells around that atom (shells are 1.4-2.0x the vdW radius).
@@ -61,12 +61,14 @@ class Charges:
                             for coord, atom in zip(self.coords, self.molecule.atoms)]
 
         # List of tuples where each tuple is the xyz coords of the v-site(s),
-        # followed by their charge and index of the parent atom
+        # followed by their charge and index of the parent atom.
+        # This list is extended with each atom which has (a) virtual site(s).
         self.v_sites_coords = []  # [((x, y, z), q, atom_index), ... ]
 
         # Kept separate for graphing comparisons
-        self.one_site_coords = None  # [((x, y, z), q, atom_index), ... ]
-        self.two_site_coords = None  # [((x, y, z), q, atom_index), ... ]
+        # These lists are reset for each atom with (a) virtual site - unlike v_sites_coords
+        self.one_site_coords = None  # [((x, y, z), q, atom_index)]
+        self.two_site_coords = None  # [((x, y, z), q, atom_index), ((x, y, z), q, atom_index)]
 
         self.site_errors = {
             0: None,
@@ -79,8 +81,8 @@ class Charges:
                 self.sample_points = self.generate_sample_points_atom(atom_index)
                 self.no_site_esps = self.generate_esp_atom(atom_index)
                 self.fit(atom_index)
-                self.plot()
-                self.write_xyz()
+                # self.plot()
+        self.write_xyz()
 
     @staticmethod
     def spherical_to_cartesian(spherical_coords):
@@ -238,14 +240,14 @@ class Charges:
 
         no_site_esps = []
         for point in self.sample_points:
-            dist = Charges.xyz_distance(point, atom_coords)
+            dist = VirtualSites.xyz_distance(point, atom_coords)
             dist_vector = point - atom_coords
 
-            mono_esp = Charges.monopole_esp_one_charge(charge, dist)
-            dipo_esp = Charges.dipole_esp(dist_vector, dipole_moment, dist)
+            mono_esp = VirtualSites.monopole_esp_one_charge(charge, dist)
+            dipo_esp = VirtualSites.dipole_esp(dist_vector, dipole_moment, dist)
 
-            m_tensor = Charges.quadrupole_moment_tensor(*quad_data.values())
-            quad_esp = Charges.quadrupole_esp(dist_vector, m_tensor, dist)
+            m_tensor = VirtualSites.quadrupole_moment_tensor(*quad_data.values())
+            quad_esp = VirtualSites.quadrupole_esp(dist_vector, m_tensor, dist)
 
             v_total = (mono_esp + dipo_esp + quad_esp) * M_TO_ANGS * J_TO_KCAL_P_MOL
             no_site_esps.append(v_total)
@@ -267,10 +269,10 @@ class Charges:
 
         v_site_esps = []
         for point in self.sample_points:
-            dist = Charges.xyz_distance(point, atom_coords)
-            site_dist = Charges.xyz_distance(point, site_coords)
+            dist = VirtualSites.xyz_distance(point, atom_coords)
+            site_dist = VirtualSites.xyz_distance(point, site_coords)
 
-            mono_esp = Charges.monopole_esp_two_charges(atom_charge, site_charge, dist, site_dist)
+            mono_esp = VirtualSites.monopole_esp_two_charges(atom_charge, site_charge, dist, site_dist)
             v_site_esps.append(mono_esp * M_TO_ANGS * J_TO_KCAL_P_MOL)
 
         return v_site_esps
@@ -291,11 +293,11 @@ class Charges:
 
         v_site_esps = []
         for point in self.sample_points:
-            dist = Charges.xyz_distance(point, atom_coords)
-            site_a_dist = Charges.xyz_distance(point, site_a_coords)
-            site_b_dist = Charges.xyz_distance(point, site_b_coords)
+            dist = VirtualSites.xyz_distance(point, atom_coords)
+            site_a_dist = VirtualSites.xyz_distance(point, site_a_coords)
+            site_b_dist = VirtualSites.xyz_distance(point, site_b_coords)
 
-            mono_esp = Charges.monopole_esp_three_charges(atom_charge, q_a, q_b, dist, site_a_dist, site_b_dist)
+            mono_esp = VirtualSites.monopole_esp_three_charges(atom_charge, q_a, q_b, dist, site_a_dist, site_b_dist)
             v_site_esps.append(mono_esp * M_TO_ANGS * J_TO_KCAL_P_MOL)
 
         return v_site_esps
@@ -583,7 +585,7 @@ class Charges:
         Write an xyz file containing the atom and virtual site coordinates.
         """
 
-        with open(f'{self.molecule.name}.xyz', 'w+') as xyz_file:
+        with open('xyz_with_extra_point_charges.xyz', 'w+') as xyz_file:
             xyz_file.write(
                 f'{len(self.molecule.atoms) + len(self.v_sites_coords)}\n'
                 f'xyz file generated with QUBEKit. '

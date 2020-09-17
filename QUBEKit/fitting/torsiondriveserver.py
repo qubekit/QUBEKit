@@ -2,8 +2,8 @@
 
 from QUBEKit.utils.constants import ANGS_TO_BOHR
 
-import os
 from multiprocessing import current_process, Process, Queue
+import os
 import queue
 
 from geometric.engine import OpenMM
@@ -151,7 +151,7 @@ class TorsionDriveController:
         coord_class, connect, add_cart = DelocalizedInternalCoordinates, False, False
 
         ic = coord_class(self.geo_mol, build=True, connect=connect, addcart=add_cart, constraints=cons,
-                         cvals=cvals[0] if cvals is not None else None)
+                         cvals=cvals[0] or None)
 
         return Optimize(coordinates, self.geo_mol, ic, engine, 'test', self.params)
 

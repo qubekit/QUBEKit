@@ -77,7 +77,10 @@ class PSI4(Engines):
 
             tasks += '\nwfn.hessian().print_out()\n\n'
 
-        # if density:
+        if density:
+            raise NotImplementedError('Due to PSI4 requiring a box size which cannot be automatically generated, '
+                                      'PSI4 cannot currently be used for density calculations. Please use Gaussian '
+                                      'instead.')
         #     append_to_log('Writing PSI4 density calculation input', 'minor')
         #     setters += " cubeprop_tasks ['density']\n"
         #
@@ -92,7 +95,6 @@ class PSI4(Engines):
             tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
             tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
 
-        # TODO If overage cannot be made to work, delete and just use Gaussian.
         # if self.molecule.solvent:
         #     setters += ' pcm true\n pcm_scf_type total\n'
         #     tasks += '\n\npcm = {'

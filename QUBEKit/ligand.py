@@ -98,7 +98,7 @@ class DefaultsMixin:
 
         self.chargemol = '/home/<QUBEKit_user>/chargemol_09_26_2017'
         self.log = 999
-        # Internal for QUBEKit testing
+        # Internal for QUBEKit testing; stops decorators from trying to log to a file unnecessarily.
         self.testing = False
 
 
@@ -453,7 +453,7 @@ class Molecule:
 
     def get_dihedral_values(self, input_type='input'):
         """
-        Taking the molecules' xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
+        Taking the molecule's xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
         """
 
