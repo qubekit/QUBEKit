@@ -17,7 +17,7 @@ setup(
     url='https://github.com/qubekit/QUBEKit',
     packages=find_packages(),
     include_package_data=True,
-    author=['Joshua Thomas Horton', 'Chris Ringrose'],
+    author='Joshua Thomas Horton, Chris Ringrose',
     entry_points={
         'console_scripts': [
             'QUBEKit = QUBEKit.run:main',

@@ -149,8 +149,8 @@ class LennardJones:
         new_charges = set_net(charges, self.molecule.charge, 6)
 
         # Put the new charges back into the holder.
-        for atom, charge in zip(self.ddec_data.values(), new_charges):
-            atom.charge = charge
+        for atom, new_charge in zip(self.ddec_data.values(), new_charges):
+            atom.charge = new_charge
 
     def append_ais_bis(self):
         """
@@ -271,7 +271,7 @@ class LennardJones:
 
         extra_points_file = 'xyz_with_extra_point_charges.xyz'
         if not os.path.exists(extra_points_file):
-            return
+            raise FileNotFoundError('Cannot find the xyz file with extra sites.')
 
         # weighting arrays for the virtual sites should not be changed
         w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
@@ -369,7 +369,7 @@ class LennardJones:
         self.correct_polar_hydrogens()
 
         # Find extra site positions in local coords if present and tweak the charges of the parent
-        if self.molecule.charges_engine == 'onetep':
+        if os.path.exists('xyz_with_extra_point_charges.xyz'):
             self.extract_extra_sites()
 
         self.molecule.NonbondedForce = self.non_bonded_force

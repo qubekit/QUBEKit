@@ -225,9 +225,9 @@ class ArgsAndConfigs:
             """Convert a string to a bool for argparse use when casting to bool"""
             return string.casefold() in ['true', 't', 'yes', 'y']
 
-        intro = 'Welcome to QUBEKit! For a list of possible commands, use the help command: -h. ' \
-                'Alternatively, take a look through our github page for commands, recipes and common problems: ' \
-                'https://github.com/qubekit/QUBEKit'
+        intro = ('Welcome to QUBEKit! For a list of possible commands, use the help command: -h. '
+                 'Alternatively, take a look through our github page for commands, recipes and common problems: '
+                 'https://github.com/qubekit/QUBEKit')
         parser = argparse.ArgumentParser(prog='QUBEKit', formatter_class=argparse.RawDescriptionHelpFormatter,
                                          description=intro)
 
