@@ -493,7 +493,7 @@ class VirtualSites:
             f'{self.site_errors[0]:.4f}      {self.site_errors[1]:.4f}       {self.site_errors[2]:.4f}'
         )
 
-    def plot(self):
+    def plot(self, debug=False):
         """
         Figure with three subplots.
         All plots show the atoms and bonds as balls and sticks; virtual sites are x's; sample points are dots.
@@ -581,7 +581,11 @@ class VirtualSites:
         cbar.ax.set_title('charge')
 
         plt.tight_layout()
-        plt.savefig(f'{self.molecule.name}_virtual_sites.png')
+
+        if debug:
+            plt.show()
+        else:
+            plt.savefig(f'{self.molecule.name}_virtual_sites.png')
 
     def write_xyz(self):
         """
@@ -605,15 +609,18 @@ class VirtualSites:
                             f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .10f}\n')
 
     def calculate_virtual_sites(self, debug=False):
+        """
+        Loop over all atoms in the molecule and decide which may need v-sites.
+        Fit the ESP accordingly and store v-sites if they improve error.
+        :param debug: Bool; If debug, then display the interactive graph, otherwise save the graph to a png file.=
+        """
 
         for atom_index, atom in enumerate(self.molecule.atoms):
             if atom.atomic_symbol in ['N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']:
                 self.sample_points = self.generate_sample_points_atom(atom_index)
                 self.no_site_esps = self.generate_esp_atom(atom_index)
                 self.fit(atom_index)
-
-                if debug:
-                    self.plot()
+                self.plot(debug)
 
         if self.v_sites_coords:
             self.write_xyz()
