@@ -17,6 +17,7 @@ from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.parametrisation import AnteChamber, OpenFF, Parametrisation, XML
+from QUBEKit.virtual_sites import VirtualSites
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.configs import Configure
@@ -901,6 +902,8 @@ class Execute:
         copy(os.path.join(molecule.home, os.path.join('06_density', f'{molecule.name}.wfx')), f'{molecule.name}.wfx')
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
+
+        VirtualSites(molecule).calculate_virtual_sites()
 
         append_to_log(f'Finishing Charge partitioning with Chargemol and DDEC{molecule.ddec_version}')
 

@@ -278,9 +278,6 @@ class LennardJones:
         w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
         w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
 
-        # load in the xyz file into the molecule into temp so we can work in the new coords
-        # this will strip out the virtual sites though
-        self.molecule.save_to_ligand(extra_points_file, input_type='temp')
         with open(extra_points_file) as xyz_sites:
             lines = xyz_sites.readlines()
 
@@ -313,9 +310,9 @@ class LennardJones:
                                     break
 
                         # Get the xyz coordinates of the reference atoms
-                        parent_pos = self.molecule.coords['temp'][parent]
-                        close_a = self.molecule.coords['temp'][closest_atoms[0]]
-                        close_b = self.molecule.coords['temp'][closest_atoms[1]]
+                        parent_pos = self.molecule.coords['qm'][parent]
+                        close_a = self.molecule.coords['qm'][closest_atoms[0]]
+                        close_b = self.molecule.coords['qm'][closest_atoms[1]]
 
                         # work out the local coordinates site using rules from the OpenMM guide
                         orig = w1o * parent_pos + w2o * close_a + close_b * w3o
@@ -323,7 +320,7 @@ class LennardJones:
                         ac = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
                         # Get the axis unit vectors
                         z_dir = np.cross(ab, ac)
-                        z_dir = z_dir / np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
+                        z_dir /= np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
                         x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
                         y_dir = np.cross(z_dir, x_dir)
                         # Get the local coordinates positions

@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+"""
+Find atoms which may need a virtual site: ['N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']
+For each of these atoms, generate a list of sample points in a defined volume.
+Compare the change in ESP at each of these points for the QM-calculated ESP and the ESP with a v-site.
+The v-site can be moved along pre-defined vectors; another v-site can also be added.
+If the error is significantly reduced with one or two v-sites, then it is saved and written to an xyz.
+"""
+
 from QUBEKit.utils.constants import BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
 from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.file_handling import extract_charge_data
@@ -76,13 +84,8 @@ class VirtualSites:
             2: None,
         }
 
-        for atom_index, atom in enumerate(self.molecule.atoms):
-            if atom.atomic_symbol in ['N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']:
-                self.sample_points = self.generate_sample_points_atom(atom_index)
-                self.no_site_esps = self.generate_esp_atom(atom_index)
-                self.fit(atom_index)
-                # self.plot()
-        self.write_xyz()
+        self.sample_points = None
+        self.no_site_esps = None
 
     @staticmethod
     def spherical_to_cartesian(spherical_coords):
@@ -600,3 +603,17 @@ class VirtualSites:
                     if site[2] == i:
                         xyz_file.write(
                             f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .10f}\n')
+
+    def calculate_virtual_sites(self, debug=False):
+
+        for atom_index, atom in enumerate(self.molecule.atoms):
+            if atom.atomic_symbol in ['N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']:
+                self.sample_points = self.generate_sample_points_atom(atom_index)
+                self.no_site_esps = self.generate_esp_atom(atom_index)
+                self.fit(atom_index)
+
+                if debug:
+                    self.plot()
+
+        if self.v_sites_coords:
+            self.write_xyz()
