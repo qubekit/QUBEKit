@@ -251,7 +251,7 @@ class TorsionScan:
         name = self._make_folder_name(scan)
         # Try and open the tdrive.log file to check the old running options
         try:
-            file_path = os.path.join(os.getcwd(), os.path.join(f'{name}', os.path.join('QM_torsiondrive', 'tdrive.log')))
+            file_path = os.path.join(os.getcwd(), f'{name}', 'QM_torsiondrive', 'tdrive.log')
             with open(file_path) as t_log:
                 header = t_log.readline().split('Basis used:')
 
