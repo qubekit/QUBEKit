@@ -903,7 +903,8 @@ class Execute:
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
 
-        VirtualSites(molecule).calculate_virtual_sites()
+        vs = VirtualSites(molecule)
+        vs.calculate_virtual_sites()
 
         append_to_log(f'Finishing Charge partitioning with Chargemol and DDEC{molecule.ddec_version}')
 
