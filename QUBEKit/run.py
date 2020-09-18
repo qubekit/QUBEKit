@@ -833,7 +833,7 @@ class Execute:
 
             # Use the checkpoint file as this has higher xyz precision
             try:
-                copy(os.path.join(molecule.home, os.path.join('03_qm_optimise', 'lig.chk')), 'lig.chk')
+                copy(os.path.join(molecule.home, '03_qm_optimise', 'lig.chk'), 'lig.chk')
                 result = qm_engine.generate_input('qm', hessian=True, restart=True, execute=molecule.bonds_engine)
             except FileNotFoundError:
                 append_to_log('qm_optimise checkpoint not found, optimising first to refine atomic coordinates',
@@ -899,14 +899,20 @@ class Execute:
         """Perform DDEC calculation with Chargemol."""
 
         append_to_log('Starting charge partitioning')
-        copy(os.path.join(molecule.home, os.path.join('06_density', f'{molecule.name}.wfx')), f'{molecule.name}.wfx')
+        copy(
+            os.path.join(molecule.home, '06_density', f'{molecule.name}.wfx'),
+            f'{molecule.name}.wfx'
+        )
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
+
+        append_to_log(f'Finishing charge partitioning with Chargemol and DDEC{molecule.ddec_version}')
+        append_to_log('Starting virtual sites calculation')
 
         vs = VirtualSites(molecule)
         vs.calculate_virtual_sites()
 
-        append_to_log(f'Finishing Charge partitioning with Chargemol and DDEC{molecule.ddec_version}')
+        append_to_log('Finishing virtual sites calculation')
 
         return molecule
 

@@ -11,6 +11,7 @@ from QUBEKit.utils.helpers import check_net_charge, set_net
 from collections import OrderedDict, namedtuple
 import decimal
 import os
+from shutil import copy
 
 import numpy as np
 
@@ -269,16 +270,12 @@ class LennardJones:
         (users have the option to use sites or no sites this way)
         """
 
-        extra_points_file = 'xyz_with_extra_point_charges.xyz'
-        if not os.path.exists(extra_points_file):
-            raise FileNotFoundError('Cannot find the xyz file with extra sites.')
-
         # weighting arrays for the virtual sites should not be changed
         w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
         w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
         w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
 
-        with open(extra_points_file) as xyz_sites:
+        with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
             lines = xyz_sites.readlines()
 
         sites = OrderedDict()
@@ -366,8 +363,14 @@ class LennardJones:
         self.correct_polar_hydrogens()
 
         # Find extra site positions in local coords if present and tweak the charges of the parent
-        if os.path.exists('xyz_with_extra_point_charges.xyz'):
+        try:
+            copy(
+                os.path.join(self.molecule.home, '07_charges', 'xyz_with_extra_point_charges.xyz'),
+                'xyz_with_extra_point_charges.xyz'
+            )
             self.extract_extra_sites()
+        except FileNotFoundError:
+            pass
 
         self.molecule.NonbondedForce = self.non_bonded_force
 
