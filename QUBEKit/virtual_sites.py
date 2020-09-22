@@ -24,7 +24,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 
-@for_all_methods(timer_logger)
+# @for_all_methods(timer_logger)
 class VirtualSites:
     """
     * Identify atoms which need a v-site.
@@ -55,9 +55,10 @@ class VirtualSites:
         'I': 2.25,
     }
 
-    def __init__(self, molecule):
+    def __init__(self, molecule, debug=False):
 
         self.molecule = molecule
+        self.debug = debug
         self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords[
             'input']
 
@@ -493,7 +494,7 @@ class VirtualSites:
             f'{self.site_errors[0]:.4f}      {self.site_errors[1]:.4f}       {self.site_errors[2]:.4f}'
         )
 
-    def plot(self, debug=False):
+    def plot(self):
         """
         Figure with three subplots.
         All plots show the atoms and bonds as balls and sticks; virtual sites are x's; sample points are dots.
@@ -582,7 +583,7 @@ class VirtualSites:
 
         plt.tight_layout()
 
-        if debug:
+        if self.debug:
             plt.show()
         else:
             plt.savefig(f'{self.molecule.name}_virtual_sites.png')
@@ -608,7 +609,7 @@ class VirtualSites:
                         xyz_file.write(
                             f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .10f}\n')
 
-    def calculate_virtual_sites(self, debug=False):
+    def calculate_virtual_sites(self):
         """
         Loop over all atoms in the molecule and decide which may need v-sites.
         Fit the ESP accordingly and store v-sites if they improve error.
@@ -620,7 +621,7 @@ class VirtualSites:
                 self.sample_points = self.generate_sample_points_atom(atom_index)
                 self.no_site_esps = self.generate_esp_atom(atom_index)
                 self.fit(atom_index)
-                self.plot(debug)
+                self.plot()
 
         if self.v_sites_coords:
             self.write_xyz()
