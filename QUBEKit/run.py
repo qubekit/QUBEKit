@@ -936,6 +936,7 @@ class Execute:
     @staticmethod
     def torsion_scan(molecule):
         """Perform torsion scan."""
+
         append_to_log('Starting torsion_scans')
 
         tor_scan = TorsionScan(molecule)
@@ -1047,6 +1048,7 @@ class Execute:
 
 def main():
     """Putting class call inside a function squashes the __repr__ call"""
+
     ArgsAndConfigs()
 
 
