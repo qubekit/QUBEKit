@@ -602,7 +602,7 @@ class VirtualSites:
             for i, atom in enumerate(self.coords):
                 xyz_file.write(
                     f'{self.molecule.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}'
-                    f'    {self.molecule.atoms[i].partial_charge}\n')
+                    f'    {self.molecule.atoms[i].partial_charge: .10f}\n')
 
                 for site in self.v_sites_coords:
                     if site[2] == i:

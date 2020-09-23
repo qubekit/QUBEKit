@@ -926,6 +926,10 @@ class Execute:
         for file in os.listdir(charges_folder):
             if file.startswith('DDEC'):
                 copy(os.path.join(charges_folder, file), file)
+        try:
+            copy(os.path.join(charges_folder, 'xyz_with_extra_point_charges.xyz'), 'xyz_with_extra_point_charges.xyz')
+        except FileNotFoundError:
+            pass
 
         LennardJones(molecule).calculate_non_bonded_force()
 

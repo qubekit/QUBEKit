@@ -363,14 +363,8 @@ class LennardJones:
         self.correct_polar_hydrogens()
 
         # Find extra site positions in local coords if present and tweak the charges of the parent
-        try:
-            copy(
-                os.path.join(self.molecule.home, '07_charges', 'xyz_with_extra_point_charges.xyz'),
-                'xyz_with_extra_point_charges.xyz'
-            )
+        if os.path.exists('xyz_with_extra_point_charges.xyz'):
             self.extract_extra_sites()
-        except FileNotFoundError:
-            pass
 
         self.molecule.NonbondedForce = self.non_bonded_force
 
