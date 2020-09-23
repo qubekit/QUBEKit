@@ -278,15 +278,16 @@ class LennardJones:
         with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
             lines = xyz_sites.readlines()
 
-        sites = OrderedDict()
+        extra_sites = OrderedDict()
+        parent = 0
         sites_no = 0
 
         for i, line in enumerate(lines[2:]):
-            # get the current element
             element = str(line.split()[0])
 
             if element != 'X':
-                # search the following entries for sites connected to this atom
+                parent += 1
+                # Search the following entries for sites connected to this atom
                 for pos_site in lines[i + 3:]:
                     # Are there are no sites?
                     if str(pos_site.split()[0]) != 'X':
@@ -294,8 +295,6 @@ class LennardJones:
                     else:
                         # get the virtual site coords
                         v_pos = np.array([float(pos_site.split()[x]) for x in range(1, 4)])
-                        # get parent index number for the topology network
-                        parent = i - sites_no
                         # get the two closest atoms to the parent
                         closest_atoms = list(self.molecule.topology.neighbors(parent))
                         if len(closest_atoms) < 2:
@@ -328,13 +327,13 @@ class LennardJones:
                         charge = decimal.Decimal(pos_site.split()[4])
 
                         # store the site info [(parent top no, a, b), (p1, p2, p3), charge]]
-                        sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
+                        extra_sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
                         sites_no += 1
 
-        self.molecule.extra_sites = sites
+        self.molecule.extra_sites = extra_sites
 
         # get the parent non bonded values
-        for site in sites.values():
+        for site in extra_sites.values():
             charge, sigma, eps = self.non_bonded_force[site[0][0]]
             # Change the charge on the first entry
             charge -= site[2]
