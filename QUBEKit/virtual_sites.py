@@ -9,7 +9,6 @@ If the error is significantly reduced with one or two v-sites, then it is saved 
 """
 
 from QUBEKit.utils.constants import BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.file_handling import extract_charge_data
 
 from functools import lru_cache
@@ -55,12 +54,19 @@ class VirtualSites:
         'I': 2.25,
     }
 
-    def __init__(self, molecule, debug=False):
+    def __init__(self, molecule, symmetric_sites=False, debug=False):
+        """
+        :param molecule: The usual Ligand molecule object.
+        :param symmetric_sites: When there are two v-sites, do they need to be symmetric?
+            (different vector, same distance from parent atom.)
+        :param debug: Running interactively or not. This will either show an interactive plot of the v-sites,
+            or save an image with their final locations.
+        """
 
         self.molecule = molecule
+        self.symmetric_sites = symmetric_sites
         self.debug = debug
-        self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords[
-            'input']
+        self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords['input']
 
         self.ddec_data, self.dipole_moment_data, self.quadrupole_moment_data = extract_charge_data(
             self.molecule.ddec_version)
@@ -397,8 +403,13 @@ class VirtualSites:
             site_a_coords = (vec_a * lam_a) + (vec_b * lam_b) + self.coords[atom_index]
             site_b_coords = (vec_a * lam_a) - (vec_b * lam_b) + self.coords[atom_index]
         else:
-            site_a_coords = (vec_a * lam_a) + self.coords[atom_index]
-            site_b_coords = (vec_b * lam_b) + self.coords[atom_index]
+            if self.symmetric_sites:
+                # Forces only one lambda to be used (i.e. both vectors are scaled equally in orthogonal directions).
+                site_a_coords = (vec_a * lam_a) + self.coords[atom_index]
+                site_b_coords = (vec_b * lam_a) + self.coords[atom_index]
+            else:
+                site_a_coords = (vec_a * lam_a) + self.coords[atom_index]
+                site_b_coords = (vec_b * lam_b) + self.coords[atom_index]
 
         return site_a_coords, site_b_coords
 
@@ -613,7 +624,6 @@ class VirtualSites:
         """
         Loop over all atoms in the molecule and decide which may need v-sites.
         Fit the ESP accordingly and store v-sites if they improve error.
-        :param debug: Bool; If debug, then display the interactive graph, otherwise save the graph to a png file.=
         """
 
         for atom_index, atom in enumerate(self.molecule.atoms):
