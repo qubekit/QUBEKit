@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from QUBEKit.engines.base_engine import Engines
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.exceptions import PSI4Error
 from QUBEKit.utils.helpers import append_to_log
 
@@ -10,7 +9,6 @@ import subprocess as sp
 import numpy as np
 
 
-@for_all_methods(timer_logger)
 class PSI4(Engines):
     """
     Writes and executes input files for psi4.

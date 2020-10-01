@@ -413,7 +413,7 @@ def extract_charge_data(ddec_version=6):
     quadrupole_moment_data = {}
 
     for line in lines[start_pos: start_pos + atom_total]:
-        # _s are the xyz coords, then the quadrupole moment tensor eigenvalues
+        # _'s are the xyz coords, then the quadrupole moment tensor eigenvalues
         atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
         # File counts from 1 not 0; thereby requiring -1 to get the index
         atom_index = int(atom_count) - 1
@@ -440,6 +440,51 @@ def extract_charge_data(ddec_version=6):
         ddec_data[atom_index].volume = vols[atom_index]
 
     return ddec_data, dipole_moment_data, quadrupole_moment_data
+
+
+def extract_params_onetep(atoms):
+    """
+    From ONETEP output files, extract the necessary parameters for calculation of L-J.
+    Insert data into ddec_data in standard format.
+    Used exclusively by LennardJones class.
+    """
+
+    # Just fill in None values until they are known
+    ddec_data = {i: CustomNamespace(
+        atomic_symbol=atom.atomic_symbol, charge=None, volume=None, r_aim=None, b_i=None, a_i=None)
+        for i, atom in enumerate(atoms)}
+
+    # Second file contains the rest (charges, dipoles and volumes):
+    ddec_output_file = 'ddec.onetep' if os.path.exists('ddec.onetep') else 'iter_1/ddec.onetep'
+    with open(ddec_output_file, 'r') as file:
+        lines = file.readlines()
+
+    charge_pos, vol_pos = None, None
+    for pos, line in enumerate(lines):
+
+        # Charges marker in file:
+        if 'DDEC density' in line:
+            charge_pos = pos + 7
+
+        # Volumes marker in file:
+        if 'DDEC Radial' in line:
+            vol_pos = pos + 4
+
+    if any(position is None for position in [charge_pos, vol_pos]):
+        raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
+
+    charges = [float(line.split()[-1])
+               for line in lines[charge_pos: charge_pos + len(atoms)]]
+
+    # Add the AIM-Valence and the AIM-Core to get V^AIM
+    volumes = [float(line.split()[2]) + float(line.split()[3])
+               for line in lines[vol_pos: vol_pos + len(atoms)]]
+
+    for atom_index in ddec_data:
+        ddec_data[atom_index].charge = charges[atom_index]
+        ddec_data[atom_index].volume = volumes[atom_index]
+
+    return ddec_data
 
 
 def make_and_change_into(name):

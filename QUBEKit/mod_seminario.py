@@ -8,7 +8,6 @@ Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), do
 """
 
 from QUBEKit.utils import constants
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from operator import itemgetter
 
@@ -150,7 +149,6 @@ class ModSemMaths:
         return k_theta, theta_0
 
 
-@for_all_methods(timer_logger)
 class ModSeminario:
 
     def __init__(self, molecule):

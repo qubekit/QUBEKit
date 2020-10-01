@@ -6,7 +6,6 @@ from QUBEKit.utils.decorators import for_all_methods, timer_logger
 import json
 
 
-@for_all_methods(timer_logger)
 class TorsionDrive(Engines):
 
     def __init__(self, molecule, dihedral, json_filename):

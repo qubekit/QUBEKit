@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
-
 import numpy as np
 
 from rdkit import Chem
@@ -10,7 +8,6 @@ from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMole
 from rdkit.Geometry.rdGeometry import Point3D
 
 
-@for_all_methods(timer_logger)
 class RDKit:
     """Class for controlling useful RDKit functions."""
 
