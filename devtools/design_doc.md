@@ -89,13 +89,8 @@ More succinctly, each stage undergoes the following process:
 
 #### Logging and Saving State
 
-There are two key decorators which handle logging throughout any execution in QUBEKit.
-There is a logger for the successful execution of a function: `timer_logger()`.
-This is applied to most of the important classes and methods in QUBEKit; it logs their docstrings and execution times.
-
-Then there is also: `exception_logger()`.
-Any time QUBEKit encounters an unhandlable exception at runtime, before QUBEKit quits, 
-the molecule object is saved; its current state is printed to the log file;
+Any time QUBEKit encounters an unhandlable exception at runtime, before QUBEKit quits, the exception is logged. 
+The molecule object is also saved; its current state is printed to the log file;
 and the exception is printed to the log file too. 
 
 This helps identify the issue and prevent recurrence, as well as making it easier to restart from a successful point, rather than the beginning.

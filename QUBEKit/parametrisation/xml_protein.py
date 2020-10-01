@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -10,7 +9,6 @@ from simtk.openmm import app, XmlSerializer
 import xml.etree.ElementTree as ET
 
 
-@for_all_methods(timer_logger)
 class XMLProtein(Parametrisation):
     """Read in the parameters for a proteins from the QUBEKit_general XML file and store them into the proteins."""
 

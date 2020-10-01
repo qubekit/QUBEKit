@@ -474,7 +474,6 @@ class Execute:
         """
         Creates the working directory for the job as well as the log file.
         This log file is then extended when:
-            - decorators.timer_logger wraps a called method;
             - helpers.append_to_log() is called;
             - helpers.pretty_print() is called with to_file set to True;
             - decorators.exception_logger() wraps a function / method which throws an exception.

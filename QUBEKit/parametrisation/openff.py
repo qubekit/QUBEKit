@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import hide_warnings
 
 from simtk import unit
@@ -17,7 +16,6 @@ with hide_warnings():
 )
 
 
-@for_all_methods(timer_logger)
 class OpenFF(Parametrisation):
     """
     This class uses the OpenFFtoolkit 2 to parametrise a molecule and load an OpenMM simulation.
