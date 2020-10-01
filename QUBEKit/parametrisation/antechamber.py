@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 import os
 import shutil
@@ -11,7 +10,6 @@ from tempfile import TemporaryDirectory
 from simtk.openmm import app, XmlSerializer
 
 
-@for_all_methods(timer_logger)
 class AnteChamber(Parametrisation):
     """
     Use AnteChamber to parametrise the Ligand first using gaff or gaff2

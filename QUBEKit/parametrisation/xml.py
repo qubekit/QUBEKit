@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 
 from simtk.openmm import app, XmlSerializer
 
 
-@for_all_methods(timer_logger)
 class XML(Parametrisation):
     """Read in the parameters for a molecule from an XML file and store them into the molecule."""
 

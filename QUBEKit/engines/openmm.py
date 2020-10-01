@@ -2,7 +2,6 @@
 
 from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils import constants
-from QUBEKit.utils.decorators import timer_logger
 
 from collections import namedtuple
 from copy import deepcopy
