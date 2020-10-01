@@ -5,7 +5,6 @@ from QUBEKit.utils.file_handling import extract_charge_data, extract_params_onet
 from QUBEKit.utils.helpers import check_net_charge, set_net
 
 from collections import OrderedDict, namedtuple
-import decimal
 import math
 import os
 
@@ -132,8 +131,7 @@ class LennardJones:
                         p2 = np.dot((v_pos - orig), y_dir.reshape(3, 1))
                         p3 = np.dot((v_pos - orig), z_dir.reshape(3, 1))
 
-                        decimal.getcontext().prec = 6
-                        charge = decimal.Decimal(pos_site.split()[4])
+                        charge = pos_site.split()[4]
 
                         extra_sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
                         sites_no += 1
