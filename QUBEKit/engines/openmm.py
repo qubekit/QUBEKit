@@ -41,7 +41,6 @@ class OpenMM(Engines):
 
         self.create_system()
 
-    @timer_logger
     def create_system(self):
         # set up the system using opls combo rules
         # Load the initial coords into the system and initialise
@@ -68,7 +67,6 @@ class OpenMM(Engines):
         self.simulation = app.Simulation(modeller.topology, self.system, integrator, platform)
         self.simulation.context.setPositions(modeller.positions)
 
-    # get_energy is called too many times so timer_logger decorator should not be applied to cut down on spam.
     def get_energy(self, position):
         """
         Return the MM calculated energy of the structure
@@ -96,7 +94,6 @@ class OpenMM(Engines):
 
         return energy
 
-    @timer_logger
     def opls_lj(self):
         # Get the system information from the OpenMM system.
         forces = {self.system.getForce(index).__class__.__name__: self.system.getForce(index) for index in
@@ -152,7 +149,6 @@ class OpenMM(Engines):
                     lorentz.addExclusion(*pair)
                 nonbonded_force.addException(*pair, q, 0, 0, True)
 
-    @timer_logger
     def format_coords(self, coordinates):
         """
         Take the coordinates as a list and format to the OpenMM style of a list of tuples.
@@ -166,7 +162,6 @@ class OpenMM(Engines):
 
         return coords
 
-    @timer_logger
     def calculate_hessian(self, finite_step):
         """
         Using finite displacement calculate the hessian matrix of the molecule
@@ -217,7 +212,6 @@ class OpenMM(Engines):
         sym_hessian = hessian + hessian.T - np.diag(hessian.diagonal())
         return sym_hessian
 
-    @timer_logger
     def get_vsite_interactions(self):
         # use the topology map to get the vsite interaction lists
         # add a connection to the parent then generate the 1-4 list and everything higher list

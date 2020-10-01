@@ -3,78 +3,9 @@
 from QUBEKit.utils.display import pretty_print
 from QUBEKit.utils.helpers import unpickle, COLOURS
 
-from datetime import datetime
 from functools import wraps
 import logging
 import os
-from time import time
-
-
-def timer_logger(orig_func):
-    """
-    Logs the various timings of a function in a dated and numbered file.
-    Writes the start time, function / method qualname and docstring when function / method starts.
-    Then outputs the runtime and time when function / method finishes.
-    """
-
-    @wraps(orig_func)
-    def wrapper(*args, **kwargs):
-
-        # All this does is check if the decorated function has a molecule attribute;
-        # if it does, the function must therefore have a home path which can be used to write to the log file.
-        if len(args) >= 1 and hasattr(args[0], 'molecule'):
-            # If molecule doesn't have a home or is in testing stage, just return
-            if (getattr(args[0].molecule, 'home') is None) or getattr(args[0].molecule, 'testing'):
-                return orig_func(*args, **kwargs)
-            log_file_path = os.path.join(args[0].molecule.home, 'QUBEKit_log.txt')
-            if not os.path.exists(log_file_path):
-                return orig_func(*args, **kwargs)
-        else:
-            if not os.path.exists('../QUBEKit_log.txt'):
-                return orig_func(*args, **kwargs)
-            log_file_path = '../QUBEKit_log.txt'
-
-        start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        t1 = time()
-
-        with open(log_file_path, 'a+') as log_file:
-            log_file.write(f'{orig_func.__qualname__} began at {start_time}.\n\n    ')
-            log_file.write(f'Docstring for {orig_func.__qualname__}:\n    {orig_func.__doc__}\n\n')
-
-            time_taken = time() - t1
-
-            mins, secs = divmod(time_taken, 60)
-            hours, mins = divmod(mins, 60)
-
-            secs, remain = str(float(secs)).split('.')
-
-            time_taken = f'{int(hours):02d}h:{int(mins):02d}m:{int(secs):02d}s.{remain[:5]}'
-            end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-            log_file.write(f'{orig_func.__qualname__} finished in {time_taken} at {end_time}.\n\n')
-            # Add some separation space between function / method logs.
-            log_file.write(f'{"-" * 50}\n\n')
-
-        return orig_func(*args, **kwargs)
-    return wrapper
-
-
-def for_all_methods(decorator):
-    """
-    Applies a decorator to all methods of a class (includes sub-classes and init; it is literally all callables).
-    This class decorator is applied using '@for_all_methods(timer_func)' for example.
-    """
-
-    @wraps(decorator)
-    def decorate(cls):
-        # Examine all class attributes.
-        for attr in cls.__dict__:
-            # Check if each class attribute is a callable method.
-            if callable(getattr(cls, attr)):
-                # Set the callables to be decorated.
-                setattr(cls, attr, decorator(getattr(cls, attr)))
-        return cls
-    return decorate
 
 
 def logger_format(log_file):
@@ -142,9 +73,7 @@ def exception_logger(func):
             # Re-raises the exception if it's not a bulk run.
             # Even if the exception is not raised, it is still logged.
             if len(args) >= 1 and hasattr(args[0], 'molecule'):
-                if not hasattr(args[0].molecule, 'bulk_run'):
-                    raise
-                if args[0].molecule.bulk_run is None:
+                if getattr(args[0].molecule, 'bulk_run', None) in [False, None]:
                     raise
 
     return wrapper

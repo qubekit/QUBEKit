@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
 
-# TODO Improve data structures (no more lists!)
-
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import CustomNamespace
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
-from QUBEKit.utils.file_handling import extract_charge_data
+from QUBEKit.utils.file_handling import extract_charge_data, extract_params_onetep
 from QUBEKit.utils.helpers import check_net_charge, set_net
 
 from collections import OrderedDict, namedtuple
 import decimal
+import math
 import os
-from shutil import copy
 
 import numpy as np
 
 
-@for_all_methods(timer_logger)
 class LennardJones:
 
     # Beware weird units, (wrong in the paper too).
@@ -44,66 +39,18 @@ class LennardJones:
             self.ddec_data, _, _ = extract_charge_data(self.molecule.ddec_version)
 
         elif self.molecule.charges_engine == 'onetep':
-            self.ddec_data = self.extract_params_onetep()
+            self.ddec_data = extract_params_onetep(self.molecule.atoms)
 
         else:
             raise KeyError('Invalid charges engine provided, cannot extract charges.')
 
-        # TODO Maybe move this to run/ligand file (or just elsewhere; it seems odd to have it here)?
-        # Charge check
-        charges = [atom.charge for atom in self.ddec_data.values()]
-        check_net_charge(charges, ideal_net=self.molecule.charge)
+        # Find extra site positions in local coords if present and tweak the charges of the parent
+        if os.path.exists('xyz_with_extra_point_charges.xyz'):
+            self.extract_extra_sites()
 
         self.c8_params = None
 
         self.non_bonded_force = {}
-
-    def extract_params_onetep(self):
-        """
-        TODO Move this to file_handling.py
-        From ONETEP output files, extract the necessary parameters for calculation of L-J.
-        Insert data into ddec_data in standard format
-
-        This will exclusively be used by this class.
-        It will also give less information, hence why it is here, not in the helpers file.
-        """
-
-        # Just fill in None values until they are known
-        ddec_data = {i: CustomNamespace(
-            atomic_symbol=atom.atomic_symbol, charge=None, volume=None, r_aim=None, b_i=None, a_i=None)
-            for i, atom in enumerate(self.molecule.atoms)}
-
-        # Second file contains the rest (charges, dipoles and volumes):
-        ddec_output_file = 'ddec.onetep' if os.path.exists('ddec.onetep') else 'iter_1/ddec.onetep'
-        with open(ddec_output_file, 'r') as file:
-            lines = file.readlines()
-
-        charge_pos, vol_pos = None, None
-        for pos, line in enumerate(lines):
-
-            # Charges marker in file:
-            if 'DDEC density' in line:
-                charge_pos = pos + 7
-
-            # Volumes marker in file:
-            if 'DDEC Radial' in line:
-                vol_pos = pos + 4
-
-        if any(position is None for position in [charge_pos, vol_pos]):
-            raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
-
-        charges = [float(line.split()[-1])
-                   for line in lines[charge_pos: charge_pos + len(self.molecule.atoms)]]
-
-        # Add the AIM-Valence and the AIM-Core to get V^AIM
-        volumes = [float(line.split()[2]) + float(line.split()[3])
-                   for line in lines[vol_pos: vol_pos + len(self.molecule.atoms)]]
-
-        for atom_index in ddec_data:
-            ddec_data[atom_index].charge = charges[atom_index]
-            ddec_data[atom_index].volume = volumes[atom_index]
-
-        return ddec_data
 
     def extract_c8_params(self):
         """
@@ -122,6 +69,81 @@ class LennardJones:
 
             # c8 params IN ATOMIC UNITS
             self.c8_params = [float(line.split()[-1].strip()) for line in lines]
+
+    def extract_extra_sites(self):
+        """
+        Gather the extra sites from the xyz file and insert them into the molecule object.
+        * Find parent and 2 reference atoms
+        * Calculate the local coords site
+        * Save the charge in ddec_data to be used by the rest of the class.
+        """
+
+        # weighting arrays for the virtual sites should not be changed
+        w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
+        w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
+        w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
+
+        with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
+            lines = xyz_sites.readlines()
+
+        extra_sites = OrderedDict()
+        parent = 0
+        sites_no = 0
+
+        for i, line in enumerate(lines[2:]):
+            element = str(line.split()[0])
+
+            if element != 'X':
+                parent += 1
+                # Search the following entries for sites connected to this atom
+                for pos_site in lines[i + 3:]:
+                    # Are there are no sites?
+                    if str(pos_site.split()[0]) != 'X':
+                        break
+                    else:
+                        # get the virtual site coords
+                        v_pos = np.array([float(pos_site.split()[x]) for x in range(1, 4)])
+                        # get the two closest atoms to the parent
+                        closest_atoms = list(self.molecule.topology.neighbors(parent))
+                        if len(closest_atoms) < 2:
+                            # find another atom if we only have one
+                            # dont want to get the parent as a close atom
+                            for atom in list(self.molecule.topology.neighbors(closest_atoms[0])):
+                                if atom not in closest_atoms and atom != parent:
+                                    closest_atoms.append(atom)
+                                    break
+
+                        # Get the xyz coordinates of the reference atoms
+                        parent_pos = self.molecule.coords['qm'][parent]
+                        close_a = self.molecule.coords['qm'][closest_atoms[0]]
+                        close_b = self.molecule.coords['qm'][closest_atoms[1]]
+
+                        # work out the local coordinates site using rules from the OpenMM guide
+                        orig = w1o * parent_pos + w2o * close_a + close_b * w3o
+                        ab = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
+                        ac = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
+                        # Get the axis unit vectors
+                        z_dir = np.cross(ab, ac)
+                        z_dir /= np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
+                        x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
+                        y_dir = np.cross(z_dir, x_dir)
+                        # Get the local coordinates positions
+                        p1 = np.dot((v_pos - orig), x_dir.reshape(3, 1))
+                        p2 = np.dot((v_pos - orig), y_dir.reshape(3, 1))
+                        p3 = np.dot((v_pos - orig), z_dir.reshape(3, 1))
+
+                        charge = decimal.Decimal(pos_site.split()[4])
+
+                        extra_sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
+                        sites_no += 1
+
+        self.molecule.extra_sites = extra_sites
+
+        # Remove the charge from the parent atom with a v-site
+        for site in extra_sites.values():
+            # Parent atom of the v-site
+            site_parent, site_charge = site[0][0], site[2]
+            self.ddec_data[site_parent].charge -= site_charge
 
     def apply_symmetrisation(self):
         """
@@ -188,7 +210,6 @@ class LennardJones:
         # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
         # This follows the usual ordering of the atoms such as in molecule.coords.
         for atom_index, atom in self.ddec_data.items():
-
             if not atom.a_i:
                 sigma = epsilon = 0
             else:
@@ -210,9 +231,8 @@ class LennardJones:
 
         # Loop through pairs in topology
         # Create new pair list with the atoms
-        new_pairs = []
-        for pair in self.molecule.topology.edges:
-            new_pairs.append((self.molecule.atoms[pair[0]], self.molecule.atoms[pair[1]]))
+        new_pairs = [(self.molecule.atoms[pair[0]], self.molecule.atoms[pair[1]])
+                     for pair in self.molecule.topology.edges]
 
         # Find all the polar hydrogens and store their positions / atom numbers
         polars = []
@@ -227,7 +247,7 @@ class LennardJones:
 
         # Find square root of all b_i values so that they can be added easily according to paper's formula.
         for atom in self.ddec_data.values():
-            atom.b_i = atom.b_i ** 0.5
+            atom.b_i = math.sqrt(atom.b_i)
 
         if polars:
             for pair in polars:
@@ -251,7 +271,6 @@ class LennardJones:
 
         # Update epsilon (not sigma) according to new a_i and b_i values
         for atom_index, atom in self.ddec_data.items():
-
             if atom.a_i:
                 # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
@@ -261,83 +280,18 @@ class LennardJones:
 
             self.non_bonded_force[atom_index] = [atom.charge, self.non_bonded_force[atom_index][1], epsilon]
 
-    def extract_extra_sites(self):
+    def check_charges(self):
         """
-        1) Gather the extra sites from the XYZ find parent and 2 reference atoms
-        2) calculate the local coords site
-        3) save the charge
-        4) return back to the molecule
-        (users have the option to use sites or no sites this way)
+        Calculate the total charge from the atom partial charges and the virtual sites.
+        Ensure the total is equal to the ideal net charge of the molecule.
+        Will raise ValueError if charges don't match
         """
 
-        # weighting arrays for the virtual sites should not be changed
-        w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
-        w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
-        w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
-
-        with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
-            lines = xyz_sites.readlines()
-
-        extra_sites = OrderedDict()
-        parent = 0
-        sites_no = 0
-
-        for i, line in enumerate(lines[2:]):
-            element = str(line.split()[0])
-
-            if element != 'X':
-                parent += 1
-                # Search the following entries for sites connected to this atom
-                for pos_site in lines[i + 3:]:
-                    # Are there are no sites?
-                    if str(pos_site.split()[0]) != 'X':
-                        break
-                    else:
-                        # get the virtual site coords
-                        v_pos = np.array([float(pos_site.split()[x]) for x in range(1, 4)])
-                        # get the two closest atoms to the parent
-                        closest_atoms = list(self.molecule.topology.neighbors(parent))
-                        if len(closest_atoms) < 2:
-                            # find another atom if we only have one
-                            # dont want to get the parent as a close atom
-                            for atom in list(self.molecule.topology.neighbors(closest_atoms[0])):
-                                if atom not in closest_atoms and atom != parent:
-                                    closest_atoms.append(atom)
-                                    break
-
-                        # Get the xyz coordinates of the reference atoms
-                        parent_pos = self.molecule.coords['qm'][parent]
-                        close_a = self.molecule.coords['qm'][closest_atoms[0]]
-                        close_b = self.molecule.coords['qm'][closest_atoms[1]]
-
-                        # work out the local coordinates site using rules from the OpenMM guide
-                        orig = w1o * parent_pos + w2o * close_a + close_b * w3o
-                        ab = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
-                        ac = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
-                        # Get the axis unit vectors
-                        z_dir = np.cross(ab, ac)
-                        z_dir /= np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
-                        x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
-                        y_dir = np.cross(z_dir, x_dir)
-                        # Get the local coordinates positions
-                        p1 = np.dot((v_pos - orig), x_dir.reshape(3, 1))
-                        p2 = np.dot((v_pos - orig), y_dir.reshape(3, 1))
-                        p3 = np.dot((v_pos - orig), z_dir.reshape(3, 1))
-
-                        charge = decimal.Decimal(pos_site.split()[4])
-
-                        # store the site info [(parent top no, a, b), (p1, p2, p3), charge]]
-                        extra_sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
-                        sites_no += 1
-
-        self.molecule.extra_sites = extra_sites
-
-        # get the parent non bonded values
-        for site in extra_sites.values():
-            charge, sigma, eps = self.non_bonded_force[site[0][0]]
-            # Change the charge on the first entry
-            charge -= site[2]
-            self.non_bonded_force[site[0][0]] = [charge, sigma, eps]
+        charges = [atom.charge for atom in self.ddec_data.values()]
+        if self.molecule.extra_sites:
+            total_charges_on_sites = sum(site[-1] for site in self.molecule.extra_sites.values())
+            charges += [total_charges_on_sites]
+        check_net_charge(charges, ideal_net=self.molecule.charge)
 
     def calculate_non_bonded_force(self):
         """
@@ -361,65 +315,9 @@ class LennardJones:
         # NB DISABLE FOR FORCEBALANCE
         self.correct_polar_hydrogens()
 
-        # Find extra site positions in local coords if present and tweak the charges of the parent
-        if os.path.exists('xyz_with_extra_point_charges.xyz'):
-            self.extract_extra_sites()
-
         self.molecule.NonbondedForce = self.non_bonded_force
 
         for atom_index, n_b_f in self.non_bonded_force.items():
             self.molecule.atoms[atom_index].partial_charge = n_b_f[0]
 
-    def new_calculate_non_bonded_force(self):
-        """
-        Using the extracted C8 params, squash the 3-term potential into two terms using curvefit.
-        :return:
-        """
-
-        self.extract_params_chargemol()
-        self.extract_c8_params()
-        # Get the a_i and b_i params
-        self.append_ais_bis()
-
-        def objective_function(t, sig, eps):
-            """Parametric form of the standard L-J potential terms."""
-            return 4 * eps * ((sig / t) ** 12 - (sig / t) ** 6)
-
-        from scipy import optimize
-        # import matplotlib.pyplot as plt
-
-        r = np.array([
-            1.0, 1.2, 1.4, 1.6, 1.8,
-            2.0, 2.2, 2.4, 2.6, 2.8,
-            3.0, 3.2, 3.4, 3.6, 3.8,
-            4.0, 4.2, 4.4, 4.6, 4.8,
-            5.0
-        ])
-
-        # Constrain eps and sigma values
-        bounds = ([0, 0], [1, 1])
-
-        sig_eps = []
-
-        for atom_index, c8 in enumerate(self.c8_params):
-            # c6 is equivalent to b_i ???
-            c6 = self.ddec_data[atom_index].b_i
-            # a is recalculated rather than using a_i from before
-            ########## UNITS ##########
-            a = ((c6 * r) ** 6) / 2 + ((2 * c8 * r) ** 4) / 3
-            ########## UNITS ##########
-            v = (a / (r ** 12)) - (c6 / (r ** 6)) - (c8 / (r ** 8))
-
-            popt, pcov = optimize.curve_fit(objective_function, r, v, bounds=bounds)
-
-            sig_eps.append(popt)
-
-            # t = np.array([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0])
-            # plt.figure(1)
-            # plt.clf()
-            # plt.plot(r, v, 'bx', label='data')
-            # plt.plot(t, f(t, *popt), 'r-', label=f'fit: sig={popt[0]:5f}, eps={popt[1]:5f}')
-            # plt.legend()
-            # plt.show()
-
-        print(sig_eps)
+        self.check_charges()

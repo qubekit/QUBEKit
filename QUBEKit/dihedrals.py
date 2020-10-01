@@ -2,7 +2,6 @@
 
 from QUBEKit.engines import Gaussian, OpenMM, PSI4, RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.exceptions import TorsionDriveFailed
 from QUBEKit.utils.file_handling import make_and_change_into
 
@@ -23,7 +22,6 @@ from scipy.stats import linregress
 matplotlib.use('Agg')   # Fix for clusters?
 
 
-@for_all_methods(timer_logger)
 class TorsionScan:
     """
     This class will take a QUBEKit molecule object and perform a torsiondrive QM energy scan
@@ -301,7 +299,6 @@ class TorsionScan:
             os.chdir(self.home)
 
 
-@for_all_methods(timer_logger)
 class TorsionOptimiser:
     """
     Torsion optimiser class used to optimise dihedral parameters with a range of methods

@@ -2,7 +2,6 @@
 
 #### **Newcastle University UK - Cole Group**
 
-
 | **Status** | [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/qubekit/QUBEKit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/qubekit/QUBEKit/context:python) [![Build Status](https://travis-ci.com/qubekit/QUBEKit.svg?branch=master)](https://travis-ci.com/qubekit/QUBEKit) [![Conda (channel only)](https://img.shields.io/conda/vn/conda-forge/qubekit?color=blue&logo=anaconda&logoColor=white)](https://anaconda.org/conda-forge/qubekit) |
 | :------ | :------ |
 | **Foundation** | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python Version](https://img.shields.io/badge/Python-3.6+-1f425f.svg)](https://www.python.org/) [![platforms](https://anaconda.org/conda-forge/qubekit/badges/platforms.svg)]() |
@@ -28,7 +27,6 @@
         * [Checking Progress](https://github.com/qubekit/QUBEKit#qubekit-commands-checking-progress)
         * [Other Commands and Information](https://github.com/qubekit/QUBEKit#qubekit-commands-other-commands-and-information)
 * [Cook Book](https://github.com/qubekit/QUBEKit#cook-book)
-
 
 ## What is QUBEKit?
 
@@ -113,7 +111,6 @@ If any packages are missing from the install or causing issues, this table shows
 | [QCEngine](https://pypi.org/project/qcengine/) | `conda install -c conda-forge qcengine` |
 | [RDKit](http://rdkit.org/) | `conda install -c rdkit rdkit` |
 | [TorsionDrive](https://github.com/lpwgroup/torsiondrive) | `conda install -c conda-forge torsiondrive` |
-
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda should deal with versions and conflicts in your environment.
@@ -245,24 +242,20 @@ See [QUBEKit Commands: Custom Start and End Points (single molecule)](https://gi
 Each time QUBEKit runs, a new working directory containing a log file will be created.
 The name of the directory will contain the run number or name provided via the terminal command `-log` 
 (or the run number or name from the configs if a `-log` command is not provided).
-This log file will store which methods were called, how long they took, and any docstring for them (if it exists).
-The log file will also contain information regarding the config options used, as well as the commands given and much more.
-The log file updates in real time and contains far more information than is printed to the terminal during a run.
+The log file will contain information regarding the config options used, as well as the commands given and much more.
+The log file updates in real time and contains more information than is printed to the terminal during a run.
 If there is an error with QUBEKit, the full stack trace of an exception will be stored in the log file.
-
-**The error printed to the terminal may be different and incorrect so it's always better to check the log file.**
-
 Many errors have custom exceptions to help elucidate if, for example, a module has not been installed correctly.
+
+**The error printed to the terminal may be different, truncated or incorrect so it's always better to check the log file.**
 
 The format for the name of the active directory is:
 
-    QUBEKit_moleculename_YYYY_MM_DD_runnumber
+    QUBEKit_moleculename_YYYY_MM_DD_runnumber(_backupnumber)
 
-If using QUBEKit multiple times per day with the same molecule, it is therefore necessary to update the 'run number'.
-Not updating the run number when analysing the same molecule on the same day will prevent the program from running.
-This is to prevent the directory being overwritten.
-
-Updating the run number can be done with the command:
+If using QUBEKit multiple times per day with the same molecule, it is not necessary to update the 'run number'.
+Not updating the run number when analysing the same molecule on the same day will lead to a backup being created.
+If this is not wanted, you must update the run number with the command:
 
     -log Prop1201
     
@@ -493,7 +486,6 @@ is not a valid command. These should be performed separately:
 Be wary of running QUBEKit concurrently through different terminal windows.
 The programs QUBEKit calls often just try to use however much memory is assigned in the config files;
 this means they may try to take more than is available, leading to a crash.
-
 
 ## Cook Book
 

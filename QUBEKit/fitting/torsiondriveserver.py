@@ -16,7 +16,7 @@ from torsiondrive import td_api
 
 import numpy as np
 
-# TODO openmm does not respect the number of designated threads so every task tries to run on every core
+# TODO OpenMM does not respect the number of designated threads so every task tries to run on every core
 
 
 class TorsionDriveController:

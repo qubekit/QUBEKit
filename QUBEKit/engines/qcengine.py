@@ -2,7 +2,6 @@
 
 from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils import constants
-from QUBEKit.utils.decorators import for_all_methods, timer_logger
 from QUBEKit.utils.helpers import check_symmetry
 
 import qcelemental as qcel
@@ -11,7 +10,6 @@ import qcengine as qcng
 import numpy as np
 
 
-@for_all_methods(timer_logger)
 class QCEngine(Engines):
 
     def __init__(self, molecule):
