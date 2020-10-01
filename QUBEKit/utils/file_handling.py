@@ -473,7 +473,7 @@ def extract_params_onetep(atoms):
     if any(position is None for position in [charge_pos, vol_pos]):
         raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
 
-    charges = [line.split()[-1] for line in lines[charge_pos: charge_pos + len(atoms)]]
+    charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(atoms)]]
 
     # Add the AIM-Valence and the AIM-Core to get V^AIM
     volumes = [float(line.split()[2]) + float(line.split()[3])
