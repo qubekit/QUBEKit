@@ -2,9 +2,9 @@
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.file_handling import extract_charge_data, extract_params_onetep
-from QUBEKit.utils.helpers import check_net_charge, set_net
 
 from collections import OrderedDict, namedtuple
+import decimal
 import math
 import os
 
@@ -46,6 +46,8 @@ class LennardJones:
         # Find extra site positions in local coords if present and tweak the charges of the parent
         if os.path.exists('xyz_with_extra_point_charges.xyz'):
             self.extract_extra_sites()
+
+        # self.check_net_charge()
 
         self.c8_params = None
 
@@ -144,6 +146,26 @@ class LennardJones:
             site_parent, site_charge = site[0][0], site[2]
             self.ddec_data[site_parent].charge -= site_charge
 
+    def check_net_charge(self):
+        """
+        Calculate the total charge from the atom partial charges and the virtual sites.
+        Ensure the total is exactly equal to the ideal net charge of the molecule.
+        """
+
+        decimal.getcontext().prec = 6
+        charges = [decimal.Decimal(atom.charge) for atom in self.molecule.atoms]
+        extra = self.molecule.charge - sum(charges)
+        if extra:
+            self.molecule.atoms[-1].charge += extra
+            last_atom_index = len(self.molecule.atoms) - 1
+            self.ddec_data[last_atom_index].charge += extra
+
+        if self.molecule.extra_sites:
+            for site in self.molecule.extra_sites.values():
+                parent, site_charge = site[0][0], site[2]
+                self.molecule.atoms[parent] -= site_charge
+                self.ddec_data[parent].charge -= site_charge
+
     def apply_symmetrisation(self):
         """
         Using the atoms picked out to be symmetrised:
@@ -165,14 +187,6 @@ class LennardJones:
             for atom in sym_set:
                 self.ddec_data[atom].charge = round(charge, 6)
                 self.ddec_data[atom].volume = round(volume, 6)
-
-        # Make sure the net charge is correct for the current precision.
-        charges = [atom.charge for atom in self.ddec_data.values()]
-        new_charges = set_net(charges, self.molecule.charge)
-
-        # Put the new charges back into the holder.
-        for atom, new_charge in zip(self.ddec_data.values(), new_charges):
-            atom.charge = new_charge
 
     def append_ais_bis(self):
         """
@@ -279,19 +293,6 @@ class LennardJones:
 
             self.non_bonded_force[atom_index] = [atom.charge, self.non_bonded_force[atom_index][1], epsilon]
 
-    def check_charges(self):
-        """
-        Calculate the total charge from the atom partial charges and the virtual sites.
-        Ensure the total is equal to the ideal net charge of the molecule.
-        Will raise ValueError if charges don't match
-        """
-
-        charges = [atom.charge for atom in self.ddec_data.values()]
-        if self.molecule.extra_sites:
-            total_charges_on_sites = sum(site[-1] for site in self.molecule.extra_sites.values())
-            charges += [total_charges_on_sites]
-        check_net_charge(charges, ideal_net=self.molecule.charge)
-
     def calculate_non_bonded_force(self):
         """
         Main worker method for LennardJones class.
@@ -318,5 +319,3 @@ class LennardJones:
 
         for atom_index, n_b_f in self.non_bonded_force.items():
             self.molecule.atoms[atom_index].partial_charge = n_b_f[0]
-
-        self.check_charges()

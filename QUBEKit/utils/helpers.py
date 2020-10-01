@@ -212,26 +212,6 @@ def check_symmetry(matrix, error=1e-5):
           f'The matrix is symmetric within an error of {error}.{COLOURS.end}')
 
 
-def check_net_charge(charges, ideal_net=0, error=1e-5):
-    """
-    Check if the calculated net charge is within error of the desired net charge.
-    :param charges: list of signed floats
-    :param ideal_net: expected net charge of the molecule (what the sum of the charges should be)
-    :param error: allowed error between ideal_net and calculated net charge
-    Error is raised if charge is not within error
-    """
-
-    # Ensure total charge is near to integer value:
-    total_charge = sum(atom for atom in charges)
-
-    with _assert_wrapper(ValueError):
-        assert (abs(total_charge - ideal_net) < error), (f'Total charge: {total_charge} is not close enough to desired '
-                                                         f'integer value: {ideal_net} in configs; error: {error}.')
-
-    print(f'{COLOURS.purple}Charge check successful. '
-          f'Net charge is within {error} of the desired net charge of {ideal_net}.{COLOURS.end}')
-
-
 def collect_archive_tdrive(tdrive_record, client):
     """
     This function takes in a QCArchive tdrive record and collects all of the final geometries and energies to be used in
@@ -257,25 +237,6 @@ def collect_archive_tdrive(tdrive_record, client):
         assert opt_struct.get_final_energy() == pair[1], "The energies collected do not match the QCArchive minima."
 
     return energies, geometry
-
-
-def set_net(values, net=0):
-    """
-    Take a list of values and make sure the sum is equal to net to the required dp
-    If they are not, add the extra to the final value in the list.
-    :param values: list of values
-    :param net: the desired total of the list
-    :param dp: the number of decimal places required
-    :return: the list of updated values with the correct net value
-    """
-
-    decimal.getcontext().prec = 6
-    new_values = [decimal.Decimal(str(val)) for val in values]
-    extra = net - sum(new_values)
-    if extra:
-        new_values[-1] += extra
-
-    return new_values
 
 
 def missing_import(name, fail_msg=''):
