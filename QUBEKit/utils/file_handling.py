@@ -15,6 +15,7 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element
 from QUBEKit.utils.exceptions import FileTypeError
 
+import decimal
 from itertools import groupby
 import os
 from pathlib import Path
@@ -417,8 +418,9 @@ def extract_charge_data(ddec_version=6):
         atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
         # File counts from 1 not 0; thereby requiring -1 to get the index
         atom_index = int(atom_count) - 1
+        decimal.getcontext().prec = 6
         ddec_data[atom_index] = CustomNamespace(
-            atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
+            atomic_symbol=atomic_symbol, charge=decimal.Decimal(charge), volume=None, r_aim=None, b_i=None, a_i=None
         )
 
         dipole_moment_data[atom_index] = CustomNamespace(
@@ -473,7 +475,8 @@ def extract_params_onetep(atoms):
     if any(position is None for position in [charge_pos, vol_pos]):
         raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
 
-    charges = [float(line.split()[-1])
+    decimal.getcontext().prec = 6
+    charges = [decimal.Decimal(line.split()[-1])
                for line in lines[charge_pos: charge_pos + len(atoms)]]
 
     # Add the AIM-Valence and the AIM-Core to get V^AIM

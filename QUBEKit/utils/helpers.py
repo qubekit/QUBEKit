@@ -259,7 +259,7 @@ def collect_archive_tdrive(tdrive_record, client):
     return energies, geometry
 
 
-def set_net(values, net=0, dp=6):
+def set_net(values, net=0):
     """
     Take a list of values and make sure the sum is equal to net to the required dp
     If they are not, add the extra to the final value in the list.
@@ -269,7 +269,7 @@ def set_net(values, net=0, dp=6):
     :return: the list of updated values with the correct net value
     """
 
-    decimal.getcontext().prec = dp
+    decimal.getcontext().prec = 6
     new_values = [decimal.Decimal(str(val)) for val in values]
     extra = net - sum(new_values)
     if extra:
