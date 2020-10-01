@@ -132,6 +132,7 @@ class LennardJones:
                         p2 = np.dot((v_pos - orig), y_dir.reshape(3, 1))
                         p3 = np.dot((v_pos - orig), z_dir.reshape(3, 1))
 
+                        decimal.getcontext().prec = 6
                         charge = decimal.Decimal(pos_site.split()[4])
 
                         extra_sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
@@ -169,7 +170,7 @@ class LennardJones:
 
         # Make sure the net charge is correct for the current precision.
         charges = [atom.charge for atom in self.ddec_data.values()]
-        new_charges = set_net(charges, self.molecule.charge, 6)
+        new_charges = set_net(charges, self.molecule.charge)
 
         # Put the new charges back into the holder.
         for atom, new_charge in zip(self.ddec_data.values(), new_charges):
