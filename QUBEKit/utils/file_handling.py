@@ -418,7 +418,7 @@ def extract_charge_data(ddec_version=6):
         # File counts from 1 not 0; thereby requiring -1 to get the index
         atom_index = int(atom_count) - 1
         ddec_data[atom_index] = CustomNamespace(
-            atomic_symbol=atomic_symbol, charge=charge, volume=None, r_aim=None, b_i=None, a_i=None
+            atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
         )
 
         dipole_moment_data[atom_index] = CustomNamespace(
