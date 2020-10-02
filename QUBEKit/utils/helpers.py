@@ -7,7 +7,6 @@ from QUBEKit.utils.exceptions import PickleFileNotFound, QUBEKitLogFileNotFound
 from collections import OrderedDict
 from contextlib import contextmanager
 import csv
-import decimal
 from importlib import import_module
 import logging
 import math
