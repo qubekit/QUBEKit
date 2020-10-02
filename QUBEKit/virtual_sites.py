@@ -647,7 +647,7 @@ class VirtualSites:
         with open('xyz_with_extra_point_charges.xyz', 'w+') as xyz_file:
             xyz_file.write(
                 f'{len(self.molecule.atoms) + len(self.v_sites_coords)}\n'
-                f'xyz file generated with QUBEKit.'
+                f'xyz file generated with QUBEKit.\n'
             )
             for i, atom in enumerate(self.coords):
                 # Amend partial charge
