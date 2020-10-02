@@ -47,7 +47,7 @@ class LennardJones:
         if os.path.exists('xyz_with_extra_point_charges.xyz'):
             self.extract_extra_sites()
 
-        # self.check_net_charge()
+        self.fix_net_charge()
 
         self.c8_params = None
 
@@ -115,9 +115,10 @@ class LennardJones:
                                     break
 
                         # Get the xyz coordinates of the reference atoms
-                        parent_pos = self.molecule.coords['qm'][parent]
-                        close_a = self.molecule.coords['qm'][closest_atoms[0]]
-                        close_b = self.molecule.coords['qm'][closest_atoms[1]]
+                        coords = self.molecule.coords['qm'] if any(self.molecule.coords['qm']) else self.molecule.coords['input']
+                        parent_pos = coords[parent]
+                        close_a = coords[closest_atoms[0]]
+                        close_b = coords[closest_atoms[1]]
 
                         # work out the local coordinates site using rules from the OpenMM guide
                         orig = w1o * parent_pos + w2o * close_a + close_b * w3o
@@ -140,31 +141,29 @@ class LennardJones:
 
         self.molecule.extra_sites = extra_sites
 
-        # Remove the charge from the parent atom with a v-site
-        for site in extra_sites.values():
-            # Parent atom of the v-site
-            site_parent, site_charge = site[0][0], site[2]
-            self.ddec_data[site_parent].charge -= site_charge
-
-    def check_net_charge(self):
+    def fix_net_charge(self):
         """
         Calculate the total charge from the atom partial charges and the virtual sites.
         Ensure the total is exactly equal to the ideal net charge of the molecule.
+        If net charge is not an integer value, MM simulations can (ex/im)plode.
         """
 
         decimal.getcontext().prec = 6
-        charges = [decimal.Decimal(atom.charge) for atom in self.molecule.atoms]
-        extra = self.molecule.charge - sum(charges)
+        charges = sum(decimal.Decimal(atom.partial_charge) for atom in self.molecule.atoms)
+        extra = float(self.molecule.charge - charges)
+
         if extra:
-            self.molecule.atoms[-1].charge += extra
+            # Smear charge onto final atom
             last_atom_index = len(self.molecule.atoms) - 1
+            self.molecule.atoms[last_atom_index].partial_charge += extra
             self.ddec_data[last_atom_index].charge += extra
 
         if self.molecule.extra_sites:
+            # Remove extra site charge(s) from parent atom(s)
             for site in self.molecule.extra_sites.values():
-                parent, site_charge = site[0][0], site[2]
-                self.molecule.atoms[parent] -= site_charge
-                self.ddec_data[parent].charge -= site_charge
+                site_parent, site_charge = site[0][0], site[2]
+                self.molecule.atoms[site_parent].partial_charge -= site_charge
+                self.ddec_data[site_parent].charge -= site_charge
 
     def apply_symmetrisation(self):
         """
