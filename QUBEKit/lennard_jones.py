@@ -115,7 +115,7 @@ class LennardJones:
                                     break
 
                         # Get the xyz coordinates of the reference atoms
-                        coords = self.molecule.coords['qm'] if any(self.molecule.coords['qm']) else self.molecule.coords['input']
+                        coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords['input']
                         parent_pos = coords[parent]
                         close_a = coords[closest_atoms[0]]
                         close_b = coords[closest_atoms[1]]

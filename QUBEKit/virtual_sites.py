@@ -70,7 +70,7 @@ class VirtualSites:
         self.molecule = molecule
         self.symmetric_sites = symmetric_sites
         self.debug = debug
-        self.coords = self.molecule.coords['qm'] if any(self.molecule.coords['qm']) else self.molecule.coords['input']
+        self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords['input']
 
         self.ddec_data, self.dipole_moment_data, self.quadrupole_moment_data = extract_charge_data(
             self.molecule.ddec_version)
