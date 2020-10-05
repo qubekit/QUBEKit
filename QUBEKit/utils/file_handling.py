@@ -368,122 +368,144 @@ class ReadInput:
         self.residues = [res for res, group in groupby(self.Residues)]
 
 
-def extract_charge_data(ddec_version=6):
+class ExtractChargeData:
     """
-    From Chargemol output files, extract the necessary parameters for calculation of L-J.
-
-    :returns: 3 CustomNamespaces, ddec_data; dipole_moment_data; and quadrupole_moment_data
-    ddec_data used for calculating monopole esp and L-J values (used by both LennardJones and Charges classes)
-    dipole_moment_data used for calculating dipole esp
-    quadrupole_moment_data used for calculating quadrupole esp
+    Choose between extracting (the more extensive) data from Chargemol, or from ONETEP.
+    Store all info back into the molecule object.
     """
+    def __init__(self, molecule):
+        self.molecule = molecule
 
-    if ddec_version == 6:
-        net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
+    def extract_charge_data(self):
+        if self.molecule.charges_engine.casefold() == 'chargemol':
+            ddec_data, dipole_moment_data, quadrupole_moment_data = self._extract_charge_data_chargemol()
+        else:
+            ddec_data = self._extract_charge_data_onetep()
+            dipole_moment_data = quadrupole_moment_data = None
 
-    elif ddec_version == 3:
-        net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
+        self.molecule.ddec_data = ddec_data
+        self.molecule.dipole_moment_data = dipole_moment_data
+        self.molecule.quadrupole_moment_data = quadrupole_moment_data
 
-    else:
-        raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
+        # Ensure the partial charges in the atom container are also changed.
+        for molecule_atom, ddec_atom in zip(self.molecule.atoms, self.molecule.ddec_data):
+            molecule_atom.partial_charge = ddec_atom.charge
 
-    if not os.path.exists(net_charge_file_name):
-        raise FileNotFoundError(
-            'Cannot find the DDEC output file.\nThis could be indicative of several issues.\n'
-            'Please check Chargemol is installed in the correct location and that the configs'
-            ' point to that location.'
-        )
+    def _extract_charge_data_chargemol(self):
+        """
+        From Chargemol output files, extract the necessary parameters for calculation of L-J.
 
-    with open(net_charge_file_name, 'r+') as charge_file:
-        lines = charge_file.readlines()
+        :returns: 3 CustomNamespaces, ddec_data; dipole_moment_data; and quadrupole_moment_data
+        ddec_data used for calculating monopole esp and L-J values (used by both LennardJones and Charges classes)
+        dipole_moment_data used for calculating dipole esp
+        quadrupole_moment_data used for calculating quadrupole esp
+        """
 
-    # Find number of atoms
-    atom_total = int(lines[0])
+        if self.molecule.ddec_version == 6:
+            net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
 
-    for pos, row in enumerate(lines):
-        # Data marker:
-        if 'The following XYZ' in row:
-            start_pos = pos + 2
-            break
-    else:
-        raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
+        elif self.molecule.ddec_version == 3:
+            net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
 
-    ddec_data = {}
-    dipole_moment_data = {}
-    quadrupole_moment_data = {}
+        else:
+            raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
 
-    for line in lines[start_pos: start_pos + atom_total]:
-        # _'s are the xyz coords, then the quadrupole moment tensor eigenvalues
-        atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
-        # File counts from 1 not 0; thereby requiring -1 to get the index
-        atom_index = int(atom_count) - 1
-        ddec_data[atom_index] = CustomNamespace(
-            atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
-        )
+        if not os.path.exists(net_charge_file_name):
+            raise FileNotFoundError(
+                'Cannot find the DDEC output file.\nThis could be indicative of several issues.\n'
+                'Please check Chargemol is installed in the correct location and that the configs'
+                ' point to that location.'
+            )
 
-        dipole_moment_data[atom_index] = CustomNamespace(
-            x_dipole=float(x_dipole), y_dipole=float(y_dipole), z_dipole=float(z_dipole)
-        )
+        with open(net_charge_file_name, 'r+') as charge_file:
+            lines = charge_file.readlines()
 
-        quadrupole_moment_data[atom_index] = CustomNamespace(
-            q_xy=float(q_xy), q_xz=float(q_xz), q_yz=float(q_yz), q_x2_y2=float(q_x2_y2), q_3z2_r2=float(q_3z2_r2)
-        )
+        # Find number of atoms
+        atom_total = int(lines[0])
 
-    r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
+        for pos, row in enumerate(lines):
+            # Data marker:
+            if 'The following XYZ' in row:
+                start_pos = pos + 2
+                break
+        else:
+            raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
 
-    with open(r_cubed_file_name, 'r+') as vol_file:
-        lines = vol_file.readlines()
+        ddec_data = {}
+        dipole_moment_data = {}
+        quadrupole_moment_data = {}
 
-    vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
+        for line in lines[start_pos: start_pos + atom_total]:
+            # _'s are the xyz coords, then the quadrupole moment tensor eigenvalues
+            atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
+            # File counts from 1 not 0; thereby requiring -1 to get the index
+            atom_index = int(atom_count) - 1
+            ddec_data[atom_index] = CustomNamespace(
+                atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
+            )
 
-    for atom_index in ddec_data:
-        ddec_data[atom_index].volume = vols[atom_index]
+            dipole_moment_data[atom_index] = CustomNamespace(
+                x_dipole=float(x_dipole), y_dipole=float(y_dipole), z_dipole=float(z_dipole)
+            )
 
-    return ddec_data, dipole_moment_data, quadrupole_moment_data
+            quadrupole_moment_data[atom_index] = CustomNamespace(
+                q_xy=float(q_xy), q_xz=float(q_xz), q_yz=float(q_yz), q_x2_y2=float(q_x2_y2), q_3z2_r2=float(q_3z2_r2)
+            )
 
+        r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
 
-def extract_params_onetep(atoms):
-    """
-    From ONETEP output files, extract the necessary parameters for calculation of L-J.
-    Insert data into ddec_data in standard format.
-    Used exclusively by LennardJones class.
-    """
+        with open(r_cubed_file_name, 'r+') as vol_file:
+            lines = vol_file.readlines()
 
-    # Just fill in None values until they are known
-    ddec_data = {i: CustomNamespace(
-        atomic_symbol=atom.atomic_symbol, charge=None, volume=None, r_aim=None, b_i=None, a_i=None)
-        for i, atom in enumerate(atoms)}
+        vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
 
-    # Second file contains the rest (charges, dipoles and volumes):
-    ddec_output_file = 'ddec.onetep' if os.path.exists('ddec.onetep') else 'iter_1/ddec.onetep'
-    with open(ddec_output_file, 'r') as file:
-        lines = file.readlines()
+        for atom_index in ddec_data:
+            ddec_data[atom_index].volume = vols[atom_index]
 
-    charge_pos, vol_pos = None, None
-    for pos, line in enumerate(lines):
+        return ddec_data, dipole_moment_data, quadrupole_moment_data
 
-        # Charges marker in file:
-        if 'DDEC density' in line:
-            charge_pos = pos + 7
+    def _extract_charge_data_onetep(self):
+        """
+        From ONETEP output files, extract the necessary parameters for calculation of L-J.
+        Insert data into ddec_data in standard format.
+        Used exclusively by LennardJones class.
+        """
 
-        # Volumes marker in file:
-        if 'DDEC Radial' in line:
-            vol_pos = pos + 4
+        # Just fill in None values until they are known
+        ddec_data = {i: CustomNamespace(
+            atomic_symbol=atom.atomic_symbol, charge=None, volume=None, r_aim=None, b_i=None, a_i=None)
+            for i, atom in enumerate(self.molecule.atoms)}
 
-    if any(position is None for position in [charge_pos, vol_pos]):
-        raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
+        # Second file contains the rest (charges, dipoles and volumes):
+        ddec_output_file = 'ddec.onetep' if os.path.exists('ddec.onetep') else 'iter_1/ddec.onetep'
+        with open(ddec_output_file, 'r') as file:
+            lines = file.readlines()
 
-    charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(atoms)]]
+        charge_pos, vol_pos = None, None
+        for pos, line in enumerate(lines):
 
-    # Add the AIM-Valence and the AIM-Core to get V^AIM
-    volumes = [float(line.split()[2]) + float(line.split()[3])
-               for line in lines[vol_pos: vol_pos + len(atoms)]]
+            # Charges marker in file:
+            if 'DDEC density' in line:
+                charge_pos = pos + 7
 
-    for atom_index in ddec_data:
-        ddec_data[atom_index].charge = charges[atom_index]
-        ddec_data[atom_index].volume = volumes[atom_index]
+            # Volumes marker in file:
+            if 'DDEC Radial' in line:
+                vol_pos = pos + 4
 
-    return ddec_data
+        if any(position is None for position in [charge_pos, vol_pos]):
+            raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
+
+        charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.molecule.atoms)]]
+
+        # Add the AIM-Valence and the AIM-Core to get V^AIM
+        volumes = [float(line.split()[2]) + float(line.split()[3])
+                   for line in lines[vol_pos: vol_pos + len(self.molecule.atoms)]]
+
+        for atom_index in ddec_data:
+            ddec_data[atom_index].charge = charges[atom_index]
+            ddec_data[atom_index].volume = volumes[atom_index]
+
+        return ddec_data
 
 
 def make_and_change_into(name):

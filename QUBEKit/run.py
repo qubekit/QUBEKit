@@ -25,8 +25,8 @@ from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.display import display_molecule_objects, pretty_print, pretty_progress
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
-from QUBEKit.utils.file_handling import make_and_change_into
-from QUBEKit.utils.helpers import append_to_log, generate_bulk_csv, mol_data_from_csv, unpickle, update_ligand
+from QUBEKit.utils.file_handling import ExtractChargeData, make_and_change_into
+from QUBEKit.utils.helpers import append_to_log, fix_net_charge, generate_bulk_csv, mol_data_from_csv, unpickle, update_ligand
 
 import argparse
 from collections import OrderedDict
@@ -905,11 +905,16 @@ class Execute:
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
 
+        ExtractChargeData(molecule).extract_charge_data()
+
         append_to_log(f'Finishing charge partitioning with Chargemol and DDEC{molecule.ddec_version}')
         append_to_log('Starting virtual sites calculation')
 
         vs = VirtualSites(molecule)
         vs.calculate_virtual_sites()
+
+        # Ensure the net charge is an integer value and adds up to molecule.charge
+        fix_net_charge(molecule)
 
         append_to_log('Finishing virtual sites calculation')
 

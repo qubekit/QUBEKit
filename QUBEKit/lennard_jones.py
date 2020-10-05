@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
 from QUBEKit.utils import constants
-from QUBEKit.utils.file_handling import extract_charge_data, extract_params_onetep
 
 from collections import OrderedDict, namedtuple
-import decimal
 import math
 import os
 
@@ -34,20 +32,9 @@ class LennardJones:
 
         self.molecule = molecule
 
-        if self.molecule.charges_engine == 'chargemol':
-            self.ddec_data, _, _ = extract_charge_data(self.molecule.ddec_version)
-
-        elif self.molecule.charges_engine == 'onetep':
-            self.ddec_data = extract_params_onetep(self.molecule.atoms)
-
-        else:
-            raise KeyError('Invalid charges engine provided, cannot extract charges.')
-
         # Find extra site positions in local coords if present and tweak the charges of the parent
         if os.path.exists('xyz_with_extra_point_charges.xyz'):
             self.extract_extra_sites()
-
-        self.fix_net_charge()
 
         self.c8_params = None
 
@@ -73,6 +60,7 @@ class LennardJones:
 
     def extract_extra_sites(self):
         """
+        TODO Move to VirtualSites?
         Gather the extra sites from the xyz file and insert them into the molecule object.
         * Find parent and 2 reference atoms
         * Calculate the local coords site
@@ -141,30 +129,6 @@ class LennardJones:
 
         self.molecule.extra_sites = extra_sites
 
-    def fix_net_charge(self):
-        """
-        Calculate the total charge from the atom partial charges and the virtual sites.
-        Ensure the total is exactly equal to the ideal net charge of the molecule.
-        If net charge is not an integer value, MM simulations can (ex/im)plode.
-        """
-
-        decimal.getcontext().prec = 6
-        charges = sum(decimal.Decimal(atom.partial_charge) for atom in self.molecule.atoms)
-        extra = float(self.molecule.charge - charges)
-
-        if extra:
-            # Smear charge onto final atom
-            last_atom_index = len(self.molecule.atoms) - 1
-            self.molecule.atoms[last_atom_index].partial_charge += extra
-            self.ddec_data[last_atom_index].charge += extra
-
-        if self.molecule.extra_sites:
-            # Remove extra site charge(s) from parent atom(s)
-            for site in self.molecule.extra_sites.values():
-                site_parent, site_charge = site[0][0], site[2]
-                self.molecule.atoms[site_parent].partial_charge -= site_charge
-                self.ddec_data[site_parent].charge -= site_charge
-
     def apply_symmetrisation(self):
         """
         Using the atoms picked out to be symmetrised:
@@ -179,13 +143,13 @@ class LennardJones:
         # Find the average charge / volume values for each sym_set.
         # A sym_set is atoms which should have the same charge / volume values (e.g. methyl H's).
         for sym_set in atom_types.values():
-            charge = sum(self.ddec_data[atom].charge for atom in sym_set) / len(sym_set)
-            volume = sum(self.ddec_data[atom].volume for atom in sym_set) / len(sym_set)
+            charge = sum(self.molecule.ddec_data[atom].charge for atom in sym_set) / len(sym_set)
+            volume = sum(self.molecule.ddec_data[atom].volume for atom in sym_set) / len(sym_set)
 
             # Store the new values.
             for atom in sym_set:
-                self.ddec_data[atom].charge = round(charge, 6)
-                self.ddec_data[atom].volume = round(volume, 6)
+                self.molecule.ddec_data[atom].charge = round(charge, 6)
+                self.molecule.ddec_data[atom].volume = round(volume, 6)
 
     def append_ais_bis(self):
         """
@@ -193,7 +157,7 @@ class LennardJones:
         Calculations from paper have been combined and simplified for faster computation.
         """
 
-        for atom_index, atom in self.ddec_data.items():
+        for atom_index, atom in self.molecule.ddec_data.items():
             try:
                 atomic_symbol, atom_vol = atom.atomic_symbol, atom.volume
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
@@ -208,9 +172,9 @@ class LennardJones:
             except KeyError:
                 r_aim, b_i, a_i = 0, 0, 0
 
-            self.ddec_data[atom_index].r_aim = r_aim
-            self.ddec_data[atom_index].b_i = b_i
-            self.ddec_data[atom_index].a_i = a_i
+            self.molecule.ddec_data[atom_index].r_aim = r_aim
+            self.molecule.ddec_data[atom_index].b_i = b_i
+            self.molecule.ddec_data[atom_index].a_i = a_i
 
     def calculate_sig_eps(self):
         """
@@ -221,7 +185,7 @@ class LennardJones:
         # Creates Nonbondedforce dict for later xml creation.
         # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
         # This follows the usual ordering of the atoms such as in molecule.coords.
-        for atom_index, atom in self.ddec_data.items():
+        for atom_index, atom in self.molecule.ddec_data.items():
             if not atom.a_i:
                 sigma = epsilon = 0
             else:
@@ -258,7 +222,7 @@ class LennardJones:
                     polars.append(pair)
 
         # Find square root of all b_i values so that they can be added easily according to paper's formula.
-        for atom in self.ddec_data.values():
+        for atom in self.molecule.ddec_data.values():
             atom.b_i = math.sqrt(atom.b_i)
 
         if polars:
@@ -272,17 +236,17 @@ class LennardJones:
                         polar_son_pos = pair[0].atom_index
 
                     # Calculate the new b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                    self.ddec_data[polar_son_pos].b_i += self.ddec_data[polar_h_pos].b_i
-                    self.ddec_data[polar_h_pos].b_i = 0
+                    self.molecule.ddec_data[polar_son_pos].b_i += self.molecule.ddec_data[polar_h_pos].b_i
+                    self.molecule.ddec_data[polar_h_pos].b_i = 0
 
-        for atom in self.ddec_data.values():
+        for atom in self.molecule.ddec_data.values():
             # Square all the b_i values again
             atom.b_i *= atom.b_i
             # Recalculate the a_is based on the new b_is
             atom.a_i = 32 * atom.b_i * (atom.r_aim ** 6)
 
         # Update epsilon (not sigma) according to new a_i and b_i values
-        for atom_index, atom in self.ddec_data.items():
+        for atom_index, atom in self.molecule.ddec_data.items():
             if atom.a_i:
                 # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (atom.b_i ** 2) / (4 * atom.a_i)

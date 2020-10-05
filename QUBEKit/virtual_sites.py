@@ -14,7 +14,6 @@ TODO Find an elegant solution to amending the partial charges when adding virtua
 """
 
 from QUBEKit.utils.constants import BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
-from QUBEKit.utils.file_handling import extract_charge_data
 
 from functools import lru_cache
 
@@ -71,9 +70,6 @@ class VirtualSites:
         self.symmetric_sites = symmetric_sites
         self.debug = debug
         self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords['input']
-
-        self.ddec_data, self.dipole_moment_data, self.quadrupole_moment_data = extract_charge_data(
-            self.molecule.ddec_version)
 
         # List of tuples where each tuple is the xyz coords of the v-site(s),
         # followed by their charge and index of the parent atom.
@@ -243,11 +239,11 @@ class VirtualSites:
 
         atom_coords = self.coords[atom_index]
 
-        charge = self.ddec_data[atom_index].charge
-        dip_data = self.dipole_moment_data[atom_index]
+        charge = self.molecule.ddec_data[atom_index].charge
+        dip_data = self.molecule.dipole_moment_data[atom_index]
         dipole_moment = np.array([*dip_data.values()]) * BOHR_TO_ANGS
 
-        quad_data = self.quadrupole_moment_data[atom_index]
+        quad_data = self.molecule.quadrupole_moment_data[atom_index]
 
         no_site_esps = []
         for point in self.sample_points:
@@ -276,7 +272,7 @@ class VirtualSites:
 
         atom_coords = self.coords[atom_index]
         # New charge of the atom, having removed the v-site's charge.
-        atom_charge = self.ddec_data[atom_index].charge - site_charge
+        atom_charge = self.molecule.ddec_data[atom_index].charge - site_charge
 
         v_site_esps = []
         for point in self.sample_points:
@@ -301,7 +297,7 @@ class VirtualSites:
 
         atom_coords = self.coords[atom_index]
         # New charge of the atom, having removed the v-sites' charges.
-        atom_charge = self.ddec_data[atom_index].charge - (q_a + q_b)
+        atom_charge = self.molecule.ddec_data[atom_index].charge - (q_a + q_b)
 
         v_site_esps = []
         for point in self.sample_points:
@@ -521,10 +517,13 @@ class VirtualSites:
         elif self.site_errors[1] < self.site_errors[2] * max_err:
             print('The addition of one virtual site was found to be best.')
             self.v_sites_coords.extend(self.one_site_coords)
+            self.molecule.atoms[atom_index].partial_charge -= self.one_site_coords[0][1]
+            self.molecule.ddec_data[atom_index].charge -= self.one_site_coords[0][1]
         else:
             print('The addition of two virtual sites was found to be best.')
             self.v_sites_coords.extend(self.two_site_coords)
-
+            self.molecule.atoms[atom_index].partial_charge -= (self.two_site_coords[0][1] + self.two_site_coords[1][1])
+            self.molecule.ddec_data[atom_index].charge -= (self.two_site_coords[0][1] + self.two_site_coords[1][1])
         print(
             f'Errors (kcal/mol):\n'
             f'No Site     One Site     Two Sites\n'
@@ -559,21 +558,11 @@ class VirtualSites:
 
         # Add atom positions to all subplots
         for i, plot in enumerate(plots):
-            # Subtract charge from parent atom.
-            if i == 0:
-                col = [i[1] for i in atom_points]
-            elif i == 1:
-                col = [i[1] for i in atom_points]
-                col[atom_index] -= self.one_site_coords[0][-1]
-            else:
-                col = [i[1] for i in atom_points]
-                col[atom_index] -= (self.two_site_coords[0][-1] + self.two_site_coords[1][-1])
-
             plot.scatter(
                 xs=[i[0][0] for i in atom_points],
                 ys=[i[0][1] for i in atom_points],
                 zs=[i[0][2] for i in atom_points],
-                c=col,
+                c=[i[1] for i in atom_points],
                 marker='o',
                 s=200,
                 cmap=cmap,
@@ -649,19 +638,13 @@ class VirtualSites:
                 f'{len(self.molecule.atoms) + len(self.v_sites_coords)}\n'
                 f'xyz file generated with QUBEKit.\n'
             )
-            for i, atom in enumerate(self.coords):
-                # Amend partial charge
-                partial_charge = self.molecule.atoms[i].partial_charge
-                for site in self.v_sites_coords:
-                    if site[2] == i:
-                        partial_charge -= site[1]
-
+            for atom_index, atom in enumerate(self.coords):
                 xyz_file.write(
-                    f'{self.molecule.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}'
-                    f'   {partial_charge: .10f}\n')
+                    f'{self.molecule.atoms[atom_index].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}'
+                    f'   {self.molecule.atoms[atom_index].partial_charge: .10f}\n')
 
                 for site in self.v_sites_coords:
-                    if site[2] == i:
+                    if site[2] == atom_index:
                         xyz_file.write(
                             f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .10f}\n')
 
