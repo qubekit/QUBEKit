@@ -379,14 +379,9 @@ class ExtractChargeData:
 
     def extract_charge_data(self):
         if self.molecule.charges_engine.casefold() == 'chargemol':
-            ddec_data, dipole_moment_data, quadrupole_moment_data = self._extract_charge_data_chargemol()
+            self._extract_charge_data_chargemol()
         else:
-            ddec_data = self._extract_charge_data_onetep()
-            dipole_moment_data = quadrupole_moment_data = None
-
-        self.molecule.ddec_data = ddec_data
-        self.molecule.dipole_moment_data = dipole_moment_data
-        self.molecule.quadrupole_moment_data = quadrupole_moment_data
+            self._extract_charge_data_onetep()
 
         # Ensure the partial charges in the atom container are also changed.
         for molecule_atom, ddec_atom in zip(self.molecule.atoms, self.molecule.ddec_data.values()):
@@ -463,7 +458,9 @@ class ExtractChargeData:
         for atom_index in ddec_data:
             ddec_data[atom_index].volume = vols[atom_index]
 
-        return ddec_data, dipole_moment_data, quadrupole_moment_data
+        self.molecule.ddec_data = ddec_data
+        self.molecule.dipole_moment_data = dipole_moment_data
+        self.molecule.quadrupole_moment_data = quadrupole_moment_data
 
     def _extract_charge_data_onetep(self):
         """
@@ -506,7 +503,7 @@ class ExtractChargeData:
             ddec_data[atom_index].charge = charges[atom_index]
             ddec_data[atom_index].volume = volumes[atom_index]
 
-        return ddec_data
+        self.molecule.ddec_data = ddec_data
 
 
 def extract_extra_sites(molecule):
