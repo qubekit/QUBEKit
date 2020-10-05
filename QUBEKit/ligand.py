@@ -946,6 +946,10 @@ class Ligand(DefaultsMixin, Molecule):
         self.modes = None
         self.home = None
 
+        self.ddec_data = None
+        self.dipole_moment_data = None
+        self.quadrupole_moment_data = None
+
         self.constraints_file = None
 
         # Read mol_input and generate mol info from file, smiles string or qc_json.
