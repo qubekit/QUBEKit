@@ -15,6 +15,7 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element
 from QUBEKit.utils.exceptions import FileTypeError
 
+from collections import OrderedDict
 from itertools import groupby
 import os
 from pathlib import Path
@@ -506,6 +507,76 @@ class ExtractChargeData:
             ddec_data[atom_index].volume = volumes[atom_index]
 
         return ddec_data
+
+
+def extract_extra_sites(molecule):
+    """
+    Gather the extra sites from the xyz file and insert them into the molecule object.
+    * Find parent and 2 reference atoms
+    * Calculate the local coords site
+    """
+
+    # weighting arrays for the virtual sites should not be changed
+    w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
+    w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
+    w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
+
+    with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
+        lines = xyz_sites.readlines()
+
+    extra_sites = OrderedDict()
+    parent = 0
+    sites_no = 0
+
+    for i, line in enumerate(lines[2:]):
+        element = str(line.split()[0])
+
+        if element != 'X':
+            parent += 1
+            # Search the following entries for sites connected to this atom
+            for pos_site in lines[i + 3:]:
+                # Are there are no sites?
+                if str(pos_site.split()[0]) != 'X':
+                    break
+                else:
+                    # get the virtual site coords
+                    v_pos = np.array([float(pos_site.split()[x]) for x in range(1, 4)])
+                    # get the two closest atoms to the parent
+                    closest_atoms = list(molecule.topology.neighbors(parent))
+                    if len(closest_atoms) < 2:
+                        # find another atom if we only have one
+                        # dont want to get the parent as a close atom
+                        for atom in list(molecule.topology.neighbors(closest_atoms[0])):
+                            if atom not in closest_atoms and atom != parent:
+                                closest_atoms.append(atom)
+                                break
+
+                    # Get the xyz coordinates of the reference atoms
+                    coords = molecule.coords['qm'] if molecule.coords['qm'] is not [] else molecule.coords['input']
+                    parent_pos = coords[parent]
+                    close_a = coords[closest_atoms[0]]
+                    close_b = coords[closest_atoms[1]]
+
+                    # work out the local coordinates site using rules from the OpenMM guide
+                    orig = w1o * parent_pos + w2o * close_a + close_b * w3o
+                    ab = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
+                    ac = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
+                    # Get the axis unit vectors
+                    z_dir = np.cross(ab, ac)
+                    z_dir /= np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
+                    x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
+                    y_dir = np.cross(z_dir, x_dir)
+                    # Get the local coordinates positions
+                    p1 = np.dot((v_pos - orig), x_dir.reshape(3, 1))
+                    p2 = np.dot((v_pos - orig), y_dir.reshape(3, 1))
+                    p3 = np.dot((v_pos - orig), z_dir.reshape(3, 1))
+
+                    charge = float(pos_site.split()[4])
+
+                    extra_sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
+                    sites_no += 1
+
+    molecule.extra_sites = extra_sites
 
 
 def make_and_change_into(name):

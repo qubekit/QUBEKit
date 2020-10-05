@@ -220,10 +220,13 @@ def fix_net_charge(molecule):
 
     decimal.getcontext().prec = 6
     atom_charges = sum(decimal.Decimal(atom.charge) for atom in molecule.ddec_data.values())
-    virtual_site_charges = sum(site[-1] for site in molecule.extra_sites.values())
 
     # This is just the difference in what the net charge should be, and what it currently is.
-    extra = float(molecule.charge - (atom_charges + virtual_site_charges))
+    extra = float(molecule.charge - atom_charges)
+
+    if molecule.extra_sites is not None:
+        virtual_site_charges = sum(site[-1] for site in molecule.extra_sites.values())
+        extra - virtual_site_charges
 
     if extra:
         # Smear charge onto final atom
