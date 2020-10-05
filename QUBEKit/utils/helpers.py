@@ -7,6 +7,7 @@ from QUBEKit.utils.exceptions import PickleFileNotFound, QUBEKitLogFileNotFound
 from collections import OrderedDict
 from contextlib import contextmanager
 import csv
+import decimal
 from importlib import import_module
 import logging
 import math
@@ -209,6 +210,26 @@ def check_symmetry(matrix, error=1e-5):
 
     print(f'{COLOURS.purple}Symmetry check successful. '
           f'The matrix is symmetric within an error of {error}.{COLOURS.end}')
+
+
+def fix_net_charge(molecule):
+    """
+    Ensure the total is exactly equal to the ideal net charge of the molecule.
+    If net charge is not an integer value, MM simulations can (ex/im)plode.
+    """
+
+    decimal.getcontext().prec = 6
+    atom_charges = sum(decimal.Decimal(atom.charge) for atom in molecule.ddec_data.values())
+    virtual_site_charges = sum(site[-1] for site in molecule.extra_sites.values())
+
+    # This is just the difference in what the net charge should be, and what it currently is.
+    extra = float(molecule.charge - (atom_charges + virtual_site_charges))
+
+    if extra:
+        # Smear charge onto final atom
+        last_atom_index = len(molecule.atoms) - 1
+        molecule.atoms[last_atom_index].partial_charge += extra
+        molecule.ddec_data[last_atom_index].charge += extra
 
 
 def collect_archive_tdrive(tdrive_record, client):
