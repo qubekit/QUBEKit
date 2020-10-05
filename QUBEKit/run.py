@@ -25,7 +25,7 @@ from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.display import display_molecule_objects, pretty_print, pretty_progress
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
-from QUBEKit.utils.file_handling import ExtractChargeData, make_and_change_into
+from QUBEKit.utils.file_handling import ExtractChargeData, extract_extra_sites, make_and_change_into
 from QUBEKit.utils.helpers import append_to_log, fix_net_charge, generate_bulk_csv, mol_data_from_csv, unpickle, update_ligand
 
 import argparse
@@ -912,6 +912,10 @@ class Execute:
 
         vs = VirtualSites(molecule)
         vs.calculate_virtual_sites()
+
+        # Find extra site positions in local coords if present and tweak the charges of the parent
+        if os.path.exists('xyz_with_extra_point_charges.xyz'):
+            extract_extra_sites(molecule)
 
         # Ensure the net charge is an integer value and adds up to molecule.charge
         fix_net_charge(molecule)

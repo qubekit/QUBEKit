@@ -589,7 +589,7 @@ class Molecule:
                 'epsilon': f'{self.NonbondedForce[key][2]:.6f}'})
 
         # Add all of the virtual site info if present
-        if self.extra_sites:
+        if self.extra_sites is not None:
             # Add the atom type to the top
             for key, val in self.extra_sites.items():
                 ET.SubElement(AtomTypes, "Type", attrib={
