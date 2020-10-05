@@ -388,7 +388,7 @@ class ExtractChargeData:
         self.molecule.quadrupole_moment_data = quadrupole_moment_data
 
         # Ensure the partial charges in the atom container are also changed.
-        for molecule_atom, ddec_atom in zip(self.molecule.atoms, self.molecule.ddec_data):
+        for molecule_atom, ddec_atom in zip(self.molecule.atoms, self.molecule.ddec_data.values()):
             molecule_atom.partial_charge = ddec_atom.charge
 
     def _extract_charge_data_chargemol(self):
