@@ -226,7 +226,7 @@ def fix_net_charge(molecule):
 
     if molecule.extra_sites is not None:
         virtual_site_charges = sum(site[-1] for site in molecule.extra_sites.values())
-        extra - virtual_site_charges
+        extra -= virtual_site_charges
 
     if extra:
         # Smear charge onto final atom

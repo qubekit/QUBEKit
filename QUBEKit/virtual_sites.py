@@ -635,13 +635,13 @@ class VirtualSites:
             )
             for atom_index, atom in enumerate(self.coords):
                 xyz_file.write(
-                    f'{self.molecule.atoms[atom_index].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}'
+                    f'{self.molecule.atoms[atom_index].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .6f}'
                     f'   {self.molecule.atoms[atom_index].partial_charge: .10f}\n')
 
                 for site in self.v_sites_coords:
                     if site[2] == atom_index:
                         xyz_file.write(
-                            f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .10f}\n')
+                            f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .6f}\n')
 
     def calculate_virtual_sites(self):
         """
