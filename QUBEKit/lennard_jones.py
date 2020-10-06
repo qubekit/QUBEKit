@@ -51,28 +51,6 @@ class LennardJones:
             # c8 params IN ATOMIC UNITS
             self.c8_params = [float(line.split()[-1].strip()) for line in lines]
 
-    def apply_symmetrisation(self):
-        """
-        Using the atoms picked out to be symmetrised:
-        apply the symmetry to the charge and volume values.
-        Mutates the non_bonded_force dict
-        """
-
-        atom_types = {}
-        for key, val in self.molecule.atom_symmetry_classes.items():
-            atom_types.setdefault(val, []).append(key)
-
-        # Find the average charge / volume values for each sym_set.
-        # A sym_set is atoms which should have the same charge / volume values (e.g. methyl H's).
-        for sym_set in atom_types.values():
-            charge = sum(self.molecule.ddec_data[atom].charge for atom in sym_set) / len(sym_set)
-            volume = sum(self.molecule.ddec_data[atom].volume for atom in sym_set) / len(sym_set)
-
-            # Store the new values.
-            for atom in sym_set:
-                self.molecule.ddec_data[atom].charge = round(charge, 6)
-                self.molecule.ddec_data[atom].volume = round(volume, 6)
-
     def append_ais_bis(self):
         """
         Use the AIM parameters from extract_params_*() to calculate a_i and b_i according to paper.
@@ -186,10 +164,6 @@ class LennardJones:
         Redistributes L-J parameters according to polar Hydrogens, then recalculates epsilon values.
         """
 
-        # Tweak the charge and volumes for symmetry
-        if self.molecule.symmetry:
-            self.apply_symmetrisation()
-
         # Calculate initial a_is and b_is
         self.append_ais_bis()
 
@@ -201,6 +175,3 @@ class LennardJones:
         self.correct_polar_hydrogens()
 
         self.molecule.NonbondedForce = self.non_bonded_force
-
-        for atom_index, n_b_f in self.non_bonded_force.items():
-            self.molecule.atoms[atom_index].partial_charge = n_b_f[0]
