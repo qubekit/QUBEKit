@@ -219,7 +219,7 @@ def fix_net_charge(molecule):
     """
 
     decimal.getcontext().prec = 6
-    atom_charges = sum(decimal.Decimal(atom.charge) for atom in molecule.ddec_data.values())
+    atom_charges = sum(atom.charge for atom in molecule.ddec_data.values())
 
     # This is just the difference in what the net charge should be, and what it currently is.
     extra = float(molecule.charge - atom_charges)
