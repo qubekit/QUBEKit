@@ -930,15 +930,6 @@ class Execute:
 
         append_to_log('Starting Lennard-Jones parameter calculation')
 
-        charges_folder = os.path.join(molecule.home, '07_charges')
-        for file in os.listdir(charges_folder):
-            if file.startswith('DDEC'):
-                copy(os.path.join(charges_folder, file), file)
-        try:
-            copy(os.path.join(charges_folder, 'xyz_with_extra_point_charges.xyz'), 'xyz_with_extra_point_charges.xyz')
-        except FileNotFoundError:
-            pass
-
         LennardJones(molecule).calculate_non_bonded_force()
 
         append_to_log('Finishing Lennard-Jones parameter calculation')
