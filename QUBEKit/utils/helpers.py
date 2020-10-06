@@ -231,8 +231,8 @@ def fix_net_charge(molecule):
     if extra:
         # Smear charge onto final atom
         last_atom_index = len(molecule.atoms) - 1
-        molecule.atoms[last_atom_index].partial_charge += extra
-        molecule.ddec_data[last_atom_index].charge += extra
+        molecule.atoms[last_atom_index].partial_charge -= extra
+        molecule.ddec_data[last_atom_index].charge -= extra
 
 
 def collect_archive_tdrive(tdrive_record, client):
