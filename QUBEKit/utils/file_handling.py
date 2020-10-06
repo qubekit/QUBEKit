@@ -108,6 +108,7 @@ class ReadInput:
         """
         Using an RDKit Molecule object, extract the name, topology, coordinates and atoms
         """
+
         if self.name is None:
             self.name = self.rdkit_mol.GetProp('_Name')
 
@@ -372,8 +373,10 @@ class ReadInput:
 class ExtractChargeData:
     """
     Choose between extracting (the more extensive) data from Chargemol, or from ONETEP.
-    Store all info back into the molecule object.
+    Symmetrise if desired (config option)
+    Store all info back into the molecule object; ensure ddec data and atom partial charges match
     """
+
     def __init__(self, molecule):
         self.molecule = molecule
 
@@ -382,6 +385,9 @@ class ExtractChargeData:
             self._extract_charge_data_chargemol()
         else:
             self._extract_charge_data_onetep()
+
+        if self.molecule.symmetry:
+            self._apply_symmetrisation()
 
         # Ensure the partial charges in the atom container are also changed.
         for molecule_atom, ddec_atom in zip(self.molecule.atoms, self.molecule.ddec_data.values()):
@@ -504,6 +510,28 @@ class ExtractChargeData:
             ddec_data[atom_index].volume = volumes[atom_index]
 
         self.molecule.ddec_data = ddec_data
+
+    def _apply_symmetrisation(self):
+        """
+        Using the atoms picked out to be symmetrised:
+        apply the symmetry to the charge and volume values.
+        Mutates the non_bonded_force dict
+        """
+
+        atom_types = {}
+        for key, val in self.molecule.atom_symmetry_classes.items():
+            atom_types.setdefault(val, []).append(key)
+
+        # Find the average charge / volume values for each sym_set.
+        # A sym_set is atoms which should have the same charge / volume values (e.g. methyl H's).
+        for sym_set in atom_types.values():
+            charge = sum(self.molecule.ddec_data[atom].charge for atom in sym_set) / len(sym_set)
+            volume = sum(self.molecule.ddec_data[atom].volume for atom in sym_set) / len(sym_set)
+
+            # Store the new values.
+            for atom in sym_set:
+                self.molecule.ddec_data[atom].charge = round(charge, 6)
+                self.molecule.ddec_data[atom].volume = round(volume, 6)
 
 
 def extract_extra_sites(molecule):

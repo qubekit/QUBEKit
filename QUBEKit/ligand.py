@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 TODO ligand.py Refactor:
     DO:
@@ -797,9 +798,9 @@ class Molecule:
         If there's a nitrogen, does it have 2 hydrogens? -> symmetrise
         Also keep a list of the methyl carbons and amine / nitrile nitrogens
         then exclude these bonds from the rotatable torsions list.
-        """
 
-        # TODO This needs to be more applicable to proteins (e.g. if no rdkit_mol is created).
+        TODO This needs to be more applicable to proteins (e.g. if no rdkit_mol is created).
+        """
 
         if self.rdkit_mol is not None:
 
@@ -946,6 +947,7 @@ class Ligand(DefaultsMixin, Molecule):
         self.modes = None
         self.home = None
 
+        # Charge and LJ data from Chargemol / ONETEP
         self.ddec_data = None
         self.dipole_moment_data = None
         self.quadrupole_moment_data = None
