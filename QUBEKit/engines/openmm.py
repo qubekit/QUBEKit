@@ -128,7 +128,7 @@ class OpenMM(Engines):
                 nonbonded_force.setExceptionParameters(i, p1, p2, q, sig14, eps)
 
         # If there is a virtual site in the molecule we have to change the exceptions and pairs lists
-        if bool(self.molecule.extra_sites):
+        if self.molecule.extra_sites is not None:
             # get the interaction lists
             excep_pairs, normal_pairs = self.get_vsite_interactions()
 

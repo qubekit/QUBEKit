@@ -534,14 +534,14 @@ class ExtractChargeData:
                 self.molecule.ddec_data[atom].volume = round(volume, 6)
 
 
-def extract_extra_sites(molecule):
+def extract_extra_sites_onetep(molecule):
     """
     Gather the extra sites from the xyz file and insert them into the molecule object.
     * Find parent and 2 reference atoms
     * Calculate the local coords site
     """
 
-    # weighting arrays for the virtual sites should not be changed
+    # Weighting arrays for the virtual sites should not be changed
     w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
     w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
     w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
@@ -554,23 +554,21 @@ def extract_extra_sites(molecule):
     sites_no = 0
 
     for i, line in enumerate(lines[2:]):
-        element = str(line.split()[0])
-
-        if element != 'X':
+        if line.split()[0] != 'X':
             parent += 1
             # Search the following entries for sites connected to this atom
-            for pos_site in lines[i + 3:]:
-                # Are there are no sites?
-                if str(pos_site.split()[0]) != 'X':
+            for virtual_site in lines[i + 3:]:
+                element, *site_coords, site_charge = virtual_site.split()
+                # Not a virtual site:
+                if element != 'X':
                     break
                 else:
-                    # get the virtual site coords
-                    v_pos = np.array([float(pos_site.split()[x]) for x in range(1, 4)])
-                    # get the two closest atoms to the parent
+                    site_coords = np.array([float(coord) for coord in site_coords])
+                    # Get the two closest atoms to the parent
                     closest_atoms = list(molecule.topology.neighbors(parent))
                     if len(closest_atoms) < 2:
-                        # find another atom if we only have one
-                        # dont want to get the parent as a close atom
+                        # Find another atom if we only have one
+                        # Don't want to get the parent as a close atom
                         for atom in list(molecule.topology.neighbors(closest_atoms[0])):
                             if atom not in closest_atoms and atom != parent:
                                 closest_atoms.append(atom)
@@ -582,7 +580,7 @@ def extract_extra_sites(molecule):
                     close_a = coords[closest_atoms[0]]
                     close_b = coords[closest_atoms[1]]
 
-                    # work out the local coordinates site using rules from the OpenMM guide
+                    # Calculate the local coordinate site using rules from the OpenMM guide
                     orig = w1o * parent_pos + w2o * close_a + close_b * w3o
                     ab = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
                     ac = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
@@ -591,14 +589,17 @@ def extract_extra_sites(molecule):
                     z_dir /= np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
                     x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
                     y_dir = np.cross(z_dir, x_dir)
-                    # Get the local coordinates positions
-                    p1 = np.dot((v_pos - orig), x_dir.reshape(3, 1))
-                    p2 = np.dot((v_pos - orig), y_dir.reshape(3, 1))
-                    p3 = np.dot((v_pos - orig), z_dir.reshape(3, 1))
+                    # Get the local coordinate positions
+                    p1 = np.dot((site_coords - orig), x_dir.reshape(3, 1))
+                    p2 = np.dot((site_coords - orig), y_dir.reshape(3, 1))
+                    p3 = np.dot((site_coords - orig), z_dir.reshape(3, 1))
 
-                    charge = float(pos_site.split()[4])
+                    extra_sites[sites_no] = [
+                        (parent, closest_atoms[0], closest_atoms[1]),
+                        (p1 * 0.1, p2 * 0.1, p3 * 0.1),
+                        float(site_charge)
+                    ]
 
-                    extra_sites[sites_no] = [(parent, closest_atoms[0], closest_atoms[1]), (p1 * 0.1, p2 * 0.1, p3 * 0.1), charge]
                     sites_no += 1
 
     molecule.extra_sites = extra_sites
