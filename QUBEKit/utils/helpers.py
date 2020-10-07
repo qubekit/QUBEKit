@@ -218,14 +218,15 @@ def fix_net_charge(molecule):
     If net charge is not an integer value, MM simulations can (ex/im)plode.
     """
 
-    decimal.setcontext(decimal.Context(prec=6))
+    decimal.setcontext(decimal.Context(prec=7))
     round_to = decimal.Decimal(10) ** -6
 
     # Convert all values to Decimal types with 6 decimal places
     for atom_index, atom in molecule.ddec_data.items():
         molecule.ddec_data[atom_index].charge = decimal.Decimal(atom.charge).quantize(round_to)
-    for site_key, site in molecule.extra_sites.items():
-        molecule.extra_sites[site_key] = [site[0], site[1], decimal.Decimal(site[-1]).quantize(round_to)]
+    if molecule.extra_sites is not None:
+        for site_key, site in molecule.extra_sites.items():
+            molecule.extra_sites[site_key] = [site[0], site[1], decimal.Decimal(site[-1]).quantize(round_to)]
 
     atom_charges = sum(atom.charge for atom in molecule.ddec_data.values())
 
@@ -244,8 +245,9 @@ def fix_net_charge(molecule):
     # Convert all values back to floats, now with 6 decimal places and the correct sum
     for atom_index, atom in molecule.ddec_data.items():
         molecule.ddec_data[atom_index].charge = float(atom.charge)
-    for site in molecule.extra_sites.values():
-        site[-1] = float(site[-1])
+    if molecule.extra_sites is not None:
+        for site_key, site in molecule.extra_sites.items():
+            molecule.extra_sites[site_key] = [site[0], site[1], float(site[-1])]
 
 
 def collect_archive_tdrive(tdrive_record, client):
