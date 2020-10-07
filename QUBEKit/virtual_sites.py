@@ -10,6 +10,7 @@ If the error is significantly reduced with one or two v-sites, then it is saved 
 
 from QUBEKit.utils.constants import BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
 
+from collections import OrderedDict
 from functools import lru_cache
 
 from matplotlib import pyplot as plt
@@ -643,6 +644,57 @@ class VirtualSites:
                         xyz_file.write(
                             f'X       {site[0][0]: .10f}   {site[0][1]: .10f}   {site[0][2]: .10f}   {site[1]: .6f}\n')
 
+    def save_virtual_sites(self):
+        """
+
+        :return:
+        """
+
+        # Weighting arrays for the virtual sites should not be changed
+        w1o, w2o, w3o = 1.0, 0.0, 0.0  # SUM SHOULD BE 1
+        w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
+        w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
+
+        extra_sites = OrderedDict()
+
+        for site_number, site in enumerate(self.v_sites_coords):
+            site_coords, site_charge, parent = site
+            closest_atoms = list(self.molecule.topology.neighbors(parent))
+            if len(closest_atoms) < 2:
+                for atom in list(self.molecule.topology.neighbors(closest_atoms[0])):
+                    if atom != closest_atoms[1] and atom != parent:
+                        closest_atoms.append(atom)
+                        break
+
+            # Get the xyz coordinates of the reference atoms
+            parent_coords = self.coords[parent]
+            close_a_coords = self.coords[closest_atoms[0]]
+            close_b_coords = self.coords[closest_atoms[1]]
+
+            # Calculate the local coordinate site using rules from the OpenMM guide
+            orig = w1o * parent_coords + w2o * close_a_coords + close_b_coords * w3o
+            ab = w1x * parent_coords + w2x * close_a_coords + w3x * close_b_coords  # rb-ra
+            ac = w1y * parent_coords + w2y * close_a_coords + w3y * close_b_coords  # rb-ra
+
+            # Get the axis unit vectors
+            z_dir = np.cross(ab, ac)
+            z_dir /= np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
+            x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
+            y_dir = np.cross(z_dir, x_dir)
+
+            # Get the local coordinate positions
+            p1 = np.dot((site_coords - orig), x_dir.reshape(3, 1))
+            p2 = np.dot((site_coords - orig), y_dir.reshape(3, 1))
+            p3 = np.dot((site_coords - orig), z_dir.reshape(3, 1))
+
+            extra_sites[site_number] = [
+                (parent, closest_atoms[0], closest_atoms[1]),
+                (p1 * 0.1, p2 * 0.1, p3 * 0.1),
+                site_charge
+            ]
+
+        self.molecule.extra_sites = extra_sites
+
     def calculate_virtual_sites(self):
         """
         Loop over all atoms in the molecule and decide which may need v-sites.
@@ -658,3 +710,4 @@ class VirtualSites:
 
         if self.v_sites_coords:
             self.write_xyz()
+            self.save_virtual_sites()
