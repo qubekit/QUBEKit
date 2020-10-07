@@ -662,7 +662,7 @@ class VirtualSites:
             closest_atoms = list(self.molecule.topology.neighbors(parent))
             if len(closest_atoms) < 2:
                 for atom in list(self.molecule.topology.neighbors(closest_atoms[0])):
-                    if atom != closest_atoms[1] and atom != parent:
+                    if atom not in closest_atoms and atom != parent:
                         closest_atoms.append(atom)
                         break
 
