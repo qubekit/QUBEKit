@@ -53,17 +53,14 @@ class VirtualSites:
         'I': 2.25,
     }
 
-    def __init__(self, molecule, symmetric_sites=False, debug=False):
+    def __init__(self, molecule, debug=False):
         """
         :param molecule: The usual Ligand molecule object.
-        :param symmetric_sites: When there are two v-sites, do they need to be symmetric?
-            (different vector, same distance from parent atom.)
         :param debug: Running interactively or not. This will either show an interactive plot of the v-sites,
             or save an image with their final locations.
         """
 
         self.molecule = molecule
-        self.symmetric_sites = symmetric_sites
         self.debug = debug
         self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords['input']
 
@@ -482,9 +479,9 @@ class VirtualSites:
         one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
         self.one_site_coords = one_site_coords
 
-        def two_site_fit(symmetric=False, alt=False):
+        def two_site_fit(alt=False):
             vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-            if symmetric:
+            if self.molecule.symmetric:
                 two_site_fit = minimize(symm_two_sites_objective_function, np.array([0, 1]), args=(vec_a, vec_b),
                                         bounds=bounds[1:3])
                 q, lam = two_site_fit.x
@@ -502,11 +499,11 @@ class VirtualSites:
             self.two_site_coords = two_site_coords
 
         # Two sites (first orientation)
-        two_site_fit(self.symmetric_sites)
+        two_site_fit()
 
         # Two sites (alternative orientation)
         if len(self.molecule.atoms[atom_index].bonds) == 2:
-            two_site_fit(self.symmetric_sites, alt=True)
+            two_site_fit(alt=True)
 
         if self.site_errors[0] < min(self.site_errors[1] * max_err, self.site_errors[2] * max_err):
             print('No virtual site placement has reduced the error significantly.')
