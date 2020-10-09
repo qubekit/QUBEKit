@@ -53,17 +53,14 @@ class VirtualSites:
         'I': 2.25,
     }
 
-    def __init__(self, molecule, symmetric_sites=False, debug=False):
+    def __init__(self, molecule, debug=False):
         """
         :param molecule: The usual Ligand molecule object.
-        :param symmetric_sites: When there are two v-sites, do they need to be symmetric?
-            (different vector, same distance from parent atom.)
         :param debug: Running interactively or not. This will either show an interactive plot of the v-sites,
             or save an image with their final locations.
         """
 
         self.molecule = molecule
-        self.symmetric_sites = symmetric_sites
         self.debug = debug
         self.coords = self.molecule.coords['qm'] if self.molecule.coords['qm'] is not [] else self.molecule.coords['input']
 
@@ -437,7 +434,88 @@ class VirtualSites:
 
         return self.generate_atom_mono_esp_three_charges(atom_index, q, q, site_a_coords, site_b_coords)
 
+    def one_site_objective_function(self, q_lam, atom_index, vec):
+        site_esps = self.esp_from_lambda_and_charge(atom_index, *q_lam, vec)
+        return sum(abs(no_site_esp - site_esp)
+                   for no_site_esp, site_esp in zip(self.no_site_esps, site_esps))
+
+    def two_sites_objective_function(self, q_q_lam_lam, atom_index, vec_a, vec_b):
+        site_esps = self.esp_from_lambdas_and_charges(atom_index, *q_q_lam_lam, vec_a, vec_b)
+        return sum(abs(no_site_esp - site_esp)
+                   for no_site_esp, site_esp in zip(self.no_site_esps, site_esps))
+
+    def symm_two_sites_objective_function(self, q_lam, atom_index, vec_a, vec_b):
+        site_esps = self.symm_esp_from_lambdas_and_charges(atom_index, *q_lam, vec_a, vec_b)
+        return sum(abs(no_site_esp - site_esp)
+                   for no_site_esp, site_esp in zip(self.no_site_esps, site_esps))
+
     def fit(self, atom_index, max_err=1.005):
+
+        # charge, charge, lambda, lambda
+        bounds = ((-1.0, 1.0), (-1.0, 1.0), (0.01, 0.5), (0.01, 0.5))
+        n_sample_points = len(self.no_site_esps)
+
+        # No site
+        vec = self.get_vector_from_coords(atom_index, n_sites=1)
+        no_site_error = self.one_site_objective_function((0, 1), atom_index, vec)
+        self.site_errors[0] = no_site_error / n_sample_points
+
+        if self.site_errors[0] <= 1.0:
+            return
+
+        # One site
+        one_site_fit = minimize(self.one_site_objective_function, np.array([0, 1]),
+                                args=(atom_index, vec),
+                                bounds=bounds[1:3])
+        self.site_errors[1] = one_site_fit.fun / n_sample_points
+        q, lam = one_site_fit.x
+        one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
+        self.one_site_coords = one_site_coords
+
+        def two_site_fit():
+            alt = len(self.molecule.atoms[atom_index].bonds) == 2
+            vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
+            if self.molecule.symmetric:
+                two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0, 1]),
+                                        args=(atom_index, vec_a, vec_b),
+                                        bounds=bounds[1:3])
+                q, lam = two_site_fit.x
+                q_a = q_b = q
+                lam_a = lam_b = lam
+            else:
+                two_site_fit = minimize(self.two_sites_objective_function, np.array([0, 0, 1, 1]),
+                                        args=(atom_index, vec_a, vec_b),
+                                        bounds=bounds)
+                q_a, q_b, lam_a, lam_b = two_site_fit.x
+
+            self.site_errors[2] = two_site_fit.fun / n_sample_points
+
+            site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(atom_index, lam_a, lam_b, vec_a, vec_b)
+            two_site_coords = [(site_a_coords, q_a, atom_index), (site_b_coords, q_b, atom_index)]
+            self.two_site_coords = two_site_coords
+
+        two_site_fit()
+
+        if self.site_errors[0] < min(self.site_errors[1] * max_err, self.site_errors[2] * max_err):
+            print('No virtual site placement has reduced the error significantly.')
+        elif self.site_errors[1] < self.site_errors[2] * max_err:
+            print('The addition of one virtual site was found to be best.')
+            self.v_sites_coords.extend(self.one_site_coords)
+            self.molecule.atoms[atom_index].partial_charge -= self.one_site_coords[0][1]
+            self.molecule.ddec_data[atom_index].charge -= self.one_site_coords[0][1]
+        else:
+            print('The addition of two virtual sites was found to be best.')
+            self.v_sites_coords.extend(self.two_site_coords)
+            self.molecule.atoms[atom_index].partial_charge -= (self.two_site_coords[0][1] + self.two_site_coords[1][1])
+            self.molecule.ddec_data[atom_index].charge -= (self.two_site_coords[0][1] + self.two_site_coords[1][1])
+        print(
+            f'Errors (kcal/mol):\n'
+            f'No Site     One Site     Two Sites\n'
+            f'{self.site_errors[0]:.4f}      {self.site_errors[1]:.4f}       {self.site_errors[2]:.4f}'
+        )
+        self.plot()
+
+    def old_fit(self, atom_index, max_err=1.005):
         """
         * Take the atom which will have a v-site fit around it
         * Calculate all possible vectors depending on 1 site, 2 site, rot by 90 deg etc
@@ -482,9 +560,9 @@ class VirtualSites:
         one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
         self.one_site_coords = one_site_coords
 
-        def two_site_fit(symmetric=False, alt=False):
+        def two_site_fit(alt=False):
             vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-            if symmetric:
+            if self.molecule.symmetric:
                 two_site_fit = minimize(symm_two_sites_objective_function, np.array([0, 1]), args=(vec_a, vec_b),
                                         bounds=bounds[1:3])
                 q, lam = two_site_fit.x
@@ -502,11 +580,11 @@ class VirtualSites:
             self.two_site_coords = two_site_coords
 
         # Two sites (first orientation)
-        two_site_fit(self.symmetric_sites)
+        two_site_fit()
 
         # Two sites (alternative orientation)
         if len(self.molecule.atoms[atom_index].bonds) == 2:
-            two_site_fit(self.symmetric_sites, alt=True)
+            two_site_fit(alt=True)
 
         if self.site_errors[0] < min(self.site_errors[1] * max_err, self.site_errors[2] * max_err):
             print('No virtual site placement has reduced the error significantly.')
@@ -701,12 +779,10 @@ class VirtualSites:
         Fit the ESP accordingly and store v-sites if they improve error.
         """
 
-        for atom_index, atom in enumerate(self.molecule.atoms):
-            if atom.atomic_symbol in ['N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']:
-                self.sample_points = self.generate_sample_points_atom(atom_index)
-                self.no_site_esps = self.generate_esp_atom(atom_index)
-                self.fit(atom_index)
-                self.plot()
+        for atom_index in range(len(self.molecule.atoms)):
+            self.sample_points = self.generate_sample_points_atom(atom_index)
+            self.no_site_esps = self.generate_esp_atom(atom_index)
+            self.fit(atom_index)
 
         if self.v_sites_coords:
             self.write_xyz()
