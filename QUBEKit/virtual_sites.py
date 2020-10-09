@@ -779,10 +779,11 @@ class VirtualSites:
         Fit the ESP accordingly and store v-sites if they improve error.
         """
 
-        for atom_index in range(len(self.molecule.atoms)):
-            self.sample_points = self.generate_sample_points_atom(atom_index)
-            self.no_site_esps = self.generate_esp_atom(atom_index)
-            self.fit(atom_index)
+        for atom_index, atom in enumerate(self.molecule.atoms):
+            if len(atom.bonds) < 4:
+                self.sample_points = self.generate_sample_points_atom(atom_index)
+                self.no_site_esps = self.generate_esp_atom(atom_index)
+                self.fit(atom_index)
 
         if self.v_sites_coords:
             self.write_xyz()
