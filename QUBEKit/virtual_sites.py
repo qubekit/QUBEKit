@@ -475,7 +475,7 @@ class VirtualSites:
         def two_site_fit():
             alt = len(self.molecule.atoms[atom_index].bonds) == 2
             vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-            if self.molecule.symmetric:
+            if self.molecule.symmetry:
                 two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0, 1]),
                                         args=(atom_index, vec_a, vec_b),
                                         bounds=bounds[1:3])
@@ -562,7 +562,7 @@ class VirtualSites:
 
         def two_site_fit(alt=False):
             vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-            if self.molecule.symmetric:
+            if self.molecule.symmetry:
                 two_site_fit = minimize(symm_two_sites_objective_function, np.array([0, 1]), args=(vec_a, vec_b),
                                         bounds=bounds[1:3])
                 q, lam = two_site_fit.x
