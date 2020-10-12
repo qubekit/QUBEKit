@@ -6,12 +6,16 @@ For each of these atoms, generate a list of sample points in a defined volume.
 Compare the change in ESP at each of these points for the QM-calculated ESP and the ESP with a v-site.
 The v-site can be moved along pre-defined vectors; another v-site can also be added.
 If the error is significantly reduced with one or two v-sites, then it is saved and written to an xyz.
+
+TODO Consider separating into 2 classes:
+    * One for handling all of the maths.
+    * One for the fitting, plotting and file writing.
+    This would allow atom_index to be a class variable, rather than the method argument repeated everywhere.
 """
 
 from QUBEKit.utils.constants import BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
 
 from collections import OrderedDict
-from functools import lru_cache
 
 from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
@@ -169,8 +173,8 @@ class VirtualSites:
         return (3 * ELECTRON_CHARGE * ELECTRON_CHARGE * dist_vector.dot(m_tensor * (BOHR_TO_ANGS ** 2)).dot(
             dist_vector)) / (8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
 
-    @lru_cache(maxsize=None)
-    def generate_sample_points_relative(self, vdw_radius):
+    @staticmethod
+    def generate_sample_points_relative(vdw_radius):
         """
         Generate evenly distributed points in a series of shells around the point (0, 0, 0)
         This uses fibonacci spirals to produce an even spacing of points on a sphere.
@@ -217,7 +221,7 @@ class VirtualSites:
         atom_coords = self.coords[atom_index]
         vdw_radius = self.vdw_radii[atom.atomic_symbol]
 
-        sample_points = self.generate_sample_points_relative(vdw_radius)
+        sample_points = VirtualSites.generate_sample_points_relative(vdw_radius)
         for point in sample_points:
             point += atom_coords
 
