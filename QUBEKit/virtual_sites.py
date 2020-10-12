@@ -698,7 +698,6 @@ class VirtualSites:
         """
 
         for atom_index, atom in enumerate(self.molecule.atoms):
-            # if atom.atomic_symbol in ['N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']:
             if len(atom.bonds) < 4:
                 self.sample_points = self.generate_sample_points_atom(atom_index)
                 self.no_site_esps = self.generate_esp_atom(atom_index)
