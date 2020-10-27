@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from QUBEKit.ligand import Ligand
 from QUBEKit.parametrisation import AnteChamber, OpenFF
 

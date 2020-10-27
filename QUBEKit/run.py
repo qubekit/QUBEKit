@@ -7,8 +7,7 @@ TODO
     Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
     BULK
         Add .sdf as possible bulk_run, not just .csv
-        Different file types (should be easy as long as they're rdkit-readable)
-        bulk torsion options need to be checked
+        Bulk torsion options need to be made easier to use
 """
 
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
@@ -722,7 +721,7 @@ class Execute:
                 molecule.write_pdb(input_type='input')
                 molecule.write_parameters()
                 # Run geometric
-                # TODO Should this be moved to allow a decorator? Seems like a likely point of failure
+                # TODO Should this be moved to a function? Seems like a likely point of failure
                 with open('log.txt', 'w+') as log:
                     sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations} --pdb '
                            f'{molecule.name}.pdb --openmm {molecule.name}.xml '
@@ -737,7 +736,6 @@ class Execute:
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {'rdkit_mff': 'MFF', 'rdkit_uff': 'UFF'}[molecule.mm_opt_method]
             molecule.pdb_file = RDKit.mm_optimise(molecule.pdb_file, ff=rdkit_ff)
-            # TODO molecule no longer has filename attribute; replace with call to save_to_ligand()
             molecule.save_to_ligand()
 
         append_to_log(f'Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}')
@@ -910,12 +908,13 @@ class Execute:
         append_to_log(f'Finishing charge partitioning with Chargemol and DDEC{molecule.ddec_version}')
         append_to_log('Starting virtual sites calculation')
 
-        vs = VirtualSites(molecule)
-        vs.calculate_virtual_sites()
+        if molecule.enable_virtual_sites:
+            vs = VirtualSites(molecule)
+            vs.calculate_virtual_sites()
 
-        # Find extra site positions in local coords if present and tweak the charges of the parent
-        if molecule.charges_engine == 'onetep':
-            extract_extra_sites_onetep(molecule)
+            # Find extra site positions in local coords if present and tweak the charges of the parent
+            if molecule.charges_engine == 'onetep':
+                extract_extra_sites_onetep(molecule)
 
         # Ensure the net charge is an integer value and adds up to molecule.charge
         fix_net_charge(molecule)

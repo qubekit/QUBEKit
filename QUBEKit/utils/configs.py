@@ -29,6 +29,7 @@ class Configure:
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
         'symmetry': 'True',             # Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters
+        'enable_virtual_sites': 'False',     # Enable or disable the use of virtual sites in the charge step
     }
 
     fitting = {
@@ -48,7 +49,7 @@ class Configure:
 
     excited = {
         'excited_state': 'False',       # Is this an excited state calculation
-        'excited_theory': 'TDA',
+        'excited_theory': 'TDA',        # Excited state theory TDA or TD
         'nstates': '3',
         'excited_root': '1',
         'use_pseudo': 'False',
@@ -75,6 +76,7 @@ class Configure:
         'geometric': ';Use geometric for optimised structure (if False, will just use PSI4)',
         'solvent': ';Use a solvent in the psi4/gaussian09 input',
         'symmetry': ';Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters',
+        'enable_virtual_sites': ';Enable or disable the use of virtual sites in the charge step',
         'dih_start': ';Starting angle of dihedral scan',
         'increment': ';Angle increase increment',
         'dih_end': ';The last dihedral angle in the scan',
