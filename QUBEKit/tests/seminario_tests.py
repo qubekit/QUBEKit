@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.utils.helpers import unpickle
 

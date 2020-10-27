@@ -76,6 +76,7 @@ class DefaultsMixin:
         self.geometric = True
         self.solvent = True
         self.symmetry = True
+        self.enable_virtual_sites = True
 
         self.dih_start = -165
         self.increment = 15

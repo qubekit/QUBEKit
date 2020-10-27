@@ -383,8 +383,10 @@ class ExtractChargeData:
     def extract_charge_data(self):
         if self.molecule.charges_engine.casefold() == 'chargemol':
             self._extract_charge_data_chargemol()
-        else:
+        elif self.molecule.charges_engine.casefold() == 'onetep':
             self._extract_charge_data_onetep()
+        else:
+            raise NotImplementedError('Currently, the only valid charge engines in QUBEKit are ONETEP and Chargemol.')
 
         if self.molecule.symmetry:
             self._apply_symmetrisation()

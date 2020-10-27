@@ -4,6 +4,7 @@ from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Protein
 from QUBEKit.parametrisation import XMLProtein
 from QUBEKit.proteins.protein_tools import get_water, pdb_reformat, qube_general
+from QUBEKit.utils.file_handling import ExtractChargeData
 
 import argparse
 from functools import partial
@@ -52,6 +53,8 @@ def main():
             pro.charge = 0
             pro.charges_engine = 'onetep'
             pro.density_engine = 'onetep'
+
+            ExtractChargeData(pro).extract_charge_data()
             LennardJones(pro).calculate_non_bonded_force()
 
             # Write out the final parameters

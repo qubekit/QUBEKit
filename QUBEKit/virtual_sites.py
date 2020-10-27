@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 
 """
-Find atoms which may need a virtual site: ['N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']
-For each of these atoms, generate a list of sample points in a defined volume.
+For each atom with fewer than four bonds, generate a list of sample points in a defined volume.
 Compare the change in ESP at each of these points for the QM-calculated ESP and the ESP with a v-site.
 The v-site can be moved along pre-defined vectors; another v-site can also be added.
 If the error is significantly reduced with one or two v-sites, then it is saved and written to an xyz.
-
-TODO Consider separating into 2 classes:
-    * One for handling all of the maths.
-    * One for the fitting, plotting and file writing.
-    This would allow atom_index to be a class variable, rather than the method argument repeated everywhere.
+See VirtualSites.fit() for fitting details.
 """
 
 from QUBEKit.utils.constants import BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
@@ -439,24 +434,52 @@ class VirtualSites:
         return self.generate_atom_mono_esp_three_charges(atom_index, q, q, site_a_coords, site_b_coords)
 
     def one_site_objective_function(self, q_lam, atom_index, vec):
+        """
+        Add one site with charge q along vector vec, scaled by lam.
+        return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
+        """
         site_esps = self.esp_from_lambda_and_charge(atom_index, *q_lam, vec)
         return sum(abs(no_site_esp - site_esp)
                    for no_site_esp, site_esp in zip(self.no_site_esps, site_esps))
 
-    def two_sites_objective_function(self, q_q_lam_lam, atom_index, vec_a, vec_b):
-        site_esps = self.esp_from_lambdas_and_charges(atom_index, *q_q_lam_lam, vec_a, vec_b)
+    def two_sites_objective_function(self, qa_qb_lama_lamb, atom_index, vec_a, vec_b):
+        """
+        Add two sites with charges qa, qb along vectors vec_a, vec_b, scaled by lama, lamb.
+        return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
+        """
+        site_esps = self.esp_from_lambdas_and_charges(atom_index, *qa_qb_lama_lamb, vec_a, vec_b)
         return sum(abs(no_site_esp - site_esp)
                    for no_site_esp, site_esp in zip(self.no_site_esps, site_esps))
 
     def symm_two_sites_objective_function(self, q_lam, atom_index, vec_a, vec_b):
+        """
+        Add two sites with charge q along vectors vec_a, vec_b scaled by lam.
+        This is the symmetric case since the charges and scale factors are the same for each site.
+        return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
+        """
         site_esps = self.symm_esp_from_lambdas_and_charges(atom_index, *q_lam, vec_a, vec_b)
         return sum(abs(no_site_esp - site_esp)
                    for no_site_esp, site_esp in zip(self.no_site_esps, site_esps))
 
     def fit(self, atom_index, max_err=1.005):
+        """
+        The error for the objective functionsis defined as the sum of differences at each sample point
+        between the ideal ESP and the ESP with and without sites.
 
-        # charge, charge, lambda, lambda
-        bounds = ((-1.0, 1.0), (-1.0, 1.0), (0.01, 0.5), (0.01, 0.5))
+        * The ESP is first calculated without any virtual sites, if the error is below 1.0, no fitting
+        is carried out.
+        * Virtual sites are added along pre-defined vectors, and the charges and scale factors of the vectors
+        are fit to give the lowest errors.
+        * This is done for single sites and two sites (sometimes in two orientations).
+        * The two sites may be placed symmetrically, using the bool molecule.symmetry argument.
+        * The errors from the sites are printed to terminal, and a plot is produced showing the positions,
+        sample points, and charges.
+        :param atom_index: The index of the atom being analysed.
+        :param max_err: The maximum error factor from adding a site that means the site will be kept.
+        e.g. if adding one site does not reduce the error by a factor max_err, discard it.
+            if adding two sites does not reduce the error over one site by a factor max_err, discard them.
+        """
+
         n_sample_points = len(self.no_site_esps)
 
         # No site
@@ -466,6 +489,9 @@ class VirtualSites:
 
         if self.site_errors[0] <= 1.0:
             return
+
+        # charge, charge, lambda, lambda
+        bounds = ((-1.0, 1.0), (-1.0, 1.0), (-0.5, 0.5), (-0.5, 0.5))
 
         # One site
         one_site_fit = minimize(self.one_site_objective_function, np.array([0, 1]),
@@ -517,9 +543,9 @@ class VirtualSites:
             f'No Site     One Site     Two Sites\n'
             f'{self.site_errors[0]:.4f}      {self.site_errors[1]:.4f}       {self.site_errors[2]:.4f}'
         )
-        self.plot()
+        self.plot(atom_index)
 
-    def plot(self):
+    def plot(self, atom_index):
         """
         Figure with three subplots.
         All plots show the atoms and bonds as balls and sticks; virtual sites are x's; sample points are dots.
@@ -615,7 +641,8 @@ class VirtualSites:
         if self.debug:
             plt.show()
         else:
-            plt.savefig(f'{self.molecule.name}_virtual_sites.png')
+            atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
+            plt.savefig(f'{self.molecule.name}_{atomic_symbol}{atom_index}_virtual_sites.png')
 
         # Prevent memory leaks
         plt.close()
@@ -642,8 +669,9 @@ class VirtualSites:
 
     def save_virtual_sites(self):
         """
+        Take the v_site_coords generated and insert them into the Ligand object as molecule.extra_sites.
 
-        :return:
+        Uses the coordinates to generate the necessary position vectors to be used in the xml.
         """
 
         # Weighting arrays for the virtual sites should not be changed
@@ -693,8 +721,10 @@ class VirtualSites:
 
     def calculate_virtual_sites(self):
         """
+        Main worker method.
         Loop over all atoms in the molecule and decide which may need v-sites.
         Fit the ESP accordingly and store v-sites if they improve error.
+        If any v-sites are found to be useful, write them to an xyz and store them in the Ligand object
         """
 
         for atom_index, atom in enumerate(self.molecule.atoms):
@@ -704,5 +734,6 @@ class VirtualSites:
                 self.fit(atom_index)
 
         if self.v_sites_coords:
-            self.write_xyz()
             self.save_virtual_sites()
+
+        self.write_xyz()
