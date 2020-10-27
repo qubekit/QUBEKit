@@ -728,7 +728,7 @@ class Execute:
                            f'{molecule.constraints_file if molecule.constraints_file is not None else ""}',
                            shell=True, stdout=log, stderr=log)
 
-                molecule.save_to_ligand(f'{molecule.name}_optim.xyz', input_type='traj')
+                molecule.save_to_ligand(f'{molecule.name}_optim.xyz', name=molecule.name, input_type='traj')
                 molecule.coords['mm'] = molecule.coords['traj'][-1]
 
         else:
