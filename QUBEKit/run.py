@@ -25,7 +25,8 @@ from QUBEKit.utils.decorators import exception_logger
 from QUBEKit.utils.display import display_molecule_objects, pretty_print, pretty_progress
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
 from QUBEKit.utils.file_handling import ExtractChargeData, extract_extra_sites_onetep, make_and_change_into
-from QUBEKit.utils.helpers import append_to_log, fix_net_charge, generate_bulk_csv, mol_data_from_csv, unpickle, update_ligand
+from QUBEKit.utils.helpers import append_to_log, fix_net_charge, generate_bulk_csv, mol_data_from_csv, string_to_bool,\
+    unpickle, update_ligand
 
 import argparse
 from collections import OrderedDict
@@ -220,10 +221,6 @@ class ArgsAndConfigs:
                 printf(f'{mol.name}.dihedrals made.')
 
                 sys.exit()
-
-        def string_to_bool(string):
-            """Convert a string to a bool for argparse use when casting to bool"""
-            return string.casefold() in ['true', 't', 'yes', 'y']
 
         intro = ('Welcome to QUBEKit! For a list of possible commands, use the help command: -h. '
                  'Alternatively, take a look through our github page for commands, recipes and common problems: '
