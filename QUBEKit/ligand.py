@@ -75,7 +75,7 @@ class DefaultsMixin:
         self.ddec_version = 6
         self.geometric = True
         self.solvent = True
-        self.symmetry = True
+        self.enable_symmetry = True
         self.enable_virtual_sites = True
 
         self.dih_start = -165

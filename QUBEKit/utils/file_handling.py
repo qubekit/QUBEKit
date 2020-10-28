@@ -388,7 +388,7 @@ class ExtractChargeData:
         else:
             raise NotImplementedError('Currently, the only valid charge engines in QUBEKit are ONETEP and Chargemol.')
 
-        if self.molecule.symmetry:
+        if self.molecule.enable_symmetry:
             self._apply_symmetrisation()
 
         # Ensure the partial charges in the atom container are also changed.

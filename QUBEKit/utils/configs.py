@@ -28,7 +28,7 @@ class Configure:
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
-        'symmetry': 'True',             # Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters
+        'enable_symmetry': 'True',      # Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters
         'enable_virtual_sites': 'False',     # Enable or disable the use of virtual sites in the charge step
     }
 
@@ -75,7 +75,7 @@ class Configure:
         'ddec_version': ';DDEC version used by Chargemol, 6 recommended but 3 is also available',
         'geometric': ';Use geometric for optimised structure (if False, will just use PSI4)',
         'solvent': ';Use a solvent in the psi4/gaussian09 input',
-        'symmetry': ';Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters',
+        'enable_symmetry': ';Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters',
         'enable_virtual_sites': ';Enable or disable the use of virtual sites in the charge step',
         'dih_start': ';Starting angle of dihedral scan',
         'increment': ';Angle increase increment',
@@ -143,6 +143,8 @@ class Configure:
         # Now cast the bools
         qm['geometric'] = True if qm['geometric'].lower() == 'true' else False
         qm['solvent'] = True if qm['solvent'].lower() == 'true' else False
+        qm['enable_symmetry'] = True if qm['enable_symmetry'].lower() == 'true' else False
+        qm['enable_virtual_sites'] = True if qm['enable_virtual_sites'].lower() == 'true' else False
         excited['excited_state'] = True if excited['excited_state'].lower() == 'true' else False
         excited['use_pseudo'] = True if excited['use_pseudo'].lower() == 'true' else False
         fitting['relative_to_global'] = True if fitting['relative_to_global'].lower() == 'true' else False
