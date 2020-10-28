@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from QUBEKit.utils.helpers import string_to_bool
+
 from configparser import ConfigParser
 import os
 
@@ -122,39 +124,31 @@ class Configure:
             else:
                 qm, fitting, excited, descriptions = self.ini_parser(os.path.join(self.config_folder, config_file))
 
-        # List of strings which should be cast to ints
-        clean_ints = ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
-                      'increment', 'dih_end', 'tor_limit', 'div_index', 'nstates', 'excited_root']
-
-        for key in clean_ints:
-
+        # List of keys whose values should be cast to ints
+        for key in ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
+                    'increment', 'dih_end', 'tor_limit', 'div_index', 'nstates', 'excited_root']:
             if key in qm:
                 qm[key] = int(qm[key])
-
             elif key in fitting:
                 fitting[key] = int(fitting[key])
-
             elif key in excited:
                 excited[key] = int(excited[key])
 
-        # Now cast the one float the scaling
+        # Cast the floats
         qm['vib_scaling'] = float(qm['vib_scaling'])
-
-        # Now cast the bools
-        qm['geometric'] = True if qm['geometric'].lower() == 'true' else False
-        qm['solvent'] = True if qm['solvent'].lower() == 'true' else False
-        qm['enable_symmetry'] = True if qm['enable_symmetry'].lower() == 'true' else False
-        qm['enable_virtual_sites'] = True if qm['enable_virtual_sites'].lower() == 'true' else False
-        excited['excited_state'] = True if excited['excited_state'].lower() == 'true' else False
-        excited['use_pseudo'] = True if excited['use_pseudo'].lower() == 'true' else False
-        fitting['relative_to_global'] = True if fitting['relative_to_global'].lower() == 'true' else False
-
-        # Now handle the weight temp
+        fitting['l_pen'] = float(fitting['l_pen'])
         if fitting['t_weight'] != 'infinity':
             fitting['t_weight'] = float(fitting['t_weight'])
 
-        # Now cast the regularisation penalty to float
-        fitting['l_pen'] = float(fitting['l_pen'])
+        # Cast the bools
+        for key in ['geometric', 'solvent', 'enable_symmetry', 'enable_virtual_sites', 'excited_state',
+                    'use_pseudo', 'relative_to_global']:
+            if key in qm:
+                qm[key] = string_to_bool(qm[key])
+            elif key in fitting:
+                fitting[key] = string_to_bool(fitting[key])
+            elif key in excited:
+                excited[key] = string_to_bool(excited[key])
 
         return {**qm, **fitting, **excited, **descriptions}
 

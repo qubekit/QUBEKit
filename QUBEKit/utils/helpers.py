@@ -343,3 +343,8 @@ def hide_warnings():
     logging.disable(logging.WARNING)
     yield
     logging.disable(logging.NOTSET)
+
+
+def string_to_bool(string):
+    """Convert a string to a bool for argparse use when casting to bool"""
+    return string.casefold() in ['true', 't', 'yes', 'y']
