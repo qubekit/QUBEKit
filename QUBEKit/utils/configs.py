@@ -28,7 +28,7 @@ class Configure:
         'density_engine': 'g09',        # Engine used to calculate the electron density
         'charges_engine': 'chargemol',  # Engine used for charge partitioning
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
-        'dielectric': '4',              # During density stage, which dielectric constant should be used
+        'dielectric': '4.0',            # During density stage, which dielectric constant should be used
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
         'enable_symmetry': 'True',      # Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters

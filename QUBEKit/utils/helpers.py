@@ -37,7 +37,7 @@ def mol_data_from_csv(csv_name):
             # If there is no config given assume its the default
             row['charge'] = int(float(row['charge'])) if row['charge'] else 0
             row['multiplicity'] = int(float(row['multiplicity'])) if row['multiplicity'] else 1
-            row['config'] = row['config'] if row['config'] else 'default_config'
+            row['config_file'] = row['config_file'] if row['config_file'] else 'default_config'
             row['smiles'] = row['smiles'] if row['smiles'] else None
             row['torsion_order'] = row['torsion_order'] if row['torsion_order'] else None
             row['restart'] = row['restart'] if row['restart'] else None
@@ -81,7 +81,7 @@ def generate_bulk_csv(csv_name, max_execs=None):
         with open(csv_name, 'w') as csv_file:
 
             file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
+            file_writer.writerow(['name', 'charge', 'multiplicity', 'config_file', 'smiles', 'torsion_order', 'restart', 'end'])
             for file in files:
                 file_writer.writerow([file, 0, 1, '', '', '', '', ''])
         print(f'{csv_name} generated.', flush=True)
@@ -100,7 +100,7 @@ def generate_bulk_csv(csv_name, max_execs=None):
     for csv_count in range(num_csvs):
         with open(f'{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv', 'w') as csv_file:
             file_writer = csv.writer(csv_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            file_writer.writerow(['name', 'charge', 'multiplicity', 'config', 'smiles', 'torsion_order', 'restart', 'end'])
+            file_writer.writerow(['name', 'charge', 'multiplicity', 'config_file', 'smiles', 'torsion_order', 'restart', 'end'])
 
             for file in files[csv_count * max_execs: (csv_count + 1) * max_execs]:
                 file_writer.writerow([file, 0, 1, '', '', '', '', ''])
