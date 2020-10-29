@@ -258,7 +258,7 @@ class ArgsAndConfigs:
                                  'if xml make sure the xml has the same name as the pdb file.')
         parser.add_argument('-mm', '--mm_opt_method', choices=['openmm', 'rdkit_mff', 'rdkit_uff', 'none'],
                             help='Enter the mm optimisation method for pre qm optimisation.')
-        parser.add_argument('-config', '--config_file', default='default_config', choices=Configure().show_ini(),
+        parser.add_argument('-config', '--config_file', choices=Configure().show_ini(),
                             help='Enter the name of the configuration file you wish to use for this run from the list '
                                  'available, defaults to master.')
         parser.add_argument('-theory', '--theory',
