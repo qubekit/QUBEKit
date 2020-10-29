@@ -73,6 +73,7 @@ class DefaultsMixin:
         self.density_engine = 'g09'
         self.charges_engine = 'chargemol'
         self.ddec_version = 6
+        self.dielectric = 4.0
         self.geometric = True
         self.solvent = True
         self.enable_symmetry = True

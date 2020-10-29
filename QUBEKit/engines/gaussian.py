@@ -107,7 +107,7 @@ class Gaussian(Engines):
 
             if density and self.molecule.solvent:
                 # Adds the epsilon and cavity params
-                input_file.write('\n4.0 0.0004')
+                input_file.write(f'\n{self.molecule.dielectric} 0.0004')
 
             if density:
                 # Specify the creation of the wavefunction file
