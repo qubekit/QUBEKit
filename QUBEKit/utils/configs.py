@@ -28,6 +28,7 @@ class Configure:
         'density_engine': 'g09',        # Engine used to calculate the electron density
         'charges_engine': 'chargemol',  # Engine used for charge partitioning
         'ddec_version': '6',            # DDEC version used by Chargemol, 6 recommended but 3 is also available
+        'dielectric': '4',              # During density stage, which dielectric constant should be used
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
         'enable_symmetry': 'True',      # Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters
@@ -75,6 +76,7 @@ class Configure:
         'density_engine': ';Engine used to calculate the electron density',
         'charges_engine': ';Engine used for charge partitioning',
         'ddec_version': ';DDEC version used by Chargemol, 6 recommended but 3 is also available',
+        'dielectric': ';During density stage, which dielectric constant should be used',
         'geometric': ';Use geometric for optimised structure (if False, will just use PSI4)',
         'solvent': ';Use a solvent in the psi4/gaussian09 input',
         'enable_symmetry': ';Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters',
@@ -136,11 +138,12 @@ class Configure:
 
         # Cast the floats
         qm['vib_scaling'] = float(qm['vib_scaling'])
+        qm['dielectric'] = float(qm['dielectric'])
         fitting['l_pen'] = float(fitting['l_pen'])
         if fitting['t_weight'] != 'infinity':
             fitting['t_weight'] = float(fitting['t_weight'])
 
-        # Cast the bools
+        # List of keys whose values should be cast to bools
         for key in ['geometric', 'solvent', 'enable_symmetry', 'enable_virtual_sites', 'excited_state',
                     'use_pseudo', 'relative_to_global']:
             if key in qm:

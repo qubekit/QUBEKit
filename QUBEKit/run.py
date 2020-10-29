@@ -575,6 +575,7 @@ class Execute:
             self.molecule.pickle(state='parametrise')
 
         stage_dict = {
+            # Stage: [Start message, End message]
             'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
             'mm_optimise': ['Partially optimising with MM', 'Partial optimisation complete'],
             'qm_optimise': ['Optimising molecule with QM', 'Molecule optimisation complete'],
