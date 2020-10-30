@@ -108,6 +108,9 @@ class Configure:
         It also converts strings to ints, bools or floats where appropriate.
         """
 
+        if config_file is None:
+            config_file = 'default_config'
+
         if config_file == 'default_config':
 
             # Check if the user has made a new master file to use
