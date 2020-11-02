@@ -13,6 +13,7 @@ class LennardJones:
     FreeParams = namedtuple('params', 'vfree bfree rfree')
     elem_dict = {
         'H': FreeParams(7.6, 6.5, 1.64),
+        'X': FreeParams(7.6, 6.5, 1.0),     # Polar Hydrogen
         'B': FreeParams(46.7, 99.5, 2.08),
         'C': FreeParams(34.4, 46.6, 2.08),
         'N': FreeParams(25.9, 24.2, 1.72),
@@ -60,6 +61,13 @@ class LennardJones:
         for atom_index, atom in self.molecule.ddec_data.items():
             try:
                 atomic_symbol, atom_vol = atom.atomic_symbol, atom.volume
+
+                # Find polar Hydrogens and allocate their new name: X
+                if atomic_symbol == 'H':
+                    bonded_index = atom.bonds[0]
+                    if self.molecule.atoms[bonded_index].atomic_symbol in ['N', 'O', 'S']:
+                        atomic_symbol = 'X'
+                
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
                 r_aim = self.elem_dict[atomic_symbol].rfree * ((atom_vol / self.elem_dict[atomic_symbol].vfree) ** (1 / 3))
 
