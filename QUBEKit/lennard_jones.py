@@ -64,10 +64,10 @@ class LennardJones:
 
                 # Find polar Hydrogens and allocate their new name: X
                 if atomic_symbol == 'H':
-                    bonded_index = atom.bonds[0]
+                    bonded_index = self.molecule.atoms[atom_index].bonds[0]
                     if self.molecule.atoms[bonded_index].atomic_symbol in ['N', 'O', 'S']:
                         atomic_symbol = 'X'
-                
+
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
                 r_aim = self.elem_dict[atomic_symbol].rfree * ((atom_vol / self.elem_dict[atomic_symbol].vfree) ** (1 / 3))
 
