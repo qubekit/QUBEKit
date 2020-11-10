@@ -75,7 +75,8 @@ class Gaussian(Engines):
                     # Set the redundant mode as the convergence as we just want to use the standard threshold
                     convergence = ', ModRedundant'
                 # Set the convergence and the iteration cap for the optimisation
-                commands += f'opt(MaxCycles={self.molecule.iterations}{convergence}) '
+                # commands += f'opt(MaxCycles={self.molecule.iterations}{convergence}) '
+                commands += f'Opt=ModRedundant '
 
             if hessian:
                 commands += 'freq '
