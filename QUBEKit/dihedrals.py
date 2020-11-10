@@ -199,10 +199,8 @@ class TorsionScan:
             log.flush()
             tdrive_engine = self.molecule.bonds_engine
 
-            if tdrive_engine == 'g09':
-                tdrive_engine = 'gaussian09'
-            elif tdrive_engine == 'g16':
-                tdrive_engine = 'gaussian16'
+            if tdrive_engine in ['g09', 'g16']:
+                tdrive_engine = 'gaussian'
 
             span = self.molecule.dih_ends[scan]-self.molecule.dih_starts[scan]
             step_size = 10

@@ -91,7 +91,7 @@ class LennardJones:
         """
 
         # Creates Nonbondedforce dict for later xml creation.
-        # Format: {0: [charge, sigma, epsilon], 1: [charge, sigma, epsilon], ... }
+        # Format: {atom_index: [partial_charge, sigma, epsilon] ... }
         # This follows the usual ordering of the atoms such as in molecule.coords.
         for atom_index, atom in self.molecule.ddec_data.items():
             if not atom.a_i:
