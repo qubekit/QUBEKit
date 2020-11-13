@@ -60,7 +60,7 @@ class Gaussian(Engines):
                 if self.molecule.use_pseudo:
                     commands += f' Pseudo=Read'
 
-                commands += f' {self.molecule.excited_theory}=(Nstates={self.molecule.nstates}, ' \
+                commands += f' {self.molecule.excited_theory}=(Nstates={self.molecule.n_states}, ' \
                     f'Root={self.molecule.excited_root}) SCF=XQC '
 
             else:

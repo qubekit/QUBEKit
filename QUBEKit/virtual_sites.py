@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 """
-For each atom with fewer than four bonds, generate a list of sample points in a defined volume.
+For each atom with fewer than four bonds, generate a list of sample points in a spherical volume around the atoms.
 Compare the change in ESP at each of these points for the QM-calculated ESP and the ESP with a v-site.
 The v-site can be moved along pre-defined vectors; another v-site can also be added.
-If the error is significantly reduced with one or two v-sites, then it is saved and written to an xyz.
+If the error is significantly reduced with one or two v-sites, then it is saved for the xml and written to an xyz.
 See VirtualSites.fit() for fitting details.
 """
 
@@ -158,7 +158,7 @@ class VirtualSites:
     @staticmethod
     def quadrupole_esp(dist_vector, m_tensor, dist):
         """
-        Calculate the esp from a quadrupole at a given distance
+        Calculate the esp from a quadrupole at a given distance.
         :param dist_vector: atom_coords - sample_coords
         :param m_tensor: quadrupole moment tensor calculated from Chargemol output
         :param dist: distance from sample_coords to atom_coords
@@ -167,6 +167,17 @@ class VirtualSites:
         """
         return (3 * ELECTRON_CHARGE * ELECTRON_CHARGE * dist_vector.dot(m_tensor * (BOHR_TO_ANGS ** 2)).dot(
             dist_vector)) / (8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
+
+    @staticmethod
+    def cloud_penetration(a, b, dist):
+        """
+        Calculate the cloud penetration at a given distance from the atom centre.
+        :param a: unitless quantity from DDEC output
+        :param b: quantity from DDEC output in units 1/Bohr
+        :param dist: distance from sample_coords to atom_coords
+        :return: cloud penetration term in SI units
+        """
+        return (ELECTRON_CHARGE * ELECTRON_CHARGE / (VACUUM_PERMITTIVITY * BOHR_TO_ANGS ** 3)) * np.exp(a - b * dist) * (2 / (b * dist) + 1) / (b ** 2)
 
     @staticmethod
     def generate_sample_points_relative(vdw_radius):
@@ -237,6 +248,9 @@ class VirtualSites:
 
         quad_data = self.molecule.quadrupole_moment_data[atom_index]
 
+        cloud_pen_data = self.molecule.cloud_pen_data[atom_index]
+        a, b = cloud_pen_data.a, cloud_pen_data.b
+
         no_site_esps = []
         for point in self.sample_points:
             dist = VirtualSites.xyz_distance(point, atom_coords)
@@ -248,7 +262,9 @@ class VirtualSites:
             m_tensor = VirtualSites.quadrupole_moment_tensor(*quad_data.values())
             quad_esp = VirtualSites.quadrupole_esp(dist_vector, m_tensor, dist)
 
-            v_total = (mono_esp + dipo_esp + quad_esp) * M_TO_ANGS * J_TO_KCAL_P_MOL
+            cloud_pen = VirtualSites.cloud_penetration(a, b, dist)
+
+            v_total = (mono_esp + dipo_esp + quad_esp + cloud_pen) * M_TO_ANGS * J_TO_KCAL_P_MOL
             no_site_esps.append(v_total)
 
         return no_site_esps
@@ -461,7 +477,7 @@ class VirtualSites:
         return sum(abs(no_site_esp - site_esp)
                    for no_site_esp, site_esp in zip(self.no_site_esps, site_esps))
 
-    def fit(self, atom_index, max_err=1.005):
+    def fit(self, atom_index):
         """
         The error for the objective functionsis defined as the sum of differences at each sample point
         between the ideal ESP and the ESP with and without sites.
@@ -475,9 +491,6 @@ class VirtualSites:
         * The errors from the sites are printed to terminal, and a plot is produced showing the positions,
         sample points, and charges.
         :param atom_index: The index of the atom being analysed.
-        :param max_err: The maximum error factor from adding a site that means the site will be kept.
-        e.g. if adding one site does not reduce the error by a factor max_err, discard it.
-            if adding two sites does not reduce the error over one site by a factor max_err, discard them.
         """
 
         n_sample_points = len(self.no_site_esps)
@@ -490,7 +503,7 @@ class VirtualSites:
         if self.site_errors[0] <= 1.0:
             return
 
-        # charge, charge, lambda, lambda
+        # Bounds for fitting, format: charge, charge, lambda, lambda
         bounds = ((-1.0, 1.0), (-1.0, 1.0), (-0.5, 0.5), (-0.5, 0.5))
 
         # One site
@@ -502,30 +515,45 @@ class VirtualSites:
         one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
         self.one_site_coords = one_site_coords
 
-        def two_site_fit():
-            alt = len(self.molecule.atoms[atom_index].bonds) == 2
-            vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-            if self.molecule.enable_symmetry:
-                two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0, 1]),
-                                        args=(atom_index, vec_a, vec_b),
-                                        bounds=bounds[1:3])
-                q, lam = two_site_fit.x
-                q_a = q_b = q
-                lam_a = lam_b = lam
-            else:
+        def two_site_fitter():
+            final_err = 10000
+            if len(self.molecule.atoms[atom_index].bonds) != 2:
+                vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2)
                 two_site_fit = minimize(self.two_sites_objective_function, np.array([0, 0, 1, 1]),
                                         args=(atom_index, vec_a, vec_b),
                                         bounds=bounds)
                 q_a, q_b, lam_a, lam_b = two_site_fit.x
+                final_err = two_site_fit.fun / n_sample_points
+            else:
+                # There are two bonds
+                for alt in [True, False]:
+                    vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
+                    if self.molecule.enable_symmetry:
+                        two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0, 1]),
+                                                args=(atom_index, vec_a, vec_b),
+                                                bounds=bounds[1:3])
+                        if two_site_fit.fun < final_err:
+                            final_err = two_site_fit.fun / n_sample_points
+                            q, lam = two_site_fit.x
+                            q_a = q_b = q
+                            lam_a = lam_b = lam
+                    else:
+                        two_site_fit = minimize(self.two_sites_objective_function, np.array([0, 0, 1, 1]),
+                                                args=(atom_index, vec_a, vec_b),
+                                                bounds=bounds)
+                        if two_site_fit.fun < final_err:
+                            final_err = two_site_fit.fun / n_sample_points
+                            q_a, q_b, lam_a, lam_b = two_site_fit.x
 
-            self.site_errors[2] = two_site_fit.fun / n_sample_points
+            self.site_errors[2] = final_err
 
             site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(atom_index, lam_a, lam_b, vec_a, vec_b)
             two_site_coords = [(site_a_coords, q_a, atom_index), (site_b_coords, q_b, atom_index)]
             self.two_site_coords = two_site_coords
 
-        two_site_fit()
+        two_site_fitter()
 
+        max_err = self.molecule.v_site_error_factor
         if self.site_errors[0] < min(self.site_errors[1] * max_err, self.site_errors[2] * max_err):
             print('No virtual site placement has reduced the error significantly.')
         elif self.site_errors[1] < self.site_errors[2] * max_err:

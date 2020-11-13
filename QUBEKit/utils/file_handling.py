@@ -427,22 +427,31 @@ class ExtractChargeData:
         # Find number of atoms
         atom_total = int(lines[0])
 
+        # Find data markers:
+        ddec_start_pos, cloud_pen_pos = 0, 0
         for pos, row in enumerate(lines):
-            # Data marker:
             if 'The following XYZ' in row:
-                start_pos = pos + 2
+                ddec_start_pos = pos + 2
+
+            # [sic]
+            elif 'The sperically averaged' in row:
+                cloud_pen_pos = pos + 2
+
+            if ddec_start_pos and cloud_pen_pos:
                 break
         else:
-            raise EOFError(f'Cannot find charge data in {net_charge_file_name}.')
+            raise EOFError(f'Cannot find charge or cloud penetration data in {net_charge_file_name}.')
 
         ddec_data = {}
         dipole_moment_data = {}
         quadrupole_moment_data = {}
 
-        for line in lines[start_pos: start_pos + atom_total]:
-            # _'s are the xyz coords, then the quadrupole moment tensor eigenvalues
+        cloud_pen_data = {}
+
+        for line in lines[ddec_start_pos: ddec_start_pos + atom_total]:
+            # _'s are the xyz coords, then the quadrupole moment tensor eigenvalues.
             atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
-            # File counts from 1 not 0; thereby requiring -1 to get the index
+            # File counts from 1 not 0; thereby requiring -1 to get the index.
             atom_index = int(atom_count) - 1
             ddec_data[atom_index] = CustomNamespace(
                 atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
@@ -454,6 +463,14 @@ class ExtractChargeData:
 
             quadrupole_moment_data[atom_index] = CustomNamespace(
                 q_xy=float(q_xy), q_xz=float(q_xz), q_yz=float(q_yz), q_x2_y2=float(q_x2_y2), q_3z2_r2=float(q_3z2_r2)
+            )
+
+        for line in lines[cloud_pen_pos: cloud_pen_pos + atom_total]:
+            # _'s are the xyz coords and the r_squared.
+            atom_count, atomic_symbol, _, _, _, a, b, _ = line.split()
+            atom_index = int(atom_count) - 1
+            cloud_pen_data[atom_index] = CustomNamespace(
+                atomic_symbol=atomic_symbol, a=float(a), b=float(b)
             )
 
         r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
@@ -469,6 +486,7 @@ class ExtractChargeData:
         self.molecule.ddec_data = ddec_data
         self.molecule.dipole_moment_data = dipole_moment_data
         self.molecule.quadrupole_moment_data = quadrupole_moment_data
+        self.molecule.cloud_pen_data = cloud_pen_data
 
     def _extract_charge_data_onetep(self):
         """

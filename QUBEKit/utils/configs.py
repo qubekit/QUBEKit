@@ -32,7 +32,8 @@ class Configure:
         'geometric': 'True',            # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
         'solvent': 'True',              # Use a solvent in the PSI4/Gaussian09 input
         'enable_symmetry': 'True',      # Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters
-        'enable_virtual_sites': 'False',     # Enable or disable the use of virtual sites in the charge step
+        'enable_virtual_sites': 'False',    # Enable or disable the use of virtual sites in the charge step
+        'v_site_error_factor': '1.005',     # Maximum error factor from adding a site that means the site will be kept
     }
 
     fitting = {
@@ -53,7 +54,7 @@ class Configure:
     excited = {
         'excited_state': 'False',       # Is this an excited state calculation
         'excited_theory': 'TDA',        # Excited state theory TDA or TD
-        'nstates': '3',
+        'n_states': '3',
         'excited_root': '1',
         'use_pseudo': 'False',
         'pseudo_potential_block': ''
@@ -81,6 +82,7 @@ class Configure:
         'solvent': ';Use a solvent in the psi4/gaussian09 input',
         'enable_symmetry': ';Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters',
         'enable_virtual_sites': ';Enable or disable the use of virtual sites in the charge step',
+        'v_site_error_factor': ';Maximum error factor from adding a site that means the site will be kept',
         'dih_start': ';Starting angle of dihedral scan',
         'increment': ';Angle increase increment',
         'dih_end': ';The last dihedral angle in the scan',
@@ -96,10 +98,10 @@ class Configure:
         'log': ';Default string for the names of the working directories',
         'excited_state': ';Use the excited state',
         'excited_theory': ';Excited state theory TDA or TD',
-        'nstates': ';The number of states to use',
+        'n_states': ';The number of states to use',
         'excited_root': ';The root',
         'use_pseudo': ';Use a pseudo potential',
-        'pseudo_potential_block': ';Enter the pseudo potential block here eg',
+        'pseudo_potential_block': ';Enter the pseudo potential block here',
     }
 
     def load_config(self, config_file='default_config'):
@@ -131,7 +133,7 @@ class Configure:
 
         # List of keys whose values should be cast to ints
         for key in ['threads', 'memory', 'iterations', 'ddec_version', 'dih_start',
-                    'increment', 'dih_end', 'tor_limit', 'div_index', 'nstates', 'excited_root']:
+                    'increment', 'dih_end', 'tor_limit', 'div_index', 'n_states', 'excited_root']:
             if key in qm:
                 qm[key] = int(qm[key])
             elif key in fitting:
