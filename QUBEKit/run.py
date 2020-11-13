@@ -304,6 +304,8 @@ class ArgsAndConfigs:
                                  'Lennard-Jones parameters')
         parser.add_argument('-sites', '--enable_virtual_sites', choices=[True, False], type=string_to_bool,
                             help='Enable or disable the use of virtual sites in the charge fitting.')
+        parser.add_argument('-site_err', '--v_site_error_factor', type=float,
+                            help='Maximum error factor from adding a site that means the site will be kept')
 
         # Add mutually exclusive groups to stop certain combinations of options,
         # e.g. setup should not be run with csv command

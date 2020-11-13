@@ -45,6 +45,8 @@ class DefaultsMixin:
     It's effectively a placeholder for all of the attributes which may
     be changed by editing the config file(s).
 
+    See the config class for details of all these params.
+
     It's a mixin because:
         * Normal multiple inheritance doesn't make sense in this context
         * Composition would be a bit messier and may require stuff like:
@@ -78,6 +80,7 @@ class DefaultsMixin:
         self.solvent = True
         self.enable_symmetry = True
         self.enable_virtual_sites = True
+        self.v_site_error_factor = 1.005
 
         self.dih_start = -165
         self.increment = 15
@@ -94,7 +97,7 @@ class DefaultsMixin:
 
         self.excited_state = False
         self.excited_theory = 'TDA'
-        self.nstates = 3
+        self.n_states = 3
         self.excited_root = 1
         self.use_pseudo = False
         self.pseudo_potential_block = ""
@@ -953,6 +956,7 @@ class Ligand(DefaultsMixin, Molecule):
         self.ddec_data = None
         self.dipole_moment_data = None
         self.quadrupole_moment_data = None
+        self.cloud_pen_data = None
 
         self.constraints_file = None
 
