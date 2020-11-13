@@ -532,7 +532,7 @@ class VirtualSites:
                         two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0, 1]),
                                                 args=(atom_index, vec_a, vec_b),
                                                 bounds=bounds[1:3])
-                        if two_site_fit.fun < final_err:
+                        if (two_site_fit.fun / n_sample_points) < final_err:
                             final_err = two_site_fit.fun / n_sample_points
                             q, lam = two_site_fit.x
                             q_a = q_b = q
@@ -541,7 +541,7 @@ class VirtualSites:
                         two_site_fit = minimize(self.two_sites_objective_function, np.array([0, 0, 1, 1]),
                                                 args=(atom_index, vec_a, vec_b),
                                                 bounds=bounds)
-                        if two_site_fit.fun < final_err:
+                        if (two_site_fit.fun / n_sample_points) < final_err:
                             final_err = two_site_fit.fun / n_sample_points
                             q_a, q_b, lam_a, lam_b = two_site_fit.x
 
