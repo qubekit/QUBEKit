@@ -144,6 +144,7 @@ class Configure:
         # Cast the floats
         qm['vib_scaling'] = float(qm['vib_scaling'])
         qm['dielectric'] = float(qm['dielectric'])
+        qm['v_site_error_factor'] = float(qm['v_site_error_factor'])
         fitting['l_pen'] = float(fitting['l_pen'])
         if fitting['t_weight'] != 'infinity':
             fitting['t_weight'] = float(fitting['t_weight'])
