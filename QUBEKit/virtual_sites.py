@@ -173,7 +173,7 @@ class VirtualSites:
         """
         Calculate the cloud penetration at a given distance from the atom centre.
         :param a: unitless quantity from DDEC output
-        :param b: quantity from DDEC output in units 1/Bohr
+        :param b: quantity from DDEC output in units 1/length
         :param dist: distance from sample_coords to atom_coords
         :return: cloud penetration term in SI units
         """
@@ -250,6 +250,7 @@ class VirtualSites:
 
         cloud_pen_data = self.molecule.cloud_pen_data[atom_index]
         a, b = cloud_pen_data.a, cloud_pen_data.b
+        b /= BOHR_TO_ANGS
 
         no_site_esps = []
         for point in self.sample_points:
