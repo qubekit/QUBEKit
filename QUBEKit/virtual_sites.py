@@ -353,11 +353,12 @@ class VirtualSites:
             if n_sites == 1:
                 vec = r_ab + r_ac
                 return vec / np.linalg.norm(vec)
+            vec_a = r_ab + r_ac
             if alt:
-                vec_a = (r_ab + r_ac)
                 vec_b = np.cross(r_ab, r_ac)
-                return vec_a / np.linalg.norm(vec_a), vec_b / np.linalg.norm(vec_b)
-            return (r_ab + r_ac), np.cross((r_ab + r_ac), np.cross(r_ab, r_ac))
+            else:
+                vec_b = np.cross((r_ab + r_ac), np.cross(r_ab, r_ac))
+            return vec_a / np.linalg.norm(vec_a), vec_b / np.linalg.norm(vec_b)
 
         # e.g. nitrogen
         if len(atom.bonds) == 3:
