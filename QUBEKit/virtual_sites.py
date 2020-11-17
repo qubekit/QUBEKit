@@ -334,14 +334,25 @@ class VirtualSites:
         atom = self.molecule.atoms[atom_index]
         atom_coords = self.coords[atom_index]
 
+        #  0.8 ang for N, 1ang for O,S,F and 1.5ang for Cl,Br.
+        scale_factor_dict = {
+            'N': 0.8,
+            'O': 1.0,
+            'S': 1.0,
+            'F': 1.0,
+            'Cl': 1.5,
+            'Br': 1.5,
+        }
+        scale_factor = scale_factor_dict[atom.atomic_symbol]
+
         # e.g. halogens
         if len(atom.bonds) == 1:
             bonded_index = atom.bonds[0]  # [0] is used since bonds is a one item list
             bonded_coords = self.coords[bonded_index]
             r_ab = atom_coords - bonded_coords
             if n_sites == 1:
-                return r_ab / np.linalg.norm(r_ab)
-            return r_ab / np.linalg.norm(r_ab), r_ab / np.linalg.norm(r_ab)
+                return (r_ab / np.linalg.norm(r_ab)) * scale_factor
+            return (r_ab / np.linalg.norm(r_ab)) * scale_factor, (r_ab / np.linalg.norm(r_ab)) * scale_factor
 
         # e.g. oxygen
         if len(atom.bonds) == 2:
@@ -352,13 +363,13 @@ class VirtualSites:
             r_ac = atom_coords - bonded_coords_c
             if n_sites == 1:
                 vec = r_ab + r_ac
-                return vec / np.linalg.norm(vec)
+                return (vec / np.linalg.norm(vec)) * scale_factor
             vec_a = r_ab + r_ac
             if alt:
                 vec_b = np.cross(r_ab, r_ac)
             else:
                 vec_b = np.cross((r_ab + r_ac), np.cross(r_ab, r_ac))
-            return vec_a / np.linalg.norm(vec_a), vec_b / np.linalg.norm(vec_b)
+            return (vec_a / np.linalg.norm(vec_a)) * scale_factor, (vec_b / np.linalg.norm(vec_b)) * scale_factor
 
         # e.g. nitrogen
         if len(atom.bonds) == 3:
@@ -368,7 +379,7 @@ class VirtualSites:
             bonded_coords_d = self.coords[bonded_index_d]
             r_vec = np.cross((bonded_coords_b - bonded_coords_c), (bonded_coords_d - bonded_coords_c))
             if n_sites == 1:
-                return r_vec / np.linalg.norm(r_vec)
+                return (r_vec / np.linalg.norm(r_vec)) * scale_factor
             else:
                 if atom.atomic_symbol == 'N':
                     h_s = []
@@ -382,8 +393,8 @@ class VirtualSites:
                         r_ha = atom_coords - h_a_coords
                         r_hb = atom_coords - h_b_coords
 
-                        return r_vec / np.linalg.norm(r_vec), (r_ha + r_hb) / np.linalg.norm(r_ha + r_hb)
-                return r_vec / np.linalg.norm(r_vec), r_vec / np.linalg.norm(r_vec)
+                        return (r_vec / np.linalg.norm(r_vec)) * scale_factor, ((r_ha + r_hb) / np.linalg.norm(r_ha + r_hb)) * scale_factor
+                return (r_vec / np.linalg.norm(r_vec)) * scale_factor, (r_vec / np.linalg.norm(r_vec)) * scale_factor
 
     def esp_from_lambda_and_charge(self, atom_index, q, lam, vec):
         """
