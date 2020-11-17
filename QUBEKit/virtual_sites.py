@@ -328,6 +328,7 @@ class VirtualSites:
         :param alt: When placing two sites on an atom with two bonds, there are two placements.
             Is this the usual placement, or the alternative (rotated 90 degrees around the bisecting vector).
         :return Vector(s) along which the v-site will sit. (np array)
+            These vectors are scaled to 1 angstrom
         """
 
         atom = self.molecule.atoms[atom_index]
@@ -339,8 +340,8 @@ class VirtualSites:
             bonded_coords = self.coords[bonded_index]
             r_ab = atom_coords - bonded_coords
             if n_sites == 1:
-                return r_ab
-            return r_ab, r_ab
+                return r_ab / np.linalg.norm(r_ab)
+            return r_ab / np.linalg.norm(r_ab), r_ab / np.linalg.norm(r_ab)
 
         # e.g. oxygen
         if len(atom.bonds) == 2:
@@ -350,9 +351,12 @@ class VirtualSites:
             r_ab = atom_coords - bonded_coords_b
             r_ac = atom_coords - bonded_coords_c
             if n_sites == 1:
-                return r_ab + r_ac
+                vec = r_ab + r_ac
+                return vec / np.linalg.norm(vec)
             if alt:
-                return (r_ab + r_ac), np.cross(r_ab, r_ac)
+                vec_a = (r_ab + r_ac)
+                vec_b = np.cross(r_ab, r_ac)
+                return vec_a / np.linalg.norm(vec_a), vec_b / np.linalg.norm(vec_b)
             return (r_ab + r_ac), np.cross((r_ab + r_ac), np.cross(r_ab, r_ac))
 
         # e.g. nitrogen
@@ -363,7 +367,7 @@ class VirtualSites:
             bonded_coords_d = self.coords[bonded_index_d]
             r_vec = np.cross((bonded_coords_b - bonded_coords_c), (bonded_coords_d - bonded_coords_c))
             if n_sites == 1:
-                return r_vec
+                return r_vec / np.linalg.norm(r_vec)
             else:
                 if atom.atomic_symbol == 'N':
                     h_s = []
@@ -377,8 +381,8 @@ class VirtualSites:
                         r_ha = atom_coords - h_a_coords
                         r_hb = atom_coords - h_b_coords
 
-                        return r_vec, r_ha + r_hb
-                return r_vec, r_vec
+                        return r_vec / np.linalg.norm(r_vec), (r_ha + r_hb) / np.linalg.norm(r_ha + r_hb)
+                return r_vec / np.linalg.norm(r_vec), r_vec / np.linalg.norm(r_vec)
 
     def esp_from_lambda_and_charge(self, atom_index, q, lam, vec):
         """
@@ -505,7 +509,8 @@ class VirtualSites:
             return
 
         # Bounds for fitting, format: charge, charge, lambda, lambda
-        bounds = ((-1.0, 1.0), (-1.0, 1.0), (-0.5, 0.5), (-0.5, 0.5))
+        # Since the vectors are scaled to be 1 angstrom long, lambda makes the v-site distance -1 to 1 angstrom.
+        bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
 
         # One site
         one_site_fit = minimize(self.one_site_objective_function, np.array([0, 1]),
@@ -520,7 +525,7 @@ class VirtualSites:
             final_err = 10000
             if len(self.molecule.atoms[atom_index].bonds) != 2:
                 vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2)
-                two_site_fit = minimize(self.two_sites_objective_function, np.array([0, 0, 1, 1]),
+                two_site_fit = minimize(self.two_sites_objective_function, np.array([0.0, 0.0, 1.0, 1.0]),
                                         args=(atom_index, vec_a, vec_b),
                                         bounds=bounds)
                 q_a, q_b, lam_a, lam_b = two_site_fit.x
@@ -530,7 +535,7 @@ class VirtualSites:
                 for alt in [True, False]:
                     vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
                     if self.molecule.enable_symmetry:
-                        two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0, 1]),
+                        two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0.0, 1.0]),
                                                 args=(atom_index, vec_a, vec_b),
                                                 bounds=bounds[1:3])
                         if (two_site_fit.fun / n_sample_points) < final_err:
@@ -539,7 +544,7 @@ class VirtualSites:
                             q_a = q_b = q
                             lam_a = lam_b = lam
                     else:
-                        two_site_fit = minimize(self.two_sites_objective_function, np.array([0, 0, 1, 1]),
+                        two_site_fit = minimize(self.two_sites_objective_function, np.array([0.0, 0.0, 1.0, 1.0]),
                                                 args=(atom_index, vec_a, vec_b),
                                                 bounds=bounds)
                         if (two_site_fit.fun / n_sample_points) < final_err:
