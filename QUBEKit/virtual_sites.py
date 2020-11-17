@@ -328,20 +328,23 @@ class VirtualSites:
         :param alt: When placing two sites on an atom with two bonds, there are two placements.
             Is this the usual placement, or the alternative (rotated 90 degrees around the bisecting vector).
         :return Vector(s) along which the v-site will sit. (np array)
-            These vectors are scaled to 1 angstrom
+            These vectors are scaled dependent on the site's parent atom (see dict below)
         """
 
         atom = self.molecule.atoms[atom_index]
         atom_coords = self.coords[atom_index]
 
-        #  0.8 ang for N, 1ang for O,S,F and 1.5ang for Cl,Br.
+        # Vary max distance between virtual site and atom coords.
         scale_factor_dict = {
+            'H': 1.0,
+            'C': 1.0,
             'N': 0.8,
             'O': 1.0,
-            'S': 1.0,
             'F': 1.0,
+            'S': 1.0,
             'Cl': 1.5,
             'Br': 1.5,
+            # May require additional
         }
         scale_factor = scale_factor_dict[atom.atomic_symbol]
 
