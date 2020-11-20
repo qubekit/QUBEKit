@@ -533,46 +533,47 @@ class VirtualSites:
                                 bounds=bounds[1:3])
         self.site_errors[1] = one_site_fit.fun / n_sample_points
         q, lam = one_site_fit.x
-        one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
-        self.one_site_coords = one_site_coords
+        self.one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
 
-        def two_site_fitter():
-            final_err = 10000
-            if len(self.molecule.atoms[atom_index].bonds) != 2:
-                vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2)
-                two_site_fit = minimize(self.two_sites_objective_function, np.array([0.0, 0.0, 1.0, 1.0]),
-                                        args=(atom_index, vec_a, vec_b),
-                                        bounds=bounds)
-                q_a, q_b, lam_a, lam_b = two_site_fit.x
-                final_err = two_site_fit.fun / n_sample_points
-            else:
-                # There are two bonds
-                for alt in [True, False]:
-                    vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-                    if self.molecule.enable_symmetry:
-                        two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0.0, 1.0]),
-                                                args=(atom_index, vec_a, vec_b),
-                                                bounds=bounds[1:3])
-                        if (two_site_fit.fun / n_sample_points) < final_err:
-                            final_err = two_site_fit.fun / n_sample_points
-                            q, lam = two_site_fit.x
-                            q_a = q_b = q
-                            lam_a = lam_b = lam
-                    else:
-                        two_site_fit = minimize(self.two_sites_objective_function, np.array([0.0, 0.0, 1.0, 1.0]),
-                                                args=(atom_index, vec_a, vec_b),
-                                                bounds=bounds)
-                        if (two_site_fit.fun / n_sample_points) < final_err:
-                            final_err = two_site_fit.fun / n_sample_points
-                            q_a, q_b, lam_a, lam_b = two_site_fit.x
-
-            self.site_errors[2] = final_err
-
+        # 1 or 3 bonds
+        if len(self.molecule.atoms[atom_index].bonds) != 2:
+            vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2)
+            two_site_fit = minimize(self.two_sites_objective_function, np.array([0.0, 0.0, 1.0, 1.0]),
+                                    args=(atom_index, vec_a, vec_b),
+                                    bounds=bounds)
+            self.site_errors[2] = two_site_fit.fun / n_sample_points
+            q_a, q_b, lam_a, lam_b = two_site_fit.x
             site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(atom_index, lam_a, lam_b, vec_a, vec_b)
-            two_site_coords = [(site_a_coords, q_a, atom_index), (site_b_coords, q_b, atom_index)]
-            self.two_site_coords = two_site_coords
+            self.two_site_coords = [(site_a_coords, q_a, atom_index), (site_b_coords, q_b, atom_index)]
 
-        two_site_fitter()
+        # 2 bonds
+        else:
+            # Arbitrarily large error; this will be overwritten.
+            final_err = 10000
+            for alt in [True, False]:
+                vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
+                if self.molecule.enable_symmetry:
+                    two_site_fit = minimize(self.symm_two_sites_objective_function, np.array([0.0, 1.0]),
+                                            args=(atom_index, vec_a, vec_b),
+                                            bounds=bounds[1:3])
+                    if (two_site_fit.fun / n_sample_points) < final_err:
+                        self.site_errors[2] = two_site_fit.fun / n_sample_points
+                        q, lam = two_site_fit.x
+                        q_a = q_b = q
+                        lam_a = lam_b = lam
+                        site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(atom_index, lam_a, lam_b,
+                                                                                            vec_a, vec_b)
+                        self.two_site_coords = [(site_a_coords, q_a, atom_index), (site_b_coords, q_b, atom_index)]
+                else:
+                    two_site_fit = minimize(self.two_sites_objective_function, np.array([0.0, 0.0, 1.0, 1.0]),
+                                            args=(atom_index, vec_a, vec_b),
+                                            bounds=bounds)
+                    if (two_site_fit.fun / n_sample_points) < final_err:
+                        self.site_errors[2] = two_site_fit.fun / n_sample_points
+                        q_a, q_b, lam_a, lam_b = two_site_fit.x
+                        site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(atom_index, lam_a, lam_b,
+                                                                                            vec_a, vec_b)
+                        self.two_site_coords = [(site_a_coords, q_a, atom_index), (site_b_coords, q_b, atom_index)]
 
         max_err = self.molecule.v_site_error_factor
         if self.site_errors[0] < min(self.site_errors[1] * max_err, self.site_errors[2] * max_err):
