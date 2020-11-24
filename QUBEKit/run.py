@@ -725,8 +725,8 @@ class Execute:
                 # Run geometric
                 # TODO Should this be moved to a function? Seems like a likely point of failure
                 with open('log.txt', 'w+') as log:
-                    sp.run(f'geometric-optimize --reset --epsilon 0.0 --maxiter {molecule.iterations} --pdb '
-                           f'{molecule.name}.pdb --openmm {molecule.name}.xml '
+                    sp.run(f'geometric-optimize --epsilon 0.0 --maxiter {molecule.iterations} --pdb '
+                           f'{molecule.name}.pdb --engine openmm {molecule.name}.xml '
                            f'{molecule.constraints_file if molecule.constraints_file is not None else ""}',
                            shell=True, stdout=log, stderr=log)
 

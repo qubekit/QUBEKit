@@ -502,12 +502,15 @@ All commands can be viewed by calling `QUBEKit -h`. Below is an explanation of w
 | `-solvent` | Bool | Enable or disable the solvent model |
 | `-param` | String: `antechamber`, `openff`, `xml`  | Change the method for initial parametrisation |
 | `-log` | String: `<arbitrary alphanumeric>` | Change the log file name and directory label |
-| `-func` | String: `<any valid PSI4/Gaussian functional` | Change the functional being used |
-| `-basis` | String: `<any valid PSI4/Gaussian basis set` | Change the basis set |
+| `-func` | String: `<any valid PSI4/Gaussian functional>` | Change the functional being used |
+| `-basis` | String: `<any valid PSI4/Gaussian basis set>` | Change the basis set |
 | `-vib` | Float: `0.0 - 1.0` | Change the vibrational scaling used with the basis set |
 | `-memory` | Int: `1 - PC limit` | Change the amount of memory allocated |
 | `-threads` | Int: `1 - PC limit` | Change the number of threads allocated |
 | `-v` | Bool | Change the verbosity of the output |
+| `-sites` | Bool | Enable or disable virtual sites |
+| `-symmetry` | Bool | Enable or disable symmetrisation in the molecule parameters |
+| `-display` | String: `<any valid QUBEKit object>` | Display a particular config option or parameter for this execution. e.g. `-display basis` would show the basis set used.
 
 ---
 
