@@ -197,10 +197,13 @@ class TorsionScan:
             # When we start the run write the options used here to be used during restarts
             log.write(f'Theory used: {self.molecule.theory}   Basis used: {self.molecule.basis}\n')
             log.flush()
-            tdrive_engine = self.molecule.bonds_engine
 
-            if tdrive_engine in ['g09', 'g16']:
-                tdrive_engine = 'gaussian'
+            if self.molecule.bonds_engine == 'g09':
+                tdrive_engine = 'gaussian09'
+            elif self.molecule.bonds_engine == 'g16':
+                tdrive_engine = 'gaussian16'
+            else:
+                tdrive_engine = self.molecule.bonds_engine
 
             span = self.molecule.dih_ends[scan]-self.molecule.dih_starts[scan]
             step_size = 10
@@ -1265,8 +1268,8 @@ class TorsionOptimiser:
                 else:
                     self.make_constraints()
 
-                sp.run('geometric-optimize --reset --epsilon 0.0 --maxiter 500 --qccnv --pdb openmm.pdb '
-                       '--openmm state.xml qube_constraints.txt', shell=True, stdout=log, stderr=log, check=True)
+                sp.run('geometric-optimize --epsilon 0.0 --maxiter 500 --qccnv true --pdb openmm.pdb '
+                       '--engine openmm state.xml qube_constraints.txt', shell=True, stdout=log, stderr=log, check=True)
 
                 self.molecule.save_to_ligand('scan.xyz')
 
