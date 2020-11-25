@@ -557,6 +557,7 @@ class VirtualSites:
                                             args=(atom_index, vec_a, vec_b),
                                             bounds=bounds[1:3])
                     if (two_site_fit.fun / n_sample_points) < final_err:
+                        final_err = (two_site_fit.fun / n_sample_points)
                         self.site_errors[2] = two_site_fit.fun / n_sample_points
                         q, lam = two_site_fit.x
                         q_a = q_b = q
@@ -569,6 +570,7 @@ class VirtualSites:
                                             args=(atom_index, vec_a, vec_b),
                                             bounds=bounds)
                     if (two_site_fit.fun / n_sample_points) < final_err:
+                        final_err = (two_site_fit.fun / n_sample_points)
                         self.site_errors[2] = two_site_fit.fun / n_sample_points
                         q_a, q_b, lam_a, lam_b = two_site_fit.x
                         site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(atom_index, lam_a, lam_b,
