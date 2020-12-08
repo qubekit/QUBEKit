@@ -9,6 +9,7 @@ See VirtualSites.fit() for fitting details.
 """
 
 from QUBEKit.utils.constants import BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
+from QUBEKit.utils.helpers import append_to_log
 
 from collections import OrderedDict
 
@@ -348,7 +349,9 @@ class VirtualSites:
         }
         scale_factor = scale_factor_dict[atom.atomic_symbol]
 
-        # e.g. halogens
+        # TODO Differentiate between halogens and carbonyls for 2 site case
+        #   (error currently low enough to be irrelevant)
+        # e.g. halogens / carbonyls
         if len(atom.bonds) == 1:
             bonded_index = atom.bonds[0]  # [0] is used since bonds is a one item list
             bonded_coords = self.coords[bonded_index]
@@ -579,21 +582,22 @@ class VirtualSites:
 
         max_err = self.molecule.v_site_error_factor
         if self.site_errors[0] < min(self.site_errors[1] * max_err, self.site_errors[2] * max_err):
-            print('No virtual site placement has reduced the error significantly.')
+            append_to_log('No virtual site placement has reduced the error significantly.', 'plain', True)
         elif self.site_errors[1] < self.site_errors[2] * max_err:
-            print('The addition of one virtual site was found to be best.')
+            append_to_log('The addition of one virtual site was found to be best.', 'plain', True)
             self.v_sites_coords.extend(self.one_site_coords)
             self.molecule.atoms[atom_index].partial_charge -= self.one_site_coords[0][1]
             self.molecule.ddec_data[atom_index].charge -= self.one_site_coords[0][1]
         else:
-            print('The addition of two virtual sites was found to be best.')
+            append_to_log('The addition of two virtual sites was found to be best.', 'plain', True)
             self.v_sites_coords.extend(self.two_site_coords)
             self.molecule.atoms[atom_index].partial_charge -= (self.two_site_coords[0][1] + self.two_site_coords[1][1])
             self.molecule.ddec_data[atom_index].charge -= (self.two_site_coords[0][1] + self.two_site_coords[1][1])
-        print(
+        append_to_log(
             f'Errors (kcal/mol):\n'
             f'No Site     One Site     Two Sites\n'
-            f'{self.site_errors[0]:.4f}      {self.site_errors[1]:.4f}       {self.site_errors[2]:.4f}'
+            f'{self.site_errors[0]:.4f}      {self.site_errors[1]:.4f}       {self.site_errors[2]:.4f}',
+            'plain', True
         )
         self.plot(atom_index)
 
@@ -726,11 +730,6 @@ class VirtualSites:
         Uses the coordinates to generate the necessary position vectors to be used in the xml.
         """
 
-        # Weighting arrays for the virtual sites should not be changed
-        w1o, w2o, w3o = 1.0, 0.0, 0.0  # SUM SHOULD BE 1
-        w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
-        w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
-
         extra_sites = OrderedDict()
 
         for site_number, site in enumerate(self.v_sites_coords):
@@ -747,21 +746,31 @@ class VirtualSites:
             close_a_coords = self.coords[closest_atoms[0]]
             close_b_coords = self.coords[closest_atoms[1]]
 
-            # Calculate the local coordinate site using rules from the OpenMM guide
-            orig = w1o * parent_coords + w2o * close_a_coords + close_b_coords * w3o
-            ab = w1x * parent_coords + w2x * close_a_coords + w3x * close_b_coords  # rb-ra
-            ac = w1y * parent_coords + w2y * close_a_coords + w3y * close_b_coords  # rb-ra
+            parent_atom = self.molecule.atom[parent]
+            if parent_atom.atomic_symbol == 'N' and len(parent_atom.bonds) == 3:
+                close_c_coords = self.coords[closest_atoms[2]]
 
-            # Get the axis unit vectors
-            z_dir = np.cross(ab, ac)
-            z_dir /= np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
-            x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
-            y_dir = np.cross(z_dir, x_dir)
+                x_dir = np.cross((close_a_coords - close_c_coords), (close_b_coords - close_c_coords))
+                x_dir /= np.linalg.norm(x_dir)
+
+                y_dir = parent_coords - close_a_coords
+                y_dir /= np.linalg.norm(y_dir)
+
+                z_dir = np.cross(x_dir, y_dir)
+
+            else:
+                x_dir = close_a_coords - parent_coords
+                x_dir /= np.linalg.norm(x_dir)
+
+                z_dir = np.cross((close_a_coords - parent_coords), (close_b_coords - parent_coords))
+                z_dir /= np.linalg.norm(z_dir)
+
+                y_dir = np.cross(z_dir, x_dir)
 
             # Get the local coordinate positions
-            p1 = np.dot((site_coords - orig), x_dir.reshape(3, 1))
-            p2 = np.dot((site_coords - orig), y_dir.reshape(3, 1))
-            p3 = np.dot((site_coords - orig), z_dir.reshape(3, 1))
+            p1 = np.dot((site_coords - parent_coords), x_dir.reshape(3, 1))
+            p2 = np.dot((site_coords - parent_coords), y_dir.reshape(3, 1))
+            p3 = np.dot((site_coords - parent_coords), z_dir.reshape(3, 1))
 
             extra_sites[site_number] = [
                 (parent, closest_atoms[0], closest_atoms[1]),
