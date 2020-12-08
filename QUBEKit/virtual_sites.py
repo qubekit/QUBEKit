@@ -746,7 +746,7 @@ class VirtualSites:
             close_a_coords = self.coords[closest_atoms[0]]
             close_b_coords = self.coords[closest_atoms[1]]
 
-            parent_atom = self.molecule.atom[parent]
+            parent_atom = self.molecule.atoms[parent]
             if parent_atom.atomic_symbol == 'N' and len(parent_atom.bonds) == 3:
                 close_c_coords = self.coords[closest_atoms[2]]
 
