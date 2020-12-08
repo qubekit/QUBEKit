@@ -108,7 +108,7 @@ def generate_bulk_csv(csv_name, max_execs=None):
         print(f'{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv generated.', flush=True)
 
 
-def append_to_log(message, msg_type='major'):
+def append_to_log(message, msg_type='major', and_print=False):
     """
     Appends a message to the log file in a specific format.
     Used for significant stages in the program such as when a stage has finished.
@@ -132,10 +132,16 @@ def append_to_log(message, msg_type='major'):
                 file.write(f'########{message.upper()}########')
             elif msg_type == 'minor':
                 file.write(f'~~~~~~~~{message}~~~~~~~~')
+            elif msg_type == 'plain':
+                file.write(message)
             else:
                 raise KeyError('Invalid message type; use major, warning or minor.')
-
-            file.write(f'\n\n{"-" * 50}\n\n')
+            if msg_type != 'plain':
+                file.write(f'\n\n{"-" * 50}\n\n')
+            else:
+                file.write('\n')
+        if and_print:
+            print(message)
 
 
 def unpickle(location=None):
