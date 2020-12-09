@@ -219,7 +219,7 @@ class OpenMM(Engines):
         for site_key, site in self.molecule.extra_sites.items():
             site_no = site_key + len(self.molecule.atoms)
             self.molecule.topology.add_node(site_no)
-            self.molecule.topology.add_edge(site_no, site[0][0])  # parent at [0][0]
+            self.molecule.topology.add_edge(site_no, site.parent_index)
 
         # now that all sites are in the topology we need to work out all pairs
         for site_key, site in self.molecule.extra_sites.items():
