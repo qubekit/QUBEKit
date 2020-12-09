@@ -597,7 +597,7 @@ class Molecule:
         # Add all of the virtual site info if present
         if self.extra_sites is not None:
             # Add the atom type to the top
-            for key, val in self.extra_sites.items():
+            for key, site in self.extra_sites.items():
                 ET.SubElement(AtomTypes, "Type", attrib={
                     'name': f'v-site{key + 1}', 'class': f'X{key + 1}', 'mass': '0'})
 
@@ -606,21 +606,31 @@ class Molecule:
                     'name': f'X{key + 1}', 'type': f'v-site{key + 1}'})
 
                 # Add the local coords site info
-                ET.SubElement(Residue, "VirtualSite", attrib={
+                attrib = {
                     'type': 'localCoords',
                     'index': str(key + len(self.atoms)),
-                    'atom1': str(val[0][0]), 'atom2': str(val[0][1]), 'atom3': str(val[0][2]),
-                    'wo1': '1.0', 'wo2': '0.0', 'wo3': '0.0',
-                    'wx1': '-1.0', 'wx2': '1.0', 'wx3': '0.0',
-                    'wy1': '-1.0', 'wy2': '0.0', 'wy3': '1.0',
-                    'p1': f'{float(val[1][0]):.4f}',
-                    'p2': f'{float(val[1][1]):.4f}',
-                    'p3': f'{float(val[1][2]):.4f}'})
+                    'atom1': str(site.closest_a_index),
+                    'atom2': str(site.closest_b_index),
+                    'atom3': str(site.closest_c_index),
+                    'wo1': str(site.o_weights[0]), 'wo2': str(site.o_weights[1]), 'wo3': str(site.o_weights[2]),
+                    'wx1': str(site.x_weights[0]), 'wx2': str(site.x_weights[1]), 'wx3': str(site.x_weights[2]),
+                    'wy1': str(site.y_weights[0]), 'wy2': str(site.y_weights[1]), 'wy3': str(site.y_weights[2]),
+                    'p1': str(site.p1),
+                    'p2': str(site.p2),
+                    'p3': str(site.p3)}
+
+                # For the Nitrogen case
+                if len(site.o_weights) == 4:
+                    attrib['wo4'] = str(site.o_weights[3])
+                    attrib['wx4'] = str(site.x_weights[3])
+                    attrib['wy4'] = str(site.y_weights[3])
+
+                ET.SubElement(Residue, "VirtualSite", attrib=attrib)
 
                 # Add the nonbonded info
                 ET.SubElement(NonbondedForce, "Atom", attrib={
                     'type': f'v-site{key + 1}',
-                    'charge': f'{val[2]}',
+                    'charge': str(site.charge),
                     'sigma': '1.000000',
                     'epsilon': '0.000000'})
 

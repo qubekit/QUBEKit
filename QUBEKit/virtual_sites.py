@@ -8,10 +8,9 @@ If the error is significantly reduced with one or two v-sites, then it is saved 
 See VirtualSites.fit() for fitting details.
 """
 
-from QUBEKit.utils.constants import BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
+from QUBEKit.utils.constants import ANGS_TO_NM, BOHR_TO_ANGS, ELECTRON_CHARGE, J_TO_KCAL_P_MOL, M_TO_ANGS, PI, VACUUM_PERMITTIVITY
+from QUBEKit.utils.datastructures import ExtraSite
 from QUBEKit.utils.helpers import append_to_log
-
-from collections import OrderedDict
 
 from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
@@ -730,10 +729,15 @@ class VirtualSites:
         Uses the coordinates to generate the necessary position vectors to be used in the xml.
         """
 
-        extra_sites = OrderedDict()
+        extra_sites = dict()
 
         for site_number, site in enumerate(self.v_sites_coords):
+
+            site_data = ExtraSite()
+
             site_coords, site_charge, parent = site
+            site_data.charge = site_charge
+
             closest_atoms = list(self.molecule.topology.neighbors(parent))
             if len(closest_atoms) < 2:
                 for atom in list(self.molecule.topology.neighbors(closest_atoms[0])):
@@ -746,17 +750,24 @@ class VirtualSites:
             close_a_coords = self.coords[closest_atoms[0]]
             close_b_coords = self.coords[closest_atoms[1]]
 
+            site_data.parent_index = parent
+            site_data.closest_a_index = closest_atoms[0]
+            site_data.closest_b_index = closest_atoms[1]
+
             parent_atom = self.molecule.atoms[parent]
             if parent_atom.atomic_symbol == 'N' and len(parent_atom.bonds) == 3:
                 close_c_coords = self.coords[closest_atoms[2]]
+                site_data.closest_c_index = closest_atoms[2]
 
-                x_dir = np.cross((close_a_coords - close_c_coords), (close_b_coords - close_c_coords))
+                x_dir = ((close_a_coords + close_b_coords + close_c_coords) / 3) - parent_coords
                 x_dir /= np.linalg.norm(x_dir)
 
-                y_dir = parent_coords - close_a_coords
-                y_dir /= np.linalg.norm(y_dir)
+                site_data.p2 = 0
+                site_data.p3 = 0
 
-                z_dir = np.cross(x_dir, y_dir)
+                site_data.o_weights = [1.0, 0.0, 0.0, 0.0]
+                site_data.x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
+                site_data.y_weights = [1.0, -1.0, 0.0, 0.0]
 
             else:
                 x_dir = close_a_coords - parent_coords
@@ -767,16 +778,17 @@ class VirtualSites:
 
                 y_dir = np.cross(z_dir, x_dir)
 
-            # Get the local coordinate positions
-            p1 = np.dot((site_coords - parent_coords), x_dir.reshape(3, 1))
-            p2 = np.dot((site_coords - parent_coords), y_dir.reshape(3, 1))
-            p3 = np.dot((site_coords - parent_coords), z_dir.reshape(3, 1))
+                site_data.p2 = np.dot((site_coords - parent_coords), y_dir.reshape(3, 1)) * ANGS_TO_NM
+                site_data.p3 = np.dot((site_coords - parent_coords), z_dir.reshape(3, 1)) * ANGS_TO_NM
 
-            extra_sites[site_number] = [
-                (parent, closest_atoms[0], closest_atoms[1]),
-                (p1 * 0.1, p2 * 0.1, p3 * 0.1),
-                site_charge
-            ]
+                site_data.o_weights = [1.0, 0.0, 0.0]
+                site_data.x_weights = [-1.0, 1.0, 0.0]
+                site_data.y_weights = [-1.0, 0.0, 1.0]
+
+            # Get the local coordinate positions
+            site_data.p1 = np.dot((site_coords - parent_coords), x_dir.reshape(3, 1)) * ANGS_TO_NM
+
+            extra_sites[site_number] = site_data
 
         self.molecule.extra_sites = extra_sites
 
