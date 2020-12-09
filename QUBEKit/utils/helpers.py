@@ -232,15 +232,14 @@ def fix_net_charge(molecule):
         molecule.ddec_data[atom_index].charge = decimal.Decimal(atom.charge).quantize(round_to)
     if molecule.extra_sites is not None:
         for site_key, site in molecule.extra_sites.items():
-            molecule.extra_sites[site_key] = [site[0], site[1], decimal.Decimal(site[-1]).quantize(round_to)]
-
+            molecule.extra_sites[site_key].charge = decimal.Decimal(site.charge).quantize(round_to)
     atom_charges = sum(atom.charge for atom in molecule.ddec_data.values())
 
     # This is just the difference in what the net charge should be, and what it currently is.
     extra = molecule.charge - atom_charges
 
     if molecule.extra_sites is not None:
-        virtual_site_charges = sum(site[-1] for site in molecule.extra_sites.values())
+        virtual_site_charges = sum(site.charge for site in molecule.extra_sites.values())
         extra -= virtual_site_charges
 
     if extra:
@@ -253,7 +252,7 @@ def fix_net_charge(molecule):
         molecule.ddec_data[atom_index].charge = float(atom.charge)
     if molecule.extra_sites is not None:
         for site_key, site in molecule.extra_sites.items():
-            molecule.extra_sites[site_key] = [site[0], site[1], float(site[-1])]
+            molecule.extra_sites[site_key].charge = float(site.charge)
 
 
 def collect_archive_tdrive(tdrive_record, client):
