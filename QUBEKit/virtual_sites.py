@@ -778,15 +778,15 @@ class VirtualSites:
 
                 y_dir = np.cross(z_dir, x_dir)
 
-                site_data.p2 = np.dot((site_coords - parent_coords), y_dir.reshape(3, 1)) * ANGS_TO_NM
-                site_data.p3 = np.dot((site_coords - parent_coords), z_dir.reshape(3, 1)) * ANGS_TO_NM
+                site_data.p2 = float(np.dot((site_coords - parent_coords), y_dir.reshape(3, 1)) * ANGS_TO_NM)
+                site_data.p3 = float(np.dot((site_coords - parent_coords), z_dir.reshape(3, 1)) * ANGS_TO_NM)
 
                 site_data.o_weights = [1.0, 0.0, 0.0]
                 site_data.x_weights = [-1.0, 1.0, 0.0]
                 site_data.y_weights = [-1.0, 0.0, 1.0]
 
             # Get the local coordinate positions
-            site_data.p1 = np.dot((site_coords - parent_coords), x_dir.reshape(3, 1)) * ANGS_TO_NM
+            site_data.p1 = float(np.dot((site_coords - parent_coords), x_dir.reshape(3, 1)) * ANGS_TO_NM)
 
             extra_sites[site_number] = site_data
 
