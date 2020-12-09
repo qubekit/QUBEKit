@@ -609,9 +609,9 @@ class Molecule:
                 attrib = {
                     'type': 'localCoords',
                     'index': str(key + len(self.atoms)),
-                    'atom1': str(site.closest_a_index),
-                    'atom2': str(site.closest_b_index),
-                    'atom3': str(site.closest_c_index),
+                    'atom1': str(site.parent_index),
+                    'atom2': str(site.closest_a_index),
+                    'atom3': str(site.closest_b_index),
                     'wo1': str(site.o_weights[0]), 'wo2': str(site.o_weights[1]), 'wo3': str(site.o_weights[2]),
                     'wx1': str(site.x_weights[0]), 'wx2': str(site.x_weights[1]), 'wx3': str(site.x_weights[2]),
                     'wy1': str(site.y_weights[0]), 'wy2': str(site.y_weights[1]), 'wy3': str(site.y_weights[2]),
@@ -624,6 +624,7 @@ class Molecule:
                     attrib['wo4'] = str(site.o_weights[3])
                     attrib['wx4'] = str(site.x_weights[3])
                     attrib['wy4'] = str(site.y_weights[3])
+                    attrib['atom4'] = str(site.closest_c_index)
 
                 ET.SubElement(Residue, "VirtualSite", attrib=attrib)
 
