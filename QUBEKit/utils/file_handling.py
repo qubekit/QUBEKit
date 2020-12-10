@@ -11,11 +11,10 @@ TODO
 """
 
 from QUBEKit.engines import RDKit
-from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element
+from QUBEKit.utils.constants import ANGS_TO_NM, BOHR_TO_ANGS
+from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element, ExtraSite
 from QUBEKit.utils.exceptions import FileTypeError
 
-from collections import OrderedDict
 from itertools import groupby
 import os
 from pathlib import Path
@@ -164,7 +163,7 @@ class ReadInput:
         for bond in self.mol_input.connectivity:
             self.topology.add_edge(*bond[:2])
 
-        self.coords = np.array(self.mol_input.geometry).reshape((len(atoms), 3)) * constants.BOHR_TO_ANGS
+        self.coords = np.array(self.mol_input.geometry).reshape((len(atoms), 3)) * BOHR_TO_ANGS
         self.atoms = atoms or None
 
     def _read_pdb(self):
@@ -561,34 +560,28 @@ def extract_extra_sites_onetep(molecule):
     * Calculate the local coords site
     """
 
-    # Weighting arrays for the virtual sites should not be changed
-    w1o, w2o, w3o = 1.0, 0.0, 0.0   # SUM SHOULD BE 1
-    w1x, w2x, w3x = -1.0, 1.0, 0.0  # SUM SHOULD BE 0
-    w1y, w2y, w3y = -1.0, 0.0, 1.0  # SUM SHOULD BE 0
-
     with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
         lines = xyz_sites.readlines()
 
-    extra_sites = OrderedDict()
+    extra_sites = dict()
     parent = 0
-    sites_no = 0
+    site_number = 0
 
     for i, line in enumerate(lines[2:]):
         if line.split()[0] != 'X':
             parent += 1
             # Search the following entries for sites connected to this atom
             for virtual_site in lines[i + 3:]:
+                site_data = ExtraSite()
                 element, *site_coords, site_charge = virtual_site.split()
                 # Not a virtual site:
                 if element != 'X':
                     break
                 else:
                     site_coords = np.array([float(coord) for coord in site_coords])
-                    # Get the two closest atoms to the parent
+
                     closest_atoms = list(molecule.topology.neighbors(parent))
-                    if len(closest_atoms) < 2:
-                        # Find another atom if we only have one
-                        # Don't want to get the parent as a close atom
+                    if (len(closest_atoms) < 2) or (len(molecule.atoms[parent].bonds) > 3):
                         for atom in list(molecule.topology.neighbors(closest_atoms[0])):
                             if atom not in closest_atoms and atom != parent:
                                 closest_atoms.append(atom)
@@ -596,31 +589,53 @@ def extract_extra_sites_onetep(molecule):
 
                     # Get the xyz coordinates of the reference atoms
                     coords = molecule.coords['qm'] if molecule.coords['qm'] is not [] else molecule.coords['input']
-                    parent_pos = coords[parent]
-                    close_a = coords[closest_atoms[0]]
-                    close_b = coords[closest_atoms[1]]
+                    parent_coords = coords[parent]
+                    close_a_coords = coords[closest_atoms[0]]
+                    close_b_coords = coords[closest_atoms[1]]
 
-                    # Calculate the local coordinate site using rules from the OpenMM guide
-                    orig = w1o * parent_pos + w2o * close_a + close_b * w3o
-                    ab = w1x * parent_pos + w2x * close_a + w3x * close_b  # rb-ra
-                    ac = w1y * parent_pos + w2y * close_a + w3y * close_b  # rb-ra
-                    # Get the axis unit vectors
-                    z_dir = np.cross(ab, ac)
-                    z_dir /= np.sqrt(np.dot(z_dir, z_dir.reshape(3, 1)))
-                    x_dir = ab / np.sqrt(np.dot(ab, ab.reshape(3, 1)))
-                    y_dir = np.cross(z_dir, x_dir)
-                    # Get the local coordinate positions
-                    p1 = np.dot((site_coords - orig), x_dir.reshape(3, 1))
-                    p2 = np.dot((site_coords - orig), y_dir.reshape(3, 1))
-                    p3 = np.dot((site_coords - orig), z_dir.reshape(3, 1))
+                    site_data.parent_index = parent
+                    site_data.closest_a_index = closest_atoms[0]
+                    site_data.closest_b_index = closest_atoms[1]
 
-                    extra_sites[sites_no] = [
-                        (parent, closest_atoms[0], closest_atoms[1]),
-                        (p1 * 0.1, p2 * 0.1, p3 * 0.1),
-                        float(site_charge)
-                    ]
+                    parent_atom = molecule.atoms[parent]
+                    if parent_atom.atomic_symbol == 'N' and len(parent_atom.bonds) == 3:
+                        close_c_coords = coords[closest_atoms[2]]
+                        site_data.closest_c_index = closest_atoms[2]
 
-                    sites_no += 1
+                        x_dir = ((close_a_coords + close_b_coords + close_c_coords) / 3) - parent_coords
+                        x_dir /= np.linalg.norm(x_dir)
+
+                        site_data.p2 = 0
+                        site_data.p3 = 0
+
+                        site_data.o_weights = [1.0, 0.0, 0.0, 0.0]
+                        site_data.x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
+                        site_data.y_weights = [1.0, -1.0, 0.0, 0.0]
+
+                    else:
+                        x_dir = close_a_coords - parent_coords
+                        x_dir /= np.linalg.norm(x_dir)
+
+                        z_dir = np.cross((close_a_coords - parent_coords), (close_b_coords - parent_coords))
+                        z_dir /= np.linalg.norm(z_dir)
+
+                        y_dir = np.cross(z_dir, x_dir)
+
+                        p2 = float(np.dot((site_coords - parent_coords), y_dir.reshape(3, 1)) * ANGS_TO_NM)
+                        site_data.p2 = round(p2, 4)
+                        p3 = float(np.dot((site_coords - parent_coords), z_dir.reshape(3, 1)) * ANGS_TO_NM)
+                        site_data.p3 = round(p3, 4)
+
+                        site_data.o_weights = [1.0, 0.0, 0.0]
+                        site_data.x_weights = [-1.0, 1.0, 0.0]
+                        site_data.y_weights = [-1.0, 0.0, 1.0]
+
+                    p1 = float(np.dot((site_coords - parent_coords), x_dir.reshape(3, 1)) * ANGS_TO_NM)
+                    site_data.p1 = round(p1, 4)
+
+                    extra_sites[site_number] = site_data
+
+                    site_number += 1
 
     molecule.extra_sites = extra_sites
 

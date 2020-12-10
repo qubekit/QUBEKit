@@ -89,13 +89,18 @@ class Atom:
 
 
 class ExtraSite:
-    """Used to store extra sites for later xml printing."""
+    """
+    Used to store extra sites for xml writer in ligand.
+    This class is used by both internal v-sites fitting and the ONETEP reader.
+    """
+
     def __init__(self):
         self.parent_index = None        # int
         self.closest_a_index = None     # int
         self.closest_b_index = None     # int
         # Optional: Used for Nitrogen only.
         self.closest_c_index = None     # int
+
         self.o_weights = None           # list of float
         self.x_weights = None           # list of float
         self.y_weights = None           # list of float

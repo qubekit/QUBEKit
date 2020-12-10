@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-from QUBEKit.ligand import Ligand
 from QUBEKit.utils.datastructures import Atom, CustomNamespace
-from QUBEKit.utils.file_handling import ExtractChargeData
 
 import networkx as nx
 import numpy as np
@@ -54,8 +52,3 @@ class Water:
 
         self.enable_symmetry = True
         self.v_site_error_factor = 1.005
-
-
-def load_molecule():
-    molecule = Ligand('CO', 'methanol')
-    ExtractChargeData(molecule).extract_charge_data()

@@ -739,7 +739,7 @@ class VirtualSites:
             site_data.charge = site_charge
 
             closest_atoms = list(self.molecule.topology.neighbors(parent))
-            if len(closest_atoms) < 2:
+            if (len(closest_atoms) < 2) or (len(self.molecule.atoms[parent].bonds) > 3):
                 for atom in list(self.molecule.topology.neighbors(closest_atoms[0])):
                     if atom not in closest_atoms and atom != parent:
                         closest_atoms.append(atom)
@@ -765,7 +765,7 @@ class VirtualSites:
                 site_data.p2 = 0
                 site_data.p3 = 0
 
-                site_data.o_weights = [1.0, 0.0, 0.0, 0.0]
+                site_data.o_weights = [1.0, 0.0, 0.0, 0.0]      # SUM MUST BE 1.0
                 site_data.x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
                 site_data.y_weights = [1.0, -1.0, 0.0, 0.0]
 
@@ -778,15 +778,18 @@ class VirtualSites:
 
                 y_dir = np.cross(z_dir, x_dir)
 
-                site_data.p2 = float(np.dot((site_coords - parent_coords), y_dir.reshape(3, 1)) * ANGS_TO_NM)
-                site_data.p3 = float(np.dot((site_coords - parent_coords), z_dir.reshape(3, 1)) * ANGS_TO_NM)
+                p2 = float(np.dot((site_coords - parent_coords), y_dir.reshape(3, 1)) * ANGS_TO_NM)
+                site_data.p2 = round(p2, 4)
+                p3 = float(np.dot((site_coords - parent_coords), z_dir.reshape(3, 1)) * ANGS_TO_NM)
+                site_data.p3 = round(p3, 4)
 
-                site_data.o_weights = [1.0, 0.0, 0.0]
+                site_data.o_weights = [1.0, 0.0, 0.0]           # SUM MUST BE 1.0
                 site_data.x_weights = [-1.0, 1.0, 0.0]
                 site_data.y_weights = [-1.0, 0.0, 1.0]
 
             # Get the local coordinate positions
-            site_data.p1 = float(np.dot((site_coords - parent_coords), x_dir.reshape(3, 1)) * ANGS_TO_NM)
+            p1 = float(np.dot((site_coords - parent_coords), x_dir.reshape(3, 1)) * ANGS_TO_NM)
+            site_data.p1 = round(p1, 4)
 
             extra_sites[site_number] = site_data
 
