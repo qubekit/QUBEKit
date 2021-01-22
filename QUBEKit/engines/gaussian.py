@@ -31,7 +31,7 @@ class Gaussian(Engines):
                                  'GAU_VERYTIGHT': 'verytight'}
 
     def generate_input(self, input_type='input', optimise=False, hessian=False, energy=False,
-                       density=False, restart=False, execute='g09', red_mode=False):
+                       density=False, restart=False, execute='g09'):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
         :param input_type: The set of coordinates in the molecule that should be used in the job
@@ -41,8 +41,6 @@ class Gaussian(Engines):
         :param density: Calculate the electron density
         :param restart: Restart from a check point file
         :param execute: Run the calculation after writing the input file
-        :param red_mode: If we are doing a redundant mode optimisation this will only add the ModRedundant keyword,
-        the rest of the input is hand wrote or handled by tdrive when required.
         :return: The exit status of the job if ran, True for normal false for not ran or error
         """
 
@@ -64,18 +62,11 @@ class Gaussian(Engines):
                     f'Root={self.molecule.excited_root}) SCF=XQC '
 
             else:
-                commands = f'# {self.molecule.theory}/{self.molecule.basis} SCF=XQC nosymm '
+                commands = f'# {self.molecule.theory}/{self.molecule.basis} ' \
+                           f'SCF=(XQC,MaxConventionalCycles={self.molecule.iterations}) nosymm '
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
             if optimise:
-                convergence = self.convergence_dict.get(self.molecule.convergence, "")
-                if convergence:
-                    convergence = f', {convergence}'
-                if red_mode:
-                    # Set the redundant mode as the convergence as we just want to use the standard threshold
-                    convergence = ', ModRedundant'
-                # Set the convergence and the iteration cap for the optimisation
-                # commands += f'opt(MaxCycles={self.molecule.iterations}{convergence}) '
                 commands += f'Opt=ModRedundant '
 
             if hessian:

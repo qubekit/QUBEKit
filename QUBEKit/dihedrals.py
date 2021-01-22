@@ -172,7 +172,7 @@ class TorsionScan:
 
         # Then write the template input file for tdrive in g09 or psi4 format
         if self.native_opt:
-            self.qm_engine.generate_input(optimise=True, execute=False, red_mode=True)
+            self.qm_engine.generate_input(optimise=True, execute=False)
             if self.qm_engine.__class__.__name__.lower() == 'psi4':
                 self.input_file = 'input.dat'
             else:
@@ -234,7 +234,7 @@ class TorsionScan:
 
         for scan in self.molecule.scan_order:
             name = self._make_folder_name(scan)
-            os.chdir(os.path.join(self.home, os.path.join(f'{name}', 'QM_torsiondrive')))
+            os.chdir(os.path.join(self.home, os.path.join(name, 'QM_torsiondrive')))
             self.molecule.read_tdrive(scan[1:3])
 
     def _make_folder_name(self, scan):
@@ -250,7 +250,7 @@ class TorsionScan:
         name = self._make_folder_name(scan)
         # Try and open the tdrive.log file to check the old running options
         try:
-            file_path = os.path.join(os.getcwd(), f'{name}', 'QM_torsiondrive', 'tdrive.log')
+            file_path = os.path.join(os.getcwd(), name, 'QM_torsiondrive', 'tdrive.log')
             with open(file_path) as t_log:
                 header = t_log.readline().split('Basis used:')
 
