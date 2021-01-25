@@ -960,6 +960,7 @@ class Ligand(DefaultsMixin, Molecule):
 
         self.parameter_engine = 'openmm'
         self.hessian = None
+        self.wbo = None
         self.modes = None
         self.home = None
 

@@ -54,3 +54,16 @@ class PSI4Error(Exception):
     """
     PSI4 did not execute properly
     """
+
+
+class DependencyError(Exception):
+
+    def __init__(self, message: str):
+        """
+        Set the display message for this missing dependency, if the conda channel is set to `None` we assume it is on pip.
+        """
+        self.msg = message
+        super().__init__(self, self.msg)
+
+    def __str__(self):
+        return self.msg

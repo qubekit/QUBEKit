@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
 from QUBEKit.engines.base_engine import Engines
-from QUBEKit.utils import constants
-from QUBEKit.utils.helpers import check_symmetry
 
 import qcelemental as qcel
 import qcengine as qcng
 
-import numpy as np
 
 
 class QCEngine(Engines):
@@ -54,21 +51,10 @@ class QCEngine(Engines):
                 molecule=mol,
                 driver=driver,
                 model={'method': self.molecule.theory, 'basis': self.molecule.basis},
-                keywords={'scf_type': 'df'},
+                keywords={'scf_type': 'df', "scf_properties": ["wiberg_lowdin_indices"]},
             )
 
-            ret = qcng.compute(psi4_task, 'psi4', local_options=options)
-
-            if driver == 'hessian':
-                hess_size = 3 * len(self.molecule.atoms)
-                conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
-                hessian = np.reshape(ret.return_result, (hess_size, hess_size)) * conversion
-                check_symmetry(hessian)
-
-                return hessian
-
-            else:
-                return ret.return_result
+            return qcng.compute(psi4_task, 'psi4', local_options=options)
 
         # Call geometric with psi4 to optimise a molecule
         elif engine == 'geometric':
@@ -76,17 +62,18 @@ class QCEngine(Engines):
                 'schema_name': 'qcschema_optimization_input',
                 'schema_version': 1,
                 'keywords': {
-                    'coordsys': 'tric',
+                    'coordsys': 'dlc',
                     'maxiter': self.molecule.iterations,
                     'program': 'psi4',
                     'convergence_set': self.molecule.convergence,
+                    "reset": True,
                 },
                 'input_specification': {
                     'schema_name': 'qcschema_input',
                     'schema_version': 1,
                     'driver': 'gradient',
                     'model': {'method': self.molecule.theory, 'basis': self.molecule.basis},
-                    'keywords': {},
+                    'keywords': {"scf_properties": ["wiberg_lowdin_indices"]},
                 },
                 'initial_molecule': mol,
             }
@@ -96,11 +83,10 @@ class QCEngine(Engines):
             ani_task = qcel.models.AtomicInput(
                 molecule=mol,
                 driver=driver,
-                model={'method': 'ANI1x', 'basis': None},
-                keywords={'scf_type': 'df'}
+                model={'method': self.molecule.theory, 'basis': None},
             )
 
-            return qcng.compute(ani_task, 'torchani', local_options=options).return_result
+            return qcng.compute(ani_task, 'torchani', local_options=options)
 
         else:
             raise KeyError('Invalid engine type provided. Please use "geometric", "psi4" or "torchani".')

@@ -26,7 +26,7 @@ from QUBEKit.utils.display import display_molecule_objects, pretty_print, pretty
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
 from QUBEKit.utils.file_handling import ExtractChargeData, extract_extra_sites_onetep, make_and_change_into
 from QUBEKit.utils.helpers import append_to_log, fix_net_charge, generate_bulk_csv, mol_data_from_csv, string_to_bool,\
-    unpickle, update_ligand
+    unpickle, update_ligand, requires_package
 
 import argparse
 from collections import OrderedDict
@@ -416,6 +416,7 @@ class Execute:
             ('density', self.density),
             ('charges', self.charges),
             ('lennard_jones', self.lennard_jones),
+            ("fit_hessian", self.fit_hessian),
             ('torsion_scan', self.torsion_scan),
             ('torsion_optimise', self.torsion_optimise),
             ('finalise', self.finalise),
@@ -588,6 +589,7 @@ class Execute:
                         'Density calculation complete'],
             'charges': [f'Chargemol calculating charges using DDEC{self.molecule.ddec_version}', 'Charges calculated'],
             'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
+            "fit_hessian": ["Performing Hessian fitting using QForce", "Hessian fitting finished"],
             'torsion_scan': ['Performing QM-constrained optimisation with Torsiondrive',
                              'Torsiondrive finished and QM results saved'],
             'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
@@ -746,7 +748,7 @@ class Execute:
 
     def qm_optimise(self, molecule):
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
-
+        print("startiing opt")
         append_to_log('Starting qm_optimisation')
         qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
         max_restarts = 3
@@ -755,7 +757,7 @@ class Execute:
             qceng = QCEngine(molecule)
             result = qceng.call_qcengine(engine='geometric', driver='gradient',
                                          input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}')
-
+            print(result)
             restart_count = 0
             while (not result['success']) and (restart_count < max_restarts):
                 append_to_log(f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
@@ -823,6 +825,7 @@ class Execute:
     @staticmethod
     def hessian(molecule):
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
+        from QUBEKit.utils.helpers import check_symmetry
 
         append_to_log('Starting hessian calculation')
         molecule.find_bond_lengths('qm')
@@ -842,14 +845,21 @@ class Execute:
             if not result['success']:
                 raise HessianCalculationFailed('The hessian was not calculated check the log file.')
 
-            hessian = qm_engine.hessian()
+            raw_hessian = qm_engine.hessian()
 
         else:
-            hessian = QCEngine(molecule).call_qcengine(engine='psi4', driver='hessian', input_type='qm')
-            np.savetxt('hessian.txt', hessian)
+            output = QCEngine(molecule).call_qcengine(engine='psi4', driver='hessian', input_type='qm')
+            raw_hessian = output.return_result
+            wbo_matrix = output.extras["qcvars"]["WIBERG_LOWDIN_INDICES"]
+            # reshape the matrix and store it
+            molecule.wbo = np.reshape(wbo_matrix, (3 * len(molecule.atoms), -1))
 
+        hess_size = 3 * len(molecule.atoms)
+        conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
+        hessian = np.reshape(raw_hessian, (hess_size, hess_size)) * conversion
+        check_symmetry(hessian)
+        np.savetxt('hessian.txt', hessian)
         molecule.hessian = hessian
-
         append_to_log(f'Finishing Hessian calculation using {molecule.bonds_engine}')
 
         return molecule
@@ -936,6 +946,19 @@ class Execute:
         append_to_log('Finishing Lennard-Jones parameter calculation')
 
         return molecule
+
+    @staticmethod
+    @requires_package(package_name="qforce", conda_channel=None)
+    def fit_hessian(molecule: Ligand) -> Ligand:
+        """
+        Optimise the bond, angle and non rotatable torsions using QFroce internal hessian fitting.
+        """
+        from QUBEKit.fitting.hessian_fitting import QforceHessianFitting
+        append_to_log("Starting Hessian fitting using QForce")
+        qforce = QforceHessianFitting(combination_rule=molecule.combination)
+        optimised_molecule = qforce.fit_hessian(molecule=molecule)
+        exit()
+        return optimised_molecule
 
     @staticmethod
     def torsion_scan(molecule):
