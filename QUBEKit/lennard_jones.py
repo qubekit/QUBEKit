@@ -103,6 +103,9 @@ class LennardJones:
 
                 # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
+                # atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
+                # # alpha and beta
+                # epsilon *= 1.2207 * ((atom.volume / self.elem_dict[atomic_symbol].vfree) ** 0.48856)
                 epsilon *= constants.EPSILON_CONVERSION
 
             self.non_bonded_force[atom_index] = [atom.charge, sigma, epsilon]

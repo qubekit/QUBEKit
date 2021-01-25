@@ -579,18 +579,19 @@ class Execute:
 
         stage_dict = {
             # Stage: [Start message, End message]
-            'parametrise': ['Parametrising molecule', 'Molecule parametrised'],
+            'parametrise': [f'Parametrising molecule with {self.molecule.parameter_engine}', 'Molecule parametrised'],
             'mm_optimise': ['Partially optimising with MM', 'Partial optimisation complete'],
-            'qm_optimise': ['Optimising molecule with QM', 'Molecule optimisation complete'],
+            'qm_optimise': [f'Optimising molecule with QM with {self.molecule.basis} / {self.molecule.theory} using '
+                            f'{self.molecule.bonds_engine}', 'Molecule optimisation complete'],
             'hessian': ['Calculating Hessian matrix', 'Hessian matrix calculated and confirmed to be symmetric'],
             'mod_sem': ['Calculating bonds and angles with modified Seminario method',
                         'Bond and angle parameters calculated'],
-            'density': [f'Performing density calculation with {self.molecule.density_engine}',
-                        'Density calculation complete'],
+            'density': [f'Performing density calculation with {self.molecule.density_engine} using dielectric of '
+                        f'{self.molecule.dielectric}', 'Density calculation complete'],
             'charges': [f'Chargemol calculating charges using DDEC{self.molecule.ddec_version}', 'Charges calculated'],
             'lennard_jones': ['Performing Lennard-Jones calculation', 'Lennard-Jones parameters calculated'],
             "fit_hessian": ["Performing Hessian fitting using QForce", "Hessian fitting finished"],
-            'torsion_scan': ['Performing QM-constrained optimisation with Torsiondrive',
+            'torsion_scan': [f'Performing QM-constrained optimisation with Torsiondrive and {self.molecule.bonds_engine}',
                              'Torsiondrive finished and QM results saved'],
             'torsion_optimise': ['Performing torsion optimisation', 'Torsion optimisation complete'],
             'finalise': ['Finalising analysis', 'Molecule analysis complete!'],
