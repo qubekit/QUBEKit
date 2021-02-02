@@ -21,12 +21,12 @@ from QUBEKit.virtual_sites import VirtualSites
 from QUBEKit.utils import constants
 from QUBEKit.utils.configs import Configure
 from QUBEKit.utils.constants import COLOURS
-from QUBEKit.utils.decorators import exception_logger
+from QUBEKit.utils.decorators import exception_logger, requires_package
 from QUBEKit.utils.display import display_molecule_objects, pretty_print, pretty_progress
 from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
 from QUBEKit.utils.file_handling import ExtractChargeData, extract_extra_sites_onetep, make_and_change_into
 from QUBEKit.utils.helpers import append_to_log, fix_net_charge, generate_bulk_csv, mol_data_from_csv, string_to_bool,\
-    unpickle, update_ligand, requires_package
+    unpickle, update_ligand
 
 import argparse
 from collections import OrderedDict

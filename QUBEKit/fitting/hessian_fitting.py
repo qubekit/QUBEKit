@@ -34,6 +34,9 @@ class QforceHessianFitting:
     def _generate_settings(self) -> StringIO:
         """
         Generate the qforce settings for the fitting.
+
+        Note:
+            The urey terms are set to off as we do not currently support them.
         """
         combination_settings = self._get_combination_settings()
 
@@ -44,6 +47,8 @@ class QforceHessianFitting:
         ext_q_fudge = {combination_settings["charge"]}
         ext_comb_rule = {combination_settings["comb_rule"]}
         charge_scaling = {self.charge_scaling}
+        [terms]
+        urey = false
         """
         return StringIO(settings)
 

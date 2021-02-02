@@ -14,11 +14,8 @@ import math
 import operator
 import os
 import pickle
-import functools
 
 import numpy as np
-
-from typing import Callable, Optional
 
 
 def mol_data_from_csv(csv_name):
@@ -356,32 +353,3 @@ def hide_warnings():
 def string_to_bool(string):
     """Convert a string to a bool for argparse use when casting to bool"""
     return string.casefold() in ['true', 't', 'yes', 'y']
-
-
-def requires_package(package_name: str, conda_channel: Optional[str] = "conda-forge"):
-    """
-    This wraps a function to check if the required dependency is available before running.
-    """
-    from QUBEKit.utils.exceptions import DependencyError
-
-    def inner_decorator(function: Callable):
-        @functools.wraps(function)
-        def wrapper(*args, **kwargs):
-            import importlib
-
-            try:
-                importlib.import_module(package_name)
-            except (ImportError, ModuleNotFoundError):
-                if conda_channel is None:
-                    install_method = f"pip install {package_name}."
-                else:
-                    install_method = f"conda install {package_name} -c {conda_channel}."
-                raise DependencyError(f"Missing dependecy for {package_name}. Try installing it with {install_method}")
-            except Exception as e:
-                raise e
-
-            return function(*args, **kwargs)
-
-        return wrapper
-
-    return inner_decorator
