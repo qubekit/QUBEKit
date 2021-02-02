@@ -1,9 +1,80 @@
 #!/usr/bin/env python3
 
 from QUBEKit.utils.helpers import string_to_bool
+from pydantic import BaseModel, Field, PositiveInt
+
+from typing import Optional
+from typing_extensions import Literal
 
 from configparser import ConfigParser
 import os
+
+
+class ConfigBase(BaseModel):
+
+    class Config:
+        validate_assignment = True
+
+
+class ParamDummy(ConfigBase):
+    parameter_engine: str
+    forcefield: str
+
+    class Config:
+        # define the inherited fields here, to keep the descriptions
+        fields = {
+            "forcefield": {"description": "The version of the forcefield that should be used."},
+            "parameter_engine": {"description": "The name of the parameter engine that should be used."}
+        }
+
+
+class AnteChamberDummy(ParamDummy):
+    """
+    Each class would have to be rebased on pydantic to fit into the pipline, this is a dummy class for now.
+    """
+    parameter_engine: Literal["AnteChamberDummy"] = "AnteChamberDummy"
+    forcefield: Literal["gaff"] = "gaff"
+
+
+class OpenffDummy(ParamDummy):
+    parameter_engine: Literal["OpenffDummy"] = "OpenffDummy"
+    forcefield: Literal["openff_unconstrained-1.3.0.offxml"] = "openff_unconstrained-1.3.0.offxml"
+
+
+class GeometryOptimiser(ConfigBase):
+    """
+    A dummy class to handle generale geometry optimisations, this can handle the dispatch to the correct method.
+    """
+    #TODO remove this option, as we move to qcengine we have to use geometric or the other optimisers like opt king
+    # native optimisation is not an option
+
+    geometric: bool = Field(True, description="If geometric should be used to optimise the molecule")
+    program: Literal["openmm", "xtb", "psi4", "gaussian", "torchani", "rdkit"] = Field("openmm", description="The program that should be used to perform the optimisation.")
+    method: str = Field("openff_unconstrained-1.3.0.offxml", description="The method that should be used to run the optimisation")
+    basis: Optional[str] = Field("smirnoff", description="The basis that should be used during the optimisation.")
+    maxiter: PositiveInt = Field(350, description="The maximum number of optimisation steps.")
+    convergence: Literal["GAU", "GAU_TIGHT"] = Field("GAU_TIGHT", description="The convergence critera for the geometry optimisation.")
+
+
+class Workflow(ConfigBase):
+    """
+    A schema which lists all of the run time options for each stage in the workflow.
+    """
+    parametrisation: ParamDummy = Field(AnteChamberDummy(), description="The parameterisation method that should be used.")
+    mm_minimisation: GeometryOptimiser = Field(GeometryOptimiser(), description="The method that should be used to do an initial optimisation, this could be mm,xtb or ml or cheap QM.")
+
+
+class GeneralConfig(ConfigBase):
+    """
+    This schema handles all run time options for QUBEkit, each workflow stage is listed separately with its own schema which is fully validated
+    to catch errors when loading the config ahead of run time.
+    """
+
+    # general settings
+    memory: PositiveInt = Field(4, description="The amount of memory each qm job is allowed to use in GB.")
+    threads: PositiveInt = Field(2, description="The number of threads each qm job is allowed to use.")
+    workflow: Workflow = Field(Workflow(),
+                               description="The parametrisation workflow which details what option should be used for each fitting stage.")
 
 
 class Configure:
