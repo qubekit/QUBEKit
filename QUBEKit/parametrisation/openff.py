@@ -2,9 +2,12 @@
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 from QUBEKit.utils.helpers import hide_warnings
+from QUBEKit.ligand import Ligand
+
+from typing import Optional, List
 
 from simtk import unit
-from simtk.openmm import XmlSerializer
+from simtk.openmm import System
 
 with hide_warnings():
     from openforcefield.topology import Molecule
@@ -22,24 +25,20 @@ class OpenFF(Parametrisation):
     A serialised XML is then stored in the parameter dictionaries.
     """
 
-    def __init__(self, molecule, input_file=None, fftype='frost'):
+    def __init__(self, fftype='openff_unconstrained-1.3.0.offxml'):
 
-        super().__init__(molecule, input_file, fftype)
+        super().__init__(fftype)
 
-        self.serialise_system()
-        self.gather_parameters()
-        self.molecule.parameter_engine = f'OpenFF_{self.fftype}'
-
-    def serialise_system(self):
+    def build_system(self, molecule: Ligand, input_files: Optional[List[str]] = None) -> System:
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 
         # Create an openFF molecule from the rdkit molecule
-        off_molecule = Molecule.from_rdkit(self.molecule.rdkit_mol, allow_undefined_stereo=True)
+        off_molecule = Molecule.from_rdkit(molecule.rdkit_mol, allow_undefined_stereo=True)
 
         # Make the OpenMM system
         off_topology = off_molecule.to_topology()
 
-        forcefield = ForceField('openff_unconstrained-1.0.0.offxml')
+        forcefield = ForceField(self.fftype)
 
         try:
             # Parametrise the topology and create an OpenMM System.
@@ -70,8 +69,5 @@ class OpenFF(Parametrisation):
             del forcefield._parameter_handlers['Electrostatics']
             # Parametrize the topology and create an OpenMM System.
             system = forcefield.create_openmm_system(off_topology)
-            # This will tag the molecule so run.py knows that generics have been used.
-            self.fftype = 'generics'
-        # Serialise the OpenMM system into the xml file
-        with open('serialised.xml', 'w+') as out:
-            out.write(XmlSerializer.serializeSystem(system))
+
+        return system

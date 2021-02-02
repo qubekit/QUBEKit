@@ -1,30 +1,35 @@
 #!/usr/bin/env python3
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
+from QUBEKit.ligand import Ligand
 
-from simtk.openmm import app, XmlSerializer
+from typing import Optional, List
+from simtk.openmm import app, System
 
 
 class XML(Parametrisation):
     """Read in the parameters for a molecule from an XML file and store them into the molecule."""
 
-    def __init__(self, molecule, input_file=None, fftype='CM1A/OPLS'):
+    def __init__(self, fftype='CM1A/OPLS'):
+        super().__init__(fftype)
 
-        super().__init__(molecule, input_file, fftype)
-
-        # self.check_xml()
-        self.xml = self.input_file if self.input_file else f'{self.molecule.name}.xml'
-        self.serialise_system()
-        self.gather_parameters()
-        self.molecule.parameter_engine = 'XML input ' + self.fftype
-
-    def serialise_system(self):
+    def build_system(self, molecule: Ligand, input_files: Optional[List[str]] = None) -> System:
         """Serialise the input XML system using openmm."""
 
-        pdb = app.PDBFile(f'{self.molecule.name}.pdb')
+        # find the xml file
+        xml = None
+        if input_files is not None:
+            for file in input_files:
+                if file.endswith(".xml"):
+                    xml = file
+                    break
+        # if we did not find one guess the name
+        xml = xml or f"{molecule.name}.xml"
+
+        pdb = app.PDBFile(f'{molecule.name}.pdb')
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
-        forcefield = app.ForceField(self.xml)
+        forcefield = app.ForceField(xml)
         # Check for virtual sites
         try:
             system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
@@ -32,7 +37,4 @@ class XML(Parametrisation):
             print('Virtual sites were found in the xml file')
             modeller.addExtraParticles(forcefield)
             system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
-
-        xml = XmlSerializer.serializeSystem(system)
-        with open('serialised.xml', 'w+') as out:
-            out.write(xml)
+        return system

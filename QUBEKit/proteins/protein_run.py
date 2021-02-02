@@ -43,10 +43,9 @@ def main():
         def __call__(self, pars, namespace, values, option_string=None):
 
             pro = Protein(values)
-            # print the QUBE general FF to use in the parametrisation
-            qube_general()
             # now we want to add the connections and parametrise the protein
-            XMLProtein(pro)
+            xml_params = XMLProtein()
+            pro = xml_params.parameterise_molecule(pro)
 
             # finally we need the non-bonded parameters from onetep
             # TODO should we also have the ability to get DDEC6 charges from the cube file?

@@ -73,7 +73,7 @@ class QCEngine(Engines):
                     'schema_version': 1,
                     'driver': 'gradient',
                     'model': {'method': self.molecule.theory, 'basis': self.molecule.basis},
-                    'keywords': {"scf_properties": ["wiberg_lowdin_indices"]},
+                    'keywords': {},
                 },
                 'initial_molecule': mol,
             }

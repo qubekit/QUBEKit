@@ -40,6 +40,7 @@ class LigandTab(QtWidgets.QWidget):
         # Try to load the molecule if we have been passed a name
         if molecule_file is not None:
             self.molecule = Ligand(molecule_file)
+            self.molecule.filename = molecule_file
         else:
             self.molecule = None
 

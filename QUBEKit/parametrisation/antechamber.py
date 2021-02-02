@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
+from QUBEKit.ligand import Ligand
 
+from typing import Optional, List, Tuple
 import os
 import shutil
 import subprocess as sp
 from tempfile import TemporaryDirectory
 
-from simtk.openmm import app, XmlSerializer
+from simtk.openmm import System, app
 
 
 class AnteChamber(Parametrisation):
@@ -16,36 +18,28 @@ class AnteChamber(Parametrisation):
     then build and export the xml tree object.
     """
 
-    def __init__(self, molecule, input_file=None, fftype='gaff'):
+    def __init__(self, fftype='gaff'):
 
-        super().__init__(molecule, input_file, fftype)
+        super().__init__(fftype)
 
-        self.antechamber_cmd()
-        self.serialise_system()
-        self.gather_parameters()
-        self.prmtop = None
-        self.inpcrd = None
-        self.molecule.parameter_engine = 'AnteChamber ' + self.fftype
-
-    def serialise_system(self):
+    def build_system(self, molecule: Ligand, input_files: Optional[List[str]] = None) -> System:
         """Serialise the amber style files into an openmm object."""
 
-        prmtop = app.AmberPrmtopFile(self.prmtop)
+        prmtop_file = self.make_prmtop(molecule=molecule)
+        prmtop = app.AmberPrmtopFile(prmtop_file)
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
+        return system
 
-        with open('serialised.xml', 'w+') as out:
-            out.write(XmlSerializer.serializeSystem(system))
-
-    def antechamber_cmd(self):
+    def make_prmtop(self, molecule: Ligand) -> Tuple[str, str]:
         """Method to run Antechamber, parmchk2 and tleap."""
 
         # file paths when moving in and out of temp locations
         cwd = os.getcwd()
-        mol2 = os.path.abspath(f'{self.molecule.name}.mol2')
-        pdb_path = os.path.abspath(f'{self.molecule.name}.pdb')
-        frcmod_file = os.path.abspath(f'{self.molecule.name}.frcmod')
-        prmtop_file = os.path.abspath(f'{self.molecule.name}.prmtop')
-        inpcrd_file = os.path.abspath(f'{self.molecule.name}.inpcrd')
+        mol2 = os.path.abspath(f'{molecule.name}.mol2')
+        pdb_path = os.path.abspath(f'{molecule.name}.pdb')
+        frcmod_file = os.path.abspath(f'{molecule.name}.frcmod')
+        prmtop_file = os.path.abspath(f'{molecule.name}.prmtop')
+        inpcrd_file = os.path.abspath(f'{molecule.name}.inpcrd')
         ant_log = os.path.abspath('Antechamber.log')
 
         # Call Antechamber
@@ -55,7 +49,7 @@ class AnteChamber(Parametrisation):
             shutil.copy(pdb_path, 'in.pdb')
 
             # Call Antechamber
-            cmd = f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc -nc {self.molecule.charge}'
+            cmd = f'antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc -nc {molecule.charge}'
 
             with open('ante_log.txt', 'w+') as log:
                 sp.run(cmd, shell=True, stdout=log, stderr=log)
@@ -121,5 +115,6 @@ class AnteChamber(Parametrisation):
             os.chdir(cwd)
 
         # Now give the file names to parametrisation method
-        self.prmtop = f'{self.molecule.name}.prmtop'
-        self.inpcrd = f'{self.molecule.name}.inpcrd'
+        prmtop = f'{molecule.name}.prmtop'
+        inpcrd = f'{molecule.name}.inpcrd'
+        return (prmtop, inpcrd)

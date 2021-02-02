@@ -15,7 +15,7 @@ from QUBEKit.engines import Chargemol, Gaussian, PSI4, QCEngine, RDKit
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
-from QUBEKit.parametrisation import AnteChamber, OpenFF, Parametrisation, XML
+from QUBEKit.parametrisation import AnteChamber, OpenFF, Parametrisation, XML, Gromacs
 from QUBEKit.virtual_sites import VirtualSites
 
 from QUBEKit.utils import constants
@@ -266,7 +266,7 @@ class ArgsAndConfigs:
         parser.add_argument('-basis', '--basis',
                             help='Enter the basis set you would like to use.')
         parser.add_argument('-restart', '--restart', choices=['parametrise', 'mm_optimise', 'qm_optimise', 'hessian',
-                                                              'mod_sem', 'density', 'charges', 'lennard_jones',
+                                                              'mod_sem', 'density', 'charges', 'lennard_jones', "fit_hessian",
                                                               'torsion_scan', 'torsion_optimise'],
                             help='Enter the restart point of a QUBEKit job.')
         parser.add_argument('-end', '-end', choices=['parametrise', 'mm_optimise', 'qm_optimise', 'hessian', 'mod_sem',
@@ -674,7 +674,7 @@ class Execute:
         append_to_log('Starting parametrisation')
 
         # Parametrisation options:
-        param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF}
+        param_dict = {'antechamber': AnteChamber, 'xml': XML, 'openff': OpenFF, 'gromacs': Gromacs}
 
         # If we are using xml we have to move it to QUBEKit working dir
         if molecule.parameter_engine == 'xml':
@@ -689,11 +689,14 @@ class Execute:
         # Perform the parametrisation
         # If the method is none the molecule is not parameterised but the parameter holders are initiated
         if molecule.parameter_engine == 'none':
-            Parametrisation(molecule).gather_parameters()
+            Parametrisation.prep_molecule(molecule=molecule)
         else:
             # Write the PDB file; this covers us if we have a different input file
             molecule.write_pdb()
-            param_dict[molecule.parameter_engine](molecule)
+            # setup the engine
+            param_engine = param_dict[molecule.parameter_engine]()
+            #TODO we need to pass input parameters here for extra files
+            molecule = param_engine.parameterise_molecule(molecule=molecule)
 
         append_to_log(f'Finishing parametrisation of molecule with {molecule.parameter_engine}')
 
@@ -758,7 +761,7 @@ class Execute:
             qceng = QCEngine(molecule)
             result = qceng.call_qcengine(engine='geometric', driver='gradient',
                                          input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}')
-            print(result)
+            print(f"Optimization converged in {len(result['trajectory'])} steps.")
             restart_count = 0
             while (not result['success']) and (restart_count < max_restarts):
                 append_to_log(f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
@@ -853,11 +856,11 @@ class Execute:
             raw_hessian = output.return_result
             wbo_matrix = output.extras["qcvars"]["WIBERG_LOWDIN_INDICES"]
             # reshape the matrix and store it
-            molecule.wbo = np.reshape(wbo_matrix, (3 * len(molecule.atoms), -1))
+            molecule.wbo = np.reshape(wbo_matrix, (len(molecule.atoms), -1))
 
         hess_size = 3 * len(molecule.atoms)
-        conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
-        hessian = np.reshape(raw_hessian, (hess_size, hess_size)) * conversion
+        #conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
+        hessian = np.reshape(raw_hessian, (hess_size, hess_size)) #* conversion
         check_symmetry(hessian)
         np.savetxt('hessian.txt', hessian)
         molecule.hessian = hessian
@@ -958,7 +961,6 @@ class Execute:
         append_to_log("Starting Hessian fitting using QForce")
         qforce = QforceHessianFitting(combination_rule=molecule.combination)
         optimised_molecule = qforce.fit_hessian(molecule=molecule)
-        exit()
         return optimised_molecule
 
     @staticmethod
@@ -985,12 +987,12 @@ class Execute:
 
         # First we should make sure we have collected the results of the scans
         if molecule.qm_scans is None:
-            os.chdir(os.path.join(molecule.home, '09_torsion_scan'))
+            os.chdir(os.path.join(molecule.home, '10_torsion_scan'))
             scan = TorsionScan(molecule)
             if molecule.scan_order is None:
                 scan.find_scan_order()
             scan.collect_scan()
-            os.chdir(os.path.join(molecule.home, '10_torsion_optimise'))
+            os.chdir(os.path.join(molecule.home, '11_torsion_optimise'))
 
         TorsionOptimiser(molecule).run()
 
