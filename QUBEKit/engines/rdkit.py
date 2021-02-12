@@ -3,8 +3,7 @@
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
-from rdkit.Chem.rdForceFieldHelpers import (MMFFOptimizeMolecule,
-                                            UFFOptimizeMolecule)
+from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 from rdkit.Geometry.rdGeometry import Point3D
 
 

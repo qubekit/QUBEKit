@@ -20,8 +20,7 @@ import numpy as np
 
 from QUBEKit.engines import RDKit
 from QUBEKit.utils.constants import ANGS_TO_NM, BOHR_TO_ANGS
-from QUBEKit.utils.datastructures import (Atom, CustomNamespace, Element,
-                                          ExtraSite)
+from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element, ExtraSite
 from QUBEKit.utils.exceptions import FileTypeError
 
 

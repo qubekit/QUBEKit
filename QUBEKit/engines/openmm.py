@@ -6,7 +6,9 @@ from copy import deepcopy
 import networkx as nx
 import numpy as np
 from simtk import (  # Ignore unit import warnings, blame rampant misuse of import * in OpenMM
-    openmm, unit)
+    openmm,
+    unit,
+)
 from simtk.openmm import app
 
 from QUBEKit.engines.base_engine import Engines

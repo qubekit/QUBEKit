@@ -8,16 +8,20 @@ from QUBEKit.utils.helpers import hide_warnings
 
 with hide_warnings():
     from openforcefield.topology import Molecule
-    from openforcefield.typing.engines.smirnoff import (AngleHandler,
-                                                        BondHandler,
-                                                        ForceField,
-                                                        ProperTorsionHandler,
-                                                        vdWHandler)
+    from openforcefield.typing.engines.smirnoff import (
+        AngleHandler,
+        BondHandler,
+        ForceField,
+        ProperTorsionHandler,
+        vdWHandler,
+    )
     from openforcefield.typing.engines.smirnoff.parameters import (
-        UnassignedAngleParameterException, UnassignedBondParameterException,
+        UnassignedAngleParameterException,
+        UnassignedBondParameterException,
         UnassignedMoleculeChargeException,
         UnassignedProperTorsionParameterException,
-        UnassignedValenceParameterException)
+        UnassignedValenceParameterException,
+    )
 
 
 class OpenFF(Parametrisation):

@@ -11,13 +11,20 @@ See VirtualSites.fit() for fitting details.
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
+
 # DO NOT REMOVE THIS IMPORT. ALTHOUGH IT IS NOT EXPLICITLY CALLED, IT IS NEEDED FOR 3D PLOTTING.
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import minimize
 
-from QUBEKit.utils.constants import (ANGS_TO_NM, BOHR_TO_ANGS, ELECTRON_CHARGE,
-                                     J_TO_KCAL_P_MOL, M_TO_ANGS, PI,
-                                     VACUUM_PERMITTIVITY)
+from QUBEKit.utils.constants import (
+    ANGS_TO_NM,
+    BOHR_TO_ANGS,
+    ELECTRON_CHARGE,
+    J_TO_KCAL_P_MOL,
+    M_TO_ANGS,
+    PI,
+    VACUUM_PERMITTIVITY,
+)
 from QUBEKit.utils.datastructures import ExtraSite
 from QUBEKit.utils.helpers import append_to_log
 
