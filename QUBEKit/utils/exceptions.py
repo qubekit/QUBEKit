@@ -9,15 +9,11 @@ class OptimisationFailed(Exception):
 
 
 class HessianCalculationFailed(Exception):
-    """
-
-    """
+    """"""
 
 
 class TorsionDriveFailed(Exception):
-    """
-
-    """
+    """"""
 
 
 class PickleFileNotFound(Exception):

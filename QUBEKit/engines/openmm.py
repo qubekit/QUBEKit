@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
-from QUBEKit.engines.base_engine import Engines
-from QUBEKit.utils import constants
-
 from collections import namedtuple
 from copy import deepcopy
 
 import networkx as nx
 import numpy as np
-
-from simtk import openmm, unit  # Ignore unit import warnings, blame rampant misuse of import * in OpenMM
+from simtk import (  # Ignore unit import warnings, blame rampant misuse of import * in OpenMM
+    openmm, unit)
 from simtk.openmm import app
 
-AtomParams = namedtuple('params', 'charge sigma epsilon')
+from QUBEKit.engines.base_engine import Engines
+from QUBEKit.utils import constants
+
+AtomParams = namedtuple("params", "charge sigma epsilon")
 
 
 class OpenMM(Engines):
@@ -32,8 +32,8 @@ class OpenMM(Engines):
 
         super().__init__(molecule)
 
-        self.pdb_file = pdb_file or f'{molecule.name}.pdb'
-        self.xml_file = xml_file or f'{molecule.name}.xml'
+        self.pdb_file = pdb_file or f"{molecule.name}.pdb"
+        self.xml_file = xml_file or f"{molecule.name}.xml"
 
         self.system = None
         self.simulation = None
@@ -50,20 +50,26 @@ class OpenMM(Engines):
 
         # if there are virtual sites we need to add them here
         try:
-            self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+            self.system = forcefield.createSystem(
+                modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None
+            )
         except ValueError:
-            print('Virtual sites were found in the xml file')
+            print("Virtual sites were found in the xml file")
             modeller.addExtraParticles(forcefield)
-            self.system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None)
+            self.system = forcefield.createSystem(
+                modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None
+            )
 
         # Use the opls combination rules.
-        if self.molecule.combination == 'opls':
-            print('OPLS combination rules found in XML file')
+        if self.molecule.combination == "opls":
+            print("OPLS combination rules found in XML file")
             self.opls_lj()
 
         integrator = openmm.VerletIntegrator(1.0 * unit.femtoseconds)
-        platform = openmm.Platform.getPlatformByName('Reference')
-        self.simulation = app.Simulation(modeller.topology, self.system, integrator, platform)
+        platform = openmm.Platform.getPlatformByName("Reference")
+        self.simulation = app.Simulation(
+            modeller.topology, self.system, integrator, platform
+        )
         self.simulation.context.setPositions(modeller.positions)
 
     def get_energy(self, position):
@@ -74,7 +80,9 @@ class OpenMM(Engines):
         """
 
         # check there are the right number of positions in the vector.
-        extra_sites = self.molecule.extra_sites if self.molecule.extra_sites is not None else []
+        extra_sites = (
+            self.molecule.extra_sites if self.molecule.extra_sites is not None else []
+        )
         if len(position) != len(self.molecule.atoms) + len(extra_sites):
             # Use some dummy positions to fill the vector.
             for i in range(len(self.molecule.extra_sites)):
@@ -95,18 +103,21 @@ class OpenMM(Engines):
 
     def opls_lj(self):
         # Get the system information from the OpenMM system.
-        forces = {self.system.getForce(index).__class__.__name__: self.system.getForce(index) for index in
-                  range(self.system.getNumForces())}
+        forces = {
+            self.system.getForce(index).__class__.__name__: self.system.getForce(index)
+            for index in range(self.system.getNumForces())
+        }
 
         # Use the nonbonded_force to get the same rules.
-        nonbonded_force = forces['NonbondedForce']
+        nonbonded_force = forces["NonbondedForce"]
         lorentz = openmm.CustomNonbondedForce(
-            'epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0')
+            "epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0"
+        )
 
         lorentz.setNonbondedMethod(nonbonded_force.getNonbondedMethod())
         lorentz.setCutoffDistance(nonbonded_force.getCutoffDistance())
-        lorentz.addPerParticleParameter('sigma')
-        lorentz.addPerParticleParameter('epsilon')
+        lorentz.addPerParticleParameter("sigma")
+        lorentz.addPerParticleParameter("epsilon")
         self.system.addForce(lorentz)
         l_j_set = {}
         # For each particle, calculate the combination list again.
@@ -157,7 +168,7 @@ class OpenMM(Engines):
 
         coords = []
         for i in range(0, len(coordinates), 3):
-            coords.append(tuple(coordinates[i:i+3]))
+            coords.append(tuple(coordinates[i : i + 3]))
 
         return coords
 
@@ -170,7 +181,7 @@ class OpenMM(Engines):
         """
 
         # Create the OpenMM coords list from the qm coordinates and convert to nm.
-        input_coords = self.molecule.coords['qm'].flatten() * constants.ANGS_TO_NM
+        input_coords = self.molecule.coords["qm"].flatten() * constants.ANGS_TO_NM
 
         # We get each hessian element from = [E(dx + dy) + E(-dx - dy) - E(dx - dy) - E(-dx + dy)] / 4 dx dy
         hessian = np.zeros((3 * len(self.molecule.atoms), 3 * len(self.molecule.atoms)))
@@ -186,7 +197,9 @@ class OpenMM(Engines):
                     coords = deepcopy(input_coords)
                     coords[i] -= 2 * finite_step
                     e2 = self.get_energy(self.format_coords(coords))
-                    hessian[i, j] = (e1 + e2) / (4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass)
+                    hessian[i, j] = (e1 + e2) / (
+                        4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass
+                    )
                 else:
                     coords = deepcopy(input_coords)
                     coords[i] += finite_step
@@ -204,7 +217,9 @@ class OpenMM(Engines):
                     coords[i] -= finite_step
                     coords[j] += finite_step
                     e4 = self.get_energy(self.format_coords(coords))
-                    hessian[i, j] = (e1 + e2 - e3 - e4) / (4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass)
+                    hessian[i, j] = (e1 + e2 - e3 - e4) / (
+                        4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass
+                    )
 
         # Hessian is currently just the upper right half of the matrix.
         # Transpose to get the lower left, then remove the extra diagonal terms to get the whole matrix.
@@ -224,7 +239,9 @@ class OpenMM(Engines):
         # now that all sites are in the topology we need to work out all pairs
         for site_key, site in self.molecule.extra_sites.items():
             site_no = site_key + len(self.molecule.atoms)
-            path_lengths = nx.single_source_shortest_path_length(self.molecule.topology, site_no)
+            path_lengths = nx.single_source_shortest_path_length(
+                self.molecule.topology, site_no
+            )
 
             for atom, length in path_lengths.items():
                 if length == 3:

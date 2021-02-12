@@ -23,20 +23,19 @@ TODO ligand.py Refactor:
         Be more strict about public/private class/method/function naming?
 """
 
-from QUBEKit.engines import RDKit
-from QUBEKit.utils import constants
-from QUBEKit.utils.file_handling import ReadInput
-
-from collections import OrderedDict
-from datetime import datetime
 import os
 import pickle
+import xml.etree.ElementTree as ET
+from collections import OrderedDict
+from datetime import datetime
+from xml.dom.minidom import parseString
 
 import networkx as nx
 import numpy as np
 
-from xml.dom.minidom import parseString
-import xml.etree.ElementTree as ET
+from QUBEKit.engines import RDKit
+from QUBEKit.utils import constants
+from QUBEKit.utils.file_handling import ReadInput
 
 
 class DefaultsMixin:
@@ -64,16 +63,16 @@ class DefaultsMixin:
 
         super().__init__(*args, **kwargs)
 
-        self.theory = 'wB97XD'
-        self.basis = '6-311++G(d,p)'
+        self.theory = "wB97XD"
+        self.basis = "6-311++G(d,p)"
         self.vib_scaling = 1
         self.threads = 4
         self.memory = 4
-        self.convergence = 'GAU_TIGHT'
+        self.convergence = "GAU_TIGHT"
         self.iterations = 350
-        self.bonds_engine = 'g09'
-        self.density_engine = 'g09'
-        self.charges_engine = 'chargemol'
+        self.bonds_engine = "g09"
+        self.density_engine = "g09"
+        self.charges_engine = "chargemol"
         self.ddec_version = 6
         self.dielectric = 4.0
         self.geometric = True
@@ -85,24 +84,24 @@ class DefaultsMixin:
         self.dih_start = -165
         self.increment = 15
         self.dih_end = 180
-        self.t_weight = 'infinity'
-        self.opt_method = 'BFGS'
-        self.refinement_method = 'SP'
+        self.t_weight = "infinity"
+        self.opt_method = "BFGS"
+        self.refinement_method = "SP"
         self.tor_limit = 20
         self.div_index = 0
-        self.parameter_engine = 'antechamber'
+        self.parameter_engine = "antechamber"
         self.l_pen = 0.0
-        self.mm_opt_method = 'openmm'
+        self.mm_opt_method = "openmm"
         self.relative_to_global = False
 
         self.excited_state = False
-        self.excited_theory = 'TDA'
+        self.excited_theory = "TDA"
         self.n_states = 3
         self.excited_root = 1
         self.use_pseudo = False
         self.pseudo_potential_block = ""
 
-        self.chargemol = '/home/<QUBEKit_user>/chargemol_09_26_2017'
+        self.chargemol = "/home/<QUBEKit_user>/chargemol_09_26_2017"
         self.log = 999
         # Internal for QUBEKit testing; stops decorators from trying to log to a file unnecessarily.
         self.testing = False
@@ -176,7 +175,7 @@ class Molecule:
         self.rdkit_mol = None
 
         # Structure
-        self.coords = {'input': [], 'mm': [], 'qm': [], 'temp': [], 'traj': []}
+        self.coords = {"input": [], "mm": [], "qm": [], "temp": [], "traj": []}
         self.topology = None
         self.angles = None
         self.dihedrals = None
@@ -213,17 +212,17 @@ class Molecule:
         self.dih_ends = {}
         self.increments = {}
 
-        self.combination = 'amber'
+        self.combination = "amber"
 
         # QUBEKit internals
         self.state = None
-        self.config_file = 'master_config.ini'
+        self.config_file = "master_config.ini"
         self.restart = False
         self.atom_symmetry_classes = None
         self.verbose = True
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.__dict__!r})'
+        return f"{self.__class__.__name__}({self.__dict__!r})"
 
     def __str__(self, trunc=False):
         """
@@ -238,7 +237,7 @@ class Molecule:
             Just print everything (all key: value pairs) as is with a little extra spacing.
         """
 
-        return_str = ''
+        return_str = ""
 
         if trunc:
             for key, val in self.__dict__.items():
@@ -253,19 +252,19 @@ class Molecule:
 
                 # Ignore NoneTypes and empty lists / dicts etc unless type is int (charge = 0 for example)
                 if val is not None and (val or isinstance(val, int)):
-                    return_str += f'\n{key} = '
+                    return_str += f"\n{key} = "
 
                     # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".
                     if len(str(key) + str(val)) < 120:
                         # Print the repr() not the str(). This means generator expressions etc appear too.
                         return_str += repr(val)
                     else:
-                        return_str += repr(val)[:121 - len(str(key))] + '...'
+                        return_str += repr(val)[: 121 - len(str(key))] + "..."
 
         else:
             for key, val in self.__dict__.items():
                 # Return all objects as {ligand object name} = {ligand object value(s)} without any special formatting.
-                return_str += f'\n{key} = {repr(val)}\n'
+                return_str += f"\n{key} = {repr(val)}\n"
 
         return return_str
 
@@ -327,7 +326,7 @@ class Molecule:
         for atom in self.atoms:
             if atom.atom_name == name:
                 return atom
-        raise AttributeError('No atom found with that name.')
+        raise AttributeError("No atom found with that name.")
 
     def read_geometric_traj(self, trajectory):
         """
@@ -340,10 +339,12 @@ class Molecule:
         for frame in trajectory:
             opt_traj = []
             # Convert coordinates from bohr to angstroms
-            geometry = np.array(frame['molecule']['geometry']) * constants.BOHR_TO_ANGS
-            for i, atom in enumerate(frame['molecule']['symbols']):
-                opt_traj.append([geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]])
-            self.coords['traj'].append(np.array(opt_traj))
+            geometry = np.array(frame["molecule"]["geometry"]) * constants.BOHR_TO_ANGS
+            for i, atom in enumerate(frame["molecule"]["symbols"]):
+                opt_traj.append(
+                    [geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]]
+                )
+            self.coords["traj"].append(np.array(opt_traj))
 
     def find_impropers(self):
         """
@@ -357,7 +358,10 @@ class Molecule:
             near = sorted(list(nx.neighbors(self.topology, node)))
             # if the atom has 3 bonds it could be an improper
             # Check if an sp2 carbon or N
-            if len(near) == 3 and (self.atoms[node].atomic_symbol == 'C' or self.atoms[node].atomic_symbol == 'N'):
+            if len(near) == 3 and (
+                self.atoms[node].atomic_symbol == "C"
+                or self.atoms[node].atomic_symbol == "N"
+            ):
                 # Store each combination of the improper torsion
                 improper_torsions.append((node, near[0], near[1], near[2]))
 
@@ -386,7 +390,7 @@ class Molecule:
 
         self.angles = angles or None
 
-    def find_bond_lengths(self, input_type='input'):
+    def find_bond_lengths(self, input_type="input"):
         """
         For the given molecule and topology find the length of all of the bonds.
         """
@@ -457,7 +461,7 @@ class Molecule:
 
             self.rotatable = rotatable or None
 
-    def get_dihedral_values(self, input_type='input'):
+    def get_dihedral_values(self, input_type="input"):
         """
         Taking the molecule's xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
         angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
@@ -480,7 +484,7 @@ class Molecule:
 
             self.dih_phis = dih_phis or None
 
-    def get_angle_values(self, input_type='input'):
+    def get_angle_values(self, input_type="input"):
         """
         For the given molecule and list of angle terms measure the angle values,
         then return a dictionary of angles and values.
@@ -506,11 +510,11 @@ class Molecule:
         """
 
         tree = self._build_tree().getroot()
-        messy = ET.tostring(tree, 'utf-8')
+        messy = ET.tostring(tree, "utf-8")
 
         pretty_xml_as_string = parseString(messy).toprettyxml(indent="")
 
-        with open(f'{name if name is not None else self.name}.xml', 'w+') as xml_doc:
+        with open(f"{name if name is not None else self.name}.xml", "w+") as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
     def _build_tree(self):
@@ -519,153 +523,216 @@ class Molecule:
         """
 
         # Create XML layout
-        root = ET.Element('ForceField')
+        root = ET.Element("ForceField")
         AtomTypes = ET.SubElement(root, "AtomTypes")
         Residues = ET.SubElement(root, "Residues")
 
-        Residue = ET.SubElement(Residues, "Residue", name=f'{"QUP" if self.is_protein else "UNK"}')
+        Residue = ET.SubElement(
+            Residues, "Residue", name=f'{"QUP" if self.is_protein else "UNK"}'
+        )
 
         HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
         PeriodicTorsionForce = ET.SubElement(root, "PeriodicTorsionForce")
 
         # Assign the combination rule
-        c14 = '0.83333' if self.combination == 'amber' else '0.5'
-        l14 = '0.5'
+        c14 = "0.83333" if self.combination == "amber" else "0.5"
+        l14 = "0.5"
 
         # add the combination rule to the xml for geometric.
-        NonbondedForce = ET.SubElement(root, "NonbondedForce", attrib={
-            'coulomb14scale': c14, 'lj14scale': l14,
-            'combination': self.combination})
+        NonbondedForce = ET.SubElement(
+            root,
+            "NonbondedForce",
+            attrib={
+                "coulomb14scale": c14,
+                "lj14scale": l14,
+                "combination": self.combination,
+            },
+        )
 
         for key, val in self.AtomTypes.items():
-            ET.SubElement(AtomTypes, "Type", attrib={
-                'name': val[1], 'class': val[2],
-                'element': self.atoms[key].atomic_symbol,
-                'mass': str(self.atoms[key].atomic_mass)})
+            ET.SubElement(
+                AtomTypes,
+                "Type",
+                attrib={
+                    "name": val[1],
+                    "class": val[2],
+                    "element": self.atoms[key].atomic_symbol,
+                    "mass": str(self.atoms[key].atomic_mass),
+                },
+            )
 
-            ET.SubElement(Residue, "Atom", attrib={'name': val[0], 'type': val[1]})
+            ET.SubElement(Residue, "Atom", attrib={"name": val[0], "type": val[1]})
 
         # Add the bonds / connections
         for key, val in self.HarmonicBondForce.items():
-            ET.SubElement(Residue, "Bond", attrib={'from': str(key[0]), 'to': str(key[1])})
+            ET.SubElement(
+                Residue, "Bond", attrib={"from": str(key[0]), "to": str(key[1])}
+            )
 
-            ET.SubElement(HarmonicBondForce, "Bond", attrib={
-                'class1': self.AtomTypes[key[0]][2],
-                'class2': self.AtomTypes[key[1]][2],
-                'length': f'{float(val[0]):.6f}', 'k': f'{float(val[1]):.6f}'})
+            ET.SubElement(
+                HarmonicBondForce,
+                "Bond",
+                attrib={
+                    "class1": self.AtomTypes[key[0]][2],
+                    "class2": self.AtomTypes[key[1]][2],
+                    "length": f"{float(val[0]):.6f}",
+                    "k": f"{float(val[1]):.6f}",
+                },
+            )
 
         # Add the angles
         for key, val in self.HarmonicAngleForce.items():
-            ET.SubElement(HarmonicAngleForce, "Angle", attrib={
-                'class1': self.AtomTypes[key[0]][2],
-                'class2': self.AtomTypes[key[1]][2],
-                'class3': self.AtomTypes[key[2]][2],
-                'angle': f'{float(val[0]):.6f}', 'k': f'{float(val[1]):.6f}'})
+            ET.SubElement(
+                HarmonicAngleForce,
+                "Angle",
+                attrib={
+                    "class1": self.AtomTypes[key[0]][2],
+                    "class2": self.AtomTypes[key[1]][2],
+                    "class3": self.AtomTypes[key[2]][2],
+                    "angle": f"{float(val[0]):.6f}",
+                    "k": f"{float(val[1]):.6f}",
+                },
+            )
 
         # add the proper and improper torsion terms
         for key in self.PeriodicTorsionForce:
-            if self.PeriodicTorsionForce[key][-1] == 'Improper':
-                tor_type = 'Improper'
+            if self.PeriodicTorsionForce[key][-1] == "Improper":
+                tor_type = "Improper"
             else:
-                tor_type = 'Proper'
+                tor_type = "Proper"
 
-            ET.SubElement(PeriodicTorsionForce, tor_type, attrib={
-                'class1': self.AtomTypes[key[0]][2],
-                'class2': self.AtomTypes[key[1]][2],
-                'class3': self.AtomTypes[key[2]][2],
-                'class4': self.AtomTypes[key[3]][2],
-                'k1': str(self.PeriodicTorsionForce[key][0][1]),
-                'k2': str(self.PeriodicTorsionForce[key][1][1]),
-                'k3': str(self.PeriodicTorsionForce[key][2][1]),
-                'k4': str(self.PeriodicTorsionForce[key][3][1]),
-                'periodicity1': '1', 'periodicity2': '2',
-                'periodicity3': '3', 'periodicity4': '4',
-                'phase1': str(self.PeriodicTorsionForce[key][0][2]),
-                'phase2': str(self.PeriodicTorsionForce[key][1][2]),
-                'phase3': str(self.PeriodicTorsionForce[key][2][2]),
-                'phase4': str(self.PeriodicTorsionForce[key][3][2])})
+            ET.SubElement(
+                PeriodicTorsionForce,
+                tor_type,
+                attrib={
+                    "class1": self.AtomTypes[key[0]][2],
+                    "class2": self.AtomTypes[key[1]][2],
+                    "class3": self.AtomTypes[key[2]][2],
+                    "class4": self.AtomTypes[key[3]][2],
+                    "k1": str(self.PeriodicTorsionForce[key][0][1]),
+                    "k2": str(self.PeriodicTorsionForce[key][1][1]),
+                    "k3": str(self.PeriodicTorsionForce[key][2][1]),
+                    "k4": str(self.PeriodicTorsionForce[key][3][1]),
+                    "periodicity1": "1",
+                    "periodicity2": "2",
+                    "periodicity3": "3",
+                    "periodicity4": "4",
+                    "phase1": str(self.PeriodicTorsionForce[key][0][2]),
+                    "phase2": str(self.PeriodicTorsionForce[key][1][2]),
+                    "phase3": str(self.PeriodicTorsionForce[key][2][2]),
+                    "phase4": str(self.PeriodicTorsionForce[key][3][2]),
+                },
+            )
 
         # add the non-bonded parameters
         for key in self.NonbondedForce:
-            ET.SubElement(NonbondedForce, "Atom", attrib={
-                'type': self.AtomTypes[key][1],
-                'charge': f'{self.NonbondedForce[key][0]:.6f}',
-                'sigma': f'{self.NonbondedForce[key][1]:.6f}',
-                'epsilon': f'{self.NonbondedForce[key][2]:.6f}'})
+            ET.SubElement(
+                NonbondedForce,
+                "Atom",
+                attrib={
+                    "type": self.AtomTypes[key][1],
+                    "charge": f"{self.NonbondedForce[key][0]:.6f}",
+                    "sigma": f"{self.NonbondedForce[key][1]:.6f}",
+                    "epsilon": f"{self.NonbondedForce[key][2]:.6f}",
+                },
+            )
 
         # Add all of the virtual site info if present
         if self.extra_sites is not None:
             # Add the atom type to the top
             for key, site in self.extra_sites.items():
-                ET.SubElement(AtomTypes, "Type", attrib={
-                    'name': f'v-site{key + 1}', 'class': f'X{key + 1}', 'mass': '0'})
+                ET.SubElement(
+                    AtomTypes,
+                    "Type",
+                    attrib={
+                        "name": f"v-site{key + 1}",
+                        "class": f"X{key + 1}",
+                        "mass": "0",
+                    },
+                )
 
                 # Add the atom info
-                ET.SubElement(Residue, "Atom", attrib={
-                    'name': f'X{key + 1}', 'type': f'v-site{key + 1}'})
+                ET.SubElement(
+                    Residue,
+                    "Atom",
+                    attrib={"name": f"X{key + 1}", "type": f"v-site{key + 1}"},
+                )
 
                 # Add the local coords site info
                 attrib = {
-                    'type': 'localCoords',
-                    'index': str(key + len(self.atoms)),
-                    'atom1': str(site.parent_index),
-                    'atom2': str(site.closest_a_index),
-                    'atom3': str(site.closest_b_index),
-                    'wo1': str(site.o_weights[0]), 'wo2': str(site.o_weights[1]), 'wo3': str(site.o_weights[2]),
-                    'wx1': str(site.x_weights[0]), 'wx2': str(site.x_weights[1]), 'wx3': str(site.x_weights[2]),
-                    'wy1': str(site.y_weights[0]), 'wy2': str(site.y_weights[1]), 'wy3': str(site.y_weights[2]),
-                    'p1': str(site.p1),
-                    'p2': str(site.p2),
-                    'p3': str(site.p3)}
+                    "type": "localCoords",
+                    "index": str(key + len(self.atoms)),
+                    "atom1": str(site.parent_index),
+                    "atom2": str(site.closest_a_index),
+                    "atom3": str(site.closest_b_index),
+                    "wo1": str(site.o_weights[0]),
+                    "wo2": str(site.o_weights[1]),
+                    "wo3": str(site.o_weights[2]),
+                    "wx1": str(site.x_weights[0]),
+                    "wx2": str(site.x_weights[1]),
+                    "wx3": str(site.x_weights[2]),
+                    "wy1": str(site.y_weights[0]),
+                    "wy2": str(site.y_weights[1]),
+                    "wy3": str(site.y_weights[2]),
+                    "p1": str(site.p1),
+                    "p2": str(site.p2),
+                    "p3": str(site.p3),
+                }
 
                 # For the Nitrogen case
                 if len(site.o_weights) == 4:
-                    attrib['wo4'] = str(site.o_weights[3])
-                    attrib['wx4'] = str(site.x_weights[3])
-                    attrib['wy4'] = str(site.y_weights[3])
-                    attrib['atom4'] = str(site.closest_c_index)
+                    attrib["wo4"] = str(site.o_weights[3])
+                    attrib["wx4"] = str(site.x_weights[3])
+                    attrib["wy4"] = str(site.y_weights[3])
+                    attrib["atom4"] = str(site.closest_c_index)
 
                 ET.SubElement(Residue, "VirtualSite", attrib=attrib)
 
                 # Add the nonbonded info
-                ET.SubElement(NonbondedForce, "Atom", attrib={
-                    'type': f'v-site{key + 1}',
-                    'charge': str(site.charge),
-                    'sigma': '1.000000',
-                    'epsilon': '0.000000'})
+                ET.SubElement(
+                    NonbondedForce,
+                    "Atom",
+                    attrib={
+                        "type": f"v-site{key + 1}",
+                        "charge": str(site.charge),
+                        "sigma": "1.000000",
+                        "epsilon": "0.000000",
+                    },
+                )
 
         # Store the tree back into the molecule
         return ET.ElementTree(root)
 
-    def write_xyz(self, input_type='input', name=None):
+    def write_xyz(self, input_type="input", name=None):
         """
         Write a general xyz file of the molecule if there are multiple geometries in the molecule write a traj
         :param input_type: Where the molecule coordinates are taken from
         :param name: The name of the xyz file to be produced; otherwise self.name is used.
         """
 
-        with open(f'{name if name is not None else self.name}.xyz', 'w+') as xyz_file:
+        with open(f"{name if name is not None else self.name}.xyz", "w+") as xyz_file:
 
             if len(self.coords[input_type]) == len(self.atoms):
-                message = 'xyz file generated with QUBEKit'
-                end = ''
+                message = "xyz file generated with QUBEKit"
+                end = ""
                 trajectory = [self.coords[input_type]]
 
             else:
-                message = 'QUBEKit xyz trajectory FRAME '
+                message = "QUBEKit xyz trajectory FRAME "
                 end = 1
                 trajectory = self.coords[input_type]
 
             # Write out each frame
             for frame in trajectory:
 
-                xyz_file.write(f'{len(self.atoms)}\n')
-                xyz_file.write(f'{message}{end}\n')
+                xyz_file.write(f"{len(self.atoms)}\n")
+                xyz_file.write(f"{message}{end}\n")
 
                 for i, atom in enumerate(frame):
                     xyz_file.write(
-                        f'{self.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n')
+                        f"{self.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n"
+                    )
 
                 try:
                     end += 1
@@ -684,7 +751,7 @@ class Molecule:
         # First check if the pickle file exists
         try:
             # Try to load a hidden pickle file; make sure to get all objects
-            with open('.QUBEKit_states', 'rb') as pickle_jar:
+            with open(".QUBEKit_states", "rb") as pickle_jar:
                 while True:
                     try:
                         mol = pickle.load(pickle_jar)
@@ -699,7 +766,7 @@ class Molecule:
         mols[self.state] = self
 
         # Open the pickle jar which will always be the ligand object's name
-        with open('.QUBEKit_states', 'wb') as pickle_jar:
+        with open(".QUBEKit_states", "wb") as pickle_jar:
 
             # If there were other molecules of the same state in the jar: overwrite them
             for val in mols.values():
@@ -717,8 +784,10 @@ class Molecule:
 
         bond_symmetry_classes = {}
         for bond in self.topology.edges:
-            bond_symmetry_classes[bond] = (f'{self.atom_symmetry_classes[bond[0]]}-'
-                                           f'{self.atom_symmetry_classes[bond[1]]}')
+            bond_symmetry_classes[bond] = (
+                f"{self.atom_symmetry_classes[bond[0]]}-"
+                f"{self.atom_symmetry_classes[bond[1]]}"
+            )
 
         bond_types = {}
         for key, val in bond_symmetry_classes.items():
@@ -737,9 +806,11 @@ class Molecule:
 
         angle_symmetry_classes = {}
         for angle in self.angles:
-            angle_symmetry_classes[angle] = (f'{self.atom_symmetry_classes[angle[0]]}-'
-                                             f'{self.atom_symmetry_classes[angle[1]]}-'
-                                             f'{self.atom_symmetry_classes[angle[2]]}')
+            angle_symmetry_classes[angle] = (
+                f"{self.atom_symmetry_classes[angle[0]]}-"
+                f"{self.atom_symmetry_classes[angle[1]]}-"
+                f"{self.atom_symmetry_classes[angle[2]]}"
+            )
 
         angle_types = {}
         for key, val in angle_symmetry_classes.items():
@@ -758,10 +829,12 @@ class Molecule:
         dihedral_symmetry_classes = {}
         for dihedral_set in self.dihedrals.values():
             for dihedral in dihedral_set:
-                dihedral_symmetry_classes[tuple(dihedral)] = (f'{self.atom_symmetry_classes[dihedral[0]]}-'
-                                                              f'{self.atom_symmetry_classes[dihedral[1]]}-'
-                                                              f'{self.atom_symmetry_classes[dihedral[2]]}-'
-                                                              f'{self.atom_symmetry_classes[dihedral[3]]}')
+                dihedral_symmetry_classes[tuple(dihedral)] = (
+                    f"{self.atom_symmetry_classes[dihedral[0]]}-"
+                    f"{self.atom_symmetry_classes[dihedral[1]]}-"
+                    f"{self.atom_symmetry_classes[dihedral[2]]}-"
+                    f"{self.atom_symmetry_classes[dihedral[3]]}"
+                )
 
         dihedral_types = {}
         for key, val in dihedral_symmetry_classes.items():
@@ -773,10 +846,12 @@ class Molecule:
 
         improper_symmetry_classes = {}
         for dihedral in self.improper_torsions:
-            improper_symmetry_classes[tuple(dihedral)] = (f'{self.atom_symmetry_classes[dihedral[0]]}-'
-                                                          f'{self.atom_symmetry_classes[dihedral[1]]}-'
-                                                          f'{self.atom_symmetry_classes[dihedral[2]]}-'
-                                                          f'{self.atom_symmetry_classes[dihedral[3]]}')
+            improper_symmetry_classes[tuple(dihedral)] = (
+                f"{self.atom_symmetry_classes[dihedral[0]]}-"
+                f"{self.atom_symmetry_classes[dihedral[1]]}-"
+                f"{self.atom_symmetry_classes[dihedral[2]]}-"
+                f"{self.atom_symmetry_classes[dihedral[3]]}"
+            )
 
         improper_types = {}
         for key, val in improper_symmetry_classes.items():
@@ -832,25 +907,27 @@ class Molecule:
         methyl_amine_nitride_cores = []
 
         for atom in self.atoms:
-            if atom.atomic_symbol == 'C' or atom.atomic_symbol == 'N':
+            if atom.atomic_symbol == "C" or atom.atomic_symbol == "N":
 
                 hs = []
                 for bonded in self.topology.neighbors(atom.atom_index):
                     if len(list(self.topology.neighbors(bonded))) == 1:
                         # now make sure it is a hydrogen (as halogens could be caught here)
-                        if self.atoms[bonded].atomic_symbol == 'H':
+                        if self.atoms[bonded].atomic_symbol == "H":
                             hs.append(bonded)
 
-                if atom.atomic_symbol == 'C' and len(hs) == 2:    # This is part of a carbon hydrogen chain
+                if (
+                    atom.atomic_symbol == "C" and len(hs) == 2
+                ):  # This is part of a carbon hydrogen chain
                     other_hs.append(hs)
-                elif atom.atomic_symbol == 'C' and len(hs) == 3:
+                elif atom.atomic_symbol == "C" and len(hs) == 3:
                     methyl_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
-                elif atom.atomic_symbol == 'N' and len(hs) == 2:
+                elif atom.atomic_symbol == "N" and len(hs) == 2:
                     amine_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
 
-        self.symm_hs = {'methyl': methyl_hs, 'amine': amine_hs, 'other': other_hs}
+        self.symm_hs = {"methyl": methyl_hs, "amine": amine_hs, "other": other_hs}
 
         # Modify the rotatable list to remove methyl and amine / nitrile torsions
         # These are already well represented in most FF's
@@ -858,7 +935,10 @@ class Molecule:
         if self.rotatable is not None:
             rotatable = self.rotatable
             for key in rotatable:
-                if key[0] in methyl_amine_nitride_cores or key[1] in methyl_amine_nitride_cores:
+                if (
+                    key[0] in methyl_amine_nitride_cores
+                    or key[1] in methyl_amine_nitride_cores
+                ):
                     remove_list.append(key)
 
             for torsion in remove_list:
@@ -866,7 +946,7 @@ class Molecule:
 
             self.rotatable = rotatable or None
 
-    def openmm_coordinates(self, input_type='input'):
+    def openmm_coordinates(self, input_type="input"):
         """
         Take a set of coordinates from the molecule and convert them to OpenMM format
         :param input_type: The set of coordinates that should be used
@@ -877,7 +957,7 @@ class Molecule:
         coordinates = self.coords[input_type]
 
         # Multiple frames in this case
-        if input_type == 'traj' and len(coordinates) != len(self.coords['input']):
+        if input_type == "traj" and len(coordinates) != len(self.coords["input"]):
             return [[tuple(atom / 10) for atom in frame] for frame in coordinates]
         return [tuple(atom / 10) for atom in coordinates]
 
@@ -892,13 +972,13 @@ class Molecule:
         scan_coords = []
         energy = []
         qm_scans = {}
-        with open('qdata.txt', 'r') as data:
+        with open("qdata.txt", "r") as data:
             for line in data.readlines():
-                if 'COORDS' in line:
+                if "COORDS" in line:
                     coords = [float(x) for x in line.split()[1:]]
                     coords = np.array(coords).reshape((len(self.atoms), 3))
                     scan_coords.append(coords)
-                elif 'ENERGY' in line:
+                elif "ENERGY" in line:
                     energy.append(float(line.split()[1]))
 
         qm_scans[bond_scan] = [np.array(energy), scan_coords]
@@ -919,14 +999,16 @@ class Molecule:
         scan_order = []
         torsions = open(file).readlines()
         for line in torsions:
-            if '#' not in line:
+            if "#" not in line:
                 torsion = line.split()
                 if len(torsion) == 6:
-                    print('Torsion and dihedral range found, updating scan range:')
+                    print("Torsion and dihedral range found, updating scan range:")
                     # TODO Why are these class attributes?
                     self.dih_start = int(torsion[-2])
                     self.dih_end = int(torsion[-1])
-                    print(f'Dihedral will be scanned in the range: {self.dih_start},  {self.dih_end}')
+                    print(
+                        f"Dihedral will be scanned in the range: {self.dih_start},  {self.dih_end}"
+                    )
                 core = (int(torsion[1]), int(torsion[2]))
                 if core in self.dihedrals.keys():
                     scan_order.append(core)
@@ -934,15 +1016,19 @@ class Molecule:
                     scan_order.append(reversed(tuple(core)))
                 else:
                     # This might be an improper scan so check
-                    improper = (int(torsion[0]), int(torsion[1]), int(torsion[2]), int(torsion[3]))
+                    improper = (
+                        int(torsion[0]),
+                        int(torsion[1]),
+                        int(torsion[2]),
+                        int(torsion[3]),
+                    )
                     if improper in self.improper_torsions:
-                        print('Improper torsion found.')
+                        print("Improper torsion found.")
                         scan_order.append(improper)
         self.scan_order = scan_order
 
 
 class Ligand(DefaultsMixin, Molecule):
-
     def __init__(self, mol_input, name=None):
         """
         parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
@@ -958,7 +1044,7 @@ class Ligand(DefaultsMixin, Molecule):
 
         self.is_protein = False
 
-        self.parameter_engine = 'openmm'
+        self.parameter_engine = "openmm"
         self.hessian = None
         self.modes = None
         self.home = None
@@ -985,7 +1071,7 @@ class Ligand(DefaultsMixin, Molecule):
             self.get_angle_values()
             self.symmetrise_from_topology()
 
-    def save_to_ligand(self, mol_input, name=None, input_type='input'):
+    def save_to_ligand(self, mol_input, name=None, input_type="input"):
         """
         Public access to private file_handlers.py file.
         Users shouldn't ever need to interface with file_handlers.py directly.
@@ -1012,7 +1098,7 @@ class Ligand(DefaultsMixin, Molecule):
         if ligand.rdkit_mol is not None:
             self.rdkit_mol = ligand.rdkit_mol
 
-    def write_pdb(self, input_type='input', name=None):
+    def write_pdb(self, input_type="input", name=None):
         """
         Take the current molecule and topology and write a pdb file for the molecule.
         Only for small molecules, not standard residues. No size limit.
@@ -1020,23 +1106,26 @@ class Ligand(DefaultsMixin, Molecule):
 
         molecule = self.coords[input_type]
 
-        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
+        with open(f"{name if name is not None else self.name}.pdb", "w+") as pdb_file:
 
             # Write out the atomic xyz coordinates
-            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
-            pdb_file.write(f'COMPND    {self.name:<20}\n')
+            pdb_file.write(f"REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n")
+            pdb_file.write(f"COMPND    {self.name:<20}\n")
             for i, atom in enumerate(molecule):
                 pdb_file.write(
-                    f'HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}'
-                    f'  1.00  0.00         {self.atoms[i].atomic_symbol.title():>3}\n')
+                    f"HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}"
+                    f"  1.00  0.00         {self.atoms[i].atomic_symbol.title():>3}\n"
+                )
 
             # Now add the connection terms
             for node in self.topology.nodes:
                 bonded = sorted(list(nx.neighbors(self.topology, node)))
                 if len(bonded) > 1:
-                    pdb_file.write(f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n')
+                    pdb_file.write(
+                        f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n'
+                    )
 
-            pdb_file.write('END\n')
+            pdb_file.write("END\n")
 
 
 class Protein(DefaultsMixin, Molecule):
@@ -1061,11 +1150,11 @@ class Protein(DefaultsMixin, Molecule):
         self.Residues = None
         self.pdb_names = None
 
-        self.combination = 'opls'
+        self.combination = "opls"
 
         self.save_to_protein(self.mol_input, self.name)
 
-    def save_to_protein(self, mol_input, name=None, input_type='input'):
+    def save_to_protein(self, mol_input, name=None, input_type="input"):
         """
         Public access to private file_handlers.py file.
         Users shouldn't ever need to interface with file_handlers.py directly.
@@ -1095,7 +1184,9 @@ class Protein(DefaultsMixin, Molecule):
             self.pdb_names = protein.pdb_names
 
         if not self.topology.edges:
-            print('No connections found in pdb file; topology will be inferred by OpenMM.')
+            print(
+                "No connections found in pdb file; topology will be inferred by OpenMM."
+            )
             return
 
         self.find_angles()
@@ -1113,26 +1204,29 @@ class Protein(DefaultsMixin, Molecule):
         This method replaces the ligand method as all of the atom names and residue names have to be replaced.
         """
 
-        with open(f'{name if name is not None else self.name}.pdb', 'w+') as pdb_file:
+        with open(f"{name if name is not None else self.name}.pdb", "w+") as pdb_file:
 
-            pdb_file.write(f'REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n')
+            pdb_file.write(f"REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n")
             # Write out the atomic xyz coordinates
-            for i, (coord, atom) in enumerate(zip(self.coords['input'], self.atoms)):
+            for i, (coord, atom) in enumerate(zip(self.coords["input"], self.atoms)):
                 x, y, z = coord
                 # May cause issues if protein contains more than 10,000 atoms.
                 pdb_file.write(
-                    f'HETATM {i+1:>4}{atom.atom_name:>5} QUP     1{x:12.3f}{y:8.3f}{z:8.3f}'
-                    f'  1.00  0.00         {atom.atomic_symbol.upper():>3}\n')
+                    f"HETATM {i+1:>4}{atom.atom_name:>5} QUP     1{x:12.3f}{y:8.3f}{z:8.3f}"
+                    f"  1.00  0.00         {atom.atomic_symbol.upper():>3}\n"
+                )
 
             # Add the connection terms based on the molecule topology.
             for node in self.topology.nodes:
                 bonded = sorted(list(nx.neighbors(self.topology, node)))
                 if len(bonded) >= 1:
-                    pdb_file.write(f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n')
+                    pdb_file.write(
+                        f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n'
+                    )
 
-            pdb_file.write('END\n')
+            pdb_file.write("END\n")
 
-    def update(self, input_type='input'):
+    def update(self, input_type="input"):
         """
         After the protein has been passed to the parametrisation class we get back the bond info
         use this to update all missing terms.

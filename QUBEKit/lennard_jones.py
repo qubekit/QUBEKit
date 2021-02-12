@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils import constants
-
-from collections import namedtuple
 import math
+from collections import namedtuple
+
+from QUBEKit.utils import constants
 
 
 class LennardJones:
 
     # Beware weird units, (wrong in the paper too).
     # Units: vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs
-    FreeParams = namedtuple('params', 'vfree bfree rfree')
+    FreeParams = namedtuple("params", "vfree bfree rfree")
     elem_dict = {
-        'H': FreeParams(7.6, 6.5, 1.64),
-        'X': FreeParams(7.6, 6.5, 1.0),     # Polar Hydrogen
-        'B': FreeParams(46.7, 99.5, 2.08),
-        'C': FreeParams(34.4, 46.6, 2.08),
-        'N': FreeParams(25.9, 24.2, 1.72),
-        'O': FreeParams(22.1, 15.6, 1.60),
-        'F': FreeParams(18.2, 9.5, 1.58),
-        'P': FreeParams(84.6, 185, 2.07),
-        'S': FreeParams(75.2, 134.0, 2.00),
-        'Cl': FreeParams(65.1, 94.6, 1.88),
-        'Br': FreeParams(95.7, 162.0, 1.96),
-        'Si': FreeParams(101.64, 305, 2.08),
+        "H": FreeParams(7.6, 6.5, 1.64),
+        "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
+        "B": FreeParams(46.7, 99.5, 2.08),
+        "C": FreeParams(34.4, 46.6, 2.08),
+        "N": FreeParams(25.9, 24.2, 1.72),
+        "O": FreeParams(22.1, 15.6, 1.60),
+        "F": FreeParams(18.2, 9.5, 1.58),
+        "P": FreeParams(84.6, 185, 2.07),
+        "S": FreeParams(75.2, 134.0, 2.00),
+        "Cl": FreeParams(65.1, 94.6, 1.88),
+        "Br": FreeParams(95.7, 162.0, 1.96),
+        "Si": FreeParams(101.64, 305, 2.08),
     }
 
     def __init__(self, molecule):
@@ -40,14 +40,14 @@ class LennardJones:
         :return: c8_params ordered list of the c8 params for each atom in molecule
         """
 
-        with open('MCLF_C8_dispersion_coefficients.xyz') as c8_file:
+        with open("MCLF_C8_dispersion_coefficients.xyz") as c8_file:
             lines = c8_file.readlines()
             for i, line in enumerate(lines):
-                if line.startswith(' The following '):
-                    lines = lines[i + 2: -2]
+                if line.startswith(" The following "):
+                    lines = lines[i + 2 : -2]
                     break
             else:
-                raise EOFError('Cannot locate c8 parameters in file.')
+                raise EOFError("Cannot locate c8 parameters in file.")
 
             # c8 params IN ATOMIC UNITS
             self.c8_params = [float(line.split()[-1].strip()) for line in lines]
@@ -63,16 +63,24 @@ class LennardJones:
                 atomic_symbol, atom_vol = atom.atomic_symbol, atom.volume
 
                 # Find polar Hydrogens and allocate their new name: X
-                if atomic_symbol == 'H':
+                if atomic_symbol == "H":
                     bonded_index = self.molecule.atoms[atom_index].bonds[0]
-                    if self.molecule.atoms[bonded_index].atomic_symbol in ['N', 'O', 'S']:
-                        atomic_symbol = 'X'
+                    if self.molecule.atoms[bonded_index].atomic_symbol in [
+                        "N",
+                        "O",
+                        "S",
+                    ]:
+                        atomic_symbol = "X"
 
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
-                r_aim = self.elem_dict[atomic_symbol].rfree * ((atom_vol / self.elem_dict[atomic_symbol].vfree) ** (1 / 3))
+                r_aim = self.elem_dict[atomic_symbol].rfree * (
+                    (atom_vol / self.elem_dict[atomic_symbol].vfree) ** (1 / 3)
+                )
 
                 # b_i = bfree * ((vol / v_free) ** 2)
-                b_i = self.elem_dict[atomic_symbol].bfree * ((atom_vol / self.elem_dict[atomic_symbol].vfree) ** 2)
+                b_i = self.elem_dict[atomic_symbol].bfree * (
+                    (atom_vol / self.elem_dict[atomic_symbol].vfree) ** 2
+                )
 
                 a_i = 32 * b_i * (r_aim ** 6)
 
@@ -118,18 +126,28 @@ class LennardJones:
 
         # Loop through pairs in topology
         # Create new pair list with the atoms
-        new_pairs = [(self.molecule.atoms[pair[0]], self.molecule.atoms[pair[1]])
-                     for pair in self.molecule.topology.edges]
+        new_pairs = [
+            (self.molecule.atoms[pair[0]], self.molecule.atoms[pair[1]])
+            for pair in self.molecule.topology.edges
+        ]
 
         # Find all the polar hydrogens and store their positions / atom numbers
         polars = []
         for pair in new_pairs:
-            if 'O' == pair[0].atomic_symbol or 'N' == pair[0].atomic_symbol or 'S' == pair[0].atomic_symbol:
-                if 'H' == pair[1].atomic_symbol:
+            if (
+                "O" == pair[0].atomic_symbol
+                or "N" == pair[0].atomic_symbol
+                or "S" == pair[0].atomic_symbol
+            ):
+                if "H" == pair[1].atomic_symbol:
                     polars.append(pair)
 
-            if 'O' == pair[1].atomic_symbol or 'N' == pair[1].atomic_symbol or 'S' == pair[1].atomic_symbol:
-                if 'H' == pair[0].atomic_symbol:
+            if (
+                "O" == pair[1].atomic_symbol
+                or "N" == pair[1].atomic_symbol
+                or "S" == pair[1].atomic_symbol
+            ):
+                if "H" == pair[0].atomic_symbol:
                     polars.append(pair)
 
         # Find square root of all b_i values so that they can be added easily according to paper's formula.
@@ -138,8 +156,8 @@ class LennardJones:
 
         if polars:
             for pair in polars:
-                if 'H' == pair[0].atomic_symbol or 'H' == pair[1].atomic_symbol:
-                    if 'H' == pair[0].atomic_symbol:
+                if "H" == pair[0].atomic_symbol or "H" == pair[1].atomic_symbol:
+                    if "H" == pair[0].atomic_symbol:
                         polar_h_pos = pair[0].atom_index
                         polar_son_pos = pair[1].atom_index
                     else:
@@ -147,7 +165,9 @@ class LennardJones:
                         polar_son_pos = pair[0].atom_index
 
                     # Calculate the new b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                    self.molecule.ddec_data[polar_son_pos].b_i += self.molecule.ddec_data[polar_h_pos].b_i
+                    self.molecule.ddec_data[
+                        polar_son_pos
+                    ].b_i += self.molecule.ddec_data[polar_h_pos].b_i
                     self.molecule.ddec_data[polar_h_pos].b_i = 0
 
         for atom in self.molecule.ddec_data.values():
@@ -165,7 +185,11 @@ class LennardJones:
             else:
                 epsilon, self.non_bonded_force[atom_index][1] = 0, 0
 
-            self.non_bonded_force[atom_index] = [atom.charge, self.non_bonded_force[atom_index][1], epsilon]
+            self.non_bonded_force[atom_index] = [
+                atom.charge,
+                self.non_bonded_force[atom_index][1],
+                epsilon,
+            ]
 
     def calculate_non_bonded_force(self):
         """

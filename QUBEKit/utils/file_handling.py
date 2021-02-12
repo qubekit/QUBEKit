@@ -10,18 +10,19 @@ TODO
     Descriptors should be accessed separately if needed (need to re-add)
 """
 
-from QUBEKit.engines import RDKit
-from QUBEKit.utils.constants import ANGS_TO_NM, BOHR_TO_ANGS
-from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element, ExtraSite
-from QUBEKit.utils.exceptions import FileTypeError
-
-from itertools import groupby
 import os
-from pathlib import Path
 import re
+from itertools import groupby
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
+
+from QUBEKit.engines import RDKit
+from QUBEKit.utils.constants import ANGS_TO_NM, BOHR_TO_ANGS
+from QUBEKit.utils.datastructures import (Atom, CustomNamespace, Element,
+                                          ExtraSite)
+from QUBEKit.utils.exceptions import FileTypeError
 
 
 class ReadInput:
@@ -66,11 +67,11 @@ class ReadInput:
         Figure out what the input is (file, smiles, json) and call the relevant method.
         """
 
-        if self.mol_input.__class__.__name__ == 'Molecule':
+        if self.mol_input.__class__.__name__ == "Molecule":
             # QCArchive object
             self._read_qc_json()
 
-        elif hasattr(self.mol_input, 'stem'):
+        elif hasattr(self.mol_input, "stem"):
             # File (pdb, xyz, etc)
             try:
                 # Try parse with rdkit:
@@ -86,7 +87,9 @@ class ReadInput:
             self._mol_from_rdkit()
 
         else:
-            raise RuntimeError('Cannot read input. mol_input must be a smiles string, path of a file, or qc json.')
+            raise RuntimeError(
+                "Cannot read input. mol_input must be a smiles string, path of a file, or qc json."
+            )
 
     def _read_file(self):
         """
@@ -94,14 +97,16 @@ class ReadInput:
         Calls the necessary internal file readers instead.
         """
 
-        if self.mol_input.suffix == '.pdb':
+        if self.mol_input.suffix == ".pdb":
             self._read_pdb()
-        elif self.mol_input.suffix == '.mol2':
+        elif self.mol_input.suffix == ".mol2":
             self._read_mol2()
-        elif self.mol_input.suffix == '.xyz':
+        elif self.mol_input.suffix == ".xyz":
             self._read_xyz()
         else:
-            raise FileTypeError(f'Could not read file {self.mol_input}. File type must be pdb, mol2 or xyz.')
+            raise FileTypeError(
+                f"Could not read file {self.mol_input}. File type must be pdb, mol2 or xyz."
+            )
 
     def _mol_from_rdkit(self):
         """
@@ -109,7 +114,7 @@ class ReadInput:
         """
 
         if self.name is None:
-            self.name = self.rdkit_mol.GetProp('_Name')
+            self.name = self.rdkit_mol.GetProp("_Name")
 
         atoms = []
         self.topology = nx.Graph()
@@ -124,12 +129,14 @@ class ReadInput:
             except AttributeError:
                 try:
                     # Mol2 file extraction
-                    atom_name = atom.GetProp('_TriposAtomName')
+                    atom_name = atom.GetProp("_TriposAtomName")
                 except KeyError:
                     # smiles and mol files have no atom names so generate them here if they are not declared
-                    atom_name = f'{atom.GetSymbol()}{index}'
+                    atom_name = f"{atom.GetSymbol()}{index}"
 
-            qube_atom = Atom(atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge())
+            qube_atom = Atom(
+                atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge()
+            )
 
             # Instance the basic qube_atom
             qube_atom.atom_type = atom.GetSmarts()
@@ -157,13 +164,21 @@ class ReadInput:
         atoms = []
 
         for i, atom in enumerate(self.mol_input.symbols):
-            atoms.append(Atom(atomic_number=Element().number(atom), atom_index=i, atom_name=f'{atom}{i}'))
+            atoms.append(
+                Atom(
+                    atomic_number=Element().number(atom),
+                    atom_index=i,
+                    atom_name=f"{atom}{i}",
+                )
+            )
             self.topology.add_node(i)
 
         for bond in self.mol_input.connectivity:
             self.topology.add_edge(*bond[:2])
 
-        self.coords = np.array(self.mol_input.geometry).reshape((len(atoms), 3)) * BOHR_TO_ANGS
+        self.coords = (
+            np.array(self.mol_input.geometry).reshape((len(atoms), 3)) * BOHR_TO_ANGS
+        )
         self.atoms = atoms or None
 
     def _read_pdb(self):
@@ -181,17 +196,17 @@ class ReadInput:
         with open(self.mol_input) as pdb:
 
             for line in pdb:
-                if 'ATOM' in line or 'HETATM' in line:
+                if "ATOM" in line or "HETATM" in line:
                     # start collecting the atom class info
                     atomic_symbol = str(line[76:78])
-                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+                    atomic_symbol = re.sub("[0-9]+", "", atomic_symbol)
                     atomic_symbol = atomic_symbol.strip()
                     atom_name = str(line.split()[2])
 
                     # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
                     if not atomic_symbol:
                         atomic_symbol = str(line.split()[2])[:-1]
-                        atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+                        atomic_symbol = re.sub("[0-9]+", "", atomic_symbol)
 
                     atomic_number = Element().number(atomic_symbol)
                     # Now instance the qube atom
@@ -201,9 +216,11 @@ class ReadInput:
                     # Also add the atom number as the node in the graph
                     self.topology.add_node(atom_count)
                     atom_count += 1
-                    coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+                    coords.append(
+                        [float(line[30:38]), float(line[38:46]), float(line[46:54])]
+                    )
 
-                if 'CONECT' in line:
+                if "CONECT" in line:
                     atom_index = int(line.split()[1]) - 1
                     # Search the connectivity section and add all edges to the graph corresponding to the bonds.
                     for i in range(2, len(line.split())):
@@ -229,32 +246,38 @@ class ReadInput:
 
         atom_count = 0
 
-        with open(self.mol_input, 'r') as mol2:
+        with open(self.mol_input, "r") as mol2:
 
             atom_flag = False
             bond_flag = False
 
             for line in mol2:
-                if '@<TRIPOS>ATOM' in line:
+                if "@<TRIPOS>ATOM" in line:
                     atom_flag = True
                     continue
-                elif '@<TRIPOS>BOND' in line:
+                elif "@<TRIPOS>BOND" in line:
                     atom_flag = False
                     bond_flag = True
                     continue
-                elif '@<TRIPOS>SUBSTRUCTURE' in line:
+                elif "@<TRIPOS>SUBSTRUCTURE" in line:
                     bond_flag = False
                     continue
 
                 if atom_flag:
                     # Add the molecule information
                     atomic_symbol = line.split()[1][:2]
-                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+                    atomic_symbol = re.sub("[0-9]+", "", atomic_symbol)
                     atomic_symbol = atomic_symbol.strip().title()
 
                     atomic_number = Element().number(atomic_symbol)
 
-                    coords.append([float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
+                    coords.append(
+                        [
+                            float(line.split()[2]),
+                            float(line.split()[3]),
+                            float(line.split()[4]),
+                        ]
+                    )
 
                     # Collect the atom names
                     atom_name = str(line.split()[1])
@@ -275,7 +298,10 @@ class ReadInput:
 
                 if bond_flag:
                     # Add edges to the topology network
-                    atom_index, bonded_index = int(line.split()[1]) - 1, int(line.split()[2]) - 1
+                    atom_index, bonded_index = (
+                        int(line.split()[1]) - 1,
+                        int(line.split()[2]) - 1,
+                    )
                     self.topology.add_edge(atom_index, bonded_index)
                     atoms[atom_index].add_bond(bonded_index)
                     atoms[bonded_index].add_bond(atom_index)
@@ -301,7 +327,7 @@ class ReadInput:
             for line in lines:
                 line = line.split()
                 # skip frame heading lines
-                if len(line) <= 1 or 'Iteration' in line:
+                if len(line) <= 1 or "Iteration" in line:
                     continue
 
                 coords.append([float(line[1]), float(line[2]), float(line[3])])
@@ -318,7 +344,7 @@ class ReadInput:
 
         :return:
         """
-        with open(self.mol_input, 'r') as pdb:
+        with open(self.mol_input, "r") as pdb:
             lines = pdb.readlines()
 
         coords = []
@@ -330,20 +356,20 @@ class ReadInput:
         # atom counter used for graph node generation
         atom_count = 0
         for line in lines:
-            if 'ATOM' in line or 'HETATM' in line:
+            if "ATOM" in line or "HETATM" in line:
                 atomic_symbol = str(line[76:78])
-                atomic_symbol = re.sub('[0-9]+', '', atomic_symbol).strip()
+                atomic_symbol = re.sub("[0-9]+", "", atomic_symbol).strip()
 
                 # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
                 if not atomic_symbol:
                     atomic_symbol = str(line.split()[2])
-                    atomic_symbol = re.sub('[0-9]+', '', atomic_symbol)
+                    atomic_symbol = re.sub("[0-9]+", "", atomic_symbol)
 
                 # now make sure we have a valid element
-                if atomic_symbol.lower() != 'cl' and atomic_symbol.lower() != 'br':
+                if atomic_symbol.lower() != "cl" and atomic_symbol.lower() != "br":
                     atomic_symbol = atomic_symbol[0]
 
-                atom_name = f'{atomic_symbol}{atom_count}'
+                atom_name = f"{atomic_symbol}{atom_count}"
                 qube_atom = Atom(Element().number(atomic_symbol), atom_count, atom_name)
 
                 atoms.append(qube_atom)
@@ -356,9 +382,11 @@ class ReadInput:
                 # Also add the atom number as the node in the graph
                 self.topology.add_node(atom_count)
                 atom_count += 1
-                coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+                coords.append(
+                    [float(line[30:38]), float(line[38:46]), float(line[46:54])]
+                )
 
-            elif 'CONECT' in line:
+            elif "CONECT" in line:
                 conect_terms = line.split()
                 for atom in conect_terms[2:]:
                     if int(atom):
@@ -380,18 +408,22 @@ class ExtractChargeData:
         self.molecule = molecule
 
     def extract_charge_data(self):
-        if self.molecule.charges_engine.casefold() == 'chargemol':
+        if self.molecule.charges_engine.casefold() == "chargemol":
             self._extract_charge_data_chargemol()
-        elif self.molecule.charges_engine.casefold() == 'onetep':
+        elif self.molecule.charges_engine.casefold() == "onetep":
             self._extract_charge_data_onetep()
         else:
-            raise NotImplementedError('Currently, the only valid charge engines in QUBEKit are ONETEP and Chargemol.')
+            raise NotImplementedError(
+                "Currently, the only valid charge engines in QUBEKit are ONETEP and Chargemol."
+            )
 
         if self.molecule.enable_symmetry:
             self._apply_symmetrisation()
 
         # Ensure the partial charges in the atom container are also changed.
-        for molecule_atom, ddec_atom in zip(self.molecule.atoms, self.molecule.ddec_data.values()):
+        for molecule_atom, ddec_atom in zip(
+            self.molecule.atoms, self.molecule.ddec_data.values()
+        ):
             molecule_atom.partial_charge = ddec_atom.charge
 
     def _extract_charge_data_chargemol(self):
@@ -405,22 +437,22 @@ class ExtractChargeData:
         """
 
         if self.molecule.ddec_version == 6:
-            net_charge_file_name = 'DDEC6_even_tempered_net_atomic_charges.xyz'
+            net_charge_file_name = "DDEC6_even_tempered_net_atomic_charges.xyz"
 
         elif self.molecule.ddec_version == 3:
-            net_charge_file_name = 'DDEC3_net_atomic_charges.xyz'
+            net_charge_file_name = "DDEC3_net_atomic_charges.xyz"
 
         else:
-            raise ValueError('Unsupported DDEC version; please use version 3 or 6.')
+            raise ValueError("Unsupported DDEC version; please use version 3 or 6.")
 
         if not os.path.exists(net_charge_file_name):
             raise FileNotFoundError(
-                'Cannot find the DDEC output file.\nThis could be indicative of several issues.\n'
-                'Please check Chargemol is installed in the correct location and that the configs'
-                ' point to that location.'
+                "Cannot find the DDEC output file.\nThis could be indicative of several issues.\n"
+                "Please check Chargemol is installed in the correct location and that the configs"
+                " point to that location."
             )
 
-        with open(net_charge_file_name, 'r+') as charge_file:
+        with open(net_charge_file_name, "r+") as charge_file:
             lines = charge_file.readlines()
 
         # Find number of atoms
@@ -429,17 +461,19 @@ class ExtractChargeData:
         # Find data markers:
         ddec_start_pos, cloud_pen_pos = 0, 0
         for pos, row in enumerate(lines):
-            if 'The following XYZ' in row:
+            if "The following XYZ" in row:
                 ddec_start_pos = pos + 2
 
             # [sic]
-            elif 'The sperically averaged' in row:
+            elif "The sperically averaged" in row:
                 cloud_pen_pos = pos + 2
 
             if ddec_start_pos and cloud_pen_pos:
                 break
         else:
-            raise EOFError(f'Cannot find charge or cloud penetration data in {net_charge_file_name}.')
+            raise EOFError(
+                f"Cannot find charge or cloud penetration data in {net_charge_file_name}."
+            )
 
         ddec_data = {}
         dipole_moment_data = {}
@@ -447,24 +481,52 @@ class ExtractChargeData:
 
         cloud_pen_data = {}
 
-        for line in lines[ddec_start_pos: ddec_start_pos + atom_total]:
+        for line in lines[ddec_start_pos : ddec_start_pos + atom_total]:
             # _'s are the xyz coords, then the quadrupole moment tensor eigenvalues.
-            atom_count, atomic_symbol, _, _, _, charge, x_dipole, y_dipole, z_dipole, _, q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2, *_ = line.split()
+            (
+                atom_count,
+                atomic_symbol,
+                _,
+                _,
+                _,
+                charge,
+                x_dipole,
+                y_dipole,
+                z_dipole,
+                _,
+                q_xy,
+                q_xz,
+                q_yz,
+                q_x2_y2,
+                q_3z2_r2,
+                *_,
+            ) = line.split()
             # File counts from 1 not 0; thereby requiring -1 to get the index.
             atom_index = int(atom_count) - 1
             ddec_data[atom_index] = CustomNamespace(
-                atomic_symbol=atomic_symbol, charge=float(charge), volume=None, r_aim=None, b_i=None, a_i=None
+                atomic_symbol=atomic_symbol,
+                charge=float(charge),
+                volume=None,
+                r_aim=None,
+                b_i=None,
+                a_i=None,
             )
 
             dipole_moment_data[atom_index] = CustomNamespace(
-                x_dipole=float(x_dipole), y_dipole=float(y_dipole), z_dipole=float(z_dipole)
+                x_dipole=float(x_dipole),
+                y_dipole=float(y_dipole),
+                z_dipole=float(z_dipole),
             )
 
             quadrupole_moment_data[atom_index] = CustomNamespace(
-                q_xy=float(q_xy), q_xz=float(q_xz), q_yz=float(q_yz), q_x2_y2=float(q_x2_y2), q_3z2_r2=float(q_3z2_r2)
+                q_xy=float(q_xy),
+                q_xz=float(q_xz),
+                q_yz=float(q_yz),
+                q_x2_y2=float(q_x2_y2),
+                q_3z2_r2=float(q_3z2_r2),
             )
 
-        for line in lines[cloud_pen_pos: cloud_pen_pos + atom_total]:
+        for line in lines[cloud_pen_pos : cloud_pen_pos + atom_total]:
             # _'s are the xyz coords and the r_squared.
             atom_count, atomic_symbol, _, _, _, a, b, _ = line.split()
             atom_index = int(atom_count) - 1
@@ -472,12 +534,12 @@ class ExtractChargeData:
                 atomic_symbol=atomic_symbol, a=float(a), b=float(b)
             )
 
-        r_cubed_file_name = 'DDEC_atomic_Rcubed_moments.xyz'
+        r_cubed_file_name = "DDEC_atomic_Rcubed_moments.xyz"
 
-        with open(r_cubed_file_name, 'r+') as vol_file:
+        with open(r_cubed_file_name, "r+") as vol_file:
             lines = vol_file.readlines()
 
-        vols = [float(line.split()[-1]) for line in lines[2:atom_total + 2]]
+        vols = [float(line.split()[-1]) for line in lines[2 : atom_total + 2]]
 
         for atom_index in ddec_data:
             ddec_data[atom_index].volume = vols[atom_index]
@@ -495,34 +557,51 @@ class ExtractChargeData:
         """
 
         # Just fill in None values until they are known
-        ddec_data = {i: CustomNamespace(
-            atomic_symbol=atom.atomic_symbol, charge=None, volume=None, r_aim=None, b_i=None, a_i=None)
-            for i, atom in enumerate(self.molecule.atoms)}
+        ddec_data = {
+            i: CustomNamespace(
+                atomic_symbol=atom.atomic_symbol,
+                charge=None,
+                volume=None,
+                r_aim=None,
+                b_i=None,
+                a_i=None,
+            )
+            for i, atom in enumerate(self.molecule.atoms)
+        }
 
         # Second file contains the rest (charges, dipoles and volumes):
-        ddec_output_file = 'ddec.onetep' if os.path.exists('ddec.onetep') else 'iter_1/ddec.onetep'
-        with open(ddec_output_file, 'r') as file:
+        ddec_output_file = (
+            "ddec.onetep" if os.path.exists("ddec.onetep") else "iter_1/ddec.onetep"
+        )
+        with open(ddec_output_file, "r") as file:
             lines = file.readlines()
 
         charge_pos, vol_pos = None, None
         for pos, line in enumerate(lines):
 
             # Charges marker in file:
-            if 'DDEC density' in line:
+            if "DDEC density" in line:
                 charge_pos = pos + 7
 
             # Volumes marker in file:
-            if 'DDEC Radial' in line:
+            if "DDEC Radial" in line:
                 vol_pos = pos + 4
 
         if any(position is None for position in [charge_pos, vol_pos]):
-            raise EOFError('Cannot locate charges and / or volumes in ddec.onetep file.')
+            raise EOFError(
+                "Cannot locate charges and / or volumes in ddec.onetep file."
+            )
 
-        charges = [float(line.split()[-1]) for line in lines[charge_pos: charge_pos + len(self.molecule.atoms)]]
+        charges = [
+            float(line.split()[-1])
+            for line in lines[charge_pos : charge_pos + len(self.molecule.atoms)]
+        ]
 
         # Add the AIM-Valence and the AIM-Core to get V^AIM
-        volumes = [float(line.split()[2]) + float(line.split()[3])
-                   for line in lines[vol_pos: vol_pos + len(self.molecule.atoms)]]
+        volumes = [
+            float(line.split()[2]) + float(line.split()[3])
+            for line in lines[vol_pos : vol_pos + len(self.molecule.atoms)]
+        ]
 
         for atom_index in ddec_data:
             ddec_data[atom_index].charge = charges[atom_index]
@@ -544,8 +623,12 @@ class ExtractChargeData:
         # Find the average charge / volume values for each sym_set.
         # A sym_set is atoms which should have the same charge / volume values (e.g. methyl H's).
         for sym_set in atom_types.values():
-            charge = sum(self.molecule.ddec_data[atom].charge for atom in sym_set) / len(sym_set)
-            volume = sum(self.molecule.ddec_data[atom].volume for atom in sym_set) / len(sym_set)
+            charge = sum(
+                self.molecule.ddec_data[atom].charge for atom in sym_set
+            ) / len(sym_set)
+            volume = sum(
+                self.molecule.ddec_data[atom].volume for atom in sym_set
+            ) / len(sym_set)
 
             # Store the new values.
             for atom in sym_set:
@@ -560,7 +643,7 @@ def extract_extra_sites_onetep(molecule):
     * Calculate the local coords site
     """
 
-    with open('xyz_with_extra_point_charges.xyz') as xyz_sites:
+    with open("xyz_with_extra_point_charges.xyz") as xyz_sites:
         lines = xyz_sites.readlines()
 
     extra_sites = dict()
@@ -568,27 +651,33 @@ def extract_extra_sites_onetep(molecule):
     site_number = 0
 
     for i, line in enumerate(lines[2:]):
-        if line.split()[0] != 'X':
+        if line.split()[0] != "X":
             parent += 1
             # Search the following entries for sites connected to this atom
-            for virtual_site in lines[i + 3:]:
+            for virtual_site in lines[i + 3 :]:
                 site_data = ExtraSite()
                 element, *site_coords, site_charge = virtual_site.split()
                 # Not a virtual site:
-                if element != 'X':
+                if element != "X":
                     break
                 else:
                     site_coords = np.array([float(coord) for coord in site_coords])
 
                     closest_atoms = list(molecule.topology.neighbors(parent))
-                    if (len(closest_atoms) < 2) or (len(molecule.atoms[parent].bonds) > 3):
+                    if (len(closest_atoms) < 2) or (
+                        len(molecule.atoms[parent].bonds) > 3
+                    ):
                         for atom in list(molecule.topology.neighbors(closest_atoms[0])):
                             if atom not in closest_atoms and atom != parent:
                                 closest_atoms.append(atom)
                                 break
 
                     # Get the xyz coordinates of the reference atoms
-                    coords = molecule.coords['qm'] if molecule.coords['qm'] is not [] else molecule.coords['input']
+                    coords = (
+                        molecule.coords["qm"]
+                        if molecule.coords["qm"] is not []
+                        else molecule.coords["input"]
+                    )
                     parent_coords = coords[parent]
                     close_a_coords = coords[closest_atoms[0]]
                     close_b_coords = coords[closest_atoms[1]]
@@ -598,11 +687,13 @@ def extract_extra_sites_onetep(molecule):
                     site_data.closest_b_index = closest_atoms[1]
 
                     parent_atom = molecule.atoms[parent]
-                    if parent_atom.atomic_symbol == 'N' and len(parent_atom.bonds) == 3:
+                    if parent_atom.atomic_symbol == "N" and len(parent_atom.bonds) == 3:
                         close_c_coords = coords[closest_atoms[2]]
                         site_data.closest_c_index = closest_atoms[2]
 
-                        x_dir = ((close_a_coords + close_b_coords + close_c_coords) / 3) - parent_coords
+                        x_dir = (
+                            (close_a_coords + close_b_coords + close_c_coords) / 3
+                        ) - parent_coords
                         x_dir /= np.linalg.norm(x_dir)
 
                         site_data.p2 = 0
@@ -616,21 +707,33 @@ def extract_extra_sites_onetep(molecule):
                         x_dir = close_a_coords - parent_coords
                         x_dir /= np.linalg.norm(x_dir)
 
-                        z_dir = np.cross((close_a_coords - parent_coords), (close_b_coords - parent_coords))
+                        z_dir = np.cross(
+                            (close_a_coords - parent_coords),
+                            (close_b_coords - parent_coords),
+                        )
                         z_dir /= np.linalg.norm(z_dir)
 
                         y_dir = np.cross(z_dir, x_dir)
 
-                        p2 = float(np.dot((site_coords - parent_coords), y_dir.reshape(3, 1)) * ANGS_TO_NM)
+                        p2 = float(
+                            np.dot((site_coords - parent_coords), y_dir.reshape(3, 1))
+                            * ANGS_TO_NM
+                        )
                         site_data.p2 = round(p2, 4)
-                        p3 = float(np.dot((site_coords - parent_coords), z_dir.reshape(3, 1)) * ANGS_TO_NM)
+                        p3 = float(
+                            np.dot((site_coords - parent_coords), z_dir.reshape(3, 1))
+                            * ANGS_TO_NM
+                        )
                         site_data.p3 = round(p3, 4)
 
                         site_data.o_weights = [1.0, 0.0, 0.0]
                         site_data.x_weights = [-1.0, 1.0, 0.0]
                         site_data.y_weights = [-1.0, 0.0, 1.0]
 
-                    p1 = float(np.dot((site_coords - parent_coords), x_dir.reshape(3, 1)) * ANGS_TO_NM)
+                    p1 = float(
+                        np.dot((site_coords - parent_coords), x_dir.reshape(3, 1))
+                        * ANGS_TO_NM
+                    )
                     site_data.p1 = round(p1, 4)
 
                     extra_sites[site_number] = site_data

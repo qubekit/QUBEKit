@@ -1,13 +1,12 @@
-from QUBEKit.ligand import Ligand
-
 import os
 import sys
 
-from PyQt5 import QtWidgets, QtGui
+import qdarkstyle
+from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import QUrl
 from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineView
 
-import qdarkstyle
+from QUBEKit.ligand import Ligand
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -33,7 +32,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 class LigandTab(QtWidgets.QWidget):
-
     def __init__(self, molecule_file=None, parent=None):
         super(LigandTab, self).__init__(parent)
 
@@ -51,12 +49,12 @@ class LigandTab(QtWidgets.QWidget):
         self.main_label.setFont(QtGui.QFont("Aerial", 16, QtGui.QFont.Bold))
 
         if self.molecule is None:
-            self.ligand_name = QtWidgets.QLabel('Load molecule .pdb .mol2 file')
+            self.ligand_name = QtWidgets.QLabel("Load molecule .pdb .mol2 file")
         else:
-            self.ligand_name = QtWidgets.QLabel(f'{self.molecule.name}')
+            self.ligand_name = QtWidgets.QLabel(f"{self.molecule.name}")
 
         # Add the file loader button
-        self.file_button = QtWidgets.QPushButton('Load Molecule')
+        self.file_button = QtWidgets.QPushButton("Load Molecule")
         self.file_button.clicked.connect(self.load_molecule)
 
         # Put the label and Button in there own box
@@ -70,9 +68,18 @@ class LigandTab(QtWidgets.QWidget):
             self.viewer = Viewer()
 
         # Add representation settings for the ligand
-        self.representation_label = QtWidgets.QLabel('Representation')
+        self.representation_label = QtWidgets.QLabel("Representation")
         self.representation = QtWidgets.QComboBox()
-        self.representation.addItems(['Licorice', 'hyperball', 'spheres', 'partialCharge', 'ball+stick', 'spacefill'])
+        self.representation.addItems(
+            [
+                "Licorice",
+                "hyperball",
+                "spheres",
+                "partialCharge",
+                "ball+stick",
+                "spacefill",
+            ]
+        )
         # Add text change logic
         self.representation.currentTextChanged.connect(self.change_rep)
 
@@ -82,10 +89,10 @@ class LigandTab(QtWidgets.QWidget):
         repersentation.addWidget(self.representation)
 
         # Add a surface control box
-        self.surface_group = QtWidgets.QGroupBox('Surface Controls')
+        self.surface_group = QtWidgets.QGroupBox("Surface Controls")
         self.surface_group.setCheckable(True)
-        self.surface_label = QtWidgets.QLabel('Surface file')
-        self.surface_file = QtWidgets.QPushButton('Load surface file')
+        self.surface_label = QtWidgets.QLabel("Surface file")
+        self.surface_file = QtWidgets.QPushButton("Load surface file")
         self.surface_file.clicked.connect(self.load_surface)
         # self.find
 
@@ -101,17 +108,17 @@ class LigandTab(QtWidgets.QWidget):
         """Load the molecule into the gui and make an instance of the Ligand class."""
 
         # Open up the file explorer
-        filename = self.load_file(['pdb', 'mol2', 'mol', 'sdf'])
-        if '.pdb' in filename or '.mol2' in filename or 'mol' in filename:
+        filename = self.load_file(["pdb", "mol2", "mol", "sdf"])
+        if ".pdb" in filename or ".mol2" in filename or "mol" in filename:
             # Instance the QUBEKit class
             self.molecule = Ligand(filename)
             self.viewer.load_molecule(filename)
-            self.ligand_name.setText(f'{self.molecule.name}')
+            self.ligand_name.setText(f"{self.molecule.name}")
 
     def load_surface(self):
         """Check if we have a valid surface file then load it into the viewer."""
 
-        filename = self.load_file(['cube'])
+        filename = self.load_file(["cube"])
 
     def load_file(self, types):
         """Load a file name through pyqt5"""
@@ -120,13 +127,14 @@ class LigandTab(QtWidgets.QWidget):
         options |= QtWidgets.QFileDialog.DontUseNativeDialog
 
         # Make the file type selector string
-        file_types = 'All Files (*);;'
+        file_types = "All Files (*);;"
         for file_type in types:
-            file_types += f'{str(file_type).upper()} Files (*.{file_type});;'
+            file_types += f"{str(file_type).upper()} Files (*.{file_type});;"
 
         # Get the file name from the window
-        filename, _ = QtWidgets.QFileDialog.getOpenFileName(None, "QUBEKit File Selector", "", file_types,
-                                                            options=options)
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            None, "QUBEKit File Selector", "", file_types, options=options
+        )
 
         return filename
 
@@ -137,14 +145,15 @@ class LigandTab(QtWidgets.QWidget):
 
 
 class Viewer:
-
     def __init__(self, molecule_file=None):
 
         self.molecule_file = molecule_file
         self.view = QWebEngineView()
         self.view.setPage(WebEnginePage(self.view))
         self.view.loadFinished.connect(self.on_load_finish)
-        self.html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "view.html"))
+        self.html_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "view.html")
+        )
         self.local_url = QUrl.fromLocalFile(self.html_path)
         self.view.load(self.local_url)
 
@@ -167,12 +176,12 @@ class Viewer:
 def main():
     sys.argv.append("--disable-web-security")
     app = QtWidgets.QApplication(sys.argv)
-    if '.pdb' in sys.argv[1] or '.mol2' in sys.argv[1]:
+    if ".pdb" in sys.argv[1] or ".mol2" in sys.argv[1]:
         molecule_name = sys.argv[1]
         gui = MainWindow(molecule=molecule_name)
     else:
         gui = MainWindow()
-    gui.setWindowTitle('QUBEKit-gui')
+    gui.setWindowTitle("QUBEKit-gui")
     # TODO make sure this is the correct error
     try:
         app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
@@ -185,9 +194,9 @@ def main():
 # The molecule file is the last sys argument
 # Now need to pass it into the web java script
 
+
 class WebEnginePage(QWebEnginePage):
     """Class to overwirte the java script console log so it prints to terminal for debugging"""
 
     def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
         print("javaScriptConsoleMessage: ", level, message, lineNumber, sourceID)
-

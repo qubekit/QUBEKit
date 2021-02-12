@@ -1,28 +1,24 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils.constants import ANGS_TO_BOHR
-
-from multiprocessing import current_process, Process, Queue
 import os
 import queue
+from multiprocessing import Process, Queue, current_process
 
+import numpy as np
 from geometric.engine import OpenMM
 from geometric.internal import DelocalizedInternalCoordinates
 from geometric.molecule import Molecule
 from geometric.optimize import Optimize, OptParams, ParseConstraints
 from geometric.run_json import make_constraints_string
-
 from torsiondrive import td_api
 
-import numpy as np
+from QUBEKit.utils.constants import ANGS_TO_BOHR
 
 # TODO OpenMM does not respect the number of designated threads so every task tries to run on every core
 
 
 class TorsionDriveController:
-    """
-
-    """
+    """"""
 
     def __init__(self, molecule, bond, controller):
 
@@ -30,7 +26,7 @@ class TorsionDriveController:
         self.dihedrals = [[i for i in molecule.dihedrals[bond][0]]]
         self.grid_spacing = [molecule.increment]
         self.elements = [atom.atomic_symbol for atom in molecule.atoms]
-        self.init_coords = [(molecule.coords['input'] * ANGS_TO_BOHR).ravel().tolist()]
+        self.init_coords = [(molecule.coords["input"] * ANGS_TO_BOHR).ravel().tolist()]
         self.dihedral_ranges = [[molecule.dih_start, molecule.dih_end]]
         self.energy_decrease_thresh = None
         self.energy_upper_limit = None
@@ -39,16 +35,16 @@ class TorsionDriveController:
         self.next_jobs = Queue()
         self.job_results = None
         self.results = None
-        self.geo_mol = Molecule(f'{molecule.name}.pdb')
+        self.geo_mol = Molecule(f"{molecule.name}.pdb")
         self.params = None
         self.update_params()
         self.create_state()
-        os.environ['OPENMM_CPU_THREADS'] = '1'
+        os.environ["OPENMM_CPU_THREADS"] = "1"
 
     def update_params(self):
         """Unpack all params which need to be updated."""
 
-        params = {'qccnv': True, 'reset': True, 'enforce': 0.0, 'epsilon': 0}
+        params = {"qccnv": True, "reset": True, "enforce": 0.0, "epsilon": 0}
         self.params = OptParams(**params)
 
     def create_state(self):
@@ -91,24 +87,28 @@ class TorsionDriveController:
         """
 
         engine_actions = {
-            'openmm': self._make_openmm_engine(),
-            'psi4': self._make_psi4_engine(),
-            'gaussian': self._make_gaussian_engine()
+            "openmm": self._make_openmm_engine(),
+            "psi4": self._make_psi4_engine(),
+            "gaussian": self._make_gaussian_engine(),
         }
 
         try:
             engine_actions.get(engine)
         except KeyError:
-            raise NotImplementedError('Please use openmm, psi4 or gaussian.')
+            raise NotImplementedError("Please use openmm, psi4 or gaussian.")
 
     def create_diheral_constraints(self, angle):
-        constraints_dict = {'set': [{'type': 'dihedral', 'indices': self.dihedrals[0], 'value': angle}]}
+        constraints_dict = {
+            "set": [{"type": "dihedral", "indices": self.dihedrals[0], "value": angle}]
+        }
         constraints_string = make_constraints_string(constraints_dict)
 
         return ParseConstraints(self.geo_mol, constraints_string)
 
     def _make_openmm_engine(self):
-        return OpenMM(self.geo_mol, f'{self.molecule.name}.pdb', f'{self.molecule.name}.xml')
+        return OpenMM(
+            self.geo_mol, f"{self.molecule.name}.pdb", f"{self.molecule.name}.xml"
+        )
 
     def _make_gaussian_engine(self):
         pass
@@ -135,7 +135,7 @@ class TorsionDriveController:
 
                 # now put the results in the finished queue
                 final_geo = opt.xyzs[-1]
-                final_energy = opt.Data['qm_energies'][-1]
+                final_energy = opt.Data["qm_energies"][-1]
                 # print(f'opt done! {current_process().name}')
                 output_queue.put((inputs[1], inputs[0], final_geo, final_energy))
                 # print(f'optimisation finished at {inputs[1]} by thread id {current_process().name}')
@@ -150,10 +150,16 @@ class TorsionDriveController:
         # make the coord system using default values for now
         coord_class, connect, add_cart = DelocalizedInternalCoordinates, False, False
 
-        ic = coord_class(self.geo_mol, build=True, connect=connect, addcart=add_cart, constraints=cons,
-                         cvals=cvals[0] or None)
+        ic = coord_class(
+            self.geo_mol,
+            build=True,
+            connect=connect,
+            addcart=add_cart,
+            constraints=cons,
+            cvals=cvals[0] or None,
+        )
 
-        return Optimize(coordinates, self.geo_mol, ic, engine, 'test', self.params)
+        return Optimize(coordinates, self.geo_mol, ic, engine, "test", self.params)
 
     def update_state(self, output_queue):
         """Using the output queue, update the tdrive state"""
@@ -180,7 +186,9 @@ class TorsionDriveController:
             # Now we know the grid point to run set up the optimiser class
             processors = []
             for i in range(4):
-                p = Process(target=self.optimise_grid_point, args=(working_queue, output_queue))
+                p = Process(
+                    target=self.optimise_grid_point, args=(working_queue, output_queue)
+                )
                 processors.append(p)
                 p.start()
 
@@ -202,7 +210,7 @@ class TorsionDriveController:
             self.results[items[0]] = [items[1]]
 
         # now we can collect the optimised geometries from the state and convert them to ang
-        for key, value in self.td_state['grid_status'].items():
+        for key, value in self.td_state["grid_status"].items():
             grid_id = td_api.grid_id_from_string(key)
             for results in value:
                 if self.results[grid_id][0] == results[-1]:
