@@ -4,6 +4,7 @@ from QUBEKit.engines.base_engine import Engines
 from QUBEKit.utils import constants
 from QUBEKit.utils.helpers import check_symmetry
 
+import os
 import subprocess as sp
 
 import numpy as np
@@ -251,3 +252,14 @@ class Gaussian(Engines):
                 freqs.extend(float(num) for num in lines[pos].split()[2:])
 
         return np.array(freqs)
+
+    @staticmethod
+    def cleanup():
+        """After a successful run, can be called to remove lig.chk, lig.fchk files."""
+
+        files_to_remove = ['lig.chk', 'lig.fchk', 'log.txt']
+        for file in files_to_remove:
+            try:
+                os.remove(file)
+            except FileNotFoundError:
+                pass

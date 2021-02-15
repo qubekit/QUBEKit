@@ -749,8 +749,7 @@ class Execute:
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
 
         append_to_log('Starting qm_optimisation')
-        qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
-        max_restarts = 3
+        MAX_RESTARTS = 3
 
         if molecule.geometric and (molecule.bonds_engine == 'psi4'):
             qceng = QCEngine(molecule)
@@ -758,7 +757,7 @@ class Execute:
                                          input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}')
 
             restart_count = 0
-            while (not result['success']) and (restart_count < max_restarts):
+            while (not result['success']) and (restart_count < MAX_RESTARTS):
                 append_to_log(f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
                               msg_type='minor')
 
@@ -792,11 +791,13 @@ class Execute:
 
         # Using Gaussian or geometric off
         else:
+            qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
+
             result = qm_engine.generate_input(input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}',
                                               optimise=True, execute=molecule.bonds_engine)
 
             restart_count = 0
-            while (not result['success']) and (restart_count < max_restarts):
+            while (not result['success']) and (restart_count < MAX_RESTARTS):
                 append_to_log(f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
                               msg_type='minor')
 

@@ -25,6 +25,23 @@ class LennardJones:
         'Br': FreeParams(95.7, 162.0, 1.96),
         'Si': FreeParams(101.64, 305, 2.08),
     }
+    # If left as 1, 0, then no change will be made to final calc (multiply by 1 and to power of 0)
+    alpha = 1
+    beta = 0
+    # with open('../../optimise.out') as opt_file:
+    #     lines = opt_file.readlines()
+    #     for i, line in enumerate(lines):
+    #         if 'Final physical parameters:' in line:
+    #             elem_dict['C'] = FreeParams(34.4, 46.6, float(lines[i + 2].split(' ')[6]))
+    #             elem_dict['N'] = FreeParams(25.9, 24.2, float(lines[i + 3].split(' ')[6]))
+    #             elem_dict['O'] = FreeParams(22.1, 15.6, float(lines[i + 4].split(' ')[6]))
+    #             elem_dict['H'] = FreeParams(7.6, 6.5, float(lines[i + 5].split(' ')[6]))
+    #             elem_dict['X'] = FreeParams(7.6, 6.5, float(lines[i + 6].split(' ')[6]))
+    #             try:
+    #                 alpha = float(lines[i + 7].split(' ')[2])
+    #                 beta = float(lines[i + 8].split(' ')[2])
+    #             except (IndexError, ValueError):
+    #                 pass
 
     def __init__(self, molecule):
 
@@ -103,9 +120,9 @@ class LennardJones:
 
                 # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
-                # atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
-                # # alpha and beta
-                # epsilon *= 1.2207 * ((atom.volume / self.elem_dict[atomic_symbol].vfree) ** 0.48856)
+                atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
+                # alpha and beta
+                epsilon *= self.alpha * ((atom.volume / self.elem_dict[atomic_symbol].vfree) ** self.beta)
                 epsilon *= constants.EPSILON_CONVERSION
 
             self.non_bonded_force[atom_index] = [atom.charge, sigma, epsilon]
