@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
-from QUBEKit.engines.base_engine import Engines
-
 import json
+
+from QUBEKit.engines.base_engine import Engines
 
 
 class TorsionDrive(Engines):
-
     def __init__(self, molecule, dihedral, json_filename):
 
         super().__init__(molecule)
@@ -28,11 +27,11 @@ class TorsionDrive(Engines):
 
         scan_info = [self.dihedral, grid_spacing, elements, init_coords, grid_status]
 
-        with open(self.json_filename, 'w') as json_file:
+        with open(self.json_filename, "w") as json_file:
             json.dump(scan_info, json_file)
 
     def execute(self):
 
-        with open(self.json_filename, 'r') as json_file:
+        with open(self.json_filename, "r") as json_file:
             # execute
             pass

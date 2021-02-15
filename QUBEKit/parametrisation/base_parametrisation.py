@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-from QUBEKit.utils import constants
-
+import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from copy import deepcopy
 
-import xml.etree.ElementTree as ET
+from QUBEKit.utils import constants
 
 
 class Parametrisation:
@@ -53,17 +52,23 @@ class Parametrisation:
         # could be a problem for boron compounds
         self.molecule.AtomTypes = {}
         try:
-            self.molecule.HarmonicBondForce = {bond: [0, 0] for bond in self.molecule.bond_lengths.keys()}
-            self.molecule.HarmonicAngleForce = {angle: [0, 0] for angle in self.molecule.angle_values.keys()}
+            self.molecule.HarmonicBondForce = {
+                bond: [0, 0] for bond in self.molecule.bond_lengths.keys()
+            }
+            self.molecule.HarmonicAngleForce = {
+                angle: [0, 0] for angle in self.molecule.angle_values.keys()
+            }
         except AttributeError:
             self.molecule.HarmonicBondForce = {}
             self.molecule.HarmonicAngleForce = {}
-        self.molecule.NonbondedForce = OrderedDict((number, [0, 0, 0]) for number in range(len(self.molecule.atoms)))
+        self.molecule.NonbondedForce = OrderedDict(
+            (number, [0, 0, 0]) for number in range(len(self.molecule.atoms))
+        )
         self.molecule.PeriodicTorsionForce = OrderedDict()
         self.sites = {}
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.__dict__!r})'
+        return f"{self.__class__.__name__}({self.__dict__!r})"
 
     def gather_parameters(self):
         """
@@ -73,88 +78,147 @@ class Parametrisation:
 
         # Try to gather the AtomTypes first
         for atom in self.molecule.atoms:
-            self.molecule.AtomTypes[atom.atom_index] = [atom.atom_name, 'QUBE_' + str(000 + atom.atom_index),
-                                                        str(atom.atomic_symbol) + str(000 + atom.atom_index)]
+            self.molecule.AtomTypes[atom.atom_index] = [
+                atom.atom_name,
+                "QUBE_" + str(000 + atom.atom_index),
+                str(atom.atomic_symbol) + str(000 + atom.atom_index),
+            ]
 
         phases = [0, constants.PI, 0, constants.PI]
         try:
-            in_root = ET.parse('serialised.xml').getroot()
+            in_root = ET.parse("serialised.xml").getroot()
 
             # Extract any virtual site data only supports local coords atm, charges are added later
-            for i, virtual_site in enumerate(in_root.iter('LocalCoordinatesSite')):
+            for i, virtual_site in enumerate(in_root.iter("LocalCoordinatesSite")):
                 self.sites[i] = [
-                    (int(virtual_site.get('p1')), int(virtual_site.get('p2')), int(virtual_site.get('p3'))),
-                    (float(virtual_site.get('pos1')), float(virtual_site.get('pos2')), float(virtual_site.get('pos3')))
+                    (
+                        int(virtual_site.get("p1")),
+                        int(virtual_site.get("p2")),
+                        int(virtual_site.get("p3")),
+                    ),
+                    (
+                        float(virtual_site.get("pos1")),
+                        float(virtual_site.get("pos2")),
+                        float(virtual_site.get("pos3")),
+                    ),
                 ]
 
             # Extract all bond data
-            for Bond in in_root.iter('Bond'):
-                bond = (int(Bond.get('p1')), int(Bond.get('p2')))
+            for Bond in in_root.iter("Bond"):
+                bond = (int(Bond.get("p1")), int(Bond.get("p2")))
                 if bond in self.molecule.HarmonicBondForce:
-                    self.molecule.HarmonicBondForce[bond] = [float(Bond.get('d')), float(Bond.get('k'))]
+                    self.molecule.HarmonicBondForce[bond] = [
+                        float(Bond.get("d")),
+                        float(Bond.get("k")),
+                    ]
                 else:
-                    self.molecule.HarmonicBondForce[bond[::-1]] = [float(Bond.get('d')), float(Bond.get('k'))]
+                    self.molecule.HarmonicBondForce[bond[::-1]] = [
+                        float(Bond.get("d")),
+                        float(Bond.get("k")),
+                    ]
 
             # Extract all angle data
-            for Angle in in_root.iter('Angle'):
-                angle = int(Angle.get('p1')), int(Angle.get('p2')), int(Angle.get('p3'))
+            for Angle in in_root.iter("Angle"):
+                angle = int(Angle.get("p1")), int(Angle.get("p2")), int(Angle.get("p3"))
                 if angle in self.molecule.HarmonicAngleForce:
-                    self.molecule.HarmonicAngleForce[angle] = [float(Angle.get('a')), float(Angle.get('k'))]
+                    self.molecule.HarmonicAngleForce[angle] = [
+                        float(Angle.get("a")),
+                        float(Angle.get("k")),
+                    ]
                 else:
-                    self.molecule.HarmonicAngleForce[angle[::-1]] = [float(Angle.get('a')), float(Angle.get('k'))]
+                    self.molecule.HarmonicAngleForce[angle[::-1]] = [
+                        float(Angle.get("a")),
+                        float(Angle.get("k")),
+                    ]
 
             # Extract all non-bonded data, do not add virtual site info to the nonbonded list
             atom_num, site_num = 0, 0
-            for Atom in in_root.iter('Particle'):
+            for Atom in in_root.iter("Particle"):
                 if "eps" in Atom.attrib:
                     if atom_num >= len(self.molecule.atoms):
-                        self.sites[site_num].append(float(Atom.get('q')))
+                        self.sites[site_num].append(float(Atom.get("q")))
                         site_num += 1
                     else:
-                        self.molecule.NonbondedForce[atom_num] = [float(Atom.get('q')), float(Atom.get('sig')), float(Atom.get('eps'))]
-                        self.molecule.atoms[atom_num].partial_charge = float(Atom.get('q'))
+                        self.molecule.NonbondedForce[atom_num] = [
+                            float(Atom.get("q")),
+                            float(Atom.get("sig")),
+                            float(Atom.get("eps")),
+                        ]
+                        self.molecule.atoms[atom_num].partial_charge = float(
+                            Atom.get("q")
+                        )
                         atom_num += 1
 
             # Check if we found any sites
             self.molecule.extra_sites = self.sites or None
 
             # Extract all of the torsion data
-            for Torsion in in_root.iter('Torsion'):
-                tor_str_forward = tuple(int(Torsion.get(f'p{i}')) for i in range(1, 5))
+            for Torsion in in_root.iter("Torsion"):
+                tor_str_forward = tuple(int(Torsion.get(f"p{i}")) for i in range(1, 5))
                 tor_str_back = tuple(reversed(tor_str_forward))
 
-                if tor_str_forward not in self.molecule.PeriodicTorsionForce and tor_str_back not in self.molecule.PeriodicTorsionForce:
+                if (
+                    tor_str_forward not in self.molecule.PeriodicTorsionForce
+                    and tor_str_back not in self.molecule.PeriodicTorsionForce
+                ):
                     self.molecule.PeriodicTorsionForce[tor_str_forward] = [
-                        [int(Torsion.get('periodicity')), float(Torsion.get('k')), phases[int(Torsion.get('periodicity')) - 1]]]
+                        [
+                            int(Torsion.get("periodicity")),
+                            float(Torsion.get("k")),
+                            phases[int(Torsion.get("periodicity")) - 1],
+                        ]
+                    ]
 
                 elif tor_str_forward in self.molecule.PeriodicTorsionForce:
                     self.molecule.PeriodicTorsionForce[tor_str_forward].append(
-                        [int(Torsion.get('periodicity')), float(Torsion.get('k')), phases[int(Torsion.get('periodicity')) - 1]])
+                        [
+                            int(Torsion.get("periodicity")),
+                            float(Torsion.get("k")),
+                            phases[int(Torsion.get("periodicity")) - 1],
+                        ]
+                    )
 
                 elif tor_str_back in self.molecule.PeriodicTorsionForce:
                     self.molecule.PeriodicTorsionForce[tor_str_back].append(
-                        [int(Torsion.get('periodicity')), float(Torsion.get('k')), phases[int(Torsion.get('periodicity')) - 1]])
+                        [
+                            int(Torsion.get("periodicity")),
+                            float(Torsion.get("k")),
+                            phases[int(Torsion.get("periodicity")) - 1],
+                        ]
+                    )
 
         except FileNotFoundError:
             # Check what parameter engine we are using if not none then raise an error
-            if self.molecule.parameter_engine != 'none':
-                raise FileNotFoundError('Molecule could not be serialised from OpenMM')
+            if self.molecule.parameter_engine != "none":
+                raise FileNotFoundError("Molecule could not be serialised from OpenMM")
         # Now we have all of the torsions from the OpenMM system
         # we should check if any torsions we found in the molecule do not have parameters
         # if they don't, give them the default 0 parameter this will not change the energy
         if self.molecule.dihedrals is not None:
             for tor_list in self.molecule.dihedrals.values():
                 for torsion in tor_list:
-                    if torsion not in self.molecule.PeriodicTorsionForce and tuple(reversed(torsion)) not in self.molecule.PeriodicTorsionForce:
-                        self.molecule.PeriodicTorsionForce[torsion] = [[1, 0, 0], [2, 0, constants.PI],
-                                                                       [3, 0, 0], [4, 0, constants.PI]]
+                    if (
+                        torsion not in self.molecule.PeriodicTorsionForce
+                        and tuple(reversed(torsion))
+                        not in self.molecule.PeriodicTorsionForce
+                    ):
+                        self.molecule.PeriodicTorsionForce[torsion] = [
+                            [1, 0, 0],
+                            [2, 0, constants.PI],
+                            [3, 0, 0],
+                            [4, 0, constants.PI],
+                        ]
         torsions = [sorted(key) for key in self.molecule.PeriodicTorsionForce.keys()]
         if self.molecule.improper_torsions is not None:
             for torsion in self.molecule.improper_torsions:
                 if sorted(torsion) not in torsions:
                     # The improper torsion is missing and should be added with no energy
-                    self.molecule.PeriodicTorsionForce[torsion] = [[1, 0, 0], [2, 0, constants.PI],
-                                                                   [3, 0, 0], [4, 0, constants.PI]]
+                    self.molecule.PeriodicTorsionForce[torsion] = [
+                        [1, 0, 0],
+                        [2, 0, constants.PI],
+                        [3, 0, 0],
+                        [4, 0, constants.PI],
+                    ]
 
         # Now we need to fill in all blank phases of the Torsions
         for key, val in self.molecule.PeriodicTorsionForce.items():
@@ -178,7 +242,7 @@ class Parametrisation:
                     # for each improper find the corresponding torsion parameters and save
                     if sorted(key) == sorted(improper):
                         # if they match tag the dihedral
-                        self.molecule.PeriodicTorsionForce[key].append('Improper')
+                        self.molecule.PeriodicTorsionForce[key].append("Improper")
                         # replace the key with the strict improper order first atom is center
                         improper_torsions.setdefault(improper, []).append(val)
 
@@ -193,11 +257,15 @@ class Parametrisation:
                     # Store the summed k values
                     improper_torsions[improper] = new_params
                 else:
-                    improper_torsions[improper] = params[0]  # This unpacks the list if we only find one term
+                    improper_torsions[improper] = params[
+                        0
+                    ]  # This unpacks the list if we only find one term
 
         torsions = deepcopy(self.molecule.PeriodicTorsionForce)
         # Remake the torsion; store in the ligand
-        self.molecule.PeriodicTorsionForce = OrderedDict((v, k) for v, k in torsions.items() if k[-1] != 'Improper')
+        self.molecule.PeriodicTorsionForce = OrderedDict(
+            (v, k) for v, k in torsions.items() if k[-1] != "Improper"
+        )
 
         # Add the improper at the end of the torsion object
         if improper_torsions is not None:

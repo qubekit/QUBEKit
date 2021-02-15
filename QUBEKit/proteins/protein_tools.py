@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import numpy as np
-
 import simtk.openmm as mm
 
 
@@ -9,15 +8,18 @@ def apply_opls_combo(system, switching_distance=None):
     """Apply the opls combination rules to a OpenMM system and return the new system."""
 
     # Get the system information from the openmm system
-    forces = {system.getForce(index).__class__.__name__: system.getForce(index) for index in
-              range(system.getNumForces())}
+    forces = {
+        system.getForce(index).__class__.__name__: system.getForce(index)
+        for index in range(system.getNumForces())
+    }
     # Use the nondonded_force to get the same rules
-    nonbonded_force = forces['NonbondedForce']
+    nonbonded_force = forces["NonbondedForce"]
     lorentz = mm.CustomNonbondedForce(
-        'epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0')
+        "epsilon*((sigma/r)^12-(sigma/r)^6); sigma=sqrt(sigma1*sigma2); epsilon=sqrt(epsilon1*epsilon2)*4.0"
+    )
     lorentz.setNonbondedMethod(mm.CustomNonbondedForce.CutoffPeriodic)
-    lorentz.addPerParticleParameter('sigma')
-    lorentz.addPerParticleParameter('epsilon')
+    lorentz.addPerParticleParameter("sigma")
+    lorentz.addPerParticleParameter("epsilon")
     lorentz.setCutoffDistance(nonbonded_force.getCutoffDistance())
     lorentz.setUseLongRangeCorrection(True)
     if switching_distance:
@@ -48,7 +50,7 @@ def apply_opls_combo(system, switching_distance=None):
 def get_water(water=None):
     """Print an opls compatible water model to be used with the qube force field."""
 
-    tip3p = '''<ForceField>
+    tip3p = """<ForceField>
  <AtomTypes>
   <Type name="tip3p-O" class="OW" element="O" mass="15.99943"/>
   <Type name="tip3p-H" class="HW" element="H" mass="1.007947"/>
@@ -72,9 +74,9 @@ def get_water(water=None):
   <Atom type="tip3p-O" charge="-0.834" sigma="0.31507524065751241" epsilon="0.635968"/>
   <Atom type="tip3p-H" charge="0.417" sigma="1" epsilon="0"/>
  </NonbondedForce>
-</ForceField>'''
+</ForceField>"""
 
-    spce = '''<ForceField>
+    spce = """<ForceField>
  <AtomTypes>
   <Type name="spce-O" class="OW" element="O" mass="15.99943"/>
   <Type name="spce-H" class="HW" element="H" mass="1.007947"/>
@@ -98,9 +100,9 @@ def get_water(water=None):
   <Atom type="spce-O" charge="-0.8476" sigma="0.31657195050398818" epsilon="0.6497752"/>
   <Atom type="spce-H" charge="0.4238" sigma="1" epsilon="0"/>
  </NonbondedForce>
-</ForceField>'''
+</ForceField>"""
 
-    tip4pew = '''<ForceField>
+    tip4pew = """<ForceField>
  <AtomTypes>
   <Type name="tip4pew-O" class="OW" element="O" mass="15.99943"/>
   <Type name="tip4pew-H" class="HW" element="H" mass="1.007947"/>
@@ -128,9 +130,9 @@ def get_water(water=None):
   <Atom type="tip4pew-H" charge="0.52422" sigma="1" epsilon="0"/>
   <Atom type="tip4pew-M" charge="-1.04844" sigma="1" epsilon="0"/>
  </NonbondedForce>
-</ForceField>'''
+</ForceField>"""
 
-    tip5p = '''<ForceField>
+    tip5p = """<ForceField>
  <AtomTypes>
   <Type name="tip5p-O" class="OW" element="O" mass="15.99943"/>
   <Type name="tip5p-H" class="HW" element="H" mass="1.007947"/>
@@ -160,9 +162,9 @@ def get_water(water=None):
   <Atom type="tip5p-H" charge="0.241" sigma="1" epsilon="0"/>
   <Atom type="tip5p-M" charge="-0.241" sigma="1" epsilon="0"/>
  </NonbondedForce>
-</ForceField>'''
+</ForceField>"""
 
-    tip3pfb = '''<ForceField>
+    tip3pfb = """<ForceField>
  <Info>
   <DateGenerated>2014-05-28</DateGenerated>
   <Reference>Lee-Ping Wang, Todd J. Martinez and Vijay S. Pande. Building force fields - an automatic, systematic and reproducible approach.  Journal of Physical Chemistry Letters, 2014, 5, pp 1885-1891.  DOI:10.1021/jz500737m</Reference>
@@ -190,9 +192,9 @@ def get_water(water=None):
   <Atom type="tip3p-fb-O" charge="-0.848448690103" sigma="0.317796456355" epsilon="0.652143528104" />
   <Atom type="tip3p-fb-H" charge="0.4242243450515" sigma="1" epsilon="0" />
  </NonbondedForce>
-</ForceField>'''
+</ForceField>"""
 
-    tip4pfb = '''<ForceField>
+    tip4pfb = """<ForceField>
  <Info>
   <DateGenerated>2014-05-28</DateGenerated>
   <Reference>Lee-Ping Wang, Todd J. Martinez and Vijay S. Pande. Building force fields - an automatic, systematic and reproducible approach.  Journal of Physical Chemistry Letters, 2014, 5, pp 1885-1891.  DOI:10.1021/jz500737m</Reference>
@@ -224,9 +226,9 @@ def get_water(water=None):
   <Atom type="tip4p-fb-H" charge="5.258681106763e-01" sigma="1" epsilon="0" />
   <Atom type="tip4p-fb-M" charge="-1.0517362213526e+00" sigma="1" epsilon="0" />
  </NonbondedForce>
-</ForceField>'''
+</ForceField>"""
 
-    tip4pd = '''<ForceField>
+    tip4pd = """<ForceField>
  <Info>
   <Reference>Water Dispersion Interactions Strongly Influence Simulated Structural Properties of Disordered Protein States
 Stefano Piana, Alexander G. Donchev, Paul Robustelli, and David E. Shaw
@@ -260,9 +262,9 @@ DOI: 10.1021/jp508971m </Reference>
   <Atom type="tip4pew-H" charge="0.58" sigma="1" epsilon="0"/>
   <Atom type="tip4pew-M" charge="-1.16" sigma="1" epsilon="0"/>
  </NonbondedForce>
-</ForceField>'''
+</ForceField>"""
 
-    opc = '''<ForceField>
+    opc = """<ForceField>
  <Info>
   <Reference>Water Dispersion Interactions Strongly Influence Simulated Structural Properties of Disordered Protein States
 Stefano Piana, Alexander G. Donchev, Paul Robustelli, and David E. Shaw
@@ -296,19 +298,27 @@ DOI: 10.1021/jp508971m</Reference>
   <Atom type="opc-H" charge="0.6791" sigma="1" epsilon="0"/>
   <Atom type="opc-M" charge="-1.3582" sigma="1" epsilon="0"/>
  </NonbondedForce>
-</ForceField>'''
+</ForceField>"""
 
     water_dict = {
-        'tip3p': tip3p, 'spce': spce, 'tip3pfb': tip3pfb,   # 3 particle waters
-        'tip4p': tip4pew, 'tip4pew': tip4pew, 'tip4p-d': tip4pd, 'tip4pfb': tip4pfb, 'opc': opc,  # 4 particle waters
-        'tip5p': tip5p  # 5 particle waters
+        "tip3p": tip3p,
+        "spce": spce,
+        "tip3pfb": tip3pfb,  # 3 particle waters
+        "tip4p": tip4pew,
+        "tip4pew": tip4pew,
+        "tip4p-d": tip4pd,
+        "tip4pfb": tip4pfb,
+        "opc": opc,  # 4 particle waters
+        "tip5p": tip5p,  # 5 particle waters
     }
 
-    if not water or water == 'help':
-        print('Please enter a water model from the current options:\nOpenMM standard '
-              'models:\ntip3p\ntip4pew\ntip5p\nspce\nForcebalance models:\ntip3pfb\ntip4pfb\nExtras:\ntip4p-d\nopc')
+    if not water or water == "help":
+        print(
+            "Please enter a water model from the current options:\nOpenMM standard "
+            "models:\ntip3p\ntip4pew\ntip5p\nspce\nForcebalance models:\ntip3pfb\ntip4pfb\nExtras:\ntip4p-d\nopc"
+        )
     else:
-        with open(f'QUBE_{water}.xml', 'w+') as xml:
+        with open(f"QUBE_{water}.xml", "w+") as xml:
             xml.write(water_dict[water])
 
 
@@ -322,33 +332,37 @@ def pdb_reformat(reference, target):
     print(pro.pdb_names)
 
     # load the target file now
-    with open(target, 'r') as traj:
+    with open(target, "r") as traj:
         lines = traj.readlines()
 
     # now loop through the target file and replace the atom and residue names
     PRO = False
     i = 0
-    new_traj = open('QUBE_traj.pdb', 'w+')
+    new_traj = open("QUBE_traj.pdb", "w+")
     for line in lines:
         # Find where the protein starts
-        if 'MODEL' in line:
+        if "MODEL" in line:
             PRO = True
             new_traj.write(line)
             i = 1
             continue
-        elif 'TER' in line:
+        elif "TER" in line:
             PRO = False
-            if 'QUP' in line:
-                new_traj.write(f'{line[:16]} {pro.residues[-1]:4}{line[21:]}')
+            if "QUP" in line:
+                new_traj.write(f"{line[:16]} {pro.residues[-1]:4}{line[21:]}")
             else:
                 new_traj.write(line)
             continue
         # If we are in the protein re-write the protein file
         if PRO:
-            if len(pro.pdb_names[i-1]) <= 3:
-                new_traj.write(f'ATOM   {i:4}  {pro.pdb_names[i-1]:3} {pro.Residues[i-1]:4}{line[21:]}')
-            elif len(pro.pdb_names[i-1]) == 4:
-                new_traj.write(f'ATOM   {i:4} {pro.pdb_names[i-1]:4} {pro.Residues[i-1]:4}{line[21:]}')
+            if len(pro.pdb_names[i - 1]) <= 3:
+                new_traj.write(
+                    f"ATOM   {i:4}  {pro.pdb_names[i-1]:3} {pro.Residues[i-1]:4}{line[21:]}"
+                )
+            elif len(pro.pdb_names[i - 1]) == 4:
+                new_traj.write(
+                    f"ATOM   {i:4} {pro.pdb_names[i-1]:4} {pro.Residues[i-1]:4}{line[21:]}"
+                )
             i += 1
         else:
             new_traj.write(line)
@@ -357,8 +371,9 @@ def pdb_reformat(reference, target):
 def qube_general():
     """Write out the qube general force field to be used in parametrisation."""
 
-    with open('QUBE_general_pi.xml', 'w+') as qube:
-        qube.write('''<ForceField>
+    with open("QUBE_general_pi.xml", "w+") as qube:
+        qube.write(
+            """<ForceField>
   <Info>
     <DateGenerated>2019-02-14-20190321-correctedHIS,THR,LYS,ASP issues, PRO-amino are still opls </DateGenerated>
     <Reference>modified using amber forcefield template +amber charges + opls atomtype+modified seminario parameters</Reference>
@@ -4597,4 +4612,5 @@ def qube_general():
     <Atom epsilon="0" sigma="1" type="SOD"/>
     <Atom epsilon="0" sigma="1" type="CLA"/>
   </NonbondedForce>
-</ForceField>''')
+</ForceField>"""
+        )

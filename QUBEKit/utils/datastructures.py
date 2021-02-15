@@ -10,6 +10,7 @@ class CustomNamespace(SimpleNamespace):
     Adds iteration and dict-style access of keys, values and items to SimpleNamespace.
     TODO Add get() method? (similar to dict)
     """
+
     def keys(self):
         for key in self.__dict__:
             yield key
@@ -49,7 +50,14 @@ class Atom:
     All atoms in Molecule will have an instance of this Atom class to describe their properties.
     """
 
-    def __init__(self, atomic_number, atom_index, atom_name='', partial_charge=None, formal_charge=None):
+    def __init__(
+        self,
+        atomic_number,
+        atom_index,
+        atom_name="",
+        partial_charge=None,
+        formal_charge=None,
+    ):
 
         self.atomic_number = atomic_number
         self.atomic_mass = Element().mass(atomic_number)
@@ -73,17 +81,17 @@ class Atom:
             self.bonds.append(bonded_index)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.__dict__!r})'
+        return f"{self.__class__.__name__}({self.__dict__!r})"
 
     def __str__(self):
         """
         Prints the Atom class objects' names and values one after another with new lines between each.
         """
 
-        return_str = ''
+        return_str = ""
         for key, val in self.__dict__.items():
             # Return all objects as {atom object name} = {atom object value(s)}.
-            return_str += f'\n{key} = {val}\n'
+            return_str += f"\n{key} = {val}\n"
 
         return return_str
 
@@ -95,17 +103,17 @@ class ExtraSite:
     """
 
     def __init__(self):
-        self.parent_index = None        # int
-        self.closest_a_index = None     # int
-        self.closest_b_index = None     # int
+        self.parent_index = None  # int
+        self.closest_a_index = None  # int
+        self.closest_b_index = None  # int
         # Optional: Used for Nitrogen only.
-        self.closest_c_index = None     # int
+        self.closest_c_index = None  # int
 
-        self.o_weights = None           # list of float
-        self.x_weights = None           # list of float
-        self.y_weights = None           # list of float
+        self.o_weights = None  # list of float
+        self.x_weights = None  # list of float
+        self.y_weights = None  # list of float
 
-        self.p1 = None                  # float
-        self.p2 = None                  # float
-        self.p3 = None                  # float
-        self.charge = None              # float
+        self.p1 = None  # float
+        self.p2 = None  # float
+        self.p3 = None  # float
+        self.charge = None  # float

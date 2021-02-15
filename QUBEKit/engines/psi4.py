@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-from QUBEKit.engines.base_engine import Engines
-from QUBEKit.utils.exceptions import PSI4Error
-from QUBEKit.utils.helpers import append_to_log
-
 import subprocess as sp
 
 import numpy as np
+
+from QUBEKit.engines.base_engine import Engines
+from QUBEKit.utils.exceptions import PSI4Error
+from QUBEKit.utils.helpers import append_to_log
 
 
 class PSI4(Engines):
@@ -19,29 +19,41 @@ class PSI4(Engines):
 
         super().__init__(molecule)
 
-        self.functional_dict = {'pbepbe': 'PBE', 'wb97xd': 'wB97X-D'}
+        self.functional_dict = {"pbepbe": "PBE", "wb97xd": "wB97X-D"}
         # Search for functional in dict, if it's not there, just leave the theory as it is.
-        self.molecule.theory = self.functional_dict.get(self.molecule.theory.lower(), self.molecule.theory)
+        self.molecule.theory = self.functional_dict.get(
+            self.molecule.theory.lower(), self.molecule.theory
+        )
 
         # Test if PSI4 is callable
         try:
-            sp.run('psi4 -h', shell=True, check=True, stdout=sp.PIPE)
+            sp.run("psi4 -h", shell=True, check=True, stdout=sp.PIPE)
         except sp.CalledProcessError as exc:
             raise ModuleNotFoundError(
-                'PSI4 not working. Please ensure PSI4 is installed and can be called with the command: psi4'
+                "PSI4 not working. Please ensure PSI4 is installed and can be called with the command: psi4"
             ) from exc
 
         if self.molecule.geometric:
             try:
-                sp.run('geometric-optimize -h', shell=True, check=True, stdout=sp.PIPE)
+                sp.run("geometric-optimize -h", shell=True, check=True, stdout=sp.PIPE)
             except sp.CalledProcessError as exc:
                 raise ModuleNotFoundError(
-                    'Geometric not working. Please ensure geometric is installed and can be called '
-                    'with the command: geometric-optimize') from exc
+                    "Geometric not working. Please ensure geometric is installed and can be called "
+                    "with the command: geometric-optimize"
+                ) from exc
 
     # TODO add restart from log method
-    def generate_input(self, input_type='input', optimise=False, hessian=False, density=False,
-                       energy=False, fchk=False, restart=False, execute=True):
+    def generate_input(
+        self,
+        input_type="input",
+        optimise=False,
+        hessian=False,
+        density=False,
+        energy=False,
+        fchk=False,
+        restart=False,
+        execute=True,
+    ):
         """
         Converts to psi4 input format to be run in psi4 without using geometric.
         :param input_type: The coordinate set of the molecule to be used
@@ -55,30 +67,32 @@ class PSI4(Engines):
         :return: The completion status of the job True if successful False if not run or failed
         """
 
-        setters = ''
-        tasks = ''
+        setters = ""
+        tasks = ""
 
         if energy:
-            append_to_log('Writing psi4 energy calculation input')
+            append_to_log("Writing psi4 energy calculation input")
             tasks += f"\nenergy('{self.molecule.theory}')"
 
         if optimise:
-            append_to_log('Writing PSI4 optimisation input', 'minor')
-            setters += f' g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n'
+            append_to_log("Writing PSI4 optimisation input", "minor")
+            setters += f" g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n"
             tasks += f"\noptimize('{self.molecule.theory.lower()}')"
 
         if hessian:
-            append_to_log('Writing PSI4 Hessian matrix calculation input', 'minor')
-            setters += ' hessian_write on\n'
+            append_to_log("Writing PSI4 Hessian matrix calculation input", "minor")
+            setters += " hessian_write on\n"
 
             tasks += f"\nenergy, wfn = frequency('{self.molecule.theory.lower()}', return_wfn=True)"
 
-            tasks += '\nwfn.hessian().print_out()\n\n'
+            tasks += "\nwfn.hessian().print_out()\n\n"
 
         if density:
-            raise NotImplementedError('Due to PSI4 requiring a box size which cannot be automatically generated, '
-                                      'PSI4 cannot currently be used for density calculations. Please use Gaussian '
-                                      'instead.')
+            raise NotImplementedError(
+                "Due to PSI4 requiring a box size which cannot be automatically generated, "
+                "PSI4 cannot currently be used for density calculations. Please use Gaussian "
+                "instead."
+            )
         #     append_to_log('Writing PSI4 density calculation input', 'minor')
         #     setters += " cubeprop_tasks ['density']\n"
         #
@@ -88,9 +102,9 @@ class PSI4(Engines):
         #     tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
 
         if fchk:
-            append_to_log('Writing PSI4 input file to generate fchk file')
+            append_to_log("Writing PSI4 input file to generate fchk file")
             tasks += f"\ngrad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)"
-            tasks += '\nfchk_writer = psi4.core.FCHKWriter(wfn)'
+            tasks += "\nfchk_writer = psi4.core.FCHKWriter(wfn)"
             tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
 
         # if self.molecule.solvent:
@@ -100,38 +114,52 @@ class PSI4(Engines):
         #     tasks += '\n Cavity {\n  RadiiSet = UFF\n  Type = GePol\n  Scaling = False\n  Area = 0.3\n  Mode = Implicit'
         #     tasks += '\n }\n}'
 
-        setters += '}\n'
+        setters += "}\n"
 
         if not execute:
-            setters += f'set_num_threads({self.molecule.threads})\n'
+            setters += f"set_num_threads({self.molecule.threads})\n"
 
         # input.dat is the PSI4 input file.
-        with open('input.dat', 'w+') as input_file:
+        with open("input.dat", "w+") as input_file:
             # opening tag is always writen
-            input_file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n'
-                             f'{self.molecule.charge} {self.molecule.multiplicity} \n')
+            input_file.write(
+                f"memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n"
+                f"{self.molecule.charge} {self.molecule.multiplicity} \n"
+            )
             # molecule is always printed
             for i, atom in enumerate(self.molecule.coords[input_type]):
-                input_file.write(f' {self.molecule.atoms[i].atomic_symbol}    '
-                                 f'{float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n')
+                input_file.write(
+                    f" {self.molecule.atoms[i].atomic_symbol}    "
+                    f"{float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n"
+                )
 
-            input_file.write(f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n")
+            input_file.write(
+                f" units angstrom\n no_reorient\n}}\n\nset {{\n basis {self.molecule.basis}\n"
+            )
 
             input_file.write(setters)
             input_file.write(tasks)
 
         if execute:
-            with open('log.txt', 'w+') as log:
+            with open("log.txt", "w+") as log:
                 try:
-                    sp.run(f'psi4 input.dat -n {self.molecule.threads}', shell=True, stdout=log, stderr=log, check=True)
+                    sp.run(
+                        f"psi4 input.dat -n {self.molecule.threads}",
+                        shell=True,
+                        stdout=log,
+                        stderr=log,
+                        check=True,
+                    )
                 except sp.CalledProcessError as exc:
-                    raise PSI4Error('PSI4 did not execute successfully check log file for details.') from exc
+                    raise PSI4Error(
+                        "PSI4 did not execute successfully check log file for details."
+                    ) from exc
 
             # Now check the exit status of the job
             return self.check_for_errors()
 
         else:
-            return {'success': False, 'error': 'Not run'}
+            return {"success": False, "error": "Not run"}
 
     def check_for_errors(self):
         """
@@ -139,15 +167,15 @@ class PSI4(Engines):
         :return: A dictionary of the success status and any errors.
         """
 
-        with open('output.dat', 'r') as log:
+        with open("output.dat", "r") as log:
             for line in log:
-                if '*** Psi4 exiting successfully.' in line:
-                    return {'success': True}
+                if "*** Psi4 exiting successfully." in line:
+                    return {"success": True}
 
-                elif '*** Psi4 encountered an error.' in line:
-                    return {'success': False, 'error': 'Not known'}
+                elif "*** Psi4 encountered an error." in line:
+                    return {"success": False, "error": "Not known"}
 
-            return {'success': False, 'error': 'Segfault'}
+            return {"success": False, "error": "Segfault"}
 
     def optimised_structure(self):
         """
@@ -163,20 +191,22 @@ class PSI4(Engines):
         # Return the matrix.
 
         # output.dat is the psi4 output file.
-        with open('output.dat', 'r') as file:
+        with open("output.dat", "r") as file:
             lines = file.readlines()
             # Will contain index of all the lines containing '==> Geometry'.
             geo_pos_list = []
             for count, line in enumerate(lines):
-                if '==> Geometry' in line:
+                if "==> Geometry" in line:
                     geo_pos_list.append(count)
 
-                elif '**** Optimization is complete!' in line:
+                elif "**** Optimization is complete!" in line:
                     opt_pos = count
                     opt_steps = int(line.split()[5])
 
             if not (opt_pos and opt_steps):
-                raise EOFError('According to the output.dat file, optimisation has not completed.')
+                raise EOFError(
+                    "According to the output.dat file, optimisation has not completed."
+                )
 
             # now get the final opt_energy
             opt_energy = float(lines[opt_pos + opt_steps + 7].split()[1])
@@ -191,7 +221,9 @@ class PSI4(Engines):
                 # Append the first 4 columns of each row, converting to float as necessary.
                 struct_row = []
                 for indx in range(3):
-                    struct_row.append(float(lines[start_of_vals + row].split()[indx + 1]))
+                    struct_row.append(
+                        float(lines[start_of_vals + row].split()[indx + 1])
+                    )
 
                 opt_struct.append(struct_row)
 
@@ -202,12 +234,12 @@ class PSI4(Engines):
         """Get the energy of a single point calculation."""
 
         # open the psi4 log file
-        with open('output.dat', 'r') as log:
+        with open("output.dat", "r") as log:
             for line in log:
-                if 'Total Energy =' in line:
+                if "Total Energy =" in line:
                     return float(line.split()[3])
 
-        raise EOFError('Cannot find energy in output.dat file.')
+        raise EOFError("Cannot find energy in output.dat file.")
 
     def all_modes(self):
         """Extract all modes from the psi4 output file."""
@@ -219,14 +251,14 @@ class PSI4(Engines):
         # Repeat until the following line is known to be empty.
 
         # output.dat is the psi4 output file.
-        with open('output.dat', 'r') as file:
+        with open("output.dat", "r") as file:
             lines = file.readlines()
             for count, line in enumerate(lines):
                 if "post-proj  all modes" in line:
                     start_of_vals = count
                     break
             else:
-                raise EOFError('Cannot locate modes in output.dat file.')
+                raise EOFError("Cannot locate modes in output.dat file.")
 
             # Barring the first (and sometimes last) line, dat file has 6 values per row.
             end_of_vals = start_of_vals + (3 * len(self.molecule.atoms)) // 6
@@ -236,13 +268,15 @@ class PSI4(Engines):
 
             for row in range(1, end_of_vals - start_of_vals):
                 # Remove double strings and weird formatting.
-                structures += lines[start_of_vals + row].replace("'", "").replace("]", "").split()
+                structures += (
+                    lines[start_of_vals + row].replace("'", "").replace("]", "").split()
+                )
 
             all_modes = [float(val) for val in structures]
 
             return np.array(all_modes)
 
-    def geo_gradient(self, input_type='input', threads=False, execute=True):
+    def geo_gradient(self, input_type="input", threads=False, execute=True):
         """
         Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
@@ -250,23 +284,34 @@ class PSI4(Engines):
 
         molecule = self.molecule.coords[input_type]
 
-        with open(f'{self.molecule.name}.psi4in', 'w+') as file:
+        with open(f"{self.molecule.name}.psi4in", "w+") as file:
 
-            file.write(f'memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} '
-                       f'{self.molecule.multiplicity} \n')
+            file.write(
+                f"memory {self.molecule.memory} GB\n\nmolecule {self.molecule.name} {{\n {self.molecule.charge} "
+                f"{self.molecule.multiplicity} \n"
+            )
 
             for i, atom in enumerate(molecule):
-                file.write(f'  {self.molecule.atoms[i].atomic_symbol:2}    '
-                           f'{float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f}\n')
+                file.write(
+                    f"  {self.molecule.atoms[i].atomic_symbol:2}    "
+                    f"{float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f}\n"
+                )
 
-            file.write(f' units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n')
+            file.write(
+                f" units angstrom\n no_reorient\n}}\nset basis {self.molecule.basis}\n"
+            )
 
             if threads:
-                file.write(f'set_num_threads({self.molecule.threads})')
+                file.write(f"set_num_threads({self.molecule.threads})")
 
             file.write(f"\n\ngradient('{self.molecule.theory}')\n")
 
         if execute:
-            with open('log.txt', 'w+') as log:
-                sp.run(f'geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} '
-                       f'--nt {self.molecule.threads}', shell=True, stdout=log, stderr=log)
+            with open("log.txt", "w+") as log:
+                sp.run(
+                    f"geometric-optimize --psi4 {self.molecule.name}.psi4in {self.molecule.constraints_file} "
+                    f"--nt {self.molecule.threads}",
+                    shell=True,
+                    stdout=log,
+                    stderr=log,
+                )

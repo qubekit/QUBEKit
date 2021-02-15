@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import numpy as np
-
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
@@ -24,11 +23,11 @@ class RDKit:
             return RDKit.smiles_to_rdkit_mol(mol_input, name)
 
         # Read the file
-        if mol_input.suffix == '.pdb':
+        if mol_input.suffix == ".pdb":
             return Chem.MolFromPDBFile(mol_input.name, removeHs=False)
-        elif mol_input.suffix == '.mol2':
+        elif mol_input.suffix == ".mol2":
             return Chem.MolFromMol2File(mol_input.name, removeHs=False)
-        elif mol_input.suffix == '.mol':
+        elif mol_input.suffix == ".mol":
             return Chem.MolFromMolFile(mol_input.name, removeHs=False)
 
         return None
@@ -44,8 +43,8 @@ class RDKit:
 
         mol = AllChem.MolFromSmiles(smiles_string)
         if name is None:
-            name = input('Please enter a name for the molecule:\n>')
-        mol.SetProp('_Name', name)
+            name = input("Please enter a name for the molecule:\n>")
+        mol.SetProp("_Name", name)
         mol_hydrogens = AllChem.AddHs(mol)
         AllChem.EmbedMolecule(mol_hydrogens, AllChem.ETKDG())
         AllChem.SanitizeMol(mol_hydrogens)
@@ -53,7 +52,7 @@ class RDKit:
         return mol_hydrogens
 
     @staticmethod
-    def mm_optimise(filename, ff='MMF'):
+    def mm_optimise(filename, ff="MMF"):
         """
         Perform rough preliminary optimisation to speed up later optimisations.
         :param filename: The Path of the input file
@@ -64,11 +63,11 @@ class RDKit:
         # Get the rdkit molecule
         mol = RDKit.mol_input_to_rdkit_mol(filename)
 
-        {'MMF': MMFFOptimizeMolecule, 'UFF': UFFOptimizeMolecule}[ff](mol)
+        {"MMF": MMFFOptimizeMolecule, "UFF": UFFOptimizeMolecule}[ff](mol)
 
-        AllChem.MolToPDBFile(mol, f'{filename.stem}_rdkit_optimised.pdb')
+        AllChem.MolToPDBFile(mol, f"{filename.stem}_rdkit_optimised.pdb")
 
-        return f'{filename.stem}_rdkit_optimised.pdb'
+        return f"{filename.stem}_rdkit_optimised.pdb"
 
     @staticmethod
     def rdkit_descriptors(rdkit_mol):
@@ -80,11 +79,11 @@ class RDKit:
 
         # Use RDKit Descriptors to extract properties and store in Descriptors dictionary
         return {
-            'Heavy atoms': Descriptors.HeavyAtomCount(rdkit_mol),
-            'H-bond donors': Descriptors.NumHDonors(rdkit_mol),
-            'H-bond acceptors': Descriptors.NumHAcceptors(rdkit_mol),
-            'Molecular weight': Descriptors.MolWt(rdkit_mol),
-            'LogP': Descriptors.MolLogP(rdkit_mol)
+            "Heavy atoms": Descriptors.HeavyAtomCount(rdkit_mol),
+            "H-bond donors": Descriptors.NumHDonors(rdkit_mol),
+            "H-bond acceptors": Descriptors.NumHAcceptors(rdkit_mol),
+            "Molecular weight": Descriptors.MolWt(rdkit_mol),
+            "LogP": Descriptors.MolLogP(rdkit_mol),
         }
 
     @staticmethod
@@ -121,7 +120,7 @@ class RDKit:
 
         mol = RDKit.mol_input_to_rdkit_mol(filename)
 
-        mol_name = f'{filename.stem}.mol'
+        mol_name = f"{filename.stem}.mol"
         Chem.MolToMolFile(mol, mol_name)
 
         return mol_name
@@ -152,14 +151,21 @@ class RDKit:
         """
 
         # Check CIPRank is present for first atom (can assume it is present for all afterwards)
-        if not rdkit_mol.GetAtomWithIdx(0).HasProp('_CIPRank'):
-            Chem.AssignStereochemistry(rdkit_mol, cleanIt=True, force=True, flagPossibleStereoCenters=True)
+        if not rdkit_mol.GetAtomWithIdx(0).HasProp("_CIPRank"):
+            Chem.AssignStereochemistry(
+                rdkit_mol, cleanIt=True, force=True, flagPossibleStereoCenters=True
+            )
 
         # Array of ranks showing matching atoms
-        cip_ranks = np.array([int(atom.GetProp('_CIPRank')) for atom in rdkit_mol.GetAtoms()])
+        cip_ranks = np.array(
+            [int(atom.GetProp("_CIPRank")) for atom in rdkit_mol.GetAtoms()]
+        )
 
         # Map the ranks to the atoms to produce a list of symmetrical atoms
-        atom_symmetry_classes = [np.where(cip_ranks == rank)[0].tolist() for rank in range(max(cip_ranks) + 1)]
+        atom_symmetry_classes = [
+            np.where(cip_ranks == rank)[0].tolist()
+            for rank in range(max(cip_ranks) + 1)
+        ]
 
         # Convert from list of classes to dict where each key is an atom and each value is its class (just a str)
         atom_symmetry_classes_dict = {}
