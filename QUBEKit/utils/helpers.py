@@ -17,6 +17,8 @@ import pickle
 
 import numpy as np
 
+# TODO Move csv stuff for bulk runs to file_handling.py
+
 
 def mol_data_from_csv(csv_name):
     """
