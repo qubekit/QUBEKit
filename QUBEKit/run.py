@@ -1048,7 +1048,7 @@ class Execute:
     def qm_optimise(self, molecule):
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
 
-        append_to_log('Starting qm_optimisation')
+        append_to_log("Starting qm_optimisation")
         MAX_RESTARTS = 3
 
         if molecule.geometric and (molecule.bonds_engine == "psi4"):

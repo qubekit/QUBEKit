@@ -290,7 +290,7 @@ class Gaussian(Engines):
     def cleanup():
         """After a successful run, can be called to remove lig.chk, lig.fchk files."""
 
-        files_to_remove = ['lig.chk', 'lig.fchk', 'log.txt']
+        files_to_remove = ["lig.chk", "lig.fchk", "log.txt"]
         for file in files_to_remove:
             try:
                 os.remove(file)
