@@ -1048,9 +1048,8 @@ class Execute:
     def qm_optimise(self, molecule):
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
 
-        append_to_log("Starting qm_optimisation")
-        qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
-        max_restarts = 3
+        append_to_log('Starting qm_optimisation')
+        MAX_RESTARTS = 3
 
         if molecule.geometric and (molecule.bonds_engine == "psi4"):
             qceng = QCEngine(molecule)
@@ -1061,6 +1060,7 @@ class Execute:
             )
 
             restart_count = 0
+
             while (not result["success"]) and (restart_count < max_restarts):
                 append_to_log(
                     f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
@@ -1129,6 +1129,7 @@ class Execute:
                         restart=True,
                         execute=molecule.bonds_engine,
                     )
+
                 else:
                     molecule.coords["temp"] = RDKit.generate_conformers(
                         molecule.rdkit_mol

@@ -241,6 +241,9 @@ class TorsionScan:
             if not os.path.exists("qdata.txt"):
                 sp.run(cmd, shell=True, stdout=log, check=True, stderr=log, bufsize=0)
 
+        if self.molecule.bonds_engine in ['g09', 'g16']:
+            Gaussian.cleanup()
+
         # Gather the results
         try:
             self.molecule.read_tdrive(scan)
@@ -1499,7 +1502,7 @@ class TorsionOptimiser:
             for y, coord in enumerate(x):
                 for z, pos in enumerate(coord):
                     # Convert from nanometers in openmm to Angs in QM and store in the temp position in the molecule
-                    self.qm_engine.molecule.coords["temp"][y][z] = pos * 10
+                    self.qm_engine.molecule.coords['temp'][y][z] = pos * constants.NM_TO_ANGS
 
             # Write the new coordinate file and run the calculation
             result = self.qm_engine.generate_input(input_type="temp", energy=True)

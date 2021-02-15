@@ -17,6 +17,8 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.exceptions import PickleFileNotFound, QUBEKitLogFileNotFound
 
+# TODO Move csv stuff for bulk runs to file_handling.py
+
 
 def mol_data_from_csv(csv_name):
     """
