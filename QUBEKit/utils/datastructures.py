@@ -32,16 +32,24 @@ class Element:
     Simple wrapper class for getting element info using RDKit.
     """
 
-    pt = GetPeriodicTable()
+    @staticmethod
+    def p_table():
+        return GetPeriodicTable()
 
-    def mass(self, identifier):
-        return self.pt.GetAtomicWeight(identifier)
+    @staticmethod
+    def mass(identifier):
+        pt = Element.p_table()
+        return pt.GetAtomicWeight(identifier)
 
-    def number(self, identifier):
-        return self.pt.GetAtomicNumber(identifier)
+    @staticmethod
+    def number(identifier):
+        pt = Element.p_table()
+        return pt.GetAtomicNumber(identifier)
 
-    def name(self, identifier):
-        return self.pt.GetElementSymbol(identifier)
+    @staticmethod
+    def name(identifier):
+        pt = Element.p_table()
+        return pt.GetElementSymbol(identifier)
 
 
 class Atom:
@@ -60,9 +68,6 @@ class Atom:
     ):
 
         self.atomic_number = atomic_number
-        self.atomic_mass = Element().mass(atomic_number)
-        # The actual atomic symbol as per periodic table e.g. C, F, Pb, etc
-        self.atomic_symbol = Element().name(atomic_number).title()
         # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
         self.atom_name = atom_name
         self.atom_index = atom_index
@@ -70,6 +75,16 @@ class Atom:
         self.formal_charge = formal_charge
         self.atom_type = None
         self.bonds = []
+
+    @property
+    def atomic_mass(self) -> float:
+        """Convert the atomic number to mass."""
+        return Element.mass(self.atomic_number)
+
+    @property
+    def atomic_symbol(self) -> str:
+        """Convert the atomic number to the atomic symbol as per the periodic table."""
+        return Element.name(self.atomic_number).title()
 
     def add_bond(self, bonded_index):
         """
