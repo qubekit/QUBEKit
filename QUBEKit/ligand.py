@@ -345,7 +345,7 @@ class Molecule:
             self.coords["traj"].append(np.array(opt_traj))
 
     @property
-    def improper_torsions(self) -> List[Tuple[int, int, int, int]]:
+    def improper_torsions(self) -> Optional[List[Tuple[int, int, int, int]]]:
         """A list of improper atom tuples where the first atom is central."""
 
         improper_torsions = []
@@ -360,15 +360,18 @@ class Molecule:
             ):
                 # Store each combination of the improper torsion
                 improper_torsions.append((node, near[0], near[1], near[2]))
-        return improper_torsions
+        return improper_torsions or None
 
     @property
     def n_improper_torsions(self) -> int:
         """The number of unique improper torsions."""
-        return len(self.improper_torsions)
+        impropers = self.improper_torsions
+        if impropers is None:
+            return 0
+        return len(impropers)
 
     @property
-    def angles(self) -> List[Tuple[int, int, int]]:
+    def angles(self) -> Optional[List[Tuple[int, int, int]]]:
         """A List of angles from the topology."""
 
         angles = []
@@ -385,12 +388,15 @@ class Molecule:
                 for j in range(i + 1, len(bonded)):
                     atom1, atom3 = bonded[i], bonded[j]
                     angles.append((atom1, node, atom3))
-        return angles
+        return angles or None
 
     @property
     def n_angles(self) -> int:
         """The number of angles in the molecule. """
-        return len(self.angles)
+        angles = self.angles
+        if angles is None:
+            return 0
+        return len(angles)
 
     def bond_lengths(self, input_type="input") -> Dict[Tuple[int, int], float]:
         """
@@ -420,10 +426,15 @@ class Molecule:
     @property
     def n_bonds(self) -> int:
         """The number of bonds in the topology."""
-        return len(self.bonds)
+        bonds = self.bonds
+        if bonds is None:
+            return 0
+        return len(bonds)
 
     @property
-    def dihedrals(self) -> Dict[Tuple[int, int], List[Tuple[int, int, int, int]]]:
+    def dihedrals(
+        self,
+    ) -> Optional[Dict[Tuple[int, int], List[Tuple[int, int, int, int]]]]:
         """A list of all possible dihedrals that can be found in the topology."""
 
         dihedrals = {}
@@ -449,21 +460,23 @@ class Molecule:
                                 # Add the tuple to the correct key.
                                 dihedrals[edge].append((start, edge[0], edge[1], end))
 
-        return dihedrals
+        return dihedrals or None
 
     @property
-    def rotatable_bonds(self) -> List[Tuple[int, int]]:
+    def rotatable_bonds(self) -> Optional[List[Tuple[int, int]]]:
         """
         For each dihedral in the topology graph network and dihedrals dictionary, work out if the torsion is
         rotatable. Returns a list of dihedral dictionary keys representing the rotatable dihedrals.
         Also exclude standard rotations such as amides and methyl groups.
         TODO replace with smarts matching
         """
-
+        dihedrals = self.dihedrals
+        if dihedrals is None:
+            return None
         rotatable = []
 
         # For each dihedral key remove the edge from the network
-        for key in self.dihedrals:
+        for key in dihedrals:
             self.topology.remove_edge(*key)
 
             # Check if there is still a path between the two atoms in the edges.
@@ -485,28 +498,34 @@ class Molecule:
             for torsion in remove_list:
                 rotatable.remove(torsion)
 
-        return rotatable
+        return rotatable or None
 
     @property
     def n_rotatable_bonds(self) -> int:
         """The number of rotatable bonds."""
-        return len(self.rotatable_bonds)
+        rotatable_bonds = self.rotatable_bonds
+        if rotatable_bonds is None:
+            return 0
+        return len(rotatable_bonds)
 
     def measure_dihedrals(
         self, input_type="input"
-    ) -> Dict[Tuple[int, int, int, int], float]:
+    ) -> Optional[Dict[Tuple[int, int, int, int], float]]:
         """
         For the given conformation measure the dihedrals in the topology in degrees.
         """
+        dihedrals = self.dihedrals
+        if dihedrals is None:
+            return None
 
         dih_phis = {}
 
-        molecule = self.coords[input_type]
+        coordinates = self.coords[input_type]
 
-        for val in self.dihedrals.values():
+        for val in dihedrals.values():
             for torsion in val:
                 # Calculate the dihedral angle in the molecule using the molecule data array.
-                x1, x2, x3, x4 = [molecule[torsion[i]] for i in range(4)]
+                x1, x2, x3, x4 = [coordinates[torsion[i]] for i in range(4)]
                 b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
                 t1 = np.linalg.norm(b2) * np.dot(b1, np.cross(b2, b3))
                 t2 = np.dot(np.cross(b1, b2), np.cross(b2, b3))
@@ -514,19 +533,24 @@ class Molecule:
 
         return dih_phis
 
-    def measure_angles(self, input_type="input") -> Dict[Tuple[int, int, int], float]:
+    def measure_angles(
+        self, input_type="input"
+    ) -> Optional[Dict[Tuple[int, int, int], float]]:
         """
         For the given conformation measure the angles in the topology in degrees.
         """
+        angles = self.angles
+        if angles is None:
+            return None
 
         angle_values = {}
 
-        molecule = self.coords[input_type]
+        coordinates = self.coords[input_type]
 
-        for angle in self.angles:
-            x1 = molecule[angle[0]]
-            x2 = molecule[angle[1]]
-            x3 = molecule[angle[2]]
+        for angle in angles:
+            x1 = coordinates[angle[0]]
+            x2 = coordinates[angle[1]]
+            x3 = coordinates[angle[2]]
             b1, b2 = x1 - x2, x3 - x2
             cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
             angle_values[angle] = np.degrees(np.arccos(cosine_angle))

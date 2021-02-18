@@ -1,79 +1,101 @@
-#!/usr/bin/env python3
-
 import pytest
 
 from QUBEKit.ligand import Ligand
+from QUBEKit.utils.file_handling import get_data
 
-test_cases = [
-    ("name", "acetone"),
-    (
-        "topology.edges",
-        [(0, 4), (0, 5), (0, 6), (0, 1), (1, 2), (1, 3), (3, 7), (3, 8), (3, 9)],
-    ),
-    (
-        "angles",
-        [
-            (1, 0, 4),
-            (1, 0, 5),
-            (1, 0, 6),
-            (4, 0, 5),
-            (4, 0, 6),
-            (5, 0, 6),
-            (0, 1, 2),
-            (0, 1, 3),
-            (2, 1, 3),
-            (1, 3, 7),
-            (1, 3, 8),
-            (1, 3, 9),
-            (7, 3, 8),
-            (7, 3, 9),
-            (8, 3, 9),
-        ],
-    ),
-    (
-        "dihedrals",
-        {
-            (0, 1): [
-                (4, 0, 1, 2),
-                (4, 0, 1, 3),
-                (5, 0, 1, 2),
-                (5, 0, 1, 3),
-                (6, 0, 1, 2),
-                (6, 0, 1, 3),
-            ],
-            (1, 3): [
-                (0, 1, 3, 7),
-                (0, 1, 3, 8),
-                (0, 1, 3, 9),
-                (2, 1, 3, 7),
-                (2, 1, 3, 8),
-                (2, 1, 3, 9),
-            ],
-        },
-    ),
-    ("impropers", [(1, 0, 2, 3)]),
-]
-
-
-@pytest.mark.parametrize("test_input, expected", test_cases, id="")
-def test_pdb_reader(test_input, expected):
-    mol = Ligand("acetone.pdb")
-    mol.testing = True
-    assert getattr(mol, test_input) == expected
+# acetone_data = [
+#     ("name", "acetone"),
+#     (
+#         "topology.edges",
+#         [(0, 4), (0, 5), (0, 6), (0, 1), (1, 2), (1, 3), (3, 7), (3, 8), (3, 9)],
+#     ),
+#     (
+#         "angles",
+#         [
+#             (1, 0, 4),
+#             (1, 0, 5),
+#             (1, 0, 6),
+#             (4, 0, 5),
+#             (4, 0, 6),
+#             (5, 0, 6),
+#             (0, 1, 2),
+#             (0, 1, 3),
+#             (2, 1, 3),
+#             (1, 3, 7),
+#             (1, 3, 8),
+#             (1, 3, 9),
+#             (7, 3, 8),
+#             (7, 3, 9),
+#             (8, 3, 9),
+#         ],
+#     ),
+#     (
+#         "dihedrals",
+#         {
+#             (0, 1): [
+#                 (4, 0, 1, 2),
+#                 (4, 0, 1, 3),
+#                 (5, 0, 1, 2),
+#                 (5, 0, 1, 3),
+#                 (6, 0, 1, 2),
+#                 (6, 0, 1, 3),
+#             ],
+#             (1, 3): [
+#                 (0, 1, 3, 7),
+#                 (0, 1, 3, 8),
+#                 (0, 1, 3, 9),
+#                 (2, 1, 3, 7),
+#                 (2, 1, 3, 8),
+#                 (2, 1, 3, 9),
+#             ],
+#         },
+#     ),
+#     ("impropers", [(1, 0, 2, 3)]),
+# ]
 
 
-@pytest.mark.parametrize("test_input, expected", test_cases)
-def test_mol2_reader(test_input, expected):
-    mol = Ligand("acetone.mol2")
-    mol.testing = True
-    assert getattr(mol, test_input) == expected
+@pytest.mark.parametrize(
+    "input_molecule",
+    [
+        pytest.param(
+            (
+                "acetone.pdb",
+                [
+                    (0, 4),
+                    (0, 5),
+                    (0, 6),
+                    (0, 1),
+                    (1, 2),
+                    (1, 3),
+                    (3, 7),
+                    (3, 8),
+                    (3, 9),
+                ],
+            ),
+            id="acetone",
+        ),
+    ],
+)
+def test_bonds(input_molecule):
+    """Make sure after reading a molecule file that we have the correct set of bonds."""
+    molecule, bonds = input_molecule
+    mol = Ligand(get_data(molecule))
+    for bond in bonds:
+        assert bond in mol.bonds
 
 
-@pytest.mark.parametrize("test_input, expected", test_cases)
-def test_smiles_reader(test_input, expected):
-    mol = Ligand("CC(=O)C", "acetone")
-    mol.testing = True
-    assert getattr(mol, test_input) == expected
+# @pytest.mark.parametrize("test_input, expected", test_cases)
+# def test_mol2_reader(test_input, expected):
+#     mol = Ligand("acetone.mol2")
+#     mol.testing = True
+#     assert getattr(mol, test_input) == expected
+#
+#
+# @pytest.mark.parametrize("test_input, expected", test_cases)
+# def test_smiles_reader(test_input, expected):
+#     mol = Ligand("CC(=O)C", "acetone")
+#     mol.testing = True
+#     assert getattr(mol, test_input) == expected
 
 
 # import os

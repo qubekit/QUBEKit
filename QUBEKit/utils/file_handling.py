@@ -754,3 +754,26 @@ def make_and_change_into(name):
         pass
     finally:
         os.chdir(name)
+
+
+def get_data(relative_path: str) -> str:
+    """
+    Get the file path to some data in the qubekit package.
+    Parameters
+    ----------
+    relative_path
+        The relative path to the file that should be loaded from QUBEKit/data.
+    Returns
+    -------
+    str
+        The absolute path to the requested file.
+    """
+    from pkg_resources import resource_filename
+
+    fn = resource_filename("QUBEKit", os.path.join("data", relative_path))
+    if not os.path.exists(fn):
+        raise ValueError(
+            f"{relative_path} does not exist. If you have just added it, you'll have to re-install"
+        )
+
+    return fn

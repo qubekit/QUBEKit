@@ -25,11 +25,11 @@ class RDKit:
 
         # Read the file
         if mol_input.suffix == ".pdb":
-            return Chem.MolFromPDBFile(mol_input.name, removeHs=False)
+            return Chem.MolFromPDBFile(mol_input.as_posix(), removeHs=False)
         elif mol_input.suffix == ".mol2":
-            return Chem.MolFromMol2File(mol_input.name, removeHs=False)
+            return Chem.MolFromMol2File(mol_input.as_posix(), removeHs=False)
         elif mol_input.suffix == ".mol":
-            return Chem.MolFromMolFile(mol_input.name, removeHs=False)
+            return Chem.MolFromMolFile(mol_input.as_posix(), removeHs=False)
 
         return None
 
