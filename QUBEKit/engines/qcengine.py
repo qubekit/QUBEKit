@@ -75,7 +75,7 @@ class QCEngine(Engines):
                 "schema_name": "qcschema_optimization_input",
                 "schema_version": 1,
                 "keywords": {
-                    "coordsys": "tric",
+                    "coordsys": "dlc",
                     "maxiter": self.molecule.iterations,
                     "program": "psi4",
                     "convergence_set": self.molecule.convergence,

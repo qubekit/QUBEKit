@@ -10,6 +10,7 @@ TODO
     Descriptors should be accessed separately if needed (need to re-add)
 """
 
+import contextlib
 import os
 import re
 from itertools import groupby
@@ -754,3 +755,47 @@ def make_and_change_into(name):
         pass
     finally:
         os.chdir(name)
+
+
+def get_data(relative_path: str) -> str:
+    """
+    Get the file path to some data in the qubekit package.
+
+    Parameters
+    ----------
+    relative_path
+        The relative path to the file that should be loaded from QUBEKit/data.
+
+    Returns
+    -------
+    str
+        The absolute path to the requested file.
+    """
+    from pkg_resources import resource_filename
+
+    fn = resource_filename("QUBEKit", os.path.join("data", relative_path))
+    if not os.path.exists(fn):
+        raise ValueError(
+            f"{relative_path} does not exist. If you have just added it, you'll have to re-install"
+        )
+
+    return fn
+
+
+@contextlib.contextmanager
+def forcebalance_setup(folder_name: str, keep_files: bool = True):
+    """
+    A helper function to create a forcebalance fitting folder complete with target and forcefield sub folders.
+    This method was originally implemented in openff-bespokefit.
+    """
+    cwd = os.getcwd()
+    os.mkdir(folder_name)
+    os.chdir(folder_name)
+    os.mkdir("forcefield")
+    os.mkdir("targets")
+    yield
+    os.chdir(cwd)
+    if not keep_files:
+        import shutil
+
+        shutil.rmtree(folder_name, ignore_errors=True)

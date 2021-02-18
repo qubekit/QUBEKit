@@ -28,6 +28,7 @@ import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import datetime
+from typing import List, Optional
 from xml.dom.minidom import parseString
 
 import networkx as nx
@@ -35,6 +36,8 @@ import numpy as np
 
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
+from QUBEKit.utils.datastructures import ParameterTags, TorsionDriveData
+from QUBEKit.utils.exceptions import MissingReferenceData
 from QUBEKit.utils.file_handling import ReadInput
 
 
@@ -189,7 +192,7 @@ class Molecule:
         self.qm_energy = None
         self.charge = 0
         self.multiplicity = 1
-        self.qm_scans = None
+        self.qm_scans: Optional[List[TorsionDriveData]] = None
         self.scan_order = None
         self.descriptors = None
 
@@ -315,6 +318,19 @@ class Molecule:
     #             self.coords[input_type] = coords
     #         else:
     #             raise TopologyMismatch('Topologies are not the same; cannot store coordinates.')
+
+    def add_qm_scan(self, scan_data: TorsionDriveData) -> None:
+        """
+        Save the torsion drive data into the ligand object.
+        """
+        if scan_data.__class__ != TorsionDriveData:
+            raise MissingReferenceData(
+                f"The refernce data must be in the form of the torsion drive data class."
+            )
+        else:
+            if self.qm_scans is None:
+                self.qm_scans = []
+            self.qm_scans.append(scan_data)
 
     def get_atom_with_name(self, name):
         """
@@ -504,12 +520,14 @@ class Molecule:
 
         self.angle_values = angle_values or None
 
-    def write_parameters(self, name=None):
+    def write_parameters(
+        self, name=None, parameter_tags: Optional[ParameterTags] = None
+    ):
         """
         Take the molecule's parameter set and write an xml file for the molecule.
         """
 
-        tree = self._build_tree().getroot()
+        tree = self.create_forcefield(parameter_tags=parameter_tags).getroot()
         messy = ET.tostring(tree, "utf-8")
 
         pretty_xml_as_string = parseString(messy).toprettyxml(indent="")
@@ -517,7 +535,9 @@ class Molecule:
         with open(f"{name if name is not None else self.name}.xml", "w+") as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
-    def _build_tree(self):
+    def create_forcefield(
+        self, parameter_tags: Optional[ParameterTags] = None
+    ) -> ET.ElementTree:
         """
         Separates the parameters and builds an xml tree ready to be used.
         """
@@ -569,30 +589,40 @@ class Molecule:
             ET.SubElement(
                 Residue, "Bond", attrib={"from": str(key[0]), "to": str(key[1])}
             )
+            # build basic data
+            bond_data = {
+                "class1": self.AtomTypes[key[0]][2],
+                "class2": self.AtomTypes[key[1]][2],
+                "length": f"{float(val[0]):.6f}",
+                "k": f"{float(val[1]):.6f}",
+            }
+            if parameter_tags is not None:
+                if parameter_tags.check_bond_group(bond=key):
+                    bond_data.update(parameter_tags.HarmonicBondForce_tags)
 
             ET.SubElement(
                 HarmonicBondForce,
                 "Bond",
-                attrib={
-                    "class1": self.AtomTypes[key[0]][2],
-                    "class2": self.AtomTypes[key[1]][2],
-                    "length": f"{float(val[0]):.6f}",
-                    "k": f"{float(val[1]):.6f}",
-                },
+                attrib=bond_data,
             )
 
         # Add the angles
         for key, val in self.HarmonicAngleForce.items():
+            angle_data = {
+                "class1": self.AtomTypes[key[0]][2],
+                "class2": self.AtomTypes[key[1]][2],
+                "class3": self.AtomTypes[key[2]][2],
+                "angle": f"{float(val[0]):.6f}",
+                "k": f"{float(val[1]):.6f}",
+            }
+            if parameter_tags is not None:
+                if parameter_tags.check_angle_group(angle=key):
+                    angle_data.update(parameter_tags.HarmonicAngleForce_tags)
+
             ET.SubElement(
                 HarmonicAngleForce,
                 "Angle",
-                attrib={
-                    "class1": self.AtomTypes[key[0]][2],
-                    "class2": self.AtomTypes[key[1]][2],
-                    "class3": self.AtomTypes[key[2]][2],
-                    "angle": f"{float(val[0]):.6f}",
-                    "k": f"{float(val[1]):.6f}",
-                },
+                attrib=angle_data,
             )
 
         # add the proper and improper torsion terms
@@ -602,27 +632,37 @@ class Molecule:
             else:
                 tor_type = "Proper"
 
+            torsion_data = {
+                "class1": self.AtomTypes[key[0]][2],
+                "class2": self.AtomTypes[key[1]][2],
+                "class3": self.AtomTypes[key[2]][2],
+                "class4": self.AtomTypes[key[3]][2],
+                "k1": str(self.PeriodicTorsionForce[key][0][1]),
+                "k2": str(self.PeriodicTorsionForce[key][1][1]),
+                "k3": str(self.PeriodicTorsionForce[key][2][1]),
+                "k4": str(self.PeriodicTorsionForce[key][3][1]),
+                "periodicity1": "1",
+                "periodicity2": "2",
+                "periodicity3": "3",
+                "periodicity4": "4",
+                "phase1": str(self.PeriodicTorsionForce[key][0][2]),
+                "phase2": str(self.PeriodicTorsionForce[key][1][2]),
+                "phase3": str(self.PeriodicTorsionForce[key][2][2]),
+                "phase4": str(self.PeriodicTorsionForce[key][3][2]),
+            }
+            if parameter_tags is not None:
+                if parameter_tags.check_torsion_group(torsion=key):
+                    torsion_data.update(parameter_tags.PeriodicTorsionForce_tags)
+                    # we should also remove and 0 k values for forcebalance
+                    for i in range(1, 5):
+                        k_val = f"k{i}"
+                        if torsion_data[k_val] == "0":
+                            torsion_data[k_val] = "1e-6"
+
             ET.SubElement(
                 PeriodicTorsionForce,
                 tor_type,
-                attrib={
-                    "class1": self.AtomTypes[key[0]][2],
-                    "class2": self.AtomTypes[key[1]][2],
-                    "class3": self.AtomTypes[key[2]][2],
-                    "class4": self.AtomTypes[key[3]][2],
-                    "k1": str(self.PeriodicTorsionForce[key][0][1]),
-                    "k2": str(self.PeriodicTorsionForce[key][1][1]),
-                    "k3": str(self.PeriodicTorsionForce[key][2][1]),
-                    "k4": str(self.PeriodicTorsionForce[key][3][1]),
-                    "periodicity1": "1",
-                    "periodicity2": "2",
-                    "periodicity3": "3",
-                    "periodicity4": "4",
-                    "phase1": str(self.PeriodicTorsionForce[key][0][2]),
-                    "phase2": str(self.PeriodicTorsionForce[key][1][2]),
-                    "phase3": str(self.PeriodicTorsionForce[key][2][2]),
-                    "phase4": str(self.PeriodicTorsionForce[key][3][2]),
-                },
+                attrib=torsion_data,
             )
 
         # add the non-bonded parameters

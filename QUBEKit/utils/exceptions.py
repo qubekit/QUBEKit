@@ -50,3 +50,15 @@ class PSI4Error(Exception):
     """
     PSI4 did not execute properly
     """
+
+
+class MissingReferenceData(Exception):
+    """
+    Some reference data needed for an operation is missing.
+    """
+
+
+class ForceBalanceError(Exception):
+    """
+    This indicates there was an error while using forcebalance to optimise some parameters.
+    """

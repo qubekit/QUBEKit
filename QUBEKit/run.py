@@ -430,6 +430,13 @@ class ArgsAndConfigs:
             help="Enter True if you would like to run a torsion test on the chosen torsions.",
         )
         parser.add_argument(
+            "-tor_method",
+            "--torsion_method",
+            choices=["forcebalance", "internal"],
+            default="forcebalance",
+            help="The method used to optimise the torsion parameters.",
+        )
+        parser.add_argument(
             "-tor_make",
             "--torsion_maker",
             action=TorsionMakerAction,
@@ -1049,7 +1056,7 @@ class Execute:
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
 
         append_to_log("Starting qm_optimisation")
-        MAX_RESTARTS = 3
+        max_restarts = 3
 
         if molecule.geometric and (molecule.bonds_engine == "psi4"):
             qceng = QCEngine(molecule)
@@ -1324,14 +1331,21 @@ class Execute:
             scan = TorsionScan(molecule)
             if molecule.scan_order is None:
                 scan.find_scan_order()
-            scan.collect_scan()
+            scan.collect_scans()
             os.chdir(os.path.join(molecule.home, "10_torsion_optimise"))
+        if molecule.torsion_method == "internal":
+            TorsionOptimiser(molecule).run()
+        elif molecule.torsion_method == "forcebalance":
+            from QUBEKit.fitting import ForceBalanceFitting
 
-        TorsionOptimiser(molecule).run()
+            # setup any extra configs
+            # TODO expose extra configs? like restraint strenght
+            fb_fit = ForceBalanceFitting()
+            fit_molecule = fb_fit.optimise(molecule=molecule)
 
         append_to_log("Finishing torsion_optimisations")
 
-        return molecule
+        return fit_molecule
 
     @staticmethod
     def finalise(molecule):

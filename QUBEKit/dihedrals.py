@@ -15,7 +15,9 @@ from scipy.optimize import differential_evolution, minimize
 from scipy.stats import linregress
 
 from QUBEKit.engines import PSI4, Gaussian, OpenMM, RDKit
+from QUBEKit.ligand import Ligand
 from QUBEKit.utils import constants
+from QUBEKit.utils.datastructures import TorsionDriveData
 from QUBEKit.utils.exceptions import TorsionDriveFailed
 from QUBEKit.utils.file_handling import make_and_change_into
 
@@ -40,7 +42,7 @@ class TorsionScan:
     home                    The starting location of the job, helpful when scanning multiple angles.
     """
 
-    def __init__(self, molecule, constraints_made=None):
+    def __init__(self, molecule: Ligand, constraints_made=None):
 
         self.molecule = molecule
         self.molecule.convergence = "GAU"
@@ -246,14 +248,16 @@ class TorsionScan:
 
         # Gather the results
         try:
-            self.molecule.read_tdrive(scan)
+            result = TorsionDriveData.from_qdata(dihedral=scan)
+            self.molecule.add_qm_scan(scan_data=result)
+            # self.molecule.read_tdrive(scan)
         except FileNotFoundError as exc:
             if not self.molecule.tdrive_parallel:
                 raise TorsionDriveFailed(
                     "Torsiondrive output qdata.txt missing; job did not execute or finish properly"
                 ) from exc
 
-    def collect_scan(self):
+    def collect_scans(self):
         """
         Collect the results of a torsiondrive scan that has not been done using QUBEKit.
         :return: The energies and coordinates into the molecule
@@ -261,8 +265,13 @@ class TorsionScan:
 
         for scan in self.molecule.scan_order:
             name = self._make_folder_name(scan)
-            os.chdir(os.path.join(self.home, os.path.join(name, "QM_torsiondrive")))
-            self.molecule.read_tdrive(scan[1:3])
+            result = TorsionDriveData.from_qdata(
+                dihedral=scan,
+                qdata_file=os.path.join(
+                    self.home, name, "QM_torsiondrive", "qdata.txt"
+                ),
+            )
+            self.molecule.add_qm_scan(scan_data=result)
 
     def _make_folder_name(self, scan):
         return f"SCAN_{scan[0]}_{scan[1]}_{scan[2]}_{scan[3]}"
