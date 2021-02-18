@@ -1112,6 +1112,7 @@ class Execute:
 
         # Using Gaussian or geometric off
         else:
+            qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
             result = qm_engine.generate_input(
                 input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}',
                 optimise=True,
