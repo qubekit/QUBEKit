@@ -7,15 +7,15 @@ from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 from QUBEKit.utils.helpers import hide_warnings
 
 with hide_warnings():
-    from openforcefield.topology import Molecule
-    from openforcefield.typing.engines.smirnoff import (
+    from openff.toolkit.topology import Molecule
+    from openff.toolkit.typing.engines.smirnoff import (
         AngleHandler,
         BondHandler,
         ForceField,
         ProperTorsionHandler,
         vdWHandler,
     )
-    from openforcefield.typing.engines.smirnoff.parameters import (
+    from openff.toolkit.typing.engines.smirnoff.parameters import (
         UnassignedAngleParameterException,
         UnassignedBondParameterException,
         UnassignedMoleculeChargeException,
@@ -49,7 +49,7 @@ class OpenFF(Parametrisation):
         # Make the OpenMM system
         off_topology = off_molecule.to_topology()
 
-        forcefield = ForceField("openff_unconstrained-1.0.0.offxml")
+        forcefield = ForceField("openff_unconstrained-1.3.0.offxml")
 
         try:
             # Parametrise the topology and create an OpenMM System.
