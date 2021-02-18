@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Dict
 
 import numpy as np
 from rdkit import Chem
@@ -140,7 +141,7 @@ class RDKit:
         return [conformer.GetPositions() for conformer in positions]
 
     @staticmethod
-    def find_symmetry_classes(rdkit_mol):
+    def find_symmetry_classes(rdkit_mol: Chem.Mol) -> Dict[int, str]:
         """
         Generate list of tuples of symmetry-equivalent (homotopic) atoms in the molecular graph
         based on: https://sourceforge.net/p/rdkit/mailman/message/27897393/
