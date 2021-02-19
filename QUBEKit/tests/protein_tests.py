@@ -27,7 +27,7 @@ class TestProteins(unittest.TestCase):
         self.assertEqual(len(self.molecule.atoms), 31)
 
         self.assertEqual(
-            len(list(self.molecule.topology.edges)), len(self.molecule.bond_lengths)
+            len(list(self.molecule.topology.edges)), len(self.molecule.measure_bonds)
         )
 
     @classmethod

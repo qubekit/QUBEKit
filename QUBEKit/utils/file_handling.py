@@ -616,7 +616,7 @@ class ExtractChargeData:
         """
 
         atom_types = {}
-        for key, val in self.molecule.atom_symmetry_classes.items():
+        for key, val in self.molecule.atom_types.items():
             atom_types.setdefault(val, []).append(key)
 
         # Find the average charge / volume values for each sym_set.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Dict
+from typing import Dict, Optional
 
 import numpy as np
 from rdkit import Chem
@@ -12,7 +12,7 @@ class RDKit:
     """Class for controlling useful RDKit functions."""
 
     @staticmethod
-    def mol_input_to_rdkit_mol(mol_input, name=None):
+    def mol_input_to_rdkit_mol(mol_input, name=None) -> Optional[Chem.Mol]:
         """
         :param mol_input: pathlib.Path of the filename provided or the smiles string
         :param name:

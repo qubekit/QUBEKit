@@ -1,82 +1,100 @@
-#!/usr/bin/env python3
+import pytest
 
-import os
-import unittest
-from shutil import copy, rmtree
-
+import numpy as np
 from QUBEKit.ligand import Ligand
-from QUBEKit.parametrisation import AnteChamber, OpenFF
+from QUBEKit.utils.file_handling import get_data
+from QUBEKit.parametrisation import AnteChamber, OpenFF, XML, Parametrisation
 
 
-class ParametrisationTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        """Create temp working directory and copy across test files."""
+def test_parameter_prep():
+    """Test that the base parameter class preps a molecule to store prameters."""
+    mol = Ligand(get_data("acetone.pdb"))
+    assert mol.AtomTypes is None
+    assert mol.HarmonicBondForce is None
+    assert mol.HarmonicAngleForce is None
+    assert mol.PeriodicTorsionForce is None
+    assert mol.NonbondedForce is None
 
-        cls.files_folder = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "files"
+    # now use the base class to prep the molecule
+    Parametrisation(mol)
+    assert mol.AtomTypes == {}
+    assert len(mol.HarmonicBondForce) == mol.n_bonds
+    assert len(mol.HarmonicAngleForce) == mol.n_angles
+    assert len(mol.NonbondedForce) == mol.n_atoms
+
+
+def test_antechamber(tmpdir):
+    """
+    Make sure we can parametrise a molecule using antechamber
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand(get_data("acetone.pdb"))
+        AnteChamber(mol)
+
+        # loop over the parameters and make sure they not defaults
+        for bond in mol.bonds:
+            assert mol.HarmonicBondForce[bond] != [0, 0]
+        for angle in mol.angles:
+            assert mol.HarmonicAngleForce[angle] != [0, 0]
+        assert (
+            len(mol.PeriodicTorsionForce) == mol.n_dihedrals + mol.n_improper_torsions
         )
+        for i in range(mol.n_atoms):
+            assert mol.NonbondedForce[i] != [0, 0, 0]
 
-        os.mkdir("temp")
-        os.chdir("temp")
-        copy(os.path.join(cls.files_folder, "acetone.pdb"), "acetone.pdb")
-        cls.molecule = Ligand("acetone.pdb")
-        cls.molecule.testing = True
 
-    def test_antechamber(self):
-        """Parametrise with Antechamber and ensure parameters have all been assigned."""
+def test_openff(tmpdir):
+    """
+    Make sure we can parametrise a molecule using openff.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand(get_data("acetone.pdb"))
+        OpenFF(mol)
 
-        AnteChamber(self.molecule)
-
-        self.assertEqual(
-            len(self.molecule.HarmonicBondForce),
-            len(list(self.molecule.topology.edges)),
+        # loop over the parameters and make sure they not defaults
+        for bond in mol.bonds:
+            assert mol.HarmonicBondForce[bond] != [0, 0]
+        for angle in mol.angles:
+            assert mol.HarmonicAngleForce[angle] != [0, 0]
+        assert (
+            len(mol.PeriodicTorsionForce) == mol.n_dihedrals + mol.n_improper_torsions
         )
-
-        self.assertEqual(
-            len(self.molecule.HarmonicAngleForce), len(self.molecule.angles)
-        )
-
-        self.assertEqual(
-            len(self.molecule.PeriodicTorsionForce),
-            len(self.molecule.dih_phis) + len(self.molecule.improper_torsions),
-        )
-
-        self.assertEqual(
-            len(self.molecule.coords["input"]), len(self.molecule.NonbondedForce)
-        )
-
-    def test_OpenFF(self):
-        """Parametrise with OpenFF and ensure parameters have all been assigned."""
-
-        OpenFF(self.molecule)
-
-        self.assertEqual(
-            len(self.molecule.HarmonicBondForce),
-            len(list(self.molecule.topology.edges)),
-        )
-
-        self.assertEqual(
-            len(self.molecule.HarmonicAngleForce), len(self.molecule.angles)
-        )
-
-        self.assertEqual(
-            len(self.molecule.PeriodicTorsionForce),
-            len(self.molecule.dih_phis) + len(self.molecule.improper_torsions),
-        )
-
-        self.assertEqual(
-            len(self.molecule.coords["input"]), len(self.molecule.NonbondedForce)
-        )
-
-    @classmethod
-    def tearDownClass(cls):
-        """Remove the working directory and any files produced during testing"""
-
-        os.chdir("../")
-        rmtree("temp")
+        for i in range(mol.n_atoms):
+            assert mol.NonbondedForce[i] != [0, 0, 0]
 
 
-if __name__ == "__main__":
+@pytest.mark.parametrize(
+    "method",
+    [pytest.param(AnteChamber, id="antechamber"), pytest.param(OpenFF, id="Openff")],
+)
+def test_parameter_round_trip(method, tmpdir):
+    """
+    Check we can parametrise a molecule then write out the same parameters.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand(get_data("acetone.pdb"))
+        method(mol)
+        # write out params
+        mol.write_parameters(name="test")
 
-    unittest.main()
+        # make a second mol
+        mol2 = Ligand(get_data("acetone.pdb"))
+        XML(mol2, "test.xml")
+
+        assert mol.AtomTypes == mol2.AtomTypes
+        for bond in mol.HarmonicBondForce.keys():
+            assert pytest.approx(
+                mol.HarmonicBondForce[bond], mol2.HarmonicBondForce[bond]
+            )
+        for angle in mol.HarmonicAngleForce.keys():
+            assert pytest.approx(
+                mol.HarmonicAngleForce[angle], mol2.HarmonicAngleForce[angle]
+            )
+        for atom in range(mol.n_atoms):
+            assert pytest.approx(mol.NonbondedForce[atom], mol2.NonbondedForce[atom])
+        for dihedral, terms in mol.PeriodicTorsionForce.items():
+            try:
+                other_dih = mol2.PeriodicTorsionForce[dihedral]
+            except KeyError:
+                other_dih = mol2.PeriodicTorsionForce[tuple(reversed(dihedral))]
+            assert np.allclose(terms[:4], other_dih[:4])

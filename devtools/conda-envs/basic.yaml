@@ -8,7 +8,7 @@ dependencies:
   - pip
 
     # Testing
-  - openff-toolkit-base
+  - openff-toolkit
   - rdkit
   - torsiondrive
   - numpy >=1.18.1

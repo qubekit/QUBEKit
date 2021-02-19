@@ -5,6 +5,7 @@ from collections import OrderedDict
 from copy import deepcopy
 
 from QUBEKit.utils import constants
+from QUBEKit.ligand import Ligand
 
 
 class Parametrisation:
@@ -43,7 +44,7 @@ class Parametrisation:
     NonbondedForce : dictionary of charge, sigma and epsilon stored under the original atom ordering.
     """
 
-    def __init__(self, molecule, input_file=None, fftype=None):
+    def __init__(self, molecule: Ligand, input_file=None, fftype=None):
 
         self.molecule = molecule
         self.input_file = input_file
@@ -53,10 +54,10 @@ class Parametrisation:
         self.molecule.AtomTypes = {}
         try:
             self.molecule.HarmonicBondForce = {
-                bond: [0, 0] for bond in self.molecule.bond_lengths.keys()
+                bond: [0, 0] for bond in self.molecule.bonds
             }
             self.molecule.HarmonicAngleForce = {
-                angle: [0, 0] for angle in self.molecule.angle_values.keys()
+                angle: [0, 0] for angle in self.molecule.angles
             }
         except AttributeError:
             self.molecule.HarmonicBondForce = {}

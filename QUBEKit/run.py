@@ -1049,7 +1049,7 @@ class Execute:
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
 
         append_to_log("Starting qm_optimisation")
-        max_restarts = 3
+        MAX_RESTARTS = 3
 
         if molecule.geometric and (molecule.bonds_engine == "psi4"):
             qceng = QCEngine(molecule)
@@ -1061,7 +1061,7 @@ class Execute:
 
             restart_count = 0
 
-            while (not result["success"]) and (restart_count < max_restarts):
+            while (not result["success"]) and (restart_count < MAX_RESTARTS):
                 append_to_log(
                     f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
                     msg_type="minor",
@@ -1113,7 +1113,7 @@ class Execute:
             )
 
             restart_count = 0
-            while (not result["success"]) and (restart_count < max_restarts):
+            while (not result["success"]) and (restart_count < MAX_RESTARTS):
                 append_to_log(
                     f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
                     msg_type="minor",
@@ -1161,7 +1161,7 @@ class Execute:
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
         append_to_log("Starting hessian calculation")
-        molecule.bond_lengths("qm")
+        molecule.measure_bonds("qm")
 
         if molecule.bonds_engine in ["g09", "g16"]:
             qm_engine = Gaussian(molecule)
