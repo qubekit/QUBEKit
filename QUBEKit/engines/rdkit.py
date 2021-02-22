@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Dict, Optional
 
 import numpy as np
 from rdkit import Chem
@@ -11,7 +12,7 @@ class RDKit:
     """Class for controlling useful RDKit functions."""
 
     @staticmethod
-    def mol_input_to_rdkit_mol(mol_input, name=None):
+    def mol_input_to_rdkit_mol(mol_input, name=None) -> Optional[Chem.Mol]:
         """
         :param mol_input: pathlib.Path of the filename provided or the smiles string
         :param name:
@@ -24,11 +25,11 @@ class RDKit:
 
         # Read the file
         if mol_input.suffix == ".pdb":
-            return Chem.MolFromPDBFile(mol_input.name, removeHs=False)
+            return Chem.MolFromPDBFile(mol_input.as_posix(), removeHs=False)
         elif mol_input.suffix == ".mol2":
-            return Chem.MolFromMol2File(mol_input.name, removeHs=False)
+            return Chem.MolFromMol2File(mol_input.as_posix(), removeHs=False)
         elif mol_input.suffix == ".mol":
-            return Chem.MolFromMolFile(mol_input.name, removeHs=False)
+            return Chem.MolFromMolFile(mol_input.as_posix(), removeHs=False)
 
         return None
 
@@ -140,7 +141,7 @@ class RDKit:
         return [conformer.GetPositions() for conformer in positions]
 
     @staticmethod
-    def find_symmetry_classes(rdkit_mol):
+    def find_symmetry_classes(rdkit_mol: Chem.Mol) -> Dict[int, str]:
         """
         Generate list of tuples of symmetry-equivalent (homotopic) atoms in the molecular graph
         based on: https://sourceforge.net/p/rdkit/mailman/message/27897393/

@@ -21,6 +21,8 @@ class XML(Parametrisation):
     def serialise_system(self):
         """Serialise the input XML system using openmm."""
 
+        # if the molecule is not here write it out
+        self.molecule.write_pdb()
         pdb = app.PDBFile(f"{self.molecule.name}.pdb")
         modeller = app.Modeller(pdb.topology, pdb.positions)
 

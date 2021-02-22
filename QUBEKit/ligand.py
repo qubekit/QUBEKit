@@ -28,6 +28,7 @@ import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 from xml.dom.minidom import parseString
 
 import networkx as nx
@@ -35,6 +36,7 @@ import numpy as np
 
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
+from QUBEKit.utils.datastructures import Atom, ExtraSite
 from QUBEKit.utils.file_handling import ReadInput
 
 
@@ -119,17 +121,6 @@ class Molecule:
         # Structure
         coords                  Dict of numpy arrays of the coords where the keys are the input type ('mm', 'qm', etc)
         topology                networkx Graph() object. Contains connection information for molecule
-        angles                  List of tuples; Shows angles based on atom indices (from 0) e.g. (1, 2, 4), (1, 2, 5)
-        dihedrals               Dictionary of dihedral tuples stored under their common core bond
-                                e.g. {(1,2): [(3, 1, 2, 6), (3, 1, 2, 7)]}
-        improper_torsions
-        rotatable               List of dihedral core tuples [(1,2)]
-        bond_lengths            Dictionary of bond lengths stored under the bond tuple
-                                e.g. {(1, 3): 1.115341203992107} (angstroms)
-        dih_phis                Dictionary of the dihedral angles measured in the molecule object stored under the
-                                dihedral tuple e.g. {(3, 1, 2, 6): -70.3506776877}  (degrees)
-        angle_values            Dictionary of the angle values measured in the molecule object stored under the
-                                angle tuple e.g. {(2, 1, 3): 107.2268} (degrees)
         symm_hs
         qm_energy
 
@@ -150,11 +141,6 @@ class Molecule:
                                 e.g. {(3, 1, 2, 6): [[1, 0.6, 0], [2, 0, 3.141592653589793], ... Improper]}
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
 
-        # Symmetrisation
-        bond_types
-        angle_types
-        dihedral_types
-        improper_types
 
         dih_start
         dih_end
@@ -169,57 +155,46 @@ class Molecule:
         """
 
         self.mol_input = mol_input
-        self.name = name
-        self.is_protein = False
+        self.name: str = name
+        self.is_protein: bool = False
 
         self.rdkit_mol = None
 
         # Structure
-        self.coords = {"input": [], "mm": [], "qm": [], "temp": [], "traj": []}
+        self.coords: Dict = {"input": [], "mm": [], "qm": [], "temp": [], "traj": []}
         self.topology = None
-        self.angles = None
-        self.dihedrals = None
-        self.improper_torsions = None
-        self.rotatable = None
-        self.bond_lengths = None
-        self.atoms = None
-        self.dih_phis = None
-        self.angle_values = None
+        self.atoms: Optional[List[Atom]] = None
         self.symm_hs = None
-        self.qm_energy = None
-        self.charge = 0
-        self.multiplicity = 1
+        self.qm_energy: Optional[float] = None
+        self.charge: int = 0
+        self.multiplicity: int = 1
         self.qm_scans = None
         self.scan_order = None
         self.descriptors = None
 
         # XML Info
-        self.AtomTypes = None
-        self.extra_sites = None
-        self.HarmonicBondForce = None
-        self.HarmonicAngleForce = None
-        self.PeriodicTorsionForce = None
-        self.NonbondedForce = None
-
-        # Symmetrisation
-        self.bond_types = None
-        self.angle_types = None
-        self.dihedral_types = None
-        self.improper_types = None
+        self.AtomTypes: Optional[Dict] = None
+        self.extra_sites: Optional[Dict[int, ExtraSite]] = None
+        self.HarmonicBondForce: Optional[Dict] = None
+        self.HarmonicAngleForce: Optional[Dict] = None
+        self.PeriodicTorsionForce: Optional[Dict] = None
+        self.NonbondedForce: Optional[Dict] = None
 
         # Dihedral settings
-        self.dih_starts = {}
-        self.dih_ends = {}
-        self.increments = {}
+        self.dih_starts: Dict = {}
+        self.dih_ends: Dict = {}
+        self.increments: Dict = {}
+        # this holds the groups which should not be considered rotatable
+        self.methyl_amine_nitride_cores: Optional[Dict] = None
 
-        self.combination = "amber"
+        self.combination: str = "amber"
 
         # QUBEKit internals
-        self.state = None
-        self.config_file = "master_config.ini"
-        self.restart = False
-        self.atom_symmetry_classes = None
-        self.verbose = True
+        self.state: Optional[str] = None
+        self.config_file: str = "master_config.ini"
+        self.restart: bool = False
+        # self.atom_types = None
+        self.verbose: bool = True
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__!r})"
@@ -346,11 +321,9 @@ class Molecule:
                 )
             self.coords["traj"].append(np.array(opt_traj))
 
-    def find_impropers(self):
-        """
-        Take the topology graph and find all of the improper torsions in the molecule;
-        these are atoms with 3 bonds.
-        """
+    @property
+    def improper_torsions(self) -> Optional[List[Tuple[int, int, int, int]]]:
+        """A list of improper atom tuples where the first atom is central."""
 
         improper_torsions = []
 
@@ -364,14 +337,19 @@ class Molecule:
             ):
                 # Store each combination of the improper torsion
                 improper_torsions.append((node, near[0], near[1], near[2]))
+        return improper_torsions or None
 
-        self.improper_torsions = improper_torsions or None
+    @property
+    def n_improper_torsions(self) -> int:
+        """The number of unique improper torsions."""
+        impropers = self.improper_torsions
+        if impropers is None:
+            return 0
+        return len(impropers)
 
-    def find_angles(self):
-        """
-        Take the topology graph network and return a list of all angle combinations.
-        Checked against OPLS-AA on molecules containing 10-63 angles.
-        """
+    @property
+    def angles(self) -> Optional[List[Tuple[int, int, int]]]:
+        """A List of angles from the topology."""
 
         angles = []
 
@@ -387,12 +365,23 @@ class Molecule:
                 for j in range(i + 1, len(bonded)):
                     atom1, atom3 = bonded[i], bonded[j]
                     angles.append((atom1, node, atom3))
+        return angles or None
 
-        self.angles = angles or None
+    @property
+    def n_angles(self) -> int:
+        """The number of angles in the molecule. """
+        angles = self.angles
+        if angles is None:
+            return 0
+        return len(angles)
 
-    def find_bond_lengths(self, input_type="input"):
+    def measure_bonds(self, input_type="input") -> Dict[Tuple[int, int], float]:
         """
-        For the given molecule and topology find the length of all of the bonds.
+        Find the length of all bonds in the molecule for the given conformer in  angstroms.
+
+        Returns
+        -------
+            A dictionary of the bond lengths stored by bond tuple.
         """
 
         bond_lengths = {}
@@ -404,14 +393,26 @@ class Molecule:
             atom2 = molecule[edge[1]]
             bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
 
-        # Check if the dictionary is full then store else leave as None
-        self.bond_lengths = bond_lengths or None
+        return bond_lengths
 
-    def find_dihedrals(self):
-        """
-        Take the topology graph network and again return a dictionary of all possible dihedral combinations
-        stored under the central bond keys, which describe the angle.
-        """
+    @property
+    def bonds(self) -> List[Tuple[int, int]]:
+        """A list of bonds from the topology."""
+        return list(self.topology.edges)
+
+    @property
+    def n_bonds(self) -> int:
+        """The number of bonds in the topology."""
+        bonds = self.bonds
+        if bonds is None:
+            return 0
+        return len(bonds)
+
+    @property
+    def dihedrals(
+        self,
+    ) -> Optional[Dict[Tuple[int, int], List[Tuple[int, int, int, int]]]]:
+        """A list of all possible dihedrals that can be found in the topology."""
 
         dihedrals = {}
 
@@ -436,73 +437,118 @@ class Molecule:
                                 # Add the tuple to the correct key.
                                 dihedrals[edge].append((start, edge[0], edge[1], end))
 
-        self.dihedrals = dihedrals or None
+        return dihedrals or None
 
-    def find_rotatable_dihedrals(self):
+    @property
+    def n_dihedrals(self) -> int:
+        """The total number of dihedrals in the molecule."""
+        dihedrals = self.dihedrals
+        if dihedrals is None:
+            return 0
+        return sum([len(torsions) for torsions in dihedrals.values()])
+
+    @property
+    def rotatable_bonds(self) -> Optional[List[Tuple[int, int]]]:
         """
         For each dihedral in the topology graph network and dihedrals dictionary, work out if the torsion is
         rotatable. Returns a list of dihedral dictionary keys representing the rotatable dihedrals.
         Also exclude standard rotations such as amides and methyl groups.
+        TODO replace with smarts matching
         """
+        dihedrals = self.dihedrals
+        if dihedrals is None:
+            return None
 
-        if self.dihedrals:
-            rotatable = []
+        rotatable = []
 
-            # For each dihedral key remove the edge from the network
-            for key in self.dihedrals:
-                self.topology.remove_edge(*key)
+        # For each dihedral key remove the edge from the network
+        for key in dihedrals:
+            self.topology.remove_edge(*key)
 
-                # Check if there is still a path between the two atoms in the edges.
-                if not nx.has_path(self.topology, *key):
-                    rotatable.append(key)
+            # Check if there is still a path between the two atoms in the edges.
+            if not nx.has_path(self.topology, *key):
+                rotatable.append(key)
 
-                # Add edge back to the network and try next key
-                self.topology.add_edge(*key)
+            # Add edge back to the network and try next key
+            self.topology.add_edge(*key)
 
-            self.rotatable = rotatable or None
+        remove_list = []
+        if rotatable and self.methyl_amine_nitride_cores is not None:
+            for key in rotatable:
+                if (
+                    key[0] in self.methyl_amine_nitride_cores
+                    or key[1] in self.methyl_amine_nitride_cores
+                ):
+                    remove_list.append(key)
 
-    def get_dihedral_values(self, input_type="input"):
+            for torsion in remove_list:
+                rotatable.remove(torsion)
+
+        return rotatable or None
+
+    @property
+    def n_rotatable_bonds(self) -> int:
+        """The number of rotatable bonds."""
+        rotatable_bonds = self.rotatable_bonds
+        if rotatable_bonds is None:
+            return 0
+        return len(rotatable_bonds)
+
+    def measure_dihedrals(
+        self, input_type="input"
+    ) -> Optional[Dict[Tuple[int, int, int, int], float]]:
         """
-        Taking the molecule's xyz coordinates and dihedrals dictionary, return a dictionary of dihedral
-        angle keys and values. Also an option to only supply the keys of the dihedrals you want to calculate.
+        For the given conformation measure the dihedrals in the topology in degrees.
         """
+        dihedrals = self.dihedrals
+        if dihedrals is None:
+            return None
 
-        if self.dihedrals:
+        dih_phis = {}
 
-            dih_phis = {}
+        coordinates = self.coords[input_type]
 
-            molecule = self.coords[input_type]
+        for val in dihedrals.values():
+            for torsion in val:
+                # Calculate the dihedral angle in the molecule using the molecule data array.
+                x1, x2, x3, x4 = [coordinates[torsion[i]] for i in range(4)]
+                b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
+                t1 = np.linalg.norm(b2) * np.dot(b1, np.cross(b2, b3))
+                t2 = np.dot(np.cross(b1, b2), np.cross(b2, b3))
+                dih_phis[torsion] = np.degrees(np.arctan2(t1, t2))
 
-            for val in self.dihedrals.values():
-                for torsion in val:
-                    # Calculate the dihedral angle in the molecule using the molecule data array.
-                    x1, x2, x3, x4 = [molecule[torsion[i]] for i in range(4)]
-                    b1, b2, b3 = x2 - x1, x3 - x2, x4 - x3
-                    t1 = np.linalg.norm(b2) * np.dot(b1, np.cross(b2, b3))
-                    t2 = np.dot(np.cross(b1, b2), np.cross(b2, b3))
-                    dih_phis[torsion] = np.degrees(np.arctan2(t1, t2))
+        return dih_phis
 
-            self.dih_phis = dih_phis or None
-
-    def get_angle_values(self, input_type="input"):
+    def measure_angles(
+        self, input_type="input"
+    ) -> Optional[Dict[Tuple[int, int, int], float]]:
         """
-        For the given molecule and list of angle terms measure the angle values,
-        then return a dictionary of angles and values.
+        For the given conformation measure the angles in the topology in degrees.
         """
+        angles = self.angles
+        if angles is None:
+            return None
 
         angle_values = {}
 
-        molecule = self.coords[input_type]
+        coordinates = self.coords[input_type]
 
-        for angle in self.angles:
-            x1 = molecule[angle[0]]
-            x2 = molecule[angle[1]]
-            x3 = molecule[angle[2]]
+        for angle in angles:
+            x1 = coordinates[angle[0]]
+            x2 = coordinates[angle[1]]
+            x3 = coordinates[angle[2]]
             b1, b2 = x1 - x2, x3 - x2
             cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
             angle_values[angle] = np.degrees(np.arccos(cosine_angle))
 
-        self.angle_values = angle_values or None
+        return angle_values
+
+    @property
+    def n_atoms(self) -> int:
+        """
+        Calculate the number of atoms.
+        """
+        return len(self.atoms)
 
     def write_parameters(self, name=None):
         """
@@ -772,7 +818,8 @@ class Molecule:
             for val in mols.values():
                 pickle.dump(val, pickle_jar)
 
-    def get_bond_equiv_classes(self):
+    @property
+    def bond_types(self) -> Dict[str, Tuple[int, int]]:
         """
         Using the symmetry dict, give each bond a code. If any codes match, the bonds can be symmetrised.
         e.g. bond_symmetry_classes = {(0, 3): '2-0', (0, 4): '2-0', (0, 5): '2-0' ...}
@@ -781,21 +828,22 @@ class Molecule:
         bond_types is just a dict where the keys are the string code from above and the values are all
         of the bonds with that particular type.
         """
-
+        atom_types = self.atom_types
         bond_symmetry_classes = {}
-        for bond in self.topology.edges:
+        for bond in self.bonds:
             bond_symmetry_classes[bond] = (
-                f"{self.atom_symmetry_classes[bond[0]]}-"
-                f"{self.atom_symmetry_classes[bond[1]]}"
+                f"{atom_types[bond[0]]}-" f"{atom_types[bond[1]]}"
             )
 
         bond_types = {}
         for key, val in bond_symmetry_classes.items():
             bond_types.setdefault(val, []).append(key)
 
-        self.bond_types = self._cluster_types(bond_types)
+        bond_types = self._cluster_types(bond_types)
+        return bond_types
 
-    def get_angle_equiv_classes(self):
+    @property
+    def angle_types(self) -> Dict[str, Tuple[int, int, int]]:
         """
         Using the symmetry dict, give each angle a code. If any codes match, the angles can be symmetrised.
         e.g. angle_symmetry_classes = {(1, 0, 3): '3-2-0', (1, 0, 4): '3-2-0', (1, 0, 5): '3-2-0' ...}
@@ -803,61 +851,68 @@ class Molecule:
         angle_types is just a dict where the keys are the string code from the above and the values are all
         of the angles with that particular type.
         """
-
+        atom_types = self.atom_types
         angle_symmetry_classes = {}
         for angle in self.angles:
             angle_symmetry_classes[angle] = (
-                f"{self.atom_symmetry_classes[angle[0]]}-"
-                f"{self.atom_symmetry_classes[angle[1]]}-"
-                f"{self.atom_symmetry_classes[angle[2]]}"
+                f"{atom_types[angle[0]]}-"
+                f"{atom_types[angle[1]]}-"
+                f"{atom_types[angle[2]]}"
             )
 
         angle_types = {}
         for key, val in angle_symmetry_classes.items():
             angle_types.setdefault(val, []).append(key)
 
-        self.angle_types = self._cluster_types(angle_types)
+        angle_types = self._cluster_types(angle_types)
+        return angle_types
 
-    def get_dihedral_equiv_classes(self):
+    @property
+    def dihedral_types(self) -> Dict[str, Tuple[int, int, int, int]]:
         """
         Using the symmetry dict, give each dihedral a code. If any codes match, the dihedrals can be clustered and their
         parameters should be the same, this is to be used in dihedral fitting so all symmetry equivalent dihedrals are
         optimised at the same time. dihedral_equiv_classes = {(0, 1, 2 ,3): '1-1-2-1'...} all of the tuples are the
         dihedrals index by topology and the strings are the symmetry equivalent atom combinations.
         """
-
+        atom_types = self.atom_types
         dihedral_symmetry_classes = {}
         for dihedral_set in self.dihedrals.values():
             for dihedral in dihedral_set:
                 dihedral_symmetry_classes[tuple(dihedral)] = (
-                    f"{self.atom_symmetry_classes[dihedral[0]]}-"
-                    f"{self.atom_symmetry_classes[dihedral[1]]}-"
-                    f"{self.atom_symmetry_classes[dihedral[2]]}-"
-                    f"{self.atom_symmetry_classes[dihedral[3]]}"
+                    f"{atom_types[dihedral[0]]}-"
+                    f"{atom_types[dihedral[1]]}-"
+                    f"{atom_types[dihedral[2]]}-"
+                    f"{atom_types[dihedral[3]]}"
                 )
 
         dihedral_types = {}
         for key, val in dihedral_symmetry_classes.items():
             dihedral_types.setdefault(val, []).append(key)
 
-        self.dihedral_types = self._cluster_types(dihedral_types)
+        dihedral_types = self._cluster_types(dihedral_types)
+        return dihedral_types
 
-    def get_improper_equiv_classes(self):
+    @property
+    def improper_types(self) -> Dict[str, Tuple[int, int, int, int]]:
+        """Using the atom symmetry types work out the improper types."""
 
+        atom_types = self.atom_types
         improper_symmetry_classes = {}
         for dihedral in self.improper_torsions:
             improper_symmetry_classes[tuple(dihedral)] = (
-                f"{self.atom_symmetry_classes[dihedral[0]]}-"
-                f"{self.atom_symmetry_classes[dihedral[1]]}-"
-                f"{self.atom_symmetry_classes[dihedral[2]]}-"
-                f"{self.atom_symmetry_classes[dihedral[3]]}"
+                f"{atom_types[dihedral[0]]}-"
+                f"{atom_types[dihedral[1]]}-"
+                f"{atom_types[dihedral[2]]}-"
+                f"{atom_types[dihedral[3]]}"
             )
 
         improper_types = {}
         for key, val in improper_symmetry_classes.items():
             improper_types.setdefault(val, []).append(key)
 
-        self.improper_types = self._cluster_types(improper_types)
+        improper_types = self._cluster_types(improper_types)
+        return improper_types
 
     @staticmethod
     def _cluster_types(equiv_classes):
@@ -879,7 +934,16 @@ class Molecule:
 
         return new_classes
 
-    def symmetrise_from_topology(self):
+    @property
+    def atom_types(self) -> Optional[Dict[int, str]]:
+        """Returns a dictionary of atom indices mapped to their class or None if there is no rdkit molecule.
+        #TODO we need a to_rdkit method as this should always work for well defined inputs.
+        """
+        if self.rdkit_mol is not None:
+            return RDKit.find_symmetry_classes(self.rdkit_mol)
+        return None
+
+    def symmetrise_from_topology(self) -> None:
         """
         First, if rdkit_mol has been generated, get the bond and angle symmetry dicts.
         These will be used by L-J and the Harmonic Bond/Angle params
@@ -892,16 +956,6 @@ class Molecule:
 
         TODO This needs to be more applicable to proteins (e.g. if no rdkit_mol is created).
         """
-
-        if self.rdkit_mol is not None:
-
-            self.atom_symmetry_classes = RDKit.find_symmetry_classes(self.rdkit_mol)
-
-            self.get_bond_equiv_classes()
-            self.get_angle_equiv_classes()
-
-            if self.dihedrals is not None:
-                self.get_dihedral_equiv_classes()
 
         methyl_hs, amine_hs, other_hs = [], [], []
         methyl_amine_nitride_cores = []
@@ -928,25 +982,9 @@ class Molecule:
                     methyl_amine_nitride_cores.append(atom.atom_index)
 
         self.symm_hs = {"methyl": methyl_hs, "amine": amine_hs, "other": other_hs}
+        self.methyl_amine_nitride_cores = methyl_amine_nitride_cores
 
-        # Modify the rotatable list to remove methyl and amine / nitrile torsions
-        # These are already well represented in most FF's
-        remove_list = []
-        if self.rotatable is not None:
-            rotatable = self.rotatable
-            for key in rotatable:
-                if (
-                    key[0] in methyl_amine_nitride_cores
-                    or key[1] in methyl_amine_nitride_cores
-                ):
-                    remove_list.append(key)
-
-            for torsion in remove_list:
-                rotatable.remove(torsion)
-
-            self.rotatable = rotatable or None
-
-    def openmm_coordinates(self, input_type="input"):
+    def openmm_coordinates(self, input_type="input") -> List[np.array]:
         """
         Take a set of coordinates from the molecule and convert them to OpenMM format
         :param input_type: The set of coordinates that should be used
@@ -957,9 +995,9 @@ class Molecule:
         coordinates = self.coords[input_type]
 
         # Multiple frames in this case
-        if input_type == "traj" and len(coordinates) != len(self.coords["input"]):
-            return [[tuple(atom / 10) for atom in frame] for frame in coordinates]
-        return [tuple(atom / 10) for atom in coordinates]
+        if input_type == "traj" and len(coordinates) != self.n_atoms:
+            return [frame / 10 for frame in coordinates]
+        return [coordinates / 10]
 
     def read_tdrive(self, bond_scan):
         """
@@ -1062,13 +1100,6 @@ class Ligand(DefaultsMixin, Molecule):
 
         # Make sure we have the topology before we calculate the properties
         if self.topology.edges:
-            self.find_angles()
-            self.find_dihedrals()
-            self.find_rotatable_dihedrals()
-            self.find_impropers()
-            self.get_dihedral_values()
-            self.find_bond_lengths()
-            self.get_angle_values()
             self.symmetrise_from_topology()
 
     def save_to_ligand(self, mol_input, name=None, input_type="input"):
@@ -1189,13 +1220,13 @@ class Protein(DefaultsMixin, Molecule):
             )
             return
 
-        self.find_angles()
-        self.find_dihedrals()
-        self.find_rotatable_dihedrals()
-        self.find_impropers()
-        self.get_dihedral_values(input_type)
-        self.find_bond_lengths(input_type)
-        self.get_angle_values(input_type)
+        # self.find_angles()
+        # self.find_dihedrals()
+        # self.find_rotatable_dihedrals()
+        # self.find_impropers()
+        # self.measure_dihedrals(input_type)
+        # self.bond_lengths(input_type)
+        # self.measure_angles(input_type)
         # This creates the dictionary of terms that should be symmetrised.
         self.symmetrise_from_topology()
 
@@ -1236,12 +1267,12 @@ class Protein(DefaultsMixin, Molecule):
         for bond in self.HarmonicBondForce:
             self.topology.add_edge(*bond)
 
-        self.find_angles()
-        self.find_dihedrals()
-        self.find_rotatable_dihedrals()
-        self.find_impropers()
-        self.get_dihedral_values(input_type)
-        self.find_bond_lengths(input_type)
-        self.get_angle_values(input_type)
+        # self.find_angles()
+        # self.find_dihedrals()
+        # self.find_rotatable_dihedrals()
+        # self.find_impropers()
+        # self.measure_dihedrals(input_type)
+        # self.bond_lengths(input_type)
+        # self.measure_angles(input_type)
         # This creates the dictionary of terms that should be symmetrised.
         self.symmetrise_from_topology()

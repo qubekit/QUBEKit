@@ -42,7 +42,6 @@ class AnteChamber(Parametrisation):
         # file paths when moving in and out of temp locations
         cwd = os.getcwd()
         mol2 = os.path.abspath(f"{self.molecule.name}.mol2")
-        pdb_path = os.path.abspath(f"{self.molecule.name}.pdb")
         frcmod_file = os.path.abspath(f"{self.molecule.name}.frcmod")
         prmtop_file = os.path.abspath(f"{self.molecule.name}.prmtop")
         inpcrd_file = os.path.abspath(f"{self.molecule.name}.inpcrd")
@@ -52,7 +51,7 @@ class AnteChamber(Parametrisation):
         # Do this in a temp directory as it produces a lot of files
         with TemporaryDirectory() as temp:
             os.chdir(temp)
-            shutil.copy(pdb_path, "in.pdb")
+            self.molecule.write_pdb(name="in")
 
             # Call Antechamber
             cmd = f"antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc -nc {self.molecule.charge}"
