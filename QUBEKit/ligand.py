@@ -36,7 +36,7 @@ import numpy as np
 
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import Atom
+from QUBEKit.utils.datastructures import Atom, ExtraSite
 from QUBEKit.utils.file_handling import ReadInput
 
 
@@ -155,46 +155,46 @@ class Molecule:
         """
 
         self.mol_input = mol_input
-        self.name = name
-        self.is_protein = False
+        self.name: str = name
+        self.is_protein: bool = False
 
         self.rdkit_mol = None
 
         # Structure
-        self.coords = {"input": [], "mm": [], "qm": [], "temp": [], "traj": []}
+        self.coords: Dict = {"input": [], "mm": [], "qm": [], "temp": [], "traj": []}
         self.topology = None
         self.atoms: Optional[List[Atom]] = None
         self.symm_hs = None
-        self.qm_energy = None
-        self.charge = 0
-        self.multiplicity = 1
+        self.qm_energy: Optional[float] = None
+        self.charge: int = 0
+        self.multiplicity: int = 1
         self.qm_scans = None
         self.scan_order = None
         self.descriptors = None
 
         # XML Info
-        self.AtomTypes = None
-        self.extra_sites = None
-        self.HarmonicBondForce = None
-        self.HarmonicAngleForce = None
-        self.PeriodicTorsionForce = None
-        self.NonbondedForce = None
+        self.AtomTypes: Optional[Dict] = None
+        self.extra_sites: Optional[Dict[int, ExtraSite]] = None
+        self.HarmonicBondForce: Optional[Dict] = None
+        self.HarmonicAngleForce: Optional[Dict] = None
+        self.PeriodicTorsionForce: Optional[Dict] = None
+        self.NonbondedForce: Optional[Dict] = None
 
         # Dihedral settings
-        self.dih_starts = {}
-        self.dih_ends = {}
-        self.increments = {}
+        self.dih_starts: Dict = {}
+        self.dih_ends: Dict = {}
+        self.increments: Dict = {}
         # this holds the groups which should not be considered rotatable
-        self.methyl_amine_nitride_cores = None
+        self.methyl_amine_nitride_cores: Optional[Dict] = None
 
-        self.combination = "amber"
+        self.combination: str = "amber"
 
         # QUBEKit internals
-        self.state = None
-        self.config_file = "master_config.ini"
-        self.restart = False
+        self.state: Optional[str] = None
+        self.config_file: str = "master_config.ini"
+        self.restart: bool = False
         # self.atom_types = None
-        self.verbose = True
+        self.verbose: bool = True
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__!r})"

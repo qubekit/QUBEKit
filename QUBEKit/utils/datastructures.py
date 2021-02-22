@@ -2,7 +2,8 @@
 
 from types import SimpleNamespace
 
-from rdkit.Chem.rdchem import GetPeriodicTable
+from rdkit.Chem.rdchem import GetPeriodicTable, PeriodicTable
+from typing import Optional, List
 
 
 class CustomNamespace(SimpleNamespace):
@@ -33,7 +34,7 @@ class Element:
     """
 
     @staticmethod
-    def p_table():
+    def p_table() -> PeriodicTable:
         return GetPeriodicTable()
 
     @staticmethod
@@ -60,21 +61,21 @@ class Atom:
 
     def __init__(
         self,
-        atomic_number,
-        atom_index,
-        atom_name="",
-        partial_charge=None,
-        formal_charge=None,
+        atomic_number: int,
+        atom_index: int,
+        atom_name: str = "",
+        partial_charge: Optional[float] = None,
+        formal_charge: Optional[int] = None,
     ):
 
-        self.atomic_number = atomic_number
+        self.atomic_number: int = atomic_number
         # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
-        self.atom_name = atom_name
-        self.atom_index = atom_index
-        self.partial_charge = partial_charge
-        self.formal_charge = formal_charge
-        self.atom_type = None
-        self.bonds = []
+        self.atom_name: str = atom_name
+        self.atom_index: int = atom_index
+        self.partial_charge: Optional[float] = partial_charge
+        self.formal_charge: Optional[int] = formal_charge
+        self.atom_type: Optional[str] = None
+        self.bonds: List[int] = []
 
     @property
     def atomic_mass(self) -> float:
@@ -86,7 +87,7 @@ class Atom:
         """Convert the atomic number to the atomic symbol as per the periodic table."""
         return Element.name(self.atomic_number).title()
 
-    def add_bond(self, bonded_index):
+    def add_bond(self, bonded_index) -> None:
         """
         Add a bond to the atom, this will make sure the bond has not already been described
         :param bonded_index: The index of the atom bonded to self
@@ -118,17 +119,17 @@ class ExtraSite:
     """
 
     def __init__(self):
-        self.parent_index = None  # int
-        self.closest_a_index = None  # int
-        self.closest_b_index = None  # int
+        self.parent_index: Optional[int] = None
+        self.closest_a_index: Optional[int] = None
+        self.closest_b_index: Optional[int] = None
         # Optional: Used for Nitrogen only.
-        self.closest_c_index = None  # int
+        self.closest_c_index: Optional[int] = None
 
-        self.o_weights = None  # list of float
-        self.x_weights = None  # list of float
-        self.y_weights = None  # list of float
+        self.o_weights: Optional[List[float]] = None
+        self.x_weights: Optional[List[float]] = None
+        self.y_weights: Optional[List[float]] = None
 
-        self.p1 = None  # float
-        self.p2 = None  # float
-        self.p3 = None  # float
-        self.charge = None  # float
+        self.p1: Optional[float] = None
+        self.p2: Optional[float] = None
+        self.p3: Optional[float] = None
+        self.charge: Optional[float] = None
