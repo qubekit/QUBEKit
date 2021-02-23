@@ -1,9 +1,9 @@
+import numpy as np
 import pytest
 
-import numpy as np
 from QUBEKit.ligand import Ligand
+from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
 from QUBEKit.utils.file_handling import get_data
-from QUBEKit.parametrisation import AnteChamber, OpenFF, XML, Parametrisation
 
 
 def test_parameter_prep():
@@ -98,15 +98,18 @@ def test_parameter_round_trip(method, tmpdir):
 
         assert mol.AtomTypes == mol2.AtomTypes
         for bond in mol.HarmonicBondForce.keys():
-            assert pytest.approx(
-                mol.HarmonicBondForce[bond], mol2.HarmonicBondForce[bond]
+            assert mol.HarmonicBondForce[bond] == pytest.approx(
+                mol2.HarmonicBondForce[bond], abs=1e-6
             )
         for angle in mol.HarmonicAngleForce.keys():
-            assert pytest.approx(
-                mol.HarmonicAngleForce[angle], mol2.HarmonicAngleForce[angle]
+            assert mol.HarmonicAngleForce[angle] == pytest.approx(
+                mol2.HarmonicAngleForce[angle], abs=1e-6
             )
         for atom in range(mol.n_atoms):
-            assert pytest.approx(mol.NonbondedForce[atom], mol2.NonbondedForce[atom])
+            assert (
+                pytest.approx(mol.NonbondedForce[atom], abs=1e-6)
+                == mol2.NonbondedForce[atom]
+            )
         for dihedral, terms in mol.PeriodicTorsionForce.items():
             try:
                 other_dih = mol2.PeriodicTorsionForce[dihedral]
@@ -145,15 +148,20 @@ def test_xml_sites_roundtrip(tmpdir):
 
         assert mol.AtomTypes == mol2.AtomTypes
         for bond in mol.HarmonicBondForce.keys():
-            assert pytest.approx(
-                mol.HarmonicBondForce[bond], mol2.HarmonicBondForce[bond]
+            assert (
+                pytest.approx(mol.HarmonicBondForce[bond], abs=1e-6)
+                == mol2.HarmonicBondForce[bond]
             )
         for angle in mol.HarmonicAngleForce.keys():
-            assert pytest.approx(
-                mol.HarmonicAngleForce[angle], mol2.HarmonicAngleForce[angle]
+            assert (
+                pytest.approx(mol.HarmonicAngleForce[angle], abs=1e-6)
+                == mol2.HarmonicAngleForce[angle]
             )
         for atom in range(mol.n_atoms):
-            assert pytest.approx(mol.NonbondedForce[atom], mol2.NonbondedForce[atom])
+            assert (
+                pytest.approx(mol.NonbondedForce[atom], abs=1e-6)
+                == mol2.NonbondedForce[atom]
+            )
         # make sure the virtual site was round tripped
         mol_site = mol.extra_sites[0]
         mol2_site = mol2.extra_sites[0]

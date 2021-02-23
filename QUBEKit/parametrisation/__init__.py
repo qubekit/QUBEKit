@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 from QUBEKit.utils.helpers import try_load
+from .base_parametrisation import Parametrisation
+from .xml import XML
+from .xml_protein import XMLProtein
+from .openff import OpenFF
 
 AnteChamber = try_load("AnteChamber", "QUBEKit.parametrisation.antechamber")
-OpenFF = try_load("OpenFF", "QUBEKit.parametrisation.openff")
-Parametrisation = try_load(
-    "Parametrisation", "QUBEKit.parametrisation.base_parametrisation"
-)
-XML = try_load("XML", "QUBEKit.parametrisation.xml")
-XMLProtein = try_load("XMLProtein", "QUBEKit.parametrisation.xml_protein")

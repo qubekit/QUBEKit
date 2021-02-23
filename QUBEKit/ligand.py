@@ -28,7 +28,7 @@ import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from xml.dom.minidom import parseString
 
 import networkx as nx
@@ -37,7 +37,8 @@ import numpy as np
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import Atom, ExtraSite
-from QUBEKit.utils.file_handling import ReadInput
+from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.file_handling import ReadInput, ReadInputProtein
 
 
 class DefaultsMixin:
@@ -154,7 +155,7 @@ class Molecule:
         restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
 
-        self.mol_input = mol_input
+        self.mol_input: Union[ReadInput, str] = mol_input
         self.name: str = name
         self.is_protein: bool = False
 
@@ -320,6 +321,16 @@ class Molecule:
                     [geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]]
                 )
             self.coords["traj"].append(np.array(opt_traj))
+
+    @property
+    def has_unique_atom_names(self) -> bool:
+        """
+        Check if the molecule has unique atom names or not this will help with pdb file writing.
+        """
+        atom_names = set([atom.atom_name for atom in self.atoms])
+        if len(atom_names) == self.n_atoms:
+            return True
+        return False
 
     @property
     def improper_torsions(self) -> Optional[List[Tuple[int, int, int, int]]]:
@@ -1095,14 +1106,89 @@ class Ligand(DefaultsMixin, Molecule):
 
         self.constraints_file = None
 
-        # Read mol_input and generate mol info from file, smiles string or qc_json.
-        self.save_to_ligand(self.mol_input, self.name)
+        # if this is not the readinput data we assume its a file only
+        if not isinstance(mol_input, ReadInput):
+            self._check_file_name(file_name=mol_input)
+            input_data = ReadInput.from_file(file_name=self.mol_input)
+        else:
+            input_data = mol_input
+        self._save_to_ligand(mol_input=input_data)
 
         # Make sure we have the topology before we calculate the properties
         if self.topology.edges:
             self.symmetrise_from_topology()
 
-    def save_to_ligand(self, mol_input, name=None, input_type="input"):
+        # make sure we have unique atom names
+        self._validate_atom_names()
+
+    @classmethod
+    def from_rdkit(cls, rdkit_mol, name: Optional[str] = None) -> "Ligand":
+        """
+        Build an instance of a qubekit ligand directly from an rdkit molecule.
+        """
+        input_data = ReadInput.from_rdkit(rdkit_mol=rdkit_mol)
+        ligand = cls(mol_input=input_data, name=name)
+        return ligand
+
+    @staticmethod
+    def _check_file_name(file_name):
+        """
+        Make sure that if an unsupported file type is passed we can not make a molecule from it.
+        """
+        if ".xyz" in file_name:
+            raise FileTypeError(
+                "XYZ files can not be used to build ligands due to ambiguous bonding, please use pdb, mol, mol2 or smiles as input."
+            )
+
+    @classmethod
+    def from_file(cls, file_name: str) -> "Ligand":
+        """
+        Build a ligand from an input file.
+        """
+        cls._check_file_name(file_name=file_name)
+        input_data = ReadInput.from_file(file_name=file_name)
+        ligand = cls(mol_input=input_data)
+        return ligand
+
+    @classmethod
+    def from_smiles(cls, smiles_string: str, name: str):
+        """
+        Build the ligand molecule directly from the smiles string.
+        """
+        input_data = ReadInput.from_smiles(smiles=smiles_string, name=name)
+        ligand = cls(mol_input=input_data)
+        return ligand
+
+    def generate_atom_names(self) -> None:
+        """
+        Generate a unique set of atom names for the molecule.
+        """
+        atom_names = {}
+        for atom in self.atoms:
+            symbol = atom.atomic_symbol
+            if symbol not in atom_names:
+                atom_names[symbol] = 1
+            else:
+                atom_names[symbol] += 1
+
+            atom.atom_name = f"{symbol}{atom_names[symbol]}"
+
+    def _validate_atom_names(self) -> None:
+        """
+        Check that the ligand has unique atom names if not generate a new set.
+        """
+        if not self.has_unique_atom_names:
+            self.generate_atom_names()
+
+    def add_conformers(self, file_name: str, input_type="input") -> None:
+        """
+        Read the given input file extract  the conformers and save them to the ligand.
+        #TODO do we want to check that the conectivity is the same?
+        """
+        input_data = ReadInput.from_file(file_name=file_name)
+        self.coords[input_type] = input_data.coords
+
+    def _save_to_ligand(self, mol_input: ReadInput, input_type="input") -> None:
         """
         Public access to private file_handlers.py file.
         Users shouldn't ever need to interface with file_handlers.py directly.
@@ -1116,18 +1202,16 @@ class Ligand(DefaultsMixin, Molecule):
         :param input_type: "input", "mm", "qm", "traq", or "temp"
         """
 
-        ligand = ReadInput(mol_input, name)
-
-        if ligand.name is not None and self.name is None:
-            self.name = ligand.name
-        if ligand.topology is not None and self.topology is None:
-            self.topology = ligand.topology
-        if ligand.atoms is not None and self.atoms is None:
-            self.atoms = ligand.atoms
-        if ligand.coords is not None:
-            self.coords[input_type] = ligand.coords
-        if ligand.rdkit_mol is not None:
-            self.rdkit_mol = ligand.rdkit_mol
+        if mol_input.name is not None:
+            self.name = mol_input.name
+        if mol_input.topology is not None:
+            self.topology = mol_input.topology
+        if mol_input.atoms is not None:
+            self.atoms = mol_input.atoms
+        if mol_input.coords is not None:
+            self.coords[input_type] = mol_input.coords
+        if mol_input.rdkit_mol is not None:
+            self.rdkit_mol = mol_input.rdkit_mol
 
     def write_pdb(self, input_type="input", name=None):
         """
@@ -1183,9 +1267,31 @@ class Protein(DefaultsMixin, Molecule):
 
         self.combination = "opls"
 
-        self.save_to_protein(self.mol_input, self.name)
+        if not isinstance(mol_input, ReadInputProtein):
+            self._check_file_type(file_name=mol_input)
+            input_data = ReadInputProtein.from_pdb(file_name=mol_input)
+        else:
+            input_data = mol_input
+        self._save_to_protein(input_data, input_type="input")
 
-    def save_to_protein(self, mol_input, name=None, input_type="input"):
+    @classmethod
+    def from_file(cls, file_name: str, name: Optional[str] = None) -> "Protein":
+        """
+        Instance the protein class from a pdb file.
+        """
+        cls._check_file_type(file_name=file_name)
+        input_data = ReadInputProtein.from_pdb(file_name=file_name, name=name)
+        return cls(input_data)
+
+    @staticmethod
+    def _check_file_type(file_name: str) -> None:
+        """
+        Make sure the protien is being read from a pdb file.
+        """
+        if ".pdb" not in file_name:
+            raise FileTypeError("Proteins can only be read from pdb.")
+
+    def _save_to_protein(self, mol_input: ReadInputProtein, input_type="input"):
         """
         Public access to private file_handlers.py file.
         Users shouldn't ever need to interface with file_handlers.py directly.
@@ -1194,25 +1300,18 @@ class Protein(DefaultsMixin, Molecule):
             * Do bother updating coords, rdkit_mol, residues, Residues, pdb_names
         """
 
-        protein = ReadInput(mol_input, name, is_protein=True)
-
-        if protein.name is not None and self.name is None:
-            self.name = protein.name
-        if protein.topology is not None and self.topology is None:
-            self.topology = protein.topology
-        if protein.atoms is not None and self.atoms is None:
-            self.atoms = protein.atoms
-        if protein.coords is not None:
-            self.coords[input_type] = protein.coords
-        if protein.rdkit_mol is not None:
-            self.rdkit_mol = protein.rdkit_mol
-
-        if protein.residues is not None:
-            self.residues = protein.residues
-        if protein.Residues is not None:
-            self.Residues = protein.Residues
-        if protein.pdb_names is not None:
-            self.pdb_names = protein.pdb_names
+        if mol_input.name is not None:
+            self.name = mol_input.name
+        if mol_input.topology is not None:
+            self.topology = mol_input.topology
+        if mol_input.atoms is not None:
+            self.atoms = mol_input.atoms
+        if mol_input.coords is not None:
+            self.coords[input_type] = mol_input.coords
+        if mol_input.residues is not None:
+            self.residues = mol_input.residues
+        if mol_input.pdb_names is not None:
+            self.pdb_names = mol_input.pdb_names
 
         if not self.topology.edges:
             print(
