@@ -17,6 +17,23 @@ def acetone():
     return Ligand(get_data("acetone.pdb"))
 
 
+def test_has_unique_names(acetone):
+    """
+    Make sure the method can correctly identify if a molecule has unique names.
+    """
+    assert acetone.has_unique_atom_names is True
+
+
+def test_make_unique_names():
+    """
+    After loading a molecule with non unique atom names make sure a unique set is automatically generated.
+    """
+    # load the molecule with missing names
+    mol = Ligand.from_file(get_data("missing_names.pdb"))
+    # make sure they have been converted
+    assert mol.has_unique_atom_names is True
+
+
 def test_bonds(acetone):
     """Make sure after reading a molecule file that we have the correct set of bonds.
     This is done by comparing back to the rdkit molecule.

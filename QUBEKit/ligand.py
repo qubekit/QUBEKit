@@ -323,6 +323,16 @@ class Molecule:
             self.coords["traj"].append(np.array(opt_traj))
 
     @property
+    def has_unique_atom_names(self) -> bool:
+        """
+        Check if the molecule has unique atom names or not this will help with pdb file writing.
+        """
+        atom_names = set([atom.atom_name for atom in self.atoms])
+        if len(atom_names) == self.n_atoms:
+            return True
+        return False
+
+    @property
     def improper_torsions(self) -> Optional[List[Tuple[int, int, int, int]]]:
         """A list of improper atom tuples where the first atom is central."""
 
@@ -1108,6 +1118,9 @@ class Ligand(DefaultsMixin, Molecule):
         if self.topology.edges:
             self.symmetrise_from_topology()
 
+        # make sure we have unique atom names
+        self._validate_atom_names()
+
     @classmethod
     def from_rdkit(cls, rdkit_mol, name: Optional[str] = None) -> "Ligand":
         """
@@ -1145,6 +1158,27 @@ class Ligand(DefaultsMixin, Molecule):
         input_data = ReadInput.from_smiles(smiles=smiles_string, name=name)
         ligand = cls(mol_input=input_data)
         return ligand
+
+    def generate_atom_names(self) -> None:
+        """
+        Generate a unique set of atom names for the molecule.
+        """
+        atom_names = {}
+        for atom in self.atoms:
+            symbol = atom.atomic_symbol
+            if symbol not in atom_names:
+                atom_names[symbol] = 1
+            else:
+                atom_names[symbol] += 1
+
+            atom.atom_name = f"{symbol}{atom_names[symbol]}"
+
+    def _validate_atom_names(self) -> None:
+        """
+        Check that the ligand has unique atom names if not generate a new set.
+        """
+        if not self.has_unique_atom_names:
+            self.generate_atom_names()
 
     def add_conformers(self, file_name: str, input_type="input") -> None:
         """
