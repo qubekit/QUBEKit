@@ -1,9 +1,9 @@
+import numpy as np
 import pytest
 
-import numpy as np
 from QUBEKit.ligand import Ligand
+from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
 from QUBEKit.utils.file_handling import get_data
-from QUBEKit.parametrisation import AnteChamber, OpenFF, XML, Parametrisation
 
 
 def test_parameter_prep():

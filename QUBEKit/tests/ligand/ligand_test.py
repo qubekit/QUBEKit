@@ -1,8 +1,10 @@
 import numpy as np
 import pytest
+from openff.toolkit.topology import Molecule as OFFMolecule
 from rdkit.Chem import rdMolTransforms
 
 from QUBEKit.ligand import Ligand
+from QUBEKit.utils.exceptions import FileTypeError
 from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.helpers import unpickle
 
@@ -407,3 +409,90 @@ def test_pdb_round_trip(tmpdir):
         assert mol.bonds == mol2.bonds
         assert mol.angles == mol2.angles
         assert mol.dihedrals == mol2.dihedrals
+
+
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        pytest.param("acetone.pdb", id="pdb"),
+        pytest.param("acetone.mol2", id="mol2"),
+        pytest.param("bace0.mol", id="mol"),
+        pytest.param("bace0.sdf", id="sdf"),
+    ],
+)
+def test_ligand_from_file(file_name):
+    """
+    For the given file type make sure rdkit can parse it and return the molecule.
+    """
+    mol = Ligand.from_file(file_name=get_data(file_name))
+    assert mol.n_atoms > 1
+    assert mol.n_bonds > 1
+    assert mol.name is not None
+
+
+def test_ligand_file_missing():
+    """
+    Make sure that if the file is missing we get an error.
+    """
+    with pytest.raises(FileNotFoundError):
+        _ = Ligand.from_file(file_name="test.pdb")
+
+
+def test_ligand_file_not_supported():
+    """
+    Make sure we raise an error when an unsupported file type is passed.
+    """
+    with pytest.raises(FileTypeError):
+        _ = Ligand(get_data("bace0.xyz"))
+
+
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        pytest.param("bace0.mol", id="mol"),
+        pytest.param("bace0.sdf", id="sdf"),
+        pytest.param("bace0.xyz", id="xyz"),
+    ],
+)
+def test_add_conformers(file_name):
+    """
+    Load up the bace pdb and then add conformers to it from other file types.
+    """
+    mol = Ligand.from_file(file_name=get_data("bace0.pdb"))
+    mol.add_conformers(file_name=get_data(file_name), input_type="mm")
+    assert np.allclose(mol.coords["input"], mol.coords["mm"])
+
+
+@pytest.mark.parametrize(
+    "smiles",
+    [
+        pytest.param("C", id="No hydrogens"),
+        pytest.param("[H]C([H])([H])[H]", id="Explicit hydrogens"),
+    ],
+)
+def test_from_smiles(smiles):
+    """
+    Make sure hydrogens are added to a molecule when needed.
+    """
+    mol = Ligand.from_smiles(smiles_string=smiles, name="methane")
+    # count the number of hydrogens
+    hs = sum([1 for atom in mol.atoms if atom.atomic_symbol == "H"])
+    assert hs == 4
+
+
+def test_from_rdkit():
+    """
+    Make sure we can create a molecule directly from an rdkit object.
+    """
+    # load a molecule with openff
+    offmol = OFFMolecule.from_file(file_path=get_data("bace0.sdf"))
+    # make a ligand from the openff object
+    mol = Ligand.from_rdkit(rdkit_mol=offmol.to_rdkit())
+    # make sure we have the same molecule
+    mol2 = Ligand.from_file(get_data("bace0.sdf"))
+    for i in range(mol.n_atoms):
+        atom1 = mol.atoms[i]
+        atom2 = mol2.atoms[i]
+        assert atom1.__dict__ == atom2.__dict__
+
+    assert np.allclose(mol.coords["input"], mol2.coords["input"])

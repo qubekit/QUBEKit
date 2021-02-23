@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 from types import SimpleNamespace
+from typing import List, Optional
 
 from rdkit.Chem.rdchem import GetPeriodicTable, PeriodicTable
-from typing import Optional, List
 
 
 class CustomNamespace(SimpleNamespace):

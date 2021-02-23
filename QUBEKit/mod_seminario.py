@@ -11,6 +11,7 @@ from operator import itemgetter
 
 import numpy as np
 
+from QUBEKit.ligand import Ligand
 from QUBEKit.utils import constants
 
 
@@ -188,10 +189,10 @@ class ModSemMaths:
 
 
 class ModSeminario:
-    def __init__(self, molecule):
+    def __init__(self, molecule: Ligand):
 
         self.molecule = molecule
-        self.size_mol = len(self.molecule.atoms)
+        self.size_mol = molecule.n_atoms
         # Find bond lengths and create empty matrix of correct size.
         self.bond_lens = np.zeros((self.size_mol, self.size_mol))
         self.coords = self.molecule.coords["qm"]
