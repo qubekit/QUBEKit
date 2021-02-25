@@ -13,7 +13,7 @@ class LennardJones:
     # Beware weird units, (wrong in the paper too).
     # Units: vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs
     FreeParams = namedtuple("params", "vfree bfree rfree")
-    elem_dict: Dict[str: FreeParams] = {
+    elem_dict: Dict[str, FreeParams] = {
         "H": FreeParams(7.6, 6.5, 1.64),
         "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
         "B": FreeParams(46.7, 99.5, 2.08),
@@ -64,7 +64,7 @@ class LennardJones:
             lines = c8_file.readlines()
             for i, line in enumerate(lines):
                 if line.startswith(" The following "):
-                    lines = lines[i + 2 : -2]
+                    lines = lines[i + 2: -2]
                     break
             else:
                 raise EOFError("Cannot locate c8 parameters in file.")
