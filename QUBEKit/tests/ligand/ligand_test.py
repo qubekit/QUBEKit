@@ -221,7 +221,7 @@ def test_rotatable_bonds_filtered(acetone):
 
 def test_no_rotatable_bonds():
     """
-    If there are no dihedrals in the molecule make sire we return None.
+    If there are no dihedrals in the molecule make sure we return None.
     """
     mol = Ligand(get_data("water.pdb"))
     assert mol.rotatable_bonds is None
