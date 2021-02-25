@@ -127,10 +127,10 @@ def test_parse_gradient():
         fchkfile = fchk.read()
 
     gradient = GaussianHarness.parse_gradient(fchfile=fchkfile)
-    assert len(gradient) == 51
+    assert len(gradient) == 31
     # check the first and last values
-    assert gradient[0] == 2.15966586e-05
-    assert gradient[-1] == -1.61849838e-06
+    assert gradient[0] == -1.01049212E-02
+    assert gradient[-1] == -7.31912443E-03
 
 
 def test_parse_hessian():
@@ -141,7 +141,7 @@ def test_parse_hessian():
         fchkfile = fchk.read()
 
     hessian = GaussianHarness.parse_hessian(fchkfile=fchkfile)
-    assert len(hessian) == 2601
+    assert len(hessian) == 900
 
 
 @pytest.mark.parametrize(
@@ -213,7 +213,7 @@ def test_full_run(driver, tmpdir):
         )
         g = GaussianHarness()
         # run locally with 2 cores and 2 GB memory
-        result = g.compute(input_data=qc_task, config={"memory": 2, "ncores": 2})
+        result = g.compute(input_data=qc_task, config=qcng.config.TaskConfig(**{"memory": 2, "ncores": 2}))
 
         outfiles = {}
         with open(get_data("gaussian.log")) as log:
