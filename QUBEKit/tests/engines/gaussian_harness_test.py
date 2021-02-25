@@ -11,20 +11,16 @@ import qcengine as qcng
 import numpy as np
 
 
-def test_gaussian_found():
-    """
-    Check that gaussian is installed this should always return False on CI but might return True locally.
-    """
-    assert GaussianHarness.found() is False
-
-
-def test_gaussian_version_fail():
+def test_gaussian_version():
     """
     Try and check the gaussian version this will raise an error if not installed.
     """
     g = GaussianHarness()
-    with pytest.raises(ModuleNotFoundError):
-        _ = g.get_version()
+    if g.found():
+        assert g.get_version() in ["g09", "g16"]
+    else:
+        with pytest.raises(ModuleNotFoundError):
+            _ = g.get_version()
 
 
 @pytest.mark.parametrize(
@@ -127,10 +123,10 @@ def test_parse_gradient():
         fchkfile = fchk.read()
 
     gradient = GaussianHarness.parse_gradient(fchfile=fchkfile)
-    assert len(gradient) == 31
+    assert len(gradient) == 30
     # check the first and last values
-    assert gradient[0] == -1.01049212E-02
-    assert gradient[-1] == -7.31912443E-03
+    assert gradient[0] == -1.01049212e-02
+    assert gradient[-1] == -7.31912443e-03
 
 
 def test_parse_hessian():
@@ -174,7 +170,7 @@ def test_parse_output(driver):
     g = GaussianHarness()
     result = g.parse_output(outfiles=outfiles, input_model=qc_task)
     if driver == "energy":
-        assert result.return_result == -1.931393770857046E+02
+        assert result.return_result == -1.931393770857046e02
     elif driver == "gradient":
         assert result.return_result.shape == (10, 3)
     elif driver == "hessian":
@@ -190,11 +186,14 @@ def test_fail_termination():
         GaussianHarness.check_convergence(logfile=random_string)
 
 
-@pytest.mark.parametrize("driver", [
-    pytest.param("energy", id="energy"),
-    pytest.param("gradient", id="gradient"),
-    pytest.param("hessian", id="hessian")
-])
+@pytest.mark.parametrize(
+    "driver",
+    [
+        pytest.param("energy", id="energy"),
+        pytest.param("gradient", id="gradient"),
+        pytest.param("hessian", id="hessian"),
+    ],
+)
 def test_full_run(driver, tmpdir):
     """
     For the given driver try a full execution if the user has gaussian installed.
@@ -206,14 +205,21 @@ def test_full_run(driver, tmpdir):
         # build the input
         mol = Ligand.from_file(file_name=get_data("acetone.pdb"))
         # build the atomic model
-        qc_spec = qcel.models.common_models.Model(method="wB97XD", basis="6-311++G(d,p)")
+        qc_spec = qcel.models.common_models.Model(
+            method="wB97XD", basis="6-311++G(d,p)"
+        )
         # build a job for a specific driver
         qc_task = qcel.models.AtomicInput(
             molecule=mol.to_qcschema(), driver=driver, model=qc_spec
         )
         g = GaussianHarness()
         # run locally with 2 cores and 2 GB memory
-        result = g.compute(input_data=qc_task, config=qcng.config.TaskConfig(**{"memory": 2, "ncores": 2}))
+        result = g.compute(
+            input_data=qc_task,
+            config=qcng.config.TaskConfig(
+                **{"memory": 2, "ncores": 2, "nnodes": 1, "retries": 1}
+            ),
+        )
 
         outfiles = {}
         with open(get_data("gaussian.log")) as log:
