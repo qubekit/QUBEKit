@@ -7,8 +7,8 @@ from QUBEKit.utils.helpers import try_load
 
 from .chargemol import Chargemol
 from .gaussian import Gaussian
+from .rdkit import RDKit
 
 OpenMM = try_load("OpenMM", "QUBEKit.engines.openmm")
 PSI4 = try_load("PSI4", "QUBEKit.engines.psi4")
 QCEngine = try_load("QCEngine", "QUBEKit.engines.qcengine")
-RDKit = try_load("RDKit", "QUBEKit.engines.rdkit")

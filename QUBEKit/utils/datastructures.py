@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 from types import SimpleNamespace
+from typing import List, Optional
 
 from rdkit.Chem.rdchem import GetPeriodicTable, PeriodicTable
-from typing import Optional, List
 
 
 class CustomNamespace(SimpleNamespace):
@@ -66,16 +66,18 @@ class Atom:
         atom_name: str = "",
         partial_charge: Optional[float] = None,
         formal_charge: Optional[int] = None,
+        atom_type: Optional[str] = None,
+        bonds: Optional[List[int]] = None,
     ):
 
-        self.atomic_number: int = atomic_number
+        self.atomic_number = atomic_number
         # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
-        self.atom_name: str = atom_name
-        self.atom_index: int = atom_index
-        self.partial_charge: Optional[float] = partial_charge
-        self.formal_charge: Optional[int] = formal_charge
-        self.atom_type: Optional[str] = None
-        self.bonds: List[int] = []
+        self.atom_name = atom_name
+        self.atom_index = atom_index
+        self.partial_charge = partial_charge
+        self.formal_charge = formal_charge
+        self.atom_type = atom_type
+        self.bonds = bonds or []
 
     @property
     def atomic_mass(self) -> float:
@@ -87,7 +89,7 @@ class Atom:
         """Convert the atomic number to the atomic symbol as per the periodic table."""
         return Element.name(self.atomic_number).title()
 
-    def add_bond(self, bonded_index) -> None:
+    def add_bond(self, bonded_index: int) -> None:
         """
         Add a bond to the atom, this will make sure the bond has not already been described
         :param bonded_index: The index of the atom bonded to self
