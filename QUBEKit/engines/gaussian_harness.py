@@ -255,7 +255,7 @@ class GaussianHarness(ProgramHarness):
             if "Cartesian Gradient" in line:
                 grad_found = True
             elif grad_found:
-                if "Cartesian Force Constants" in line:
+                if "Cartesian Force Constants" in line or "Dipole Moment":
                     grad_found = False
                 else:
                     gradient.extend([float(grad) for grad in line.split()])
