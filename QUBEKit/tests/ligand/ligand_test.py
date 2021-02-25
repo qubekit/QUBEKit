@@ -4,7 +4,7 @@ from openff.toolkit.topology import Molecule as OFFMolecule
 from rdkit.Chem import rdMolTransforms
 
 from QUBEKit.ligand import Ligand
-from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.exceptions import FileTypeError, ConformerError
 from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.helpers import unpickle
 
@@ -500,3 +500,23 @@ def test_from_rdkit():
         assert atom1.__dict__ == atom2.__dict__
 
     assert np.allclose(mol.coords["input"], mol2.coords["input"])
+
+
+def test_to_qcschema_no_conformer(acetone):
+    """
+    Make sure we raise an error when trying to make a qcelemental molecule with no coordinates.
+    """
+    with pytest.raises(ConformerError):
+        acetone.to_qcschema(input_type="qm")
+
+
+def test_to_qcschema(acetone):
+    """
+    Make sure we can convert to a valid qcelemental molecule.
+    """
+    qcel_mol = acetone.to_qcschema(input_type="input")
+    assert qcel_mol.atomic_numbers.tolist() == [
+        atom.atomic_number for atom in acetone.atoms
+    ]
+    assert len(qcel_mol.symbols) == acetone.n_atoms
+    assert qcel_mol.geometry.shape == (acetone.n_atoms, 3)

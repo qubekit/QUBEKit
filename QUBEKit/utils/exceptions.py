@@ -50,3 +50,15 @@ class PSI4Error(Exception):
     """
     PSI4 did not execute properly
     """
+
+
+class SpecificationError(Exception):
+    """
+    When a requested specification is not possible.
+    """
+
+
+class ConformerError(Exception):
+    """
+    When a conformation is incorrect or missing.
+    """

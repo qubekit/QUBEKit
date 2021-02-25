@@ -33,11 +33,11 @@ from xml.dom.minidom import parseString
 
 import networkx as nx
 import numpy as np
+import qcelemental as qcel
 
-from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import Atom, ExtraSite
-from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.exceptions import FileTypeError, ConformerError
 from QUBEKit.utils.file_handling import ReadInput, ReadInputProtein
 
 
@@ -950,6 +950,8 @@ class Molecule:
         """Returns a dictionary of atom indices mapped to their class or None if there is no rdkit molecule.
         #TODO we need a to_rdkit method as this should always work for well defined inputs.
         """
+        from QUBEKit.engines import RDKit
+
         if self.rdkit_mol is not None:
             return RDKit.find_symmetry_classes(self.rdkit_mol)
         return None
@@ -1179,6 +1181,33 @@ class Ligand(DefaultsMixin, Molecule):
         """
         if not self.has_unique_atom_names:
             self.generate_atom_names()
+
+    def to_qcschema(
+        self, input_type: str = "input", extras: Optional[Dict] = None
+    ) -> qcel.models.Molecule:
+        """
+        build a qcschema molecule from the ligand object, this is useful to interface with QCEngine and QCArchive.
+        """
+        # make sure we have a conformer
+        coords = self.coords[input_type]
+        if coords == []:
+            raise ConformerError(
+                "The molecule must have a conformation to make a qcschema molecule."
+            )
+        # input must be in bohr
+        coords *= constants.ANGS_TO_BOHR
+        # we do not store explicit bond order so guess at 1
+        bonds = [(*bond, 1.0) for bond in self.bonds]
+        symbols = [atom.atomic_symbol for atom in self.atoms]
+        schema_info = {
+            "symbols": symbols,
+            "geometry": coords,
+            "connectivity": bonds,
+            "molecular_charge": self.charge,
+            "molecular_multiplicity": self.multiplicity,
+            "extras": extras,
+        }
+        return qcel.models.Molecule.from_data(schema_info, validate=True)
 
     def add_conformers(self, file_name: str, input_type="input") -> None:
         """
