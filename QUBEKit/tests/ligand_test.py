@@ -162,7 +162,7 @@ def test_measure_dihedrals():
 
 
 def test_measure_no_dihedrals():
-    """Make sire None is returned when there are no dihedrals to measure."""
+    """Make sure None is returned when there are no dihedrals to measure."""
     mol = Ligand(get_data("water.pdb"))
     assert mol.measure_dihedrals(input_type="input") is None
 
@@ -179,7 +179,7 @@ def test_get_atom():
 
 def test_get_atom_missing():
     """
-    If we can not find an atom with this name, make sure to throw an error.
+    If we cannot find an atom with this name, make sure to throw an error.
     """
     mol = Ligand(get_data("acetone.pdb"))
     with pytest.raises(AttributeError):
