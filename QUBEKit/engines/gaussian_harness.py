@@ -78,7 +78,7 @@ class GaussianHarness(ProgramHarness):
         infiles = inputs["infiles"]
         outfiles = ["gaussian.log", "lig.chk"]
         gaussian_version = self.get_version()
-        commands = [gaussian_version, "<", "gaussian.com", ">", "gaussian.log"]
+        commands = [gaussian_version, "gaussian.com"]
         scratch_directory = inputs["scratch_directory"]
 
         # remember before formatting lig.chk is binary, run calculation
