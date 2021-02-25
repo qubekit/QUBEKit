@@ -185,5 +185,5 @@ def test_fail_termination():
     If we think the gaussian job did not finish then we need to make sure an error is raised.
     """
     random_string = "test string\n test string"
-    with pytest.raises(qcng.exceptions.UnknownError) as e:
+    with pytest.raises(qcng.exceptions.UnknownError):
         GaussianHarness.check_convergence(logfile=random_string)
