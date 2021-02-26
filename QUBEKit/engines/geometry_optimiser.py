@@ -1,12 +1,15 @@
 """
 A class which handles general geometry optimisation tasks.
 """
-from typing import Optional, Dict, Union
-from typing_extensions import Literal
-from pydantic import BaseModel, Field, validator, PositiveInt
-from QUBEKit.utils.exceptions import SpecificationError
+from typing import Dict, Optional, Union
+
 import qcelemental as qcel
 import qcengine as qcng
+from pydantic import BaseModel, Field, PositiveInt, validator
+from typing_extensions import Literal
+
+from QUBEKit.molecules import Ligand
+from QUBEKit.utils.exceptions import SpecificationError
 
 
 class GeometryOptimiser(BaseModel):
@@ -19,19 +22,19 @@ class GeometryOptimiser(BaseModel):
         validate_assignment = True
         arbitrary_types_allowed = True
 
-    optimiser: Literal["geometric", "optking", "native"] = Field(
+    optimiser: str = Field(
         "geometric",
         description="The name of the optimisation engine which should be used note only gaussian supports native optimisation.",
     )
     program: str = Field(
-        "openmm",
+        "rdkit",
         description="The name of the program which should be used to run the optimisation, for a full list see QCEngine.",
     )
     basis: Optional[str] = Field(
-        "smirnoff", description="The basis that should be used during the optimisation."
+        None, description="The basis that should be used during the optimisation."
     )
     method: str = Field(
-        "openff_unconstrained-1.3.0.offxml",
+        "mmff94",
         description="The name of the method that should be used to run the optimisation.",
     )
     maxiter: PositiveInt = Field(
@@ -41,8 +44,10 @@ class GeometryOptimiser(BaseModel):
         "GAU_TIGHT",
         description="The convergence critera for the geometry optimisation.",
     )
-    cores: int = Field(4, description="The number of cores to use in the optimisation")
-    memory: int = Field(
+    cores: PositiveInt = Field(
+        4, description="The number of cores to use in the optimisation"
+    )
+    memory: PositiveInt = Field(
         4, description="The amount of memory in GB the program can use."
     )
     extras: Optional[Dict] = Field(
@@ -55,17 +60,26 @@ class GeometryOptimiser(BaseModel):
         """
         Validate the choice of program against those supported by QCEngine and QUBEKit.
         """
-        from qcengine import list_available_programs
-
-        programs = list_available_programs()
+        programs = qcng.list_available_programs()
         programs.discard("dftd3")
-        programs.add("gaussian")
 
         if program.lower() not in programs:
             raise SpecificationError(
                 f"The program {program} is not available, available programs are {programs}"
             )
         return program.lower()
+
+    @validator("optimiser")
+    def validate_optimiser(cls, optimiser: str) -> str:
+        """
+        Make sure the chosen optimiser is available.
+        """
+        procedures = qcng.list_available_procedures()
+        if optimiser.lower() not in procedures:
+            raise SpecificationError(
+                f"The optimiser {optimiser} is not available, available optimisers are {procedures}"
+            )
+        return optimiser.lower()
 
     @property
     def local_options(self) -> Dict[str, int]:
@@ -109,16 +123,16 @@ class GeometryOptimiser(BaseModel):
         }
         # now check these settings
         # TODO do we raise an error or just change at run time with a warning?
-        if self.program.lower() == "gaussian" and self.optimiser != "native":
+        if self.program.lower() != "psi4" and self.optimiser == "optking":
             raise SpecificationError(
-                f"The program gaussian currently only supports its native optimiser."
+                f"The optimiser optking currently only supports psi4 as the engine."
             )
 
         # we do not validate QM as there are so many options
         if self.program.lower() in settings:
             program_settings = settings[self.program.lower()]
 
-            allowed_methods = program_settings.get(self.basis, set())
+            allowed_methods = program_settings.get(self.basis, None)
             if allowed_methods is None:
                 raise SpecificationError(
                     f"The Basis {self.basis} is not supported for the program {self.program} please chose from {program_settings.keys()}"
@@ -130,26 +144,11 @@ class GeometryOptimiser(BaseModel):
                     f"The method {method} is not available for the program {self.program}  with basis {self.basis}, please chose from {allowed_methods}"
                 )
 
-    def __init__(
-        self,
-        optimiser,
-        program="openmm",
-        basis="smirnoff",
-        method="openff",
-        maxiter=320,
-        convergence="GAU",
-    ):
+    def __init__(self, **data):
         """
         Validate.
         """
-        super().__init__(
-            optimiser=optimiser,
-            program=program,
-            basis=basis,
-            method=method,
-            maxiter=maxiter,
-            convergence=convergence,
-        )
+        super().__init__(**data)
         self._validate_specification()
 
     def build_optimiser_keywords(self) -> Dict[str, Union[str, float]]:
@@ -178,7 +177,7 @@ class GeometryOptimiser(BaseModel):
         return True
 
     def optimise(
-        self, molecule: "Ligand", input_type: str = "input"
+        self, molecule: Ligand, input_type: str = "input"
     ) -> qcel.models.OptimizationResult:
         """
         For the given specification in the class run an optimisation on the ligand.

@@ -1,21 +1,29 @@
 name: test
 channels:
   - conda-forge
-  - omnia
-  - psi4
+  - psi4/label/dev
 dependencies:
     # Core
   - python
+  - pip
+
+    # Testing
+  - openff-toolkit
   - rdkit
   - torsiondrive
-    # extras
-  - qcengine >=0.14.0
-  - openforcefield
-  - geometric
-  - psi4
+  - optking
   - numpy >=1.18.1
   - scipy
   - networkx >=2.4
   - matplotlib-base
-
-
+  - qcengine >=0.18.0
+  - jinja2
+  - typing-extensions
+  - pytest
+  - pytest-cov
+  # compute engines
+  - xtb-python
+  - torchani
+  - psi4 =1.4a2.dev1058+670a850
+  - dftd3
+  - gcp

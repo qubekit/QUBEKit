@@ -6,7 +6,7 @@ from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import QUrl
 from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineView
 
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules.ligand import Ligand
 
 
 class MainWindow(QtWidgets.QMainWindow):

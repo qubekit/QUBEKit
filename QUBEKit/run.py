@@ -21,11 +21,12 @@ from shutil import copy, move
 
 import numpy as np
 
+import QUBEKit
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
-from QUBEKit.engines import PSI4, Chargemol, Gaussian, QCEngine, RDKit
+from QUBEKit.engines import PSI4, Chargemol, Gaussian, QCEngine
 from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
+from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
 from QUBEKit.utils import constants
 from QUBEKit.utils.configs import Configure
@@ -52,7 +53,6 @@ from QUBEKit.utils.helpers import (
     update_ligand,
 )
 from QUBEKit.virtual_sites import VirtualSites
-import QUBEKit
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -998,6 +998,7 @@ class Execute:
         Geometric / OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
         #TODO replace with a general optimiser using QCEngine.
         """
+        from QUBEKit.molecules.utils import RDKit
 
         append_to_log("Starting mm_optimisation")
         # Check which method we want then do the optimisation

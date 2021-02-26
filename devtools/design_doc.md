@@ -10,14 +10,16 @@ Whenever a class or method takes an argument: `molecule`, this is what is meant.
 
 The molecule object is either a ligand or a protein, the code for which is stored in the `ligand.py` file.
 A molecule object is initialised by simply passing a filename, smiles string or json dict like so:
-    
-    from QUBEKit.ligand import Ligand
-    
-    methane = Ligand('methane.pdb')
-    ethane = Ligand('CC')
-    ethane_with_name = Ligand(['CC', 'ethane'])
-    propane = Ligand('propane.mol2')
-    ...
+```python
+from QUBEKit.molecules import Ligand
+
+methane = Ligand('methane.pdb')
+ethane = Ligand('CC')
+ethane_with_name = Ligand(['CC', 'ethane'])
+propane = Ligand('propane.mol2')
+...
+```
+
     
 Upon initialisation, QUBEKit automatically builds the topology for the object, infers charge, multiplicity
 and calculates all of the bonds, angles, dihedrals etc within the molecule.
@@ -115,11 +117,10 @@ Say, for example, a user would like to apply the modified Seminario method to a 
 All that would be needed is some input file containing the coordinates, and the hessian matrix itself.
 
 ```python
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
 
 import numpy as np
-
 
 # Initialise molecule
 molecule = Ligand('molecule.pdb')

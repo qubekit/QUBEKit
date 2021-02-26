@@ -7,7 +7,6 @@ from QUBEKit.utils.helpers import try_load
 
 from .chargemol import Chargemol
 from .gaussian import Gaussian
-from .rdkit import RDKit
 from .geometry_optimiser import GeometryOptimiser
 
 OpenMM = try_load("OpenMM", "QUBEKit.engines.openmm")

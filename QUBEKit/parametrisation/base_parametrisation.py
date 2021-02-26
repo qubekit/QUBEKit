@@ -4,9 +4,8 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from copy import deepcopy
 
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules.ligand import ExtraSite, Ligand
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import ExtraSite
 
 
 class Parametrisation:

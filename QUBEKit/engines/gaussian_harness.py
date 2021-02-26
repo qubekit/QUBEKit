@@ -1,16 +1,17 @@
 """
 A custom gaussian harness for QCEngine which should be registered with qcengine.
 """
-from typing import List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from qcelemental.models import AtomicInput, AtomicResult
+from qcelemental.util import which
 from qcengine import register_program
+from qcengine.exceptions import UnknownError
 from qcengine.programs import ProgramHarness
 from qcengine.util import execute
-from qcengine.exceptions import UnknownError
-from qcelemental.util import which
-from qcelemental.models import AtomicInput, AtomicResult
-from typing import Optional, Dict, Any
-from QUBEKit.utils.file_handling import get_data
+
 from QUBEKit.utils import constants
+from QUBEKit.utils.file_handling import get_data
 
 
 class GaussianHarness(ProgramHarness):
@@ -146,8 +147,9 @@ class GaussianHarness(ProgramHarness):
         """
         Use the template files stored in QUBEKit to build a gaussian input file for the given driver.
         """
-        from jinja2 import Template
         import os
+
+        from jinja2 import Template
 
         template_file = get_data(os.path.join("templates", "gaussian.com"))
         with open(template_file) as file:

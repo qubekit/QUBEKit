@@ -3,8 +3,8 @@ import pytest
 from openff.toolkit.topology import Molecule as OFFMolecule
 from rdkit.Chem import rdMolTransforms
 
-from QUBEKit.ligand import Ligand
-from QUBEKit.utils.exceptions import FileTypeError, ConformerError
+from QUBEKit.molecules import Ligand
+from QUBEKit.utils.exceptions import ConformerError, FileTypeError
 from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.helpers import unpickle
 

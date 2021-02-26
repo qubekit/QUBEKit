@@ -2,13 +2,14 @@
 Tests for the qcengine gaussian harness
 """
 
+import numpy as np
 import pytest
-from QUBEKit.ligand import Ligand
-from QUBEKit.engines.gaussian_harness import GaussianHarness
-from QUBEKit.utils.file_handling import get_data
 import qcelemental as qcel
 import qcengine as qcng
-import numpy as np
+
+from QUBEKit.engines.gaussian_harness import GaussianHarness
+from QUBEKit.molecules import Ligand
+from QUBEKit.utils.file_handling import get_data
 
 
 def test_gaussian_version():

@@ -11,7 +11,7 @@ from operator import itemgetter
 
 import numpy as np
 
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules import Ligand
 from QUBEKit.utils import constants
 
 
