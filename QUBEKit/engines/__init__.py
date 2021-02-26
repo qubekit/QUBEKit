@@ -5,7 +5,7 @@ No point raising "cannot execute psi4 command" if user is using g09. See try_loa
 """
 from QUBEKit.engines.chargemol import Chargemol
 from QUBEKit.engines.gaussian import Gaussian
-from QUBEKit.engines.geometry_optimiser import GeometryOptimiser
 from QUBEKit.engines.gaussian_harness import GaussianHarness
-from QUBEKit.engines.qcengine import QCEngine
+from QUBEKit.engines.geometry_optimiser import GeometryOptimiser
 from QUBEKit.engines.openmm import OpenMM
+from QUBEKit.engines.qcengine import QCEngine
