@@ -17,9 +17,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.7, 3.8]
         os: [ubuntu-latest, macOS-latest]
         conda-env: [basic]
+
+      - python-version: 3.7
+        os: ubuntu-latest
+        conda-env: everything
 
 
     env:
