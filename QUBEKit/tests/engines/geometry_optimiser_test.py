@@ -45,6 +45,8 @@ def test_optimiser_keywords(optimiser):
     """
     For the given optimiser make sure the keywords are updated correctly.
     """
+    if "psi4" in qcengine.list_available_programs():
+        pytest.skip("Psi4 missing skipping.")
     g = GeometryOptimiser(
         optimiser=optimiser, maxiter=1, convergence="GAU", program="psi4"
     )
@@ -58,7 +60,7 @@ def test_missing_optimiser():
     Make sure an error is raised when we try and set a missing optimiser.
     """
     with pytest.raises(SpecificationError):
-        g = GeometryOptimiser(optimiser="bad_optimiser")
+        _ = GeometryOptimiser(optimiser="bad_optimiser")
 
 
 @pytest.mark.parametrize(
