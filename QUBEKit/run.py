@@ -12,7 +12,6 @@ TODO
 
 import argparse
 import os
-import subprocess as sp
 import sys
 from collections import OrderedDict
 from datetime import datetime
@@ -37,7 +36,7 @@ from QUBEKit.utils.display import (
     pretty_print,
     pretty_progress,
 )
-from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
+from QUBEKit.utils.exceptions import HessianCalculationFailed
 from QUBEKit.utils.file_handling import (
     ExtractChargeData,
     extract_extra_sites_onetep,
@@ -346,11 +345,12 @@ class ArgsAndConfigs:
             "-pre-opt",
             "--pre_opt_method",
             choices=[
-                "rdkit_mff",
-                "rdkit_uff",
+                "mmff94",
+                "mmff94s",
+                "uff",
                 "gfn1xtb",
                 "gfn2xtb",
-                "fgn0xtb",
+                "gfn0xtb",
                 "gaff-2.11",
                 "ani1x",
                 "ani1ccx",
@@ -842,7 +842,7 @@ class Execute:
                 "Molecule parametrised",
             ],
             "pre_optimise": [
-                f"Partially optimising with {self.molecule.initial_opt}",
+                f"Partially optimising with {self.molecule.pre_opt_method}",
                 "Partial optimisation complete",
             ],
             "qm_optimise": [
@@ -1006,22 +1006,20 @@ class Execute:
 
         options
         ---------
-        "rdkit_mff", "rdkit_uff", "gfn1xtb", "gfn2xtb", "fgn0xtb", "gaff-2.11", "ani1x", "ani1ccx", "ani2x", "openff-1.3.0
+        "mmff94", "uff", "mmff94s", "gfn1xtb", "gfn2xtb", "fgn0xtb", "gaff-2.11", "ani1x", "ani1ccx", "ani2x", "openff-1.3.0
 
         """
         # TODO drop all of this once we change configs
-        import json
-
         from QUBEKit.engines import GeometryOptimiser
         from QUBEKit.utils.exceptions import SpecificationError
 
         append_to_log("Starting pre_optimisation")
         # now we want to build the optimiser from the inputs
         method = molecule.pre_opt_method.lower()
-        if method in ["rdkit_mff", "rdkit_uff"]:
+        if method in ["mmff94", "mmff94s", "uff"]:
             program = "rdkit"
             basis = None
-        elif method in ["gfn1xtb", "gfn2xtb", "fgn0xtb"]:
+        elif method in ["gfn1xtb", "gfn2xtb", "gfn0xtb"]:
             program = "xtb"
             basis = None
         elif method in ["ani1x", "ani1ccx", "ani2x"]:
@@ -1036,19 +1034,19 @@ class Execute:
         else:
             raise SpecificationError(
                 f"The pre optimisation method {method} is not supported please chose from "
-                f"rdkit_mff, rdkit_uff, gfn1xtb, gfn2xtb, fgn0xtb, gaff-2.11, ani1x, ani1ccx, ani2x, openff-1.3.0"
+                f"mmff94, mmff94s, uff, gfn1xtb, gfn2xtb, gfn0xtb, gaff-2.11, ani1x, ani1ccx, ani2x, openff-1.3.0"
             )
 
         g_opt = GeometryOptimiser(
             program=program, method=method, basis=basis, convergence="GAU"
         )
         # errors are auto raised from the class so catch the result, and write to file
-        result = g_opt.optimise(molecule=molecule)
+        result = g_opt.optimise(molecule=molecule, input_type="input")
         append_to_log(
             f"Pre optimisation finished in {len(result.trajectory)} iterations."
         )
         with open("result.json", "w") as out:
-            out.write(json.dumps(result.dict(), indent=2))
+            out.write(result.json())
         final_geometry = result.final_molecule.geometry
         final_geometry *= constants.BOHR_TO_ANGS
         molecule.coords["mm"] = final_geometry
@@ -1058,6 +1056,7 @@ class Execute:
         ]
         molecule.coords["traj"] = traj
         molecule.write_xyz(input_type="traj", name="pre_opt")
+        del molecule.coords["traj"]
 
         append_to_log(
             f"Finishing mm_optimisation of the molecule with {molecule.pre_opt_method}"
@@ -1070,8 +1069,6 @@ class Execute:
         """
         Optimise the molecule using qm via qcengine.
         """
-        import json
-
         from QUBEKit.engines import GeometryOptimiser
 
         append_to_log("Starting qm_optimisation")
@@ -1085,22 +1082,25 @@ class Execute:
             convergence=molecule.convergence,
         )
         # errors are auto raised from the class so catch the result, and write to file
-        result = g_opt.optimise(molecule=molecule)
+        # make sure we start from the pre opt coords
+        qm_result = g_opt.optimise(molecule=molecule, input_type="mm")
         append_to_log(
-            f"QM optimisation finished in {len(result.trajectory)} iterations."
+            f"QM optimisation finished in {len(qm_result.trajectory)} iterations."
         )
 
         with open("result.json", "w") as out:
-            out.write(json.dumps(result.dict(), indent=2))
-        final_geometry = result.final_molecule.geometry
+            out.write(qm_result.json())
+        final_geometry = qm_result.final_molecule.geometry
         final_geometry *= constants.BOHR_TO_ANGS
         molecule.coords["qm"] = final_geometry
         # get the trajectory and write out
         traj = [
-            mol.molecule.geometry * constants.BOHR_TO_ANGS for mol in result.trajectory
+            mol.molecule.geometry * constants.BOHR_TO_ANGS
+            for mol in qm_result.trajectory
         ]
         molecule.coords["traj"] = traj
         molecule.write_xyz(input_type="traj", name="qm_opt")
+        del molecule.coords["traj"]
 
         return molecule
 

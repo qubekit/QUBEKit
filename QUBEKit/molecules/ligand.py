@@ -721,7 +721,7 @@ class Molecule:
 
         with open(f"{name if name is not None else self.name}.xyz", "w+") as xyz_file:
 
-            if len(self.coords[input_type]) == len(self.atoms):
+            if isinstance(self.coords[input_type], np.ndarray):
                 message = "xyz file generated with QUBEKit"
                 end = ""
                 trajectory = [self.coords[input_type]]
@@ -736,10 +736,9 @@ class Molecule:
 
                 xyz_file.write(f"{len(self.atoms)}\n")
                 xyz_file.write(f"{message}{end}\n")
-
                 for i, atom in enumerate(frame):
                     xyz_file.write(
-                        f"{self.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n"
+                        f"{self.atoms[i].atomic_symbol}       {atom[0]: .15f}   {atom[1]: .15f}   {atom[2]: .15f}\n"
                     )
 
                 try:

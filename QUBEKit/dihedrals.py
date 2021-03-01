@@ -14,7 +14,7 @@ import numpy as np
 from scipy.optimize import differential_evolution, minimize
 from scipy.stats import linregress
 
-from QUBEKit.engines import PSI4, Gaussian, OpenMM
+from QUBEKit.engines import Gaussian, OpenMM
 from QUBEKit.molecules.ligand import Ligand
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import TorsionDriveFailed
@@ -47,9 +47,9 @@ class TorsionScan:
         self.molecule.convergence = "GAU"
         self.constraints_made = constraints_made
 
-        self.qm_engine = {"psi4": PSI4, "g09": Gaussian, "g16": Gaussian}.get(
-            molecule.bonds_engine
-        )(molecule)
+        self.qm_engine = {"g09": Gaussian, "g16": Gaussian}.get(molecule.bonds_engine)(
+            molecule
+        )
         self.native_opt = True
 
         # Ensure geometric can only be used with psi4 so far
