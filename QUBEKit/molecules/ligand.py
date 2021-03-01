@@ -93,7 +93,7 @@ class DefaultsMixin:
         self.div_index = 0
         self.parameter_engine = "antechamber"
         self.l_pen = 0.0
-        self.mm_opt_method = "openmm"
+        self.pre_opt_method: str = "rdkit_uff"
         self.relative_to_global = False
 
         self.excited_state = False

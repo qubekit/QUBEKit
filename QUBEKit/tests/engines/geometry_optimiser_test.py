@@ -135,7 +135,10 @@ def test_optimise(program, basis, method, tmpdir):
         result = g.optimise(molecule=mol)
         assert result.success is True
         assert len(result.trajectory) > 1
-        assert result.final_molecule.geometry.tolist() != mol.to_qcschema().geometry.tolist()
+        assert (
+            result.final_molecule.geometry.tolist()
+            != mol.to_qcschema().geometry.tolist()
+        )
 
 
 def test_optking_fail():

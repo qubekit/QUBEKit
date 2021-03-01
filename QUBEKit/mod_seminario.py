@@ -196,6 +196,9 @@ class ModSeminario:
         # Find bond lengths and create empty matrix of correct size.
         self.bond_lens = np.zeros((self.size_mol, self.size_mol))
         self.coords = self.molecule.coords["qm"]
+        # convert the hessian from atomic units
+        conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
+        self.hessian = molecule.hessian * conversion
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__!r})"

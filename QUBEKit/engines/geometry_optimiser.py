@@ -8,66 +8,35 @@ import qcengine as qcng
 from pydantic import BaseModel, Field, PositiveInt, validator
 from typing_extensions import Literal
 
+from QUBEKit.engines.base_engine import BaseEngine
 from QUBEKit.molecules import Ligand
 from QUBEKit.utils.exceptions import SpecificationError
 
 
-class GeometryOptimiser(BaseModel):
+class GeometryOptimiser(BaseEngine):
     """
     A general geometry optimiser class which can dispatch the optimisation call to the correct program and method via qcengine.
     #TODO do we want to expose more optimiser settings?
     """
 
-    class Config:
-        validate_assignment = True
-        arbitrary_types_allowed = True
-
     optimiser: str = Field(
         "geometric",
         description="The name of the optimisation engine which should be used note only gaussian supports native optimisation.",
     )
-    program: str = Field(
-        "rdkit",
-        description="The name of the program which should be used to run the optimisation, for a full list see QCEngine.",
-    )
-    basis: Optional[str] = Field(
-        None, description="The basis that should be used during the optimisation."
-    )
-    method: str = Field(
-        "mmff94",
-        description="The name of the method that should be used to run the optimisation.",
-    )
+    program: str = "rdkit"
+    basis: Optional[str] = None
+    method: str = "mmff94"
     maxiter: PositiveInt = Field(
         350, description="The maximum number of optimisation steps."
     )
-    convergence: Literal["GAU", "GAU_TIGHT"] = Field(
+    convergence: Literal["GAU", "GAU_TIGHT", "GAU_VERYTIGHT"] = Field(
         "GAU_TIGHT",
         description="The convergence critera for the geometry optimisation.",
-    )
-    cores: PositiveInt = Field(
-        4, description="The number of cores to use in the optimisation"
-    )
-    memory: PositiveInt = Field(
-        4, description="The amount of memory in GB the program can use."
     )
     extras: Optional[Dict] = Field(
         None,
         description="Any extra arguments that should be passed to the geometry optimiser, like scf maxiter.",
     )
-
-    @validator("program")
-    def validate_program(cls, program: str) -> str:
-        """
-        Validate the choice of program against those supported by QCEngine and QUBEKit.
-        """
-        programs = qcng.list_available_programs()
-        programs.discard("dftd3")
-
-        if program.lower() not in programs:
-            raise SpecificationError(
-                f"The program {program} is not available, available programs are {programs}"
-            )
-        return program.lower()
 
     @validator("optimiser")
     def validate_optimiser(cls, optimiser: str) -> str:
@@ -80,11 +49,6 @@ class GeometryOptimiser(BaseModel):
                 f"The optimiser {optimiser} is not available, available optimisers are {procedures}"
             )
         return optimiser.lower()
-
-    @property
-    def local_options(self) -> Dict[str, int]:
-        """return the local options."""
-        return {"memory": self.memory, "ncores": self.cores}
 
     def _validate_specification(self) -> None:
         """
@@ -188,7 +152,7 @@ class GeometryOptimiser(BaseModel):
         self.check_available(program=self.program, optimiser=self.optimiser)
 
         # now we need to distribute the job
-        model = qcel.models.common_models.Model(method=self.method, basis=self.basis)
+        model = self.qc_model
         specification = qcel.models.procedures.QCInputSpecification(model=model)
         initial_mol = molecule.to_qcschema(input_type=input_type)
         opt_task = qcel.models.OptimizationInput(
