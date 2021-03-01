@@ -396,7 +396,7 @@ class ArgsAndConfigs:
             "-end",
             choices=[
                 "parametrise",
-                "mm_optimise",
+                "pre_optimise",
                 "qm_optimise",
                 "hessian",
                 "mod_sem",
