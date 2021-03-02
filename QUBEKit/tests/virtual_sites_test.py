@@ -15,8 +15,8 @@ def mol():
     """
     Initialise the Ligand molecule object with data for Chloromethane
     """
-    mol = Ligand(get_data("chloromethane.pdb"))
-    mol.ddec_data = {
+    molecule = Ligand(get_data("chloromethane.pdb"))
+    molecule.ddec_data = {
         0: CustomNamespace(a_i=72461.2438863321, atomic_symbol='C', b_i=36.09781017184126, charge=-0.220088,
                            r_aim=1.9933297947778903, volume=30.276517),
         1: CustomNamespace(a_i=153692.84134145387, atomic_symbol='Cl', b_i=101.44341268889193, charge=1.815899,
@@ -28,7 +28,7 @@ def mol():
         4: CustomNamespace(a_i=149.1117208173859, atomic_symbol='H', b_i=1.247688109065071, charge=0.134729,
                            r_aim=1.2455924332095252, volume=3.329737)
     }
-    mol.dipole_moment_data = {
+    molecule.dipole_moment_data = {
         0: CustomNamespace(x_dipole=0.109154, y_dipole=0.006347, z_dipole=-0.000885),
         1: CustomNamespace(x_dipole=-0.139599, y_dipole=-0.006372, z_dipole=0.000994),
         2: CustomNamespace(x_dipole=-0.005778, y_dipole=-0.018142, z_dipole=-0.029462),
@@ -36,7 +36,7 @@ def mol():
         4: CustomNamespace(x_dipole=-0.00839, y_dipole=0.035106, z_dipole=-0.000628)
     }
 
-    mol.quadrupole_moment_data = {
+    molecule.quadrupole_moment_data = {
         0: CustomNamespace(q_3z2_r2=-0.150042, q_x2_y2=0.148149, q_xy=0.007494, q_xz=-0.001301, q_yz=-0.000128),
         1: CustomNamespace(q_3z2_r2=-1.074695, q_x2_y2=1.070914, q_xy=0.052325, q_xz=-0.006765, q_yz=-0.000286),
         2: CustomNamespace(q_3z2_r2=0.013971, q_x2_y2=0.011282, q_xy=0.001128, q_xz=0.000274, q_yz=0.011593),
@@ -44,34 +44,37 @@ def mol():
         4: CustomNamespace(q_3z2_r2=-0.043386, q_x2_y2=-0.007519, q_xy=-0.001058, q_xz=-5.4e-05, q_yz=-0.000249)
     }
 
-    mol.cloud_pen_data = {
+    molecule.cloud_pen_data = {
         0: CustomNamespace(a=2.102843, atomic_symbol='C', b=2.40575),
         1: CustomNamespace(a=7.939831, atomic_symbol='Cl', b=3.395079),
         2: CustomNamespace(a=0.1242, atomic_symbol='H', b=2.533532),
         3: CustomNamespace(a=0.123448, atomic_symbol='H', b=2.533309),
         4: CustomNamespace(a=0.120282, atomic_symbol='H', b=2.533191)
     }
-    return mol
+    print(f'mol coords: {molecule.coords}')
+    return molecule
 
 
 @pytest.fixture(scope="module")
-def vs():
+def vs(mol):
     """
     Initialise the VirtualSites class to be used for the following tests
     """
-    molecule = mol()
-    return VirtualSites(molecule, debug=True)
+    virtual = VirtualSites(mol, debug=True)
+    print(f'coords: {virtual.coords}')
+    return VirtualSites(mol, debug=True)
 
 
 @pytest.mark.parametrize(
     "input_array, result",
     [
         pytest.param(np.array([0, 0, 0]), np.array([0, 0, 0]), id="origin"),
-        pytest.param(np.array([1, 1, 1]), pytest.approx(np.array([0.45464871, 0.70807342, 0.54030231])), id="unit conversion")
+        pytest.param(np.array([1, 1, 1]), np.array([0.45464871, 0.70807342, 0.54030231]), id="unit conversion")
     ]
 )
 def test_spherical_to_cartesian(input_array, result, vs):
-    assert vs.spherical_to_cartesian(input_array) == result
+    for i in range(3):
+        assert vs.spherical_to_cartesian(input_array)[i] == pytest.approx(result[i])
 
 
 @pytest.mark.parametrize(
@@ -120,8 +123,8 @@ def test_monopole_esp_two_charges_div_zero(vs):
 @pytest.mark.parametrize(
     "charge1, charge2, charge3, dist1, dist2, dist3, result",
     [
-        pytest.param((0, 0, 0, 1, 1, 1, 0), id="no charges"),
-        pytest.param((1, 1, 1, 1, 1, 1, pytest.approx(6.921232657e-28)), id="charges 1, dists 1")
+        pytest.param(0, 0, 0, 1, 1, 1, 0, id="no charges"),
+        pytest.param(1, 1, 1, 1, 1, 1, pytest.approx(6.921232657e-28), id="charges 1, dists 1")
     ]
 )
 def test_monopole_esp_three_charges(charge1, charge2, charge3, dist1, dist2, dist3, result, vs):
@@ -157,7 +160,7 @@ def test_generate_sample_points_relative(vs):
     points = vs.generate_sample_points_relative(vdw_radius=1)
     for point in points:
         # All points should be 1.4-2.0x the vdw radius (in this instance, 1 Ang)
-        assert 1.39 <= vs.xyz_distance(point, np.array([0, 0, 0])) <= 1.99
+        assert 1.39 <= vs.xyz_distance(point, np.array([0, 0, 0])) <= 2.01
 
 
 def test_get_vector_from_coords(vs):

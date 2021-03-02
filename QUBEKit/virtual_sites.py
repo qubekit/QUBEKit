@@ -72,11 +72,10 @@ class VirtualSites:
 
         self.molecule: Ligand = molecule
         self.debug: bool = debug
-        self.coords: np.ndarray = (
-            self.molecule.coords["qm"]
-            if self.molecule.coords["qm"] is not []
-            else self.molecule.coords["input"]
-        )
+        try:
+            self.coords: np.ndarray = self.molecule.coords["qm"]
+        except KeyError:
+            self.coords: np.ndarray = self.molecule.coords["input"]
 
         # List of tuples where each tuple is the xyz coords of the v-site(s),
         # followed by their charge and index of the parent atom.
