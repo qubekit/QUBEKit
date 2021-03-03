@@ -1,5 +1,7 @@
 import numpy as np
 import pytest
+from openff.toolkit.topology import Molecule as OFFMolecule
+from openff.toolkit.typing.engines.smirnoff import ForceField
 
 from QUBEKit.ligand import Ligand
 from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
@@ -63,6 +65,39 @@ def test_openff(tmpdir):
             assert mol.NonbondedForce[i] != [0, 0, 0]
 
 
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param(
+            Ligand.from_file(file_name=get_data("benzene.sdf")), id="From sdf"
+        ),
+        pytest.param(Ligand.from_smiles("c1ccccc1", name="benzene"), id="From smiles"),
+    ],
+)
+def test_openff_aromaticity(tmpdir, molecule):
+    """
+    Make sure that we use the correct aromaticity model to type the openff molecule.
+    """
+
+    with tmpdir.as_cwd():
+        # check aromatic
+        for atom in molecule.rdkit_mol.GetAtoms():
+            if atom.GetAtomicNum() == 6:
+                assert atom.GetIsAromatic() is True
+        # build the off molecule
+        off_mol = OFFMolecule.from_rdkit(rdmol=molecule.rdkit_mol)
+        # build the ff and type the molecule
+        ff = ForceField("openff_unconstrained-1.3.0.offxml")
+        labels = ff.label_molecules(topology=off_mol.to_topology())[0]
+        # get a ring torsion
+        torsion = labels["ProperTorsions"][(0, 1, 2, 3)]
+        # make sure it hits an aromatic bond
+        assert torsion.id == "t44"
+        # now check the improper
+        improper = labels["ImproperTorsions"][(0, 1, 2, 7)]
+        assert improper.id == "i1"
+
+
 def test_openff_skeleton(tmpdir):
     """
     Make sure the skeleton method in openff works when we have missing coverage in the openff forcefield.
@@ -87,13 +122,13 @@ def test_parameter_round_trip(method, tmpdir):
     Check we can parametrise a molecule then write out the same parameters.
     """
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("acetone.pdb"))
+        mol = Ligand(get_data("benzene.pdb"))
         method(mol)
         # write out params
         mol.write_parameters(name="test")
 
         # make a second mol
-        mol2 = Ligand(get_data("acetone.pdb"))
+        mol2 = Ligand(get_data("benzene.pdb"))
         XML(mol2, "test.xml")
 
         assert mol.AtomTypes == mol2.AtomTypes
@@ -179,3 +214,33 @@ def test_xml_sites_roundtrip(tmpdir):
             except KeyError:
                 other_dih = mol2.PeriodicTorsionForce[tuple(reversed(dihedral))]
             assert np.allclose(terms[:4], other_dih[:4])
+
+
+def test_improper_round_trip(tmpdir):
+    """
+    Make sure that improper torsions are correctly round tripped.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("benzene.sdf"))
+        # assign new parameters
+        OpenFF(mol)
+        # make sure we have some 6 impropers
+        impropers = []
+        for key, value in mol.PeriodicTorsionForce.items():
+            if value[-1] == "Improper":
+                impropers.append((key, value))
+        assert len(impropers) == 6, print(impropers)
+
+        # now write out the parameters
+        mol.write_parameters(name="test")
+        # now load a new molecule
+        mol2 = Ligand.from_file(get_data("benzene.sdf"))
+        assert mol2.PeriodicTorsionForce is None
+        XML(molecule=mol2, input_file="test.xml")
+        # make sure we have the same 6 impropers
+        impropers2 = []
+        for key, value in mol2.PeriodicTorsionForce.items():
+            if value[-1] == "Improper":
+                impropers2.append((key, value))
+        assert len(impropers2) == 6
+        assert impropers == impropers2

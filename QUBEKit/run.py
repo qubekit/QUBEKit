@@ -21,6 +21,7 @@ from shutil import copy, move
 
 import numpy as np
 
+import QUBEKit
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, QCEngine, RDKit
 from QUBEKit.lennard_jones import LennardJones
@@ -52,7 +53,6 @@ from QUBEKit.utils.helpers import (
     update_ligand,
 )
 from QUBEKit.virtual_sites import VirtualSites
-import QUBEKit
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)

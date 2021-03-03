@@ -1,8 +1,10 @@
+import shutil
+
+import pytest
+
 from QUBEKit.ligand import Protein
 from QUBEKit.parametrisation import XMLProtein
 from QUBEKit.utils.file_handling import get_data
-import shutil
-import pytest
 
 
 def test_protein_params(tmpdir):

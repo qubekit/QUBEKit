@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 import numpy as np
 from rdkit import Chem
@@ -13,6 +13,29 @@ from QUBEKit.utils.exceptions import FileTypeError
 
 class RDKit:
     """Class for controlling useful RDKit functions."""
+
+    @staticmethod
+    def sanitize_molecule(rdkit_mol: Chem.Mol) -> Chem.Mol:
+        """
+        Take a molecule copy it and clean it up.
+        """
+        rdmol = Chem.Mol(rdkit_mol)
+        Chem.SanitizeMol(
+            rdmol,
+            (
+                Chem.SANITIZE_ALL
+                ^ Chem.SANITIZE_SETAROMATICITY
+                ^ Chem.SANITIZE_ADJUSTHS
+                ^ Chem.SANITIZE_CLEANUPCHIRALITY
+                ^ Chem.SANITIZE_KEKULIZE
+            ),
+        )
+        Chem.SetAromaticity(rdmol, Chem.AromaticityModel.AROMATICITY_MDL)
+        Chem.Kekulize(rdmol)
+        Chem.AssignStereochemistry(
+            rdmol, cleanIt=True, force=True, flagPossibleStereoCenters=True
+        )
+        return rdmol
 
     @staticmethod
     def file_to_rdkit_mol(file_path: Path) -> Chem.Mol:
@@ -44,7 +67,7 @@ class RDKit:
             # set the name of the input file
             mol.SetProp("_Name", file_path.stem)
 
-        return mol
+        return RDKit.sanitize_molecule(mol)
 
     @staticmethod
     def smiles_to_rdkit_mol(smiles_string: str, name: Optional[str] = None):
@@ -63,7 +86,7 @@ class RDKit:
         AllChem.EmbedMolecule(mol_hydrogens, AllChem.ETKDG())
         AllChem.SanitizeMol(mol_hydrogens)
 
-        return mol_hydrogens
+        return RDKit.sanitize_molecule(mol_hydrogens)
 
     @staticmethod
     def mm_optimise(rdkit_mol: Chem.Mol, ff="MMF") -> Chem.Mol:

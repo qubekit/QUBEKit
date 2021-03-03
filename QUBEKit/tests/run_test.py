@@ -1,12 +1,14 @@
 """
 Test each stage in run with multiple input options to make sure configs are handled.
 """
-from QUBEKit.ligand import Ligand
-from QUBEKit.utils.file_handling import get_data
-from QUBEKit.run import Execute
-import shutil
-import pytest
 import os
+import shutil
+
+import pytest
+
+from QUBEKit.ligand import Ligand
+from QUBEKit.run import Execute
+from QUBEKit.utils.file_handling import get_data
 
 
 @pytest.mark.parametrize(
