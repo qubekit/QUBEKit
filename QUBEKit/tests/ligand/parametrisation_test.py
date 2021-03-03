@@ -122,13 +122,13 @@ def test_parameter_round_trip(method, tmpdir):
     Check we can parametrise a molecule then write out the same parameters.
     """
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("benzene.pdb"))
+        mol = Ligand(get_data("benzene.sdf"))
         method(mol)
         # write out params
         mol.write_parameters(name="test")
 
         # make a second mol
-        mol2 = Ligand(get_data("benzene.pdb"))
+        mol2 = Ligand(get_data("benzene.sdf"))
         XML(mol2, "test.xml")
 
         assert mol.AtomTypes == mol2.AtomTypes
