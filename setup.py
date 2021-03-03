@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 from setuptools import find_packages, setup
+import versioneer
 
 
-here = os.path.abspath(os.path.dirname(__file__))
-
-with open(os.path.join(here, 'README.md'), encoding='utf-8') as file:
+with open("README.md", "r") as file:
     long_description = file.read()
 
 setup(
@@ -26,7 +24,7 @@ setup(
             'QUBEKit-gui = QUBEKit.GUI.gui:main'
         ]
     },
-    version='2.6.3',
+    version=versioneer.get_version(),
     license='MIT',
     classifiers=[
         'Intended Audience :: Science/Research',

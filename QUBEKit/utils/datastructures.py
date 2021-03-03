@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 from types import SimpleNamespace
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
+from typing import List, Optional
 
 import numpy as np
 from pydantic import BaseModel, Field, validator
 from qcelemental.models.types import Array
-from rdkit.Chem.rdchem import GetPeriodicTable
+from rdkit.Chem.rdchem import GetPeriodicTable, PeriodicTable
 
 
 class CustomNamespace(SimpleNamespace):
@@ -36,16 +37,24 @@ class Element:
     Simple wrapper class for getting element info using RDKit.
     """
 
-    pt = GetPeriodicTable()
+    @staticmethod
+    def p_table() -> PeriodicTable:
+        return GetPeriodicTable()
 
-    def mass(self, identifier):
-        return self.pt.GetAtomicWeight(identifier)
+    @staticmethod
+    def mass(identifier):
+        pt = Element.p_table()
+        return pt.GetAtomicWeight(identifier)
 
-    def number(self, identifier):
-        return self.pt.GetAtomicNumber(identifier)
+    @staticmethod
+    def number(identifier):
+        pt = Element.p_table()
+        return pt.GetAtomicNumber(identifier)
 
-    def name(self, identifier):
-        return self.pt.GetElementSymbol(identifier)
+    @staticmethod
+    def name(identifier):
+        pt = Element.p_table()
+        return pt.GetElementSymbol(identifier)
 
 
 class Atom:
@@ -56,26 +65,35 @@ class Atom:
 
     def __init__(
         self,
-        atomic_number,
-        atom_index,
-        atom_name="",
-        partial_charge=None,
-        formal_charge=None,
+        atomic_number: int,
+        atom_index: int,
+        atom_name: str = "",
+        partial_charge: Optional[float] = None,
+        formal_charge: Optional[int] = None,
+        atom_type: Optional[str] = None,
+        bonds: Optional[List[int]] = None,
     ):
 
         self.atomic_number = atomic_number
-        self.atomic_mass = Element().mass(atomic_number)
-        # The actual atomic symbol as per periodic table e.g. C, F, Pb, etc
-        self.atomic_symbol = Element().name(atomic_number).title()
         # The QUBEKit assigned name derived from the atomic name and its index e.g. C1, F8, etc
         self.atom_name = atom_name
         self.atom_index = atom_index
         self.partial_charge = partial_charge
         self.formal_charge = formal_charge
-        self.atom_type = None
-        self.bonds = []
+        self.atom_type = atom_type
+        self.bonds = bonds or []
 
-    def add_bond(self, bonded_index):
+    @property
+    def atomic_mass(self) -> float:
+        """Convert the atomic number to mass."""
+        return Element.mass(self.atomic_number)
+
+    @property
+    def atomic_symbol(self) -> str:
+        """Convert the atomic number to the atomic symbol as per the periodic table."""
+        return Element.name(self.atomic_number).title()
+
+    def add_bond(self, bonded_index: int) -> None:
         """
         Add a bond to the atom, this will make sure the bond has not already been described
         :param bonded_index: The index of the atom bonded to self
@@ -107,20 +125,20 @@ class ExtraSite:
     """
 
     def __init__(self):
-        self.parent_index = None  # int
-        self.closest_a_index = None  # int
-        self.closest_b_index = None  # int
+        self.parent_index: Optional[int] = None
+        self.closest_a_index: Optional[int] = None
+        self.closest_b_index: Optional[int] = None
         # Optional: Used for Nitrogen only.
-        self.closest_c_index = None  # int
+        self.closest_c_index: Optional[int] = None
 
-        self.o_weights = None  # list of float
-        self.x_weights = None  # list of float
-        self.y_weights = None  # list of float
+        self.o_weights: Optional[List[float]] = None
+        self.x_weights: Optional[List[float]] = None
+        self.y_weights: Optional[List[float]] = None
 
-        self.p1 = None  # float
-        self.p2 = None  # float
-        self.p3 = None  # float
-        self.charge = None  # float
+        self.p1: Optional[float] = None
+        self.p2: Optional[float] = None
+        self.p3: Optional[float] = None
+        self.charge: Optional[float] = None
 
 
 class ReferenceData(BaseModel):

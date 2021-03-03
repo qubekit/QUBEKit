@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from pathlib import Path
+from typing import Dict, Optional, List
 
 import numpy as np
 from rdkit import Chem
@@ -6,34 +8,46 @@ from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 from rdkit.Geometry.rdGeometry import Point3D
 
+from QUBEKit.utils.exceptions import FileTypeError
+
 
 class RDKit:
     """Class for controlling useful RDKit functions."""
 
     @staticmethod
-    def mol_input_to_rdkit_mol(mol_input, name=None):
+    def file_to_rdkit_mol(file_path: Path) -> Chem.Mol:
         """
         :param mol_input: pathlib.Path of the filename provided or the smiles string
         :param name:
         :return: RDKit molecule object generated from its file (or None if incorrect file type is provided).
         """
 
-        # Interpret the smiles string
-        if isinstance(mol_input, str):
-            return RDKit.smiles_to_rdkit_mol(mol_input, name)
-
         # Read the file
-        if mol_input.suffix == ".pdb":
-            return Chem.MolFromPDBFile(mol_input.name, removeHs=False)
-        elif mol_input.suffix == ".mol2":
-            return Chem.MolFromMol2File(mol_input.name, removeHs=False)
-        elif mol_input.suffix == ".mol":
-            return Chem.MolFromMolFile(mol_input.name, removeHs=False)
+        if file_path.suffix == ".pdb":
+            mol = Chem.MolFromPDBFile(
+                file_path.as_posix(), removeHs=False, sanitize=False
+            )
+        elif file_path.suffix == ".mol2":
+            mol = Chem.MolFromMol2File(
+                file_path.as_posix(), removeHs=False, sanitize=False
+            )
+        elif file_path.suffix == ".mol" or file_path.suffix == ".sdf":
+            mol = Chem.MolFromMolFile(
+                file_path.as_posix(), removeHs=False, sanitize=False, strictParsing=True
+            )
+        else:
+            raise FileTypeError(f"The file type {file_path.suffix} is not supported.")
+        # apply the mol name
+        try:
+            mol.GetProp("_Name")
+        except KeyError:
+            # set the name of the input file
+            mol.SetProp("_Name", file_path.stem)
 
-        return None
+        return mol
 
     @staticmethod
-    def smiles_to_rdkit_mol(smiles_string, name=None):
+    def smiles_to_rdkit_mol(smiles_string: str, name: Optional[str] = None):
         """
         Converts smiles strings to RDKit mol object.
         :param smiles_string: The hydrogen free smiles string
@@ -52,7 +66,7 @@ class RDKit:
         return mol_hydrogens
 
     @staticmethod
-    def mm_optimise(filename, ff="MMF"):
+    def mm_optimise(rdkit_mol: Chem.Mol, ff="MMF") -> Chem.Mol:
         """
         Perform rough preliminary optimisation to speed up later optimisations.
         :param filename: The Path of the input file
@@ -60,17 +74,11 @@ class RDKit:
         :return: The name of the optimised pdb file that is made
         """
 
-        # Get the rdkit molecule
-        mol = RDKit.mol_input_to_rdkit_mol(filename)
-
-        {"MMF": MMFFOptimizeMolecule, "UFF": UFFOptimizeMolecule}[ff](mol)
-
-        AllChem.MolToPDBFile(mol, f"{filename.stem}_rdkit_optimised.pdb")
-
-        return f"{filename.stem}_rdkit_optimised.pdb"
+        {"MMF": MMFFOptimizeMolecule, "UFF": UFFOptimizeMolecule}[ff](rdkit_mol)
+        return rdkit_mol
 
     @staticmethod
-    def rdkit_descriptors(rdkit_mol):
+    def rdkit_descriptors(rdkit_mol: Chem.Mol) -> Dict[str, float]:
         """
         Use RDKit Descriptors to extract properties and store in Descriptors dictionary.
         :param rdkit_mol: The molecule input file
@@ -87,46 +95,52 @@ class RDKit:
         }
 
     @staticmethod
-    def get_smiles(filename):
+    def get_smiles(rdkit_mol: Chem.Mol) -> str:
         """
         Use RDKit to load in the pdb file of the molecule and get the smiles code.
-        :param filename: The molecule input file
+        :param rdkit_mol: The rdkit molecule
         :return: The smiles string
         """
-
-        rdkit_mol = RDKit.mol_input_to_rdkit_mol(filename)
 
         return Chem.MolToSmiles(rdkit_mol, isomericSmiles=True, allHsExplicit=True)
 
     @staticmethod
-    def get_smarts(filename):
+    def get_smarts(rdkit_mol: Chem.Mol) -> str:
         """
         Use RDKit to get the smarts string of the molecule.
         :param filename: The molecule input file
         :return: The smarts string
         """
 
-        mol = RDKit.mol_input_to_rdkit_mol(filename)
-
-        return Chem.MolToSmarts(mol)
+        return Chem.MolToSmarts(rdkit_mol)
 
     @staticmethod
-    def get_mol(filename):
+    def to_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
+        """
+        For the given rdkit molecule write it to the specified file, the type will be geussed from the suffix.
+        """
+        file_name = Path(file_name)
+        if file_name.suffix == ".pdb":
+            return Chem.MolToPDBFile(rdkit_mol, file_name)
+        elif file_name.suffix == ".mol" or file_name.suffix == ".sdf":
+            return Chem.MolToMolFile(rdkit_mol, file_name)
+
+    @staticmethod
+    def get_mol(rdkit_mol: Chem.Mol, file_name: str) -> None:
         """
         Use RDKit to generate a mol file.
-        :param filename: The molecule input file
+        :param rdkit_mol: The input rdkit molecule
+        :param file_name: The name of the file to write
         :return: The name of the mol file made
         """
-
-        mol = RDKit.mol_input_to_rdkit_mol(filename)
-
-        mol_name = f"{filename.stem}.mol"
-        Chem.MolToMolFile(mol, mol_name)
-
-        return mol_name
+        if ".mol" not in file_name:
+            mol_name = f"{file_name}.mol"
+        else:
+            mol_name = file_name
+        Chem.MolToMolFile(rdkit_mol, mol_name)
 
     @staticmethod
-    def generate_conformers(rdkit_mol, conformer_no=10):
+    def generate_conformers(rdkit_mol: Chem.Mol, conformer_no=10) -> List[np.ndarray]:
         """
         Generate a set of x conformers of the molecule
         :param conformer_no: The amount of conformers made for the molecule
@@ -140,7 +154,7 @@ class RDKit:
         return [conformer.GetPositions() for conformer in positions]
 
     @staticmethod
-    def find_symmetry_classes(rdkit_mol):
+    def find_symmetry_classes(rdkit_mol: Chem.Mol) -> Dict[int, str]:
         """
         Generate list of tuples of symmetry-equivalent (homotopic) atoms in the molecular graph
         based on: https://sourceforge.net/p/rdkit/mailman/message/27897393/
@@ -177,7 +191,9 @@ class RDKit:
         return atom_symmetry_classes_dict
 
     @staticmethod
-    def get_conformer_rmsd(rdkit_mol, ref_index, align_index):
+    def get_conformer_rmsd(
+        rdkit_mol: Chem.Mol, ref_index: int, align_index: int
+    ) -> float:
         """
         Get the rmsd between the current rdkit molecule and the coordinates provided
         :param rdkit_mol: rdkit representation of the molecule, conformer 0 is the base
@@ -189,7 +205,9 @@ class RDKit:
         return Chem.AllChem.GetConformerRMS(rdkit_mol, ref_index, align_index)
 
     @staticmethod
-    def add_conformer(rdkit_mol, conformer_coordinates):
+    def add_conformer(
+        rdkit_mol: Chem.Mol, conformer_coordinates: np.ndarray
+    ) -> Chem.Mol:
         """
         Add a new conformation to the rdkit molecule
         :param conformer_coordinates:  A numpy array of the coordinates to be added

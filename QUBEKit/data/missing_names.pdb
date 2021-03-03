@@ -1,0 +1,21 @@
+REMARK   1 CREATED WITH QUBEKit 2021-01-28 10:45:36.697804
+COMPND    MOL
+HETATM    1   C  UNL     1       0.990   0.037  -0.098  1.00  0.00           C
+HETATM    2   C  UNL     1       2.455  -0.145  -0.098  1.00  0.00           C
+HETATM    3   O  UNL     1       3.212   0.987  -0.104  1.00  0.00           O
+HETATM    4   C  UNL     1       4.512   0.594  -0.104  1.00  0.00           C
+HETATM    5   C  UNL     1       4.600  -0.778  -0.098  1.00  0.00           C
+HETATM    6   C  UNL     1       3.269  -1.258  -0.095  1.00  0.00           C
+HETATM    7   H  UNL     1       0.719   1.098  -0.083  1.00  0.00           H
+HETATM    8   H  UNL     1       0.547  -0.439   0.782  1.00  0.00           H
+HETATM    9   H  UNL     1       0.549  -0.414  -0.992  1.00  0.00           H
+HETATM   10   H  UNL     1       5.240   1.393  -0.108  1.00  0.00           H
+HETATM   11   H  UNL     1       5.512  -1.358  -0.097  1.00  0.00           H
+HETATM   12   H  UNL     1       2.940  -2.288  -0.090  1.00  0.00           H
+CONECT    1    2    7    8    9
+CONECT    2    1    3    6
+CONECT    3    2    4
+CONECT    6    2    5   12
+CONECT    4    3    5   10
+CONECT    5    4    6   11
+END

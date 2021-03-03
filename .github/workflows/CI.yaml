@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+    branches:
+      - "master"
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}, 🐍=${{ matrix.python-version }}, Program=${{ matrix.conda-env }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
+        os: [ubuntu-latest, macOS-latest]
+        conda-env: [basic]
+
+
+    env:
+      CI_OS: ${{ matrix.os }}
+      ENV: ${{ matrix.conda-env }}
+      PYVER: ${{ matrix.python-version }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Additional info about the build
+        shell: bash
+        run: |
+          uname -a
+          df -h
+          ulimit -a
+
+      - name: Create Environment
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: test
+          environment-file: devtools/conda-envs/${{ matrix.conda-env }}.yaml
+          python-version: ${{ matrix.python-version }}
+          auto-activate-base: false
+
+      - name: Environment Information
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list --show-channel-urls
+
+      - name: Install QUBEKit
+        shell: bash -l {0}
+        run: |
+          python setup.py develop --no-deps
+
+      - name: PyTest
+        shell: bash -l {0}
+        run: |
+          pytest -v --cov=QUBEKit --cov-config=setup.cfg QUBEKit/tests/ --cov-report=xml
+
+      - name: Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false

@@ -52,6 +52,7 @@ from QUBEKit.utils.helpers import (
     update_ligand,
 )
 from QUBEKit.virtual_sites import VirtualSites
+import QUBEKit
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -107,7 +108,7 @@ class ArgsAndConfigs:
         else:
             # Fresh start; initialise molecule from scratch
             if self.args.smiles:
-                self.molecule = Ligand(*self.args.smiles)
+                self.molecule = Ligand.from_smiles(*self.args.smiles)
             else:
                 self.molecule = Ligand(self.args.input)
 
@@ -776,7 +777,7 @@ class Execute:
         with open("QUBEKit_log.txt", "w+") as log_file:
             log_file.write(
                 f"Beginning log file; the time is: {datetime.now()}\n\n\n"
-                f"Your current QUBEKit version is: 2.6.3\n\n\n"
+                f"Your current QUBEKit version is: {QUBEKit.__version__}\n\n\n"
             )
 
         self.log_configs()
@@ -953,46 +954,47 @@ class Execute:
             return next_key
 
     @staticmethod
-    def parametrise(molecule):
+    def parametrise(molecule: Ligand, verbose: bool = True) -> Ligand:
         """Perform initial molecule parametrisation using OpenFF, Antechamber or XML."""
-
-        append_to_log("Starting parametrisation")
+        if verbose:
+            append_to_log("Starting parametrisation")
 
         # Parametrisation options:
         param_dict = {"antechamber": AnteChamber, "xml": XML, "openff": OpenFF}
 
         # If we are using xml we have to move it to QUBEKit working dir
         if molecule.parameter_engine == "xml":
-            try:
-                copy(
-                    os.path.join(molecule.home, f"{molecule.name}.xml"),
-                    f"{molecule.name}.xml",
-                )
-            except FileNotFoundError:
-                raise FileNotFoundError(
-                    """You need to supply an xml file if you wish to use xml-based parametrisation;
-                                        put this file in the location you are running QUBEKit from.
-                                        Alternatively, use a different parametrisation method such as:
-                                        -param antechamber"""
-                )
+            xml_name = f"{molecule.name}.xml"
+            if xml_name not in os.listdir("."):
+                try:
+                    copy(
+                        os.path.join(molecule.home, f"{molecule.name}.xml"),
+                        f"{molecule.name}.xml",
+                    )
+                except FileNotFoundError:
+                    raise FileNotFoundError(
+                        """You need to supply an xml file if you wish to use xml-based parametrisation;
+                                            put this file in the location you are running QUBEKit from.
+                                            Alternatively, use a different parametrisation method such as:
+                                            -param antechamber"""
+                    )
 
         # Perform the parametrisation
         # If the method is none the molecule is not parameterised but the parameter holders are initiated
         if molecule.parameter_engine == "none":
             Parametrisation(molecule).gather_parameters()
         else:
-            # Write the PDB file; this covers us if we have a different input file
-            molecule.write_pdb()
             param_dict[molecule.parameter_engine](molecule)
 
-        append_to_log(
-            f"Finishing parametrisation of molecule with {molecule.parameter_engine}"
-        )
+        if verbose:
+            append_to_log(
+                f"Finishing parametrisation of molecule with {molecule.parameter_engine}"
+            )
 
         return molecule
 
     @staticmethod
-    def mm_optimise(molecule):
+    def mm_optimise(molecule: Ligand) -> Ligand:
         """
         Use an mm force field to get the initial optimisation of a molecule
 
@@ -1001,6 +1003,7 @@ class Execute:
         RDKit MFF or UFF force fields can have strange effects on the geometry of molecules
 
         Geometric / OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
+        #TODO replace with a general optimiser using QCEngine.
         """
 
         append_to_log("Starting mm_optimisation")
@@ -1034,17 +1037,15 @@ class Execute:
                         stderr=log,
                     )
 
-                molecule.save_to_ligand(
-                    f"{molecule.name}_optim.xyz", name=molecule.name, input_type="traj"
-                )
+                molecule.add_conformers(f"{molecule.name}_optim.xyz", input_type="traj")
                 molecule.coords["mm"] = molecule.coords["traj"][-1]
 
         else:
             # TODO change to qcengine as this can already be done
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {"rdkit_mff": "MFF", "rdkit_uff": "UFF"}[molecule.mm_opt_method]
-            molecule.pdb_file = RDKit.mm_optimise(molecule.pdb_file, ff=rdkit_ff)
-            molecule.save_to_ligand()
+            rdkit_mol = RDKit.mm_optimise(molecule.rdkit_mol, ff=rdkit_ff)
+            molecule.coords["mm"] = rdkit_mol.GetConformer().GetPositions()
 
         append_to_log(
             f"Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}"
@@ -1052,7 +1053,7 @@ class Execute:
 
         return molecule
 
-    def qm_optimise(self, molecule):
+    def qm_optimise(self, molecule: Ligand) -> Ligand:
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
 
         append_to_log("Starting qm_optimisation")
@@ -1068,7 +1069,7 @@ class Execute:
 
             restart_count = 0
 
-            while (not result["success"]) and (restart_count < max_restarts):
+            while (not result["success"]) and (restart_count < MAX_RESTARTS):
                 append_to_log(
                     f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
                     msg_type="minor",
@@ -1120,7 +1121,7 @@ class Execute:
             )
 
             restart_count = 0
-            while (not result["success"]) and (restart_count < max_restarts):
+            while (not result["success"]) and (restart_count < MAX_RESTARTS):
                 append_to_log(
                     f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
                     msg_type="minor",
@@ -1164,11 +1165,10 @@ class Execute:
         return molecule
 
     @staticmethod
-    def hessian(molecule):
+    def hessian(molecule: Ligand) -> Ligand:
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
         append_to_log("Starting hessian calculation")
-        molecule.find_bond_lengths("qm")
 
         if molecule.bonds_engine in ["g09", "g16"]:
             qm_engine = Gaussian(molecule)
@@ -1210,7 +1210,7 @@ class Execute:
         return molecule
 
     @staticmethod
-    def mod_sem(molecule):
+    def mod_sem(molecule: Ligand) -> Ligand:
         """Modified Seminario for bonds and angles."""
 
         append_to_log("Starting mod_Seminario method")

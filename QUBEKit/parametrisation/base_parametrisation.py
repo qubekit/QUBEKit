@@ -4,7 +4,9 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from copy import deepcopy
 
+from QUBEKit.ligand import Ligand
 from QUBEKit.utils import constants
+from QUBEKit.utils.datastructures import ExtraSite
 
 
 class Parametrisation:
@@ -43,7 +45,7 @@ class Parametrisation:
     NonbondedForce : dictionary of charge, sigma and epsilon stored under the original atom ordering.
     """
 
-    def __init__(self, molecule, input_file=None, fftype=None):
+    def __init__(self, molecule: Ligand, input_file=None, fftype=None):
 
         self.molecule = molecule
         self.input_file = input_file
@@ -53,10 +55,10 @@ class Parametrisation:
         self.molecule.AtomTypes = {}
         try:
             self.molecule.HarmonicBondForce = {
-                bond: [0, 0] for bond in self.molecule.bond_lengths.keys()
+                bond: [0, 0] for bond in self.molecule.bonds
             }
             self.molecule.HarmonicAngleForce = {
-                angle: [0, 0] for angle in self.molecule.angle_values.keys()
+                angle: [0, 0] for angle in self.molecule.angles
             }
         except AttributeError:
             self.molecule.HarmonicBondForce = {}
@@ -74,6 +76,9 @@ class Parametrisation:
         """
         This method parses the serialised xml file and collects the parameters ready to pass them
         to build tree.
+
+        # TODO would conversion be better from the openmm system object?
+        # This way we can query if a particle is an extra site, current method breaks if sites are not last in the system.?
         """
 
         # Try to gather the AtomTypes first
@@ -90,18 +95,24 @@ class Parametrisation:
 
             # Extract any virtual site data only supports local coords atm, charges are added later
             for i, virtual_site in enumerate(in_root.iter("LocalCoordinatesSite")):
-                self.sites[i] = [
-                    (
-                        int(virtual_site.get("p1")),
-                        int(virtual_site.get("p2")),
-                        int(virtual_site.get("p3")),
-                    ),
-                    (
-                        float(virtual_site.get("pos1")),
-                        float(virtual_site.get("pos2")),
-                        float(virtual_site.get("pos3")),
-                    ),
+                site = ExtraSite()
+                site.p1 = float(virtual_site.get("pos1"))
+                site.p2 = float(virtual_site.get("pos2"))
+                site.p3 = float(virtual_site.get("pos3"))
+                site.parent_index = int(virtual_site.get("p1"))
+                site.closest_a_index = int(virtual_site.get("p2"))
+                site.closest_b_index = int(virtual_site.get("p3"))
+                # TODO add support for four coord sites
+                site.o_weights = [
+                    float(virtual_site.get(f"wo{i}")) for i in range(1, 4)
                 ]
+                site.x_weights = [
+                    float(virtual_site.get(f"wx{i}")) for i in range(1, 4)
+                ]
+                site.y_weights = [
+                    float(virtual_site.get(f"wy{i}")) for i in range(1, 4)
+                ]
+                self.sites[i] = site
 
             # Extract all bond data
             for Bond in in_root.iter("Bond"):
@@ -136,7 +147,7 @@ class Parametrisation:
             for Atom in in_root.iter("Particle"):
                 if "eps" in Atom.attrib:
                     if atom_num >= len(self.molecule.atoms):
-                        self.sites[site_num].append(float(Atom.get("q")))
+                        self.sites[site_num].charge = float(Atom.get("q"))
                         site_num += 1
                     else:
                         self.molecule.NonbondedForce[atom_num] = [

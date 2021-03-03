@@ -7,6 +7,7 @@ from copy import deepcopy
 from simtk.openmm import XmlSerializer, app
 
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
+from QUBEKit.proteins.protein_tools import qube_general
 
 
 class XMLProtein(Parametrisation):
@@ -14,9 +15,9 @@ class XMLProtein(Parametrisation):
 
     def __init__(self, protein, input_file="QUBE_general_pi.xml", fftype="CM1A/OPLS"):
 
-        super().__init__(protein, input_file, fftype)
+        super().__init__(protein, fftype)
 
-        self.xml = self.input_file if self.input_file else f"{self.molecule.name}.xml"
+        self.xml = input_file
         self.serialise_system()
         self.gather_parameters()
         self.molecule.parameter_engine = f"XML input {self.fftype}"
@@ -27,6 +28,9 @@ class XMLProtein(Parametrisation):
         pdb = app.PDBFile(f"{self.molecule.name}.pdb")
         modeller = app.Modeller(pdb.topology, pdb.positions)
 
+        # if the user want the general qube forcefield make it here.
+        if self.xml == "QUBE_general_pi.xml":
+            qube_general()
         forcefield = app.ForceField(self.xml)
 
         system = forcefield.createSystem(

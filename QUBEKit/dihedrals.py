@@ -65,7 +65,7 @@ class TorsionScan:
         atom_0, atom_1 = [self.molecule.rdkit_mol.GetAtomWithIdx(atom) for atom in bond]
 
         if atom_0.GetSymbol().upper() == "C" and atom_1.GetSymbol().upper() == "C":
-            if atom_0.GetDegree() == 3 and self.molecule.bond_lengths[bond] < 1.42:
+            if atom_0.GetDegree() == 3 and self.molecule.measure_bonds[bond] < 1.42:
                 return True
         return False
 
@@ -82,17 +82,16 @@ class TorsionScan:
 
         # Get the rotatable dihedrals from the molecule
         self.molecule.scan_order = []
-        if self.molecule.rotatable is None:
-            self.molecule.rotatable = set()
+        if self.molecule.rotatable_bonds is None:
+            return
+
         rotatable = set()
         non_rotatable = set()
-        if self.molecule.dihedral_types is None:
-            self.molecule.dihedral_types = {}
 
         for dihedral_class in self.molecule.dihedral_types.values():
             dihedral = dihedral_class[0]
             bond = dihedral[1:3]
-            if bond in self.molecule.rotatable:
+            if bond in self.molecule.rotatable_bonds:
                 rotatable.add(bond)
             else:
                 non_rotatable.add(dihedral)
@@ -128,7 +127,7 @@ class TorsionScan:
                         if self.is_short_cc_bond(bond):
                             restricted = True
 
-                    current_val = self.molecule.dih_phis[dihedral]
+                    current_val = self.molecule.measure_dihedrals()[dihedral]
                     if restricted:
                         atom_0 = self.molecule.rdkit_mol.GetAtomWithIdx(dihedral[0])
                         atom_3 = self.molecule.rdkit_mol.GetAtomWithIdx(dihedral[3])
