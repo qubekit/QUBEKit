@@ -8,6 +8,8 @@ If the error is significantly reduced with one or two v-sites, then it is saved 
 See VirtualSites.fit() for fitting details.
 """
 
+from typing import Dict, List, Optional, Tuple, Union
+
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
@@ -16,6 +18,7 @@ from matplotlib.cm import ScalarMappable
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import minimize
 
+from QUBEKit.ligand import Ligand
 from QUBEKit.utils.constants import (
     ANGS_TO_NM,
     BOHR_TO_ANGS,
@@ -46,7 +49,7 @@ class VirtualSites:
     """
 
     # van der Waal's radii of atoms common in organic compounds; units: Angstroms
-    vdw_radii = {
+    vdw_radii: Dict[str, float] = {
         "H": 1.44,
         "B": 2.04,
         "C": 1.93,
@@ -56,48 +59,49 @@ class VirtualSites:
         "P": 2.07,
         "S": 2.02,
         "Cl": 1.97,
+        "Br": 2.10,
         "I": 2.25,
     }
 
-    def __init__(self, molecule, debug=False):
+    def __init__(self, molecule: Ligand, debug: bool = False):
         """
         :param molecule: The usual Ligand molecule object.
         :param debug: Running interactively or not. This will either show an interactive plot of the v-sites,
             or save an image with their final locations.
         """
 
-        self.molecule = molecule
-        self.debug = debug
-        self.coords = (
-            self.molecule.coords["qm"]
-            if self.molecule.coords["qm"] is not []
-            else self.molecule.coords["input"]
-        )
+        self.molecule: Ligand = molecule
+        self.debug: bool = debug
+        try:
+            self.coords: np.ndarray = self.molecule.coords["qm"]
+        except KeyError:
+            self.coords: np.ndarray = self.molecule.coords["input"]
 
         # List of tuples where each tuple is the xyz coords of the v-site(s),
         # followed by their charge and index of the parent atom.
         # This list is extended with each atom which has (a) virtual site(s).
-        self.v_sites_coords = []  # [((x, y, z), q, atom_index), ... ]
+        # [((x, y, z), q, atom_index), ... ]
+        self.v_sites_coords: List[Tuple[np.ndarray, float, int]] = []
 
         # Kept separate for graphing comparisons
         # These lists are reset for each atom with (a) virtual site - unlike v_sites_coords
-        self.one_site_coords = None  # [((x, y, z), q, atom_index)]
-        self.two_site_coords = (
-            None  # [((x, y, z), q, atom_index), ((x, y, z), q, atom_index)]
-        )
+        # [((x, y, z), q, atom_index)]
+        self.one_site_coords: Optional[List[Tuple[np.ndarray, float, int]]] = None
+        # [((x, y, z), q, atom_index), ((x, y, z), q, atom_index)]
+        self.two_site_coords: Optional[List[Tuple[np.ndarray, float, int]]] = None
 
         # Reset for each new atom; initial params are irrelevant.
-        self.site_errors = {
+        self.site_errors: Dict[int, float] = {
             0: 5,
             1: 10,
             2: 15,
         }
 
-        self.sample_points = None
-        self.no_site_esps = None
+        self.sample_points: Optional[List[np.ndarray]] = None
+        self.no_site_esps: Optional[List[np.ndarray]] = None
 
     @staticmethod
-    def spherical_to_cartesian(spherical_coords):
+    def spherical_to_cartesian(spherical_coords: np.ndarray) -> np.ndarray:
         """
         :return: Cartesian (x, y, z) coords from the spherical (r, theta, phi) coords.
         """
@@ -111,7 +115,7 @@ class VirtualSites:
         )
 
     @staticmethod
-    def xyz_distance(point1, point2):
+    def xyz_distance(point1: np.ndarray, point2: np.ndarray) -> float:
         """
         :param point1: coordinates of a point
         :param point2: coordinates of another point
@@ -120,7 +124,7 @@ class VirtualSites:
         return np.linalg.norm(point1 - point2)
 
     @staticmethod
-    def monopole_esp_one_charge(charge, dist):
+    def monopole_esp_one_charge(charge: float, dist: float) -> float:
         """
         Calculate the esp from a monopole at a given distance
         :param charge: charge at atom centre
@@ -133,7 +137,9 @@ class VirtualSites:
         )
 
     @staticmethod
-    def monopole_esp_two_charges(charge1, charge2, dist1, dist2):
+    def monopole_esp_two_charges(
+        charge1: float, charge2: float, dist1: float, dist2: float
+    ) -> float:
         """
         Calculate the esp from a monopole with two charges, each a different distance from the point of measurement
         :return: monopole esp value
@@ -143,7 +149,14 @@ class VirtualSites:
         ) * (charge1 / dist1 + charge2 / dist2)
 
     @staticmethod
-    def monopole_esp_three_charges(charge1, charge2, charge3, dist1, dist2, dist3):
+    def monopole_esp_three_charges(
+        charge1: float,
+        charge2: float,
+        charge3: float,
+        dist1: float,
+        dist2: float,
+        dist3: float,
+    ) -> float:
         """
         Calculate the esp from a monopole with three charges, each a different distance from the point of measurement
         :return: monopole esp value
@@ -153,7 +166,9 @@ class VirtualSites:
         ) * (charge1 / dist1 + charge2 / dist2 + charge3 / dist3)
 
     @staticmethod
-    def dipole_esp(dist_vector, dipole_moment, dist):
+    def dipole_esp(
+        dist_vector: np.ndarray, dipole_moment: np.ndarray, dist: float
+    ) -> float:
         """
         Calculate the esp from a dipole at a given sample point.
         :param dist_vector: atom_coords - sample_coords
@@ -167,7 +182,9 @@ class VirtualSites:
         )
 
     @staticmethod
-    def quadrupole_moment_tensor(q_xy, q_xz, q_yz, q_x2_y2, q_3z2_r2):
+    def quadrupole_moment_tensor(
+        q_xy: float, q_xz: float, q_yz: float, q_x2_y2: float, q_3z2_r2: float
+    ) -> np.ndarray:
         """
         :params: quadrupole moment components from Chargemol output
         :return: quadrupole moment tensor, M
@@ -181,7 +198,9 @@ class VirtualSites:
         )
 
     @staticmethod
-    def quadrupole_esp(dist_vector, m_tensor, dist):
+    def quadrupole_esp(
+        dist_vector: np.ndarray, m_tensor: np.ndarray, dist: float
+    ) -> float:
         """
         Calculate the esp from a quadrupole at a given distance.
         :param dist_vector: atom_coords - sample_coords
@@ -198,7 +217,7 @@ class VirtualSites:
         ) / (8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
 
     @staticmethod
-    def cloud_penetration(a, b, dist):
+    def cloud_penetration(a: float, b: float, dist: float) -> float:
         """
         Calculate the cloud penetration at a given distance from the atom centre.
         :param a: unitless quantity from DDEC output
@@ -214,11 +233,11 @@ class VirtualSites:
             )
             * np.exp(a - b * dist)
             * (2 / (b * dist) + 1)
-            / (b ** 2)
+            / (b * b)
         )
 
     @staticmethod
-    def generate_sample_points_relative(vdw_radius):
+    def generate_sample_points_relative(vdw_radius: float) -> List[np.ndarray]:
         """
         Generate evenly distributed points in a series of shells around the point (0, 0, 0)
         This uses fibonacci spirals to produce an even spacing of points on a sphere.
@@ -252,7 +271,7 @@ class VirtualSites:
 
         return relative_sample_points
 
-    def generate_sample_points_atom(self, atom_index):
+    def generate_sample_points_atom(self, atom_index: int) -> List[np.ndarray]:
         """
         * Get the vdw radius of the atom which is being analysed
         * Using the relative sample points generated from generate_sample_points_relative():
@@ -271,7 +290,7 @@ class VirtualSites:
 
         return sample_points
 
-    def generate_esp_atom(self, atom_index):
+    def generate_esp_atom(self, atom_index: int) -> List[float]:
         """
         Using the multipole expansion, calculate the esp at each sample point around an atom.
         :param atom_index: The index of the atom being analysed.
@@ -312,7 +331,9 @@ class VirtualSites:
 
         return no_site_esps
 
-    def generate_atom_mono_esp_two_charges(self, atom_index, site_charge, site_coords):
+    def generate_atom_mono_esp_two_charges(
+        self, atom_index: int, site_charge: float, site_coords: np.ndarray
+    ) -> List[float]:
         """
         With a virtual site, calculate the monopole esp at each sample point around an atom.
         :param atom_index: The index of the atom being analysed.
@@ -338,8 +359,13 @@ class VirtualSites:
         return v_site_esps
 
     def generate_atom_mono_esp_three_charges(
-        self, atom_index, q_a, q_b, site_a_coords, site_b_coords
-    ):
+        self,
+        atom_index: int,
+        q_a: float,
+        q_b: float,
+        site_a_coords: np.ndarray,
+        site_b_coords: np.ndarray,
+    ) -> List[float]:
         """
         Calculate the esp at each sample point when two virtual sites are placed around an atom.
         :param atom_index: The index of the atom being analysed.
@@ -367,7 +393,9 @@ class VirtualSites:
 
         return v_site_esps
 
-    def get_vector_from_coords(self, atom_index, n_sites=1, alt=False):
+    def get_vector_from_coords(
+        self, atom_index: int, n_sites: int = 1, alt: bool = False
+    ) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         """
         Given the coords of the atom which will have a v-site and its neighbouring atom(s) coords,
         calculate the vector along which the virtual site will sit.
@@ -392,6 +420,7 @@ class VirtualSites:
             "S": 1.0,
             "Cl": 1.5,
             "Br": 1.5,
+            "I": 1.5,
             # May require additional
         }
         scale_factor = scale_factor_dict[atom.atomic_symbol]
@@ -459,7 +488,9 @@ class VirtualSites:
                     r_vec / np.linalg.norm(r_vec)
                 ) * scale_factor
 
-    def esp_from_lambda_and_charge(self, atom_index, q, lam, vec):
+    def esp_from_lambda_and_charge(
+        self, atom_index: int, q: float, lam: float, vec: np.ndarray
+    ) -> List[float]:
         """
         Place a v-site at the correct position along the vector by scaling according to the lambda
         calculate the esp from the atom and the v-site.
@@ -474,7 +505,14 @@ class VirtualSites:
         site_coords = (vec * lam) + self.coords[atom_index]
         return self.generate_atom_mono_esp_two_charges(atom_index, q, site_coords)
 
-    def sites_coords_from_vecs_and_lams(self, atom_index, lam_a, lam_b, vec_a, vec_b):
+    def sites_coords_from_vecs_and_lams(
+        self,
+        atom_index: int,
+        lam_a: float,
+        lam_b: float,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Get the two virtual site coordinates from the vectors they sit along and the atom they are attached to.
         :param atom_index: The index of the atom being analysed.
@@ -495,8 +533,15 @@ class VirtualSites:
         return site_a_coords, site_b_coords
 
     def esp_from_lambdas_and_charges(
-        self, atom_index, q_a, q_b, lam_a, lam_b, vec_a, vec_b
-    ):
+        self,
+        atom_index: int,
+        q_a: float,
+        q_b: float,
+        lam_a: float,
+        lam_b: float,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> List[float]:
         """
         Place v-sites at the correct positions along the vectors by scaling according to the lambdas
         calculate the esp from the atom and the v-sites.
@@ -518,7 +563,14 @@ class VirtualSites:
             atom_index, q_a, q_b, site_a_coords, site_b_coords
         )
 
-    def symm_esp_from_lambdas_and_charges(self, atom_index, q, lam, vec_a, vec_b):
+    def symm_esp_from_lambdas_and_charges(
+        self,
+        atom_index: int,
+        q: float,
+        lam: float,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> List[float]:
         """
         Symmetric version of the above. Charges and scale factors are the same for both virtual sites.
         Place v-sites at the correct positions along the vectors by scaling according to the lambdas
@@ -539,7 +591,9 @@ class VirtualSites:
             atom_index, q, q, site_a_coords, site_b_coords
         )
 
-    def one_site_objective_function(self, q_lam, atom_index, vec):
+    def one_site_objective_function(
+        self, q_lam: Tuple[float, float], atom_index: int, vec: np.ndarray
+    ) -> float:
         """
         Add one site with charge q along vector vec, scaled by lam.
         return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
@@ -550,7 +604,13 @@ class VirtualSites:
             for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
         )
 
-    def two_sites_objective_function(self, qa_qb_lama_lamb, atom_index, vec_a, vec_b):
+    def two_sites_objective_function(
+        self,
+        qa_qb_lama_lamb: Tuple[float, float, float, float],
+        atom_index: int,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> float:
         """
         Add two sites with charges qa, qb along vectors vec_a, vec_b, scaled by lama, lamb.
         return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
@@ -563,7 +623,13 @@ class VirtualSites:
             for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
         )
 
-    def symm_two_sites_objective_function(self, q_lam, atom_index, vec_a, vec_b):
+    def symm_two_sites_objective_function(
+        self,
+        q_lam: Tuple[float, float],
+        atom_index: int,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> float:
         """
         Add two sites with charge q along vectors vec_a, vec_b scaled by lam.
         This is the symmetric case since the charges and scale factors are the same for each site.
@@ -577,7 +643,7 @@ class VirtualSites:
             for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
         )
 
-    def fit(self, atom_index):
+    def fit(self, atom_index: int):
         """
         The error for the objective functionsis defined as the sum of differences at each sample point
         between the ideal ESP and the ESP with and without sites.
@@ -726,7 +792,7 @@ class VirtualSites:
         )
         self.plot(atom_index)
 
-    def plot(self, atom_index):
+    def plot(self, atom_index: int):
         """
         Figure with three subplots.
         All plots show the atoms and bonds as balls and sticks; virtual sites are x's; sample points are dots.
@@ -823,9 +889,7 @@ class VirtualSites:
 
         plt.tight_layout()
 
-        if self.debug:
-            plt.show()
-        else:
+        if not self.debug:
             atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
             plt.savefig(
                 f"{self.molecule.name}_{atomic_symbol}{atom_index}_virtual_sites.png"
@@ -958,4 +1022,5 @@ class VirtualSites:
         if self.v_sites_coords:
             self.save_virtual_sites()
 
-        self.write_xyz()
+        if not self.debug:
+            self.write_xyz()

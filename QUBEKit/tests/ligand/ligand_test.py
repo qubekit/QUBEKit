@@ -140,8 +140,6 @@ def test_coords(acetone):
     Make sure that when reading an input file the coordinates are saved.
     """
     assert acetone.coords["input"].shape == (acetone.n_atoms, 3)
-    assert acetone.coords["qm"] == []
-    assert acetone.coords["traj"] == []
 
 
 def test_bond_lengths(acetone):
@@ -181,7 +179,7 @@ def test_measure_dihedrals(acetone):
 
 
 def test_measure_no_dihedrals():
-    """Make sire None is returned when there are no dihedrals to measure."""
+    """Make sure None is returned when there are no dihedrals to measure."""
     mol = Ligand(get_data("water.pdb"))
     assert mol.measure_dihedrals(input_type="input") is None
 
@@ -197,7 +195,7 @@ def test_get_atom(acetone):
 
 def test_get_atom_missing(acetone):
     """
-    If we can not find an atom with this name, make sure to throw an error.
+    If we cannot find an atom with this name, make sure to throw an error.
     """
     with pytest.raises(AttributeError):
         acetone.get_atom_with_name(name="test")
@@ -221,7 +219,7 @@ def test_rotatable_bonds_filtered(acetone):
 
 def test_no_rotatable_bonds():
     """
-    If there are no dihedrals in the molecule make sire we return None.
+    If there are no dihedrals in the molecule make sure we return None.
     """
     mol = Ligand(get_data("water.pdb"))
     assert mol.rotatable_bonds is None
