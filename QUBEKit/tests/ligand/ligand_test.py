@@ -140,8 +140,6 @@ def test_coords(acetone):
     Make sure that when reading an input file the coordinates are saved.
     """
     assert acetone.coords["input"].shape == (acetone.n_atoms, 3)
-    assert acetone.coords["qm"] == []
-    assert acetone.coords["traj"] == []
 
 
 def test_bond_lengths(acetone):
