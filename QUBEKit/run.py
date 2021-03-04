@@ -1057,7 +1057,7 @@ class Execute:
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
 
         append_to_log("Starting qm_optimisation")
-        max_restarts = 3
+        MAX_RESTARTS = 3
 
         if molecule.geometric and (molecule.bonds_engine == "psi4"):
             qceng = QCEngine(molecule)
@@ -1340,7 +1340,7 @@ class Execute:
             from QUBEKit.fitting import ForceBalanceFitting
 
             # setup any extra configs
-            # TODO expose extra configs? like restraint strenght
+            # TODO expose extra configs? like restraint strength
             fb_fit = ForceBalanceFitting()
             fit_molecule = fb_fit.optimise(molecule=molecule)
 
