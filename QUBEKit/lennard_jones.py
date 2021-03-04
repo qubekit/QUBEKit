@@ -52,7 +52,7 @@ class LennardJones:
 
         self.c8_params: Optional[List[float]] = None
 
-        self.non_bonded_force: Dict[int: List[float, float, float]] = {}
+        self.non_bonded_force: Dict[int, List[float, float, float]] = {}
 
     def extract_c8_params(self):
         """
@@ -64,7 +64,7 @@ class LennardJones:
             lines = c8_file.readlines()
             for i, line in enumerate(lines):
                 if line.startswith(" The following "):
-                    lines = lines[i + 2: -2]
+                    lines = lines[i + 2 : -2]
                     break
             else:
                 raise EOFError("Cannot locate c8 parameters in file.")

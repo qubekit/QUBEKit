@@ -137,7 +137,9 @@ class VirtualSites:
         )
 
     @staticmethod
-    def monopole_esp_two_charges(charge1: float, charge2: float, dist1: float, dist2: float) -> float:
+    def monopole_esp_two_charges(
+        charge1: float, charge2: float, dist1: float, dist2: float
+    ) -> float:
         """
         Calculate the esp from a monopole with two charges, each a different distance from the point of measurement
         :return: monopole esp value
@@ -147,7 +149,14 @@ class VirtualSites:
         ) * (charge1 / dist1 + charge2 / dist2)
 
     @staticmethod
-    def monopole_esp_three_charges(charge1: float, charge2: float, charge3: float, dist1: float, dist2: float, dist3: float) -> float:
+    def monopole_esp_three_charges(
+        charge1: float,
+        charge2: float,
+        charge3: float,
+        dist1: float,
+        dist2: float,
+        dist3: float,
+    ) -> float:
         """
         Calculate the esp from a monopole with three charges, each a different distance from the point of measurement
         :return: monopole esp value
@@ -157,7 +166,9 @@ class VirtualSites:
         ) * (charge1 / dist1 + charge2 / dist2 + charge3 / dist3)
 
     @staticmethod
-    def dipole_esp(dist_vector: np.ndarray, dipole_moment: np.ndarray, dist: float) -> float:
+    def dipole_esp(
+        dist_vector: np.ndarray, dipole_moment: np.ndarray, dist: float
+    ) -> float:
         """
         Calculate the esp from a dipole at a given sample point.
         :param dist_vector: atom_coords - sample_coords
@@ -171,7 +182,9 @@ class VirtualSites:
         )
 
     @staticmethod
-    def quadrupole_moment_tensor(q_xy: float, q_xz: float, q_yz: float, q_x2_y2: float, q_3z2_r2: float) -> np.ndarray:
+    def quadrupole_moment_tensor(
+        q_xy: float, q_xz: float, q_yz: float, q_x2_y2: float, q_3z2_r2: float
+    ) -> np.ndarray:
         """
         :params: quadrupole moment components from Chargemol output
         :return: quadrupole moment tensor, M
@@ -185,7 +198,9 @@ class VirtualSites:
         )
 
     @staticmethod
-    def quadrupole_esp(dist_vector: np.ndarray, m_tensor: np.ndarray, dist: float) -> float:
+    def quadrupole_esp(
+        dist_vector: np.ndarray, m_tensor: np.ndarray, dist: float
+    ) -> float:
         """
         Calculate the esp from a quadrupole at a given distance.
         :param dist_vector: atom_coords - sample_coords
@@ -316,7 +331,9 @@ class VirtualSites:
 
         return no_site_esps
 
-    def generate_atom_mono_esp_two_charges(self, atom_index: int, site_charge: float, site_coords: np.ndarray) -> List[float]:
+    def generate_atom_mono_esp_two_charges(
+        self, atom_index: int, site_charge: float, site_coords: np.ndarray
+    ) -> List[float]:
         """
         With a virtual site, calculate the monopole esp at each sample point around an atom.
         :param atom_index: The index of the atom being analysed.
@@ -342,7 +359,12 @@ class VirtualSites:
         return v_site_esps
 
     def generate_atom_mono_esp_three_charges(
-        self, atom_index: int, q_a: float, q_b: float, site_a_coords: np.ndarray, site_b_coords: np.ndarray
+        self,
+        atom_index: int,
+        q_a: float,
+        q_b: float,
+        site_a_coords: np.ndarray,
+        site_b_coords: np.ndarray,
     ) -> List[float]:
         """
         Calculate the esp at each sample point when two virtual sites are placed around an atom.
@@ -371,7 +393,9 @@ class VirtualSites:
 
         return v_site_esps
 
-    def get_vector_from_coords(self, atom_index: int, n_sites: int = 1, alt: bool = False) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
+    def get_vector_from_coords(
+        self, atom_index: int, n_sites: int = 1, alt: bool = False
+    ) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         """
         Given the coords of the atom which will have a v-site and its neighbouring atom(s) coords,
         calculate the vector along which the virtual site will sit.
@@ -464,7 +488,9 @@ class VirtualSites:
                     r_vec / np.linalg.norm(r_vec)
                 ) * scale_factor
 
-    def esp_from_lambda_and_charge(self, atom_index: int, q: float, lam: float, vec: np.ndarray) -> List[float]:
+    def esp_from_lambda_and_charge(
+        self, atom_index: int, q: float, lam: float, vec: np.ndarray
+    ) -> List[float]:
         """
         Place a v-site at the correct position along the vector by scaling according to the lambda
         calculate the esp from the atom and the v-site.
@@ -479,7 +505,14 @@ class VirtualSites:
         site_coords = (vec * lam) + self.coords[atom_index]
         return self.generate_atom_mono_esp_two_charges(atom_index, q, site_coords)
 
-    def sites_coords_from_vecs_and_lams(self, atom_index: int, lam_a: float, lam_b: float, vec_a: np.ndarray, vec_b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def sites_coords_from_vecs_and_lams(
+        self,
+        atom_index: int,
+        lam_a: float,
+        lam_b: float,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Get the two virtual site coordinates from the vectors they sit along and the atom they are attached to.
         :param atom_index: The index of the atom being analysed.
@@ -500,7 +533,14 @@ class VirtualSites:
         return site_a_coords, site_b_coords
 
     def esp_from_lambdas_and_charges(
-        self, atom_index: int, q_a: float, q_b: float, lam_a: float, lam_b: float, vec_a: np.ndarray, vec_b: np.ndarray
+        self,
+        atom_index: int,
+        q_a: float,
+        q_b: float,
+        lam_a: float,
+        lam_b: float,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
     ) -> List[float]:
         """
         Place v-sites at the correct positions along the vectors by scaling according to the lambdas
@@ -523,7 +563,14 @@ class VirtualSites:
             atom_index, q_a, q_b, site_a_coords, site_b_coords
         )
 
-    def symm_esp_from_lambdas_and_charges(self, atom_index: int, q: float, lam: float, vec_a: np.ndarray, vec_b: np.ndarray) -> List[float]:
+    def symm_esp_from_lambdas_and_charges(
+        self,
+        atom_index: int,
+        q: float,
+        lam: float,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> List[float]:
         """
         Symmetric version of the above. Charges and scale factors are the same for both virtual sites.
         Place v-sites at the correct positions along the vectors by scaling according to the lambdas
@@ -544,7 +591,9 @@ class VirtualSites:
             atom_index, q, q, site_a_coords, site_b_coords
         )
 
-    def one_site_objective_function(self, q_lam: Tuple[float, float], atom_index: int, vec: np.ndarray) -> float:
+    def one_site_objective_function(
+        self, q_lam: Tuple[float, float], atom_index: int, vec: np.ndarray
+    ) -> float:
         """
         Add one site with charge q along vector vec, scaled by lam.
         return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
@@ -555,7 +604,13 @@ class VirtualSites:
             for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
         )
 
-    def two_sites_objective_function(self, qa_qb_lama_lamb: Tuple[float, float, float, float], atom_index: int, vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+    def two_sites_objective_function(
+        self,
+        qa_qb_lama_lamb: Tuple[float, float, float, float],
+        atom_index: int,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> float:
         """
         Add two sites with charges qa, qb along vectors vec_a, vec_b, scaled by lama, lamb.
         return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
@@ -568,7 +623,13 @@ class VirtualSites:
             for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
         )
 
-    def symm_two_sites_objective_function(self, q_lam: Tuple[float, float], atom_index: int, vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+    def symm_two_sites_objective_function(
+        self,
+        q_lam: Tuple[float, float],
+        atom_index: int,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> float:
         """
         Add two sites with charge q along vectors vec_a, vec_b scaled by lam.
         This is the symmetric case since the charges and scale factors are the same for each site.
