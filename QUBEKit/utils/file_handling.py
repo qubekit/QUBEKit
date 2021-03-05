@@ -4,10 +4,6 @@
 Purpose of this file is to read various inputs and produce the info required for
     Ligand() or Protein()
 Should be very little calculation here, simply file reading and some small validations / checks
-
-TODO
-    Need to re-add topology checking and name checking (Do this in ligand.py?)
-    Descriptors should be accessed separately if needed (need to re-add)
 """
 
 import contextlib
@@ -27,16 +23,10 @@ from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element, ExtraSi
 
 class ReadInput:
     """
-    Called inside Ligand or Protein; used to handle reading any kind of input valid in QUBEKit
+    Called inside Ligand; used to handle reading any kind of input valid in QUBEKit
         QC JSON object
         SMILES string
         PDB, MOL2, XYZ file
-    :param mol_input: One of the accepted input types:
-        QC JSON object
-        SMILES string
-        PDB, MOL2, XYZ file
-    :param name: The name of the molecule. Only necessary for smiles strings but can be
-        provided regardless of input type.
     """
 
     def __init__(
@@ -48,26 +38,11 @@ class ReadInput:
         name: Optional[str] = None,
     ):
 
-        # if Path(mol_input).exists():
-        #     self.mol_input = Path(mol_input)
-        #     if name is None:
-        #         self.name = self.mol_input.stem
-        #     else:
-        #         self.name = name
-        # else:
-        #     self.mol_input = mol_input
-        #     self.name = name
-
         self.topology = topology
         self.atoms = atoms
         self.coords = coords
         self.rdkit_mol = rdkit_mol
         self.name = name
-
-        # if is_protein:
-        #     self._read_pdb_protein()
-        # else:
-        #     self._read_input()
 
     @classmethod
     def from_smiles(cls, smiles: str, name: Optional[str] = None) -> "ReadInput":
@@ -106,52 +81,6 @@ class ReadInput:
         # read the input with rdkit
         rdkit_mol = RDKit.file_to_rdkit_mol(file_path=input_file)
         return cls.from_rdkit(rdkit_mol=rdkit_mol)
-
-    # def _read_input(self):
-    #     """
-    #     Figure out what the input is (file, smiles, json) and call the relevant method.
-    #     """
-    #
-    #     if self.mol_input.__class__.__name__ == "Molecule":
-    #         # QCArchive object
-    #         self._read_qc_json()
-    #
-    #     elif hasattr(self.mol_input, "stem"):
-    #         # File (pdb, xyz, etc)
-    #         try:
-    #             # Try parse with rdkit:
-    #             self.rdkit_mol = RDKit.mol_input_to_rdkit_mol(self.mol_input)
-    #             self._mol_from_rdkit()
-    #         except AttributeError:
-    #             # Cannot be parsed by rdkit:
-    #             self._read_file()
-    #
-    #     elif isinstance(self.mol_input, str):
-    #         # Smiles string input
-    #         self.rdkit_mol = RDKit.smiles_to_rdkit_mol(self.mol_input, self.name)
-    #         self._mol_from_rdkit()
-    #
-    #     else:
-    #         raise RuntimeError(
-    #             "Cannot read input. mol_input must be a smiles string, path of a file, or qc json."
-    #         )
-
-    # def _read_file(self):
-    #     """
-    #     Called when rdkit cannot parse the file.
-    #     Calls the necessary internal file readers instead.
-    #     """
-    #
-    #     if self.mol_input.suffix == ".pdb":
-    #         self._read_pdb()
-    #     elif self.mol_input.suffix == ".mol2":
-    #         self._read_mol2()
-    #     elif self.mol_input.suffix == ".xyz":
-    #         self._read_xyz()
-    #     else:
-    #         raise FileTypeError(
-    #             f"Could not read file {self.mol_input}. File type must be pdb, mol2 or xyz."
-    #         )
 
     @classmethod
     def from_rdkit(cls, rdkit_mol, name: Optional[str] = None) -> "ReadInput":
@@ -230,135 +159,6 @@ class ReadInput:
         coords = np.array(qc_json.geometry).reshape((len(atoms), 3)) * BOHR_TO_ANGS
         atoms = atoms or None
         return cls(topology=topology, atoms=atoms, coords=coords)
-
-    # def _read_pdb(self):
-    #     """
-    #     Internal pdb reader. Only called when RDKit failed to read the pdb.
-    #     Extracts the topology, atoms and coords of the molecule.
-    #     """
-    #
-    #     coords = []
-    #     self.topology = nx.Graph()
-    #     atoms = []
-    #
-    #     atom_count = 0
-    #
-    #     with open(self.mol_input) as pdb:
-    #
-    #         for line in pdb:
-    #             if "ATOM" in line or "HETATM" in line:
-    #                 # start collecting the atom class info
-    #                 atomic_symbol = str(line[76:78])
-    #                 atomic_symbol = re.sub("[0-9]+", "", atomic_symbol)
-    #                 atomic_symbol = atomic_symbol.strip()
-    #                 atom_name = str(line.split()[2])
-    #
-    #                 # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
-    #                 if not atomic_symbol:
-    #                     atomic_symbol = str(line.split()[2])[:-1]
-    #                     atomic_symbol = re.sub("[0-9]+", "", atomic_symbol)
-    #
-    #                 atomic_number = Element().number(atomic_symbol)
-    #                 # Now instance the qube atom
-    #                 qube_atom = Atom(atomic_number, atom_count, atom_name)
-    #                 atoms.append(qube_atom)
-    #
-    #                 # Also add the atom number as the node in the graph
-    #                 self.topology.add_node(atom_count)
-    #                 atom_count += 1
-    #                 coords.append(
-    #                     [float(line[30:38]), float(line[38:46]), float(line[46:54])]
-    #                 )
-    #
-    #             if "CONECT" in line:
-    #                 atom_index = int(line.split()[1]) - 1
-    #                 # Search the connectivity section and add all edges to the graph corresponding to the bonds.
-    #                 for i in range(2, len(line.split())):
-    #                     if int(line.split()[i]) != 0:
-    #                         bonded_index = int(line.split()[i]) - 1
-    #                         self.topology.add_edge(atom_index, bonded_index)
-    #                         atoms[atom_index].add_bond(bonded_index)
-    #                         atoms[bonded_index].add_bond(atom_index)
-    #
-    #     # put the object back into the correct place
-    #     self.coords = np.array(coords)
-    #     self.atoms = atoms or None
-    #
-    # def _read_mol2(self):
-    #     """
-    #     Internal mol2 reader. Only called when RDKit failed to read the mol2.
-    #     Extracts the topology, atoms and coords of the molecule.
-    #     """
-    #
-    #     coords = []
-    #     self.topology = nx.Graph()
-    #     atoms = []
-    #
-    #     atom_count = 0
-    #
-    #     with open(self.mol_input, "r") as mol2:
-    #
-    #         atom_flag = False
-    #         bond_flag = False
-    #
-    #         for line in mol2:
-    #             if "@<TRIPOS>ATOM" in line:
-    #                 atom_flag = True
-    #                 continue
-    #             elif "@<TRIPOS>BOND" in line:
-    #                 atom_flag = False
-    #                 bond_flag = True
-    #                 continue
-    #             elif "@<TRIPOS>SUBSTRUCTURE" in line:
-    #                 bond_flag = False
-    #                 continue
-    #
-    #             if atom_flag:
-    #                 # Add the molecule information
-    #                 atomic_symbol = line.split()[1][:2]
-    #                 atomic_symbol = re.sub("[0-9]+", "", atomic_symbol)
-    #                 atomic_symbol = atomic_symbol.strip().title()
-    #
-    #                 atomic_number = Element().number(atomic_symbol)
-    #
-    #                 coords.append(
-    #                     [
-    #                         float(line.split()[2]),
-    #                         float(line.split()[3]),
-    #                         float(line.split()[4]),
-    #                     ]
-    #                 )
-    #
-    #                 # Collect the atom names
-    #                 atom_name = str(line.split()[1])
-    #
-    #                 # Add the nodes to the topology object
-    #                 self.topology.add_node(atom_count)
-    #                 atom_count += 1
-    #
-    #                 # Get the atom types
-    #                 atom_type = line.split()[5]
-    #                 atom_type = atom_type.replace(".", "")
-    #
-    #                 # Make the qube_atom
-    #                 qube_atom = Atom(atomic_number, atom_count, atom_name)
-    #                 qube_atom.atom_type = atom_type
-    #
-    #                 atoms.append(qube_atom)
-    #
-    #             if bond_flag:
-    #                 # Add edges to the topology network
-    #                 atom_index, bonded_index = (
-    #                     int(line.split()[1]) - 1,
-    #                     int(line.split()[2]) - 1,
-    #                 )
-    #                 self.topology.add_edge(atom_index, bonded_index)
-    #                 atoms[atom_index].add_bond(bonded_index)
-    #                 atoms[bonded_index].add_bond(atom_index)
-    #
-    #     # put the object back into the correct place
-    #     self.coords = np.array(coords)
-    #     self.atoms = atoms or None
 
     @classmethod
     def from_xyz(cls, file_name: str) -> "ReadInput":

@@ -2,7 +2,9 @@
 
 import math
 from collections import namedtuple
+from typing import Dict, List, Optional
 
+from QUBEKit.ligand import Ligand
 from QUBEKit.utils import constants
 
 
@@ -11,7 +13,7 @@ class LennardJones:
     # Beware weird units, (wrong in the paper too).
     # Units: vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs
     FreeParams = namedtuple("params", "vfree bfree rfree")
-    elem_dict = {
+    elem_dict: Dict[str, FreeParams] = {
         "H": FreeParams(7.6, 6.5, 1.64),
         "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
         "B": FreeParams(46.7, 99.5, 2.08),
@@ -24,11 +26,12 @@ class LennardJones:
         "Cl": FreeParams(65.1, 94.6, 1.88),
         "Br": FreeParams(95.7, 162.0, 1.96),
         "Si": FreeParams(101.64, 305, 2.08),
+        "I": FreeParams(153.8, 385.0, 2.04),
     }
     # If left as 1, 0, then no change will be made to final calc (multiply by 1 and to power of 0)
-    alpha = 1
-    beta = 0
-    # with open('../../optimise.out') as opt_file:
+    alpha: float = 1
+    beta: float = 0
+    # with open('optimise.out') as opt_file:
     #     lines = opt_file.readlines()
     #     for i, line in enumerate(lines):
     #         if 'Final physical parameters:' in line:
@@ -43,13 +46,13 @@ class LennardJones:
     #             except (IndexError, ValueError):
     #                 pass
 
-    def __init__(self, molecule):
+    def __init__(self, molecule: Ligand):
 
-        self.molecule = molecule
+        self.molecule: Ligand = molecule
 
-        self.c8_params = None
+        self.c8_params: Optional[List[float]] = None
 
-        self.non_bonded_force = {}
+        self.non_bonded_force: Dict[int, List[float, float, float]] = {}
 
     def extract_c8_params(self):
         """

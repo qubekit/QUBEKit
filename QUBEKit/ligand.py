@@ -167,10 +167,10 @@ class Molecule:
         self.rdkit_mol = None
 
         # Structure
-        self.coords: Dict = {"input": [], "mm": [], "qm": [], "temp": [], "traj": []}
-        self.topology = None
+        self.coords: Dict = {}
+        self.topology: Optional[nx.Graph] = None
         self.atoms: Optional[List[Atom]] = None
-        self.symm_hs = None
+        self.symm_hs: Optional[Dict] = None
         self.qm_energy: Optional[float] = None
         self.charge: int = 0
         self.multiplicity: int = 1
@@ -1229,7 +1229,7 @@ class Ligand(DefaultsMixin, Molecule):
     def add_conformers(self, file_name: str, input_type="input") -> None:
         """
         Read the given input file extract  the conformers and save them to the ligand.
-        #TODO do we want to check that the conectivity is the same?
+        TODO do we want to check that the connectivity is the same?
         """
         input_data = ReadInput.from_file(file_name=file_name)
         self.coords[input_type] = input_data.coords
@@ -1244,7 +1244,6 @@ class Ligand(DefaultsMixin, Molecule):
         Do bother updating coords and rdkit_mol
 
         :param mol_input:
-        :param name:
         :param input_type: "input", "mm", "qm", "traq", or "temp"
         """
 
