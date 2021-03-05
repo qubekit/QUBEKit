@@ -14,7 +14,7 @@ def acetone():
     """
     Make a ligand class from the acetone pdb.
     """
-    return Ligand(get_data("acetone.pdb"))
+    return Ligand.from_file(file_name=get_data("acetone.sdf"))
 
 
 def test_has_unique_names(acetone):
@@ -41,7 +41,7 @@ def test_bonds(acetone):
     reference = [(0, 4), (0, 5), (0, 6), (0, 1), (1, 2), (1, 3), (3, 7), (3, 8), (3, 9)]
     # make sure all bonds present
     for bond in acetone.bonds:
-        assert bond in reference
+        assert (bond.atom1_index, bond.atom2_index) in reference
     # make sure the number of bonds is the same
     assert len(reference) == acetone.n_bonds
 
@@ -109,7 +109,7 @@ def test_no_dihedrals():
     """
     Make sure we return None when no dihedrals are found in the molecule.
     """
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     assert mol.dihedrals is None
     assert mol.n_dihedrals == 0
 
@@ -118,7 +118,7 @@ def test_no_impropers():
     """
     Make sure we return None when no impropers are found in the molecule.
     """
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     assert mol.improper_torsions is None
     assert mol.n_improper_torsions == 0
 
@@ -149,7 +149,7 @@ def test_bond_lengths(acetone):
     Make sure we can measure bond lengths for a given conformer and the distances match those given by rdkit.
     """
     bond_lengths = acetone.measure_bonds(input_type="input")
-    rdkit_mol = acetone.rdkit_mol
+    rdkit_mol = acetone.to_rdkit(input_type="input")
     for bond, length in bond_lengths.items():
         assert pytest.approx(
             rdMolTransforms.GetBondLength(rdkit_mol.GetConformer(), *bond) == length
@@ -161,7 +161,7 @@ def test_measure_angles(acetone):
     Make sure we can correctly measure all of the angles in the molecule.
     """
     angle_values = acetone.measure_angles(input_type="input")
-    rdkit_mol = acetone.rdkit_mol
+    rdkit_mol = acetone.to_rdkit(input_type="input")
     for angle, value in angle_values.items():
         assert pytest.approx(
             rdMolTransforms.GetAngleDeg(rdkit_mol.GetConformer(), *angle) == value
@@ -173,7 +173,7 @@ def test_measure_dihedrals(acetone):
     Make sure we can correctly measure all dihedrals in the molecule.
     """
     dihedral_values = acetone.measure_dihedrals(input_type="input")
-    rdkit_mol = acetone.rdkit_mol
+    rdkit_mol = acetone.to_rdkit(input_type="input")
     for dihedral, value in dihedral_values.items():
         assert pytest.approx(
             rdMolTransforms.GetDihedralDeg(rdkit_mol.GetConformer(), *dihedral) == value
@@ -182,7 +182,7 @@ def test_measure_dihedrals(acetone):
 
 def test_measure_no_dihedrals():
     """Make sire None is returned when there are no dihedrals to measure."""
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     assert mol.measure_dihedrals(input_type="input") is None
 
 
@@ -223,7 +223,7 @@ def test_no_rotatable_bonds():
     """
     If there are no dihedrals in the molecule make sire we return None.
     """
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     assert mol.rotatable_bonds is None
     assert mol.n_rotatable_bonds == 0
 
@@ -232,7 +232,7 @@ def test_rotatable_bonds():
     """
     Make sure we can find true rotatable bonds for a molecule.
     """
-    mol = Ligand(get_data("biphenyl.pdb"))
+    mol = Ligand.from_file(file_name=get_data("biphenyl.pdb"))
     assert mol.rotatable_bonds == [
         (3, 4),
     ]
@@ -291,7 +291,7 @@ def test_improper_types(acetone):
 
 def test_repr():
     """Make sure the ligand repr works."""
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     repr(mol)
 
 
@@ -302,7 +302,7 @@ def test_str(trunc):
     """
     Make sure that the ligand str method does not raise an error.
     """
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     mol.__str__(trunc=trunc)
 
 
@@ -318,7 +318,7 @@ def test_to_openmm_coords_multiple():
     """
     Make sure we can convert to openmm style coords for multiple conformers.
     """
-    mol = Ligand(get_data("butane.pdb"))
+    mol = Ligand.from_file(file_name=get_data("butane.pdb"))
     # fake a set of conformers
     coords = [mol.coords["input"], mol.coords["input"]]
     mol.coords["traj"] = coords
@@ -387,7 +387,7 @@ def test_write_xyz_multiple_conformer(tmpdir):
     Make sure we can write multiple conformer xyz files for a molecule.
     """
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("butane.pdb"))
+        mol = Ligand.from_file(file_name=get_data("butane.pdb"))
         # fake a set of conformers
         coords = [mol.coords["input"], mol.coords["input"]]
         mol.coords["traj"] = coords
@@ -399,18 +399,19 @@ def test_write_xyz_multiple_conformer(tmpdir):
             assert len(lines) == 2 * mol.n_atoms + 4
 
 
-def test_pdb_round_trip(tmpdir, acetone):
+def test_sdf_round_trip(tmpdir, acetone):
     """
     Make sure we can write a molecule to pdb and load it back.
     """
     with tmpdir.as_cwd():
-        acetone.write_pdb(input_type="input", name="test")
+        acetone.to_file(input_type="input", file_name="test.sdf")
 
-        mol2 = Ligand("test.pdb")
+        mol2 = Ligand.from_file(file_name="test.sdf")
         for atom in acetone.atoms:
             pickle_atom = mol2.get_atom_with_name(atom.atom_name)
-            assert pickle_atom.__dict__ == atom.__dict__
-        assert acetone.bonds == mol2.bonds
+            assert pickle_atom.dict() == atom.dict()
+        for i in range(acetone.n_bonds):
+            assert acetone.bonds[i].dict() == mol2.bonds[i].dict()
         assert acetone.angles == mol2.angles
         assert acetone.dihedrals == mol2.dihedrals
 
@@ -447,7 +448,7 @@ def test_ligand_file_not_supported():
     Make sure we raise an error when an unsupported file type is passed.
     """
     with pytest.raises(FileTypeError):
-        _ = Ligand(get_data("bace0.xyz"))
+        _ = Ligand.from_file(file_name=get_data("bace0.xyz"))
 
 
 @pytest.mark.parametrize(
@@ -497,6 +498,18 @@ def test_from_rdkit():
     for i in range(mol.n_atoms):
         atom1 = mol.atoms[i]
         atom2 = mol2.atoms[i]
-        assert atom1.__dict__ == atom2.__dict__
+        assert atom1.dict() == atom2.dict()
+    for i in range(mol.n_bonds):
+        bond1 = mol.bonds[i]
+        bon2 = mol2.bonds[i]
+        assert bond1.dict() == bon2.dict()
 
     assert np.allclose(mol.coords["input"], mol2.coords["input"])
+
+
+def test_to_rdkit():
+    """
+    Make sure we can convert to rdkit.
+    """
+    mol = Ligand.from_file(file_name=get_data("bace0.sdf"))
+    rd_mol = mol.to_rdkit()

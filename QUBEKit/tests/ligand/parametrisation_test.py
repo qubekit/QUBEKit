@@ -8,7 +8,7 @@ from QUBEKit.utils.file_handling import get_data
 
 def test_parameter_prep():
     """Test that the base parameter class preps a molecule to store prameters."""
-    mol = Ligand(get_data("acetone.pdb"))
+    mol = Ligand.from_file(get_data("acetone.sdf"))
     assert mol.AtomTypes is None
     assert mol.HarmonicBondForce is None
     assert mol.HarmonicAngleForce is None
@@ -28,7 +28,7 @@ def test_antechamber(tmpdir):
     Make sure we can parametrise a molecule using antechamber
     """
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("acetone.pdb"))
+        mol = Ligand.from_file(get_data("acetone.sdf"))
         AnteChamber(mol)
 
         # loop over the parameters and make sure they not defaults
@@ -48,7 +48,7 @@ def test_openff(tmpdir):
     Make sure we can parametrise a molecule using openff.
     """
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("acetone.pdb"))
+        mol = Ligand.from_file(get_data("acetone.sdf"))
         OpenFF(mol)
 
         # loop over the parameters and make sure they not defaults
@@ -70,7 +70,7 @@ def test_openff_skeleton(tmpdir):
     """
     with tmpdir.as_cwd():
         # load a molecule with b
-        mol = Ligand(get_data("132-Benzodioxaborole.pdb"))
+        mol = Ligand.from_file(get_data("132-Benzodioxaborole.pdb"))
         OpenFF(mol)
 
         # no charges should be generated
@@ -87,13 +87,13 @@ def test_parameter_round_trip(method, tmpdir):
     Check we can parametrise a molecule then write out the same parameters.
     """
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("acetone.pdb"))
+        mol = Ligand.from_file(get_data("acetone.sdf"))
         method(mol)
         # write out params
         mol.write_parameters(name="test")
 
         # make a second mol
-        mol2 = Ligand(get_data("acetone.pdb"))
+        mol2 = Ligand.from_file(get_data("acetone.sdf"))
         XML(mol2, "test.xml")
 
         assert mol.AtomTypes == mol2.AtomTypes
@@ -123,7 +123,7 @@ def test_xml_with_sites(tmpdir):
     Make sure that virtual sites are saved into the ligand if they are found in the input file.
     """
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("pyridine.pdb"))
+        mol = Ligand.from_file(get_data("pyridine.pdb"))
         XML(mol, input_file=get_data("pyridine.xml"))
 
         assert mol.extra_sites is not None
@@ -138,12 +138,12 @@ def test_xml_sites_roundtrip(tmpdir):
     """
 
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("pyridine.pdb"))
+        mol = Ligand.from_file(get_data("pyridine.pdb"))
         XML(mol, input_file=get_data("pyridine.xml"))
 
         mol.write_parameters(name="test")
 
-        mol2 = Ligand(get_data("pyridine.pdb"))
+        mol2 = Ligand.from_file(get_data("pyridine.pdb"))
         XML(mol2, input_file="test.xml")
 
         assert mol.AtomTypes == mol2.AtomTypes

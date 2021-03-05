@@ -28,15 +28,17 @@ import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Set
 from xml.dom.minidom import parseString
 
 import networkx as nx
 import numpy as np
+from rdkit import Chem, Geometry
 
+import QUBEKit
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import Atom, ExtraSite
+from QUBEKit.utils.datastructures import Atom, ExtraSite, Bond
 from QUBEKit.utils.exceptions import FileTypeError
 from QUBEKit.utils.file_handling import ReadInput, ReadInputProtein
 
@@ -113,7 +115,15 @@ class DefaultsMixin:
 class Molecule:
     """Base class for ligands and proteins."""
 
-    def __init__(self, mol_input, name=None):
+    def __init__(
+        self,
+        atoms: List[Atom],
+        bonds: Optional[List[Bond]] = None,
+        coordinates: Optional[np.ndarray] = None,
+        multiplicity: int = 1,
+        name: str = "unk",
+        routine: Optional[Set] = None,
+    ):
         """
         # Namings
         name                    str; Molecule name e.g. 'methane'
@@ -154,21 +164,32 @@ class Molecule:
         config_file             str or path; the config file used for the execution
         restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
-
-        self.mol_input: Union[ReadInput, str] = mol_input
         self.name: str = name
         self.is_protein: bool = False
 
         self.rdkit_mol = None
 
         # Structure
-        self.coords: Dict = {"input": [], "mm": [], "qm": [], "temp": [], "traj": []}
-        self.topology = None
-        self.atoms: Optional[List[Atom]] = None
+        self.coords: Dict = {
+            "input": [] or coordinates,
+            "mm": [],
+            "qm": [],
+            "temp": [],
+            "traj": [],
+        }
+        self.atoms: List[Atom] = atoms
+        self.bonds: Optional[List[Bond]] = bonds
+        self.multiplicity = multiplicity
+        # the way the molecule was made?
+        method = routine or {"__init__"}
+        provenance = dict(
+            creator="QUBEKit", version=QUBEKit.__version__, routine=method
+        )
+        self.provenance = provenance
+
         self.symm_hs = None
         self.qm_energy: Optional[float] = None
         self.charge: int = 0
-        self.multiplicity: int = 1
         self.qm_scans = None
         self.scan_order = None
         self.descriptors = None
@@ -244,53 +265,27 @@ class Molecule:
 
         return return_str
 
-    # def check_names_are_unique(self):
-    #     """
-    #     To prevent problems occurring with some atoms perceived to be the same,
-    #     check the atom names to ensure they are all unique.
-    #     If some are the same, reset all atom names to be: f'{atomic_symbol}{index}'.
-    #     This ensure they are all unique.
-    #     """
-    #
-    #     atom_names = [atom.atom_name for atom in self.atoms]
-    #     # If some atom names aren't unique
-    #     if len(set(atom_names)) < len(atom_names):
-    #         # Change the atom name only; everything else is the same as it was.
-    #         self.atoms = [
-    #             Atom(
-    #                 atomic_number=atom.atomic_number,
-    #                 atom_index=atom.atom_index,
-    #                 atom_name=f'{atom.atomic_symbol}{i}',
-    #                 partial_charge=atom.partial_charge,
-    #                 formal_charge=atom.formal_charge
-    #             )
-    #             for i, atom in enumerate(self.atoms)
-    #         ]
-    #
-    # def _validate_info(self, topology, atoms, coords, input_type, rdkit_molecule=None, descriptors=None):
-    #     """
-    #     Check if the provided information should be stored or not
-    #     :param topology: networkx graph of the topology
-    #     :param atoms: a list of Atom objects
-    #     :param coords: a numpy array of the coords
-    #     :param rdkit_molecule: the rdkit molecule we have extracted the info from
-    #     :param descriptors: a dictionary of the rdkit descriptors
-    #     :return: the updated ligand object
-    #     """
-    #
-    #     # Now check we instancing the ligand if we are then store the info
-    #     if input_type == 'input':
-    #         self.topology = topology
-    #         self.atoms = atoms
-    #         self.descriptors = descriptors
-    #         self.coords[input_type] = coords
-    #         self.rdkit_mol = rdkit_molecule
-    #     else:
-    #         # Check if the new topology is the same then store the new coordinates
-    #         if nx.algorithms.is_isomorphic(self.topology, topology):
-    #             self.coords[input_type] = coords
-    #         else:
-    #             raise TopologyMismatch('Topologies are not the same; cannot store coordinates.')
+    def to_topology(self) -> nx.Graph:
+        """
+        Build a networkx representation of the molecule.
+        #TODO add other attributes to the graph?
+        """
+        graph = nx.Graph()
+        for atom in self.atoms:
+            graph.add_node(atom.atom_index)
+
+        for bond in self.bonds:
+            graph.add_edge(bond.atom1_index, bond.atom2_index)
+        return graph
+
+    def to_file(self, file_name: str, input_type: str = "input") -> None:
+        """
+        Write the molecule object to file working out the file type from the extension.
+        Works with PDB, MOL, SDF, XYZ any other we want?
+        """
+        return RDKit.mol_to_file(
+            rdkit_mol=self.to_rdkit(input_type=input_type), file_name=file_name
+        )
 
     def get_atom_with_name(self, name):
         """
@@ -337,9 +332,9 @@ class Molecule:
         """A list of improper atom tuples where the first atom is central."""
 
         improper_torsions = []
-
-        for node in self.topology.nodes:
-            near = sorted(list(nx.neighbors(self.topology, node)))
+        topology = self.to_topology()
+        for node in topology.nodes:
+            near = sorted(list(nx.neighbors(topology, node)))
             # if the atom has 3 bonds it could be an improper
             # Check if an sp2 carbon or N
             if len(near) == 3 and (
@@ -363,9 +358,9 @@ class Molecule:
         """A List of angles from the topology."""
 
         angles = []
-
-        for node in self.topology.nodes:
-            bonded = sorted(list(nx.neighbors(self.topology, node)))
+        topology = self.to_topology()
+        for node in topology.nodes:
+            bonded = sorted(list(nx.neighbors(topology, node)))
 
             # Check that the atom has more than one bond
             if len(bonded) < 2:
@@ -398,18 +393,13 @@ class Molecule:
         bond_lengths = {}
 
         molecule = self.coords[input_type]
-
-        for edge in self.topology.edges:
-            atom1 = molecule[edge[0]]
-            atom2 = molecule[edge[1]]
+        for bond in self.bonds:
+            atom1 = molecule[bond.atom1_index]
+            atom2 = molecule[bond.atom2_index]
+            edge = (bond.atom1_index, bond.atom2_index)
             bond_lengths[edge] = np.linalg.norm(atom2 - atom1)
 
         return bond_lengths
-
-    @property
-    def bonds(self) -> List[Tuple[int, int]]:
-        """A list of bonds from the topology."""
-        return list(self.topology.edges)
 
     @property
     def n_bonds(self) -> int:
@@ -426,16 +416,16 @@ class Molecule:
         """A list of all possible dihedrals that can be found in the topology."""
 
         dihedrals = {}
-
+        topology = self.to_topology()
         # Work through the network using each edge as a central dihedral bond
-        for edge in self.topology.edges:
+        for edge in topology.edges:
 
-            for start in list(nx.neighbors(self.topology, edge[0])):
+            for start in list(nx.neighbors(topology, edge[0])):
 
                 # Check atom not in main bond
                 if start != edge[0] and start != edge[1]:
 
-                    for end in list(nx.neighbors(self.topology, edge[1])):
+                    for end in list(nx.neighbors(topology, edge[1])):
 
                         # Check atom not in main bond
                         if end != edge[0] and end != edge[1]:
@@ -471,17 +461,17 @@ class Molecule:
             return None
 
         rotatable = []
-
+        topology = self.to_topology()
         # For each dihedral key remove the edge from the network
         for key in dihedrals:
-            self.topology.remove_edge(*key)
+            topology.remove_edge(*key)
 
             # Check if there is still a path between the two atoms in the edges.
-            if not nx.has_path(self.topology, *key):
+            if not nx.has_path(topology, *key):
                 rotatable.append(key)
 
             # Add edge back to the network and try next key
-            self.topology.add_edge(*key)
+            topology.add_edge(*key)
 
         remove_list = []
         if rotatable and self.methyl_amine_nitride_cores is not None:
@@ -842,8 +832,8 @@ class Molecule:
         atom_types = self.atom_types
         bond_symmetry_classes = {}
         for bond in self.bonds:
-            bond_symmetry_classes[bond] = (
-                f"{atom_types[bond[0]]}-" f"{atom_types[bond[1]]}"
+            bond_symmetry_classes[(bond.atom1_index, bond.atom2_index)] = (
+                f"{atom_types[bond.atom1_index]}-" f"{atom_types[bond.atom2_index]}"
             )
 
         bond_types = {}
@@ -950,9 +940,76 @@ class Molecule:
         """Returns a dictionary of atom indices mapped to their class or None if there is no rdkit molecule.
         #TODO we need a to_rdkit method as this should always work for well defined inputs.
         """
-        if self.rdkit_mol is not None:
-            return RDKit.find_symmetry_classes(self.rdkit_mol)
-        return None
+
+        return RDKit.find_symmetry_classes(self.to_rdkit())
+
+    def to_rdkit(self, input_type: str = "input") -> Chem.Mol:
+        """
+        Generate an rdkit representation of the QUBEKit ligand object.
+        """
+        # make an editable molecule
+        rd_mol = Chem.RWMol()
+        if self.name is not None:
+            rd_mol.SetProp("_Name", self.name)
+
+        # now add each atom checking that the atom order is the same
+        for atom in self.atoms:
+            rd_index = rd_mol.AddAtom(atom.to_rdkit())
+            assert rd_index == atom.atom_index
+
+        # now we need to add each bond, can not make a bond from python currently
+        for bond in self.bonds:
+            atom_ids = [bond.atom1_index, bond.atom2_index]
+            rd_mol.AddBond(*atom_ids)
+            # now get the bond back to edit it
+            rd_bond: Chem.Bond = rd_mol.GetBondBetweenAtoms(*atom_ids)
+            rd_bond.SetIsAromatic(True)
+            rd_bond.SetBondType(bond.rdkit_type)
+            if bond.stereochemistry is not None:
+                rd_bond.SetStereo(bond.rdkit_stereo)
+
+        Chem.SanitizeMol(
+            rd_mol,
+            Chem.SANITIZE_ALL ^ Chem.SANITIZE_ADJUSTHS ^ Chem.SANITIZE_SETAROMATICITY,
+        )
+        # now lets set the aromaticity model
+        Chem.SetAromaticity(rd_mol, Chem.AromaticityModel.AROMATICITY_MDL)
+        # lets clean up stereochemistry
+        Chem.AssignStereochemistry(
+            rd_mol, force=True, cleanIt=True, flagPossibleStereoCenters=True
+        )
+
+        # now we should check that the stereo has not been broken
+        for rd_atom in rd_mol.GetAtoms():
+            index = rd_atom.GetIdx()
+            qb_atom = self.atoms[index]
+            if qb_atom.stereochemistry is not None:
+                assert qb_atom.stereochemistry == rd_atom.GetProp("_CIPCode"), print(
+                    qb_atom.stereochemistry, rd_atom.GetProp("_CIPCode")
+                )
+
+        # now do the same for bonds
+        for rd_bond in rd_mol.GetBonds():
+            index = rd_bond.GetIdx()
+            qb_bond = self.bonds[index]
+            assert rd_bond.GetBondTypeAsDouble() == qb_bond.bond_order
+            rd_stereo = rd_bond.GetStereo()
+            if rd_stereo == Chem.BondStereo.STEREOE:
+                assert qb_bond.stereochemistry == "E"
+            elif rd_stereo == Chem.BondStereo.STEREOZ:
+                assert qb_bond.stereochemistry == "Z"
+
+        # now add the conformers
+        coords = self.coords[input_type]
+        if isinstance(coords, np.ndarray):
+            coords = [coords]
+        for coordinates in coords:
+            rd_conf = Chem.Conformer()
+            for i, positions in enumerate(coordinates):
+                rd_conf.SetAtomPosition(i, Geometry.Point3D(*positions))
+            rd_mol.AddConformer(rd_conf, assignId=True)
+
+        return Chem.Mol(rd_mol)
 
     def symmetrise_from_topology(self) -> None:
         """
@@ -970,13 +1027,13 @@ class Molecule:
 
         methyl_hs, amine_hs, other_hs = [], [], []
         methyl_amine_nitride_cores = []
-
+        topology = self.to_topology()
         for atom in self.atoms:
             if atom.atomic_symbol == "C" or atom.atomic_symbol == "N":
 
                 hs = []
-                for bonded in self.topology.neighbors(atom.atom_index):
-                    if len(list(self.topology.neighbors(bonded))) == 1:
+                for bonded in topology.neighbors(atom.atom_index):
+                    if len(list(topology.neighbors(bonded))) == 1:
                         # now make sure it is a hydrogen (as halogens could be caught here)
                         if self.atoms[bonded].atomic_symbol == "H":
                             hs.append(bonded)
@@ -1078,7 +1135,15 @@ class Molecule:
 
 
 class Ligand(DefaultsMixin, Molecule):
-    def __init__(self, mol_input, name=None):
+    def __init__(
+        self,
+        atoms: List[Atom],
+        bonds: Optional[List[Bond]] = None,
+        coordinates: Optional[np.ndarray] = None,
+        multiplicity: int = 1,
+        name: str = "unk",
+        routine: Optional[Set] = None,
+    ):
         """
         parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
         hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
@@ -1089,7 +1154,14 @@ class Ligand(DefaultsMixin, Molecule):
                                 the abspath of the constraint.txt file (constrains the execution of geometric)
         """
 
-        super().__init__(mol_input, name)
+        super().__init__(
+            atoms=atoms,
+            bonds=bonds,
+            coordinates=coordinates,
+            multiplicity=multiplicity,
+            name=name,
+            routine=routine,
+        )
 
         self.is_protein = False
 
@@ -1106,29 +1178,47 @@ class Ligand(DefaultsMixin, Molecule):
 
         self.constraints_file = None
 
-        # if this is not the readinput data we assume its a file only
-        if not isinstance(mol_input, ReadInput):
-            self._check_file_name(file_name=mol_input)
-            input_data = ReadInput.from_file(file_name=self.mol_input)
-        else:
-            input_data = mol_input
-        self._save_to_ligand(mol_input=input_data)
-
-        # Make sure we have the topology before we calculate the properties
-        if self.topology.edges:
-            self.symmetrise_from_topology()
-
+        # Run validation
+        self.symmetrise_from_topology()
         # make sure we have unique atom names
         self._validate_atom_names()
 
     @classmethod
-    def from_rdkit(cls, rdkit_mol, name: Optional[str] = None) -> "Ligand":
+    def from_rdkit(
+        cls, rdkit_mol: Chem.Mol, name: Optional[str] = None, multiplicity: int = 1
+    ) -> "Ligand":
         """
         Build an instance of a qubekit ligand directly from an rdkit molecule.
         """
-        input_data = ReadInput.from_rdkit(rdkit_mol=rdkit_mol)
-        ligand = cls(mol_input=input_data, name=name)
-        return ligand
+        if name is None:
+            if rdkit_mol.HasProp("_Name"):
+                name = rdkit_mol.GetProp("_Name")
+
+        atoms = []
+        bonds = []
+        # Collect the atom names and bonds
+        for rd_atom in rdkit_mol.GetAtoms():
+            # make and atom
+            qb_atom = Atom.from_rdkit(rd_atom=rd_atom)
+            atoms.append(qb_atom)
+
+        # now we need to make a list of bonds
+        for rd_bond in rdkit_mol.GetBonds():
+            qb_bond = Bond.from_rdkit(rd_bond=rd_bond)
+            bonds.append(qb_bond)
+
+        coords = rdkit_mol.GetConformer().GetPositions()
+        bonds = bonds or None
+        # method use to make the molecule
+        routine = {"QUBEKit.ligand.from_rdkit"}
+        return cls(
+            atoms=atoms,
+            bonds=bonds,
+            coordinates=coords,
+            multiplicity=multiplicity,
+            name=name,
+            routine=routine,
+        )
 
     @staticmethod
     def _check_file_name(file_name):
@@ -1141,22 +1231,38 @@ class Ligand(DefaultsMixin, Molecule):
             )
 
     @classmethod
-    def from_file(cls, file_name: str) -> "Ligand":
+    def from_file(cls, file_name: str, multiplicity: int = 1) -> "Ligand":
         """
         Build a ligand from an input file.
         """
         cls._check_file_name(file_name=file_name)
         input_data = ReadInput.from_file(file_name=file_name)
-        ligand = cls(mol_input=input_data)
+        ligand = cls.from_rdkit(
+            rdkit_mol=input_data.rdkit_mol,
+            name=input_data.name,
+            multiplicity=multiplicity,
+        )
+        # now edit the routine to include this call
+        ligand.provenance["routine"].update(
+            ["QUBEKit.ligand.from_file", os.path.abspath(file_name)]
+        )
         return ligand
 
     @classmethod
-    def from_smiles(cls, smiles_string: str, name: str):
+    def from_smiles(
+        cls, smiles_string: str, name: str, multiplicity: int = 1
+    ) -> "Ligand":
         """
         Build the ligand molecule directly from the smiles string.
         """
         input_data = ReadInput.from_smiles(smiles=smiles_string, name=name)
-        ligand = cls(mol_input=input_data)
+        ligand = cls.from_rdkit(
+            rdkit_mol=input_data.rdkit_mol, name=name, multiplicity=multiplicity
+        )
+        # now edit the routine to include this command
+        ligand.provenance["routine"].update(
+            ["QUBEKit.ligand.from_smiles", smiles_string]
+        )
         return ligand
 
     def generate_atom_names(self) -> None:
@@ -1186,32 +1292,37 @@ class Ligand(DefaultsMixin, Molecule):
         #TODO do we want to check that the conectivity is the same?
         """
         input_data = ReadInput.from_file(file_name=file_name)
-        self.coords[input_type] = input_data.coords
+        if input_data.coords is None:
+            # get the coords from the rdkit molecule
+            coords = input_data.rdkit_mol.GetConformer().GetPositions()
+        else:
+            coords = input_data.coords
+        self.coords[input_type] = coords
 
-    def _save_to_ligand(self, mol_input: ReadInput, input_type="input") -> None:
-        """
-        Public access to private file_handlers.py file.
-        Users shouldn't ever need to interface with file_handlers.py directly.
-        All parameters will be set from a file (or other input) via this public method.
-
-        Don't bother updating name, topology or atoms if they are already stored.
-        Do bother updating coords and rdkit_mol
-
-        :param mol_input:
-        :param name:
-        :param input_type: "input", "mm", "qm", "traq", or "temp"
-        """
-
-        if mol_input.name is not None:
-            self.name = mol_input.name
-        if mol_input.topology is not None:
-            self.topology = mol_input.topology
-        if mol_input.atoms is not None:
-            self.atoms = mol_input.atoms
-        if mol_input.coords is not None:
-            self.coords[input_type] = mol_input.coords
-        if mol_input.rdkit_mol is not None:
-            self.rdkit_mol = mol_input.rdkit_mol
+    # def _save_to_ligand(self, mol_input: ReadInput, input_type="input") -> None:
+    #     """
+    #     Public access to private file_handlers.py file.
+    #     Users shouldn't ever need to interface with file_handlers.py directly.
+    #     All parameters will be set from a file (or other input) via this public method.
+    #
+    #     Don't bother updating name, topology or atoms if they are already stored.
+    #     Do bother updating coords and rdkit_mol
+    #
+    #     :param mol_input:
+    #     :param name:
+    #     :param input_type: "input", "mm", "qm", "traq", or "temp"
+    #     """
+    #
+    #     if mol_input.name is not None:
+    #         self.name = mol_input.name
+    #     if mol_input.topology is not None:
+    #         self.topology = mol_input.topology
+    #     if mol_input.atoms is not None:
+    #         self.atoms = mol_input.atoms
+    #     if mol_input.coords is not None:
+    #         self.coords[input_type] = mol_input.coords
+    #     if mol_input.rdkit_mol is not None:
+    #         self.rdkit_mol = mol_input.rdkit_mol
 
     def write_pdb(self, input_type="input", name=None):
         """
@@ -1233,8 +1344,9 @@ class Ligand(DefaultsMixin, Molecule):
                 )
 
             # Now add the connection terms
-            for node in self.topology.nodes:
-                bonded = sorted(list(nx.neighbors(self.topology, node)))
+            topology = self.to_topology()
+            for node in topology.nodes:
+                bonded = sorted(list(nx.neighbors(topology, node)))
                 if len(bonded) > 1:
                     pdb_file.write(
                         f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n'

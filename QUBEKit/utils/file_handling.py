@@ -40,8 +40,6 @@ class ReadInput:
 
     def __init__(
         self,
-        topology: Optional[nx.Graph] = None,
-        atoms: Optional[List[Atom]] = None,
         coords: Optional[np.ndarray] = None,
         rdkit_mol: Optional = None,
         name: Optional[str] = None,
@@ -56,9 +54,6 @@ class ReadInput:
         # else:
         #     self.mol_input = mol_input
         #     self.name = name
-
-        self.topology = topology
-        self.atoms = atoms
         self.coords = coords
         self.rdkit_mol = rdkit_mol
         self.name = name
@@ -86,7 +81,7 @@ class ReadInput:
         """
         # Smiles string input
         rdkit_mol = RDKit.smiles_to_rdkit_mol(smiles_string=smiles, name=name)
-        return cls.from_rdkit(rdkit_mol=rdkit_mol)
+        return cls(name=name, coords=None, rdkit_mol=rdkit_mol)
 
     @classmethod
     def from_file(cls, file_name: str) -> "ReadInput":
@@ -104,7 +99,7 @@ class ReadInput:
             return cls.from_xyz(file_name=input_file.as_posix())
         # read the input with rdkit
         rdkit_mol = RDKit.file_to_rdkit_mol(file_path=input_file)
-        return cls.from_rdkit(rdkit_mol=rdkit_mol)
+        return cls(rdkit_mol=rdkit_mol, coords=None, name=None)
 
     # def _read_input(self):
     #     """
@@ -152,62 +147,63 @@ class ReadInput:
     #             f"Could not read file {self.mol_input}. File type must be pdb, mol2 or xyz."
     #         )
 
-    @classmethod
-    def from_rdkit(cls, rdkit_mol, name: Optional[str] = None) -> "ReadInput":
-        """
-        Using an RDKit Molecule object, extract the name, topology, coordinates and atoms
-        """
-
-        if name is None:
-            name = rdkit_mol.GetProp("_Name")
-
-        atoms = []
-        topology = nx.Graph()
-        # Collect the atom names and bonds
-        for atom in rdkit_mol.GetAtoms():
-            # Collect info about each atom
-            atomic_number = atom.GetAtomicNum()
-            index = atom.GetIdx()
-            try:
-                # PDB file extraction
-                atom_name = atom.GetMonomerInfo().GetName().strip()
-            except AttributeError:
-                try:
-                    # Mol2 file extraction
-                    atom_name = atom.GetProp("_TriposAtomName")
-                except KeyError:
-                    # smiles and mol files have no atom names so generate them here if they are not declared
-                    atom_name = f"{atom.GetSymbol()}{index}"
-
-            qube_atom = Atom(
-                atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge()
-            )
-
-            # Add the atoms as nodes
-            topology.add_node(atom.GetIdx())
-
-            # Add the bonds
-            for bonded in atom.GetNeighbors():
-                topology.add_edge(atom.GetIdx(), bonded.GetIdx())
-                qube_atom.add_bond(bonded.GetIdx())
-
-            # Now add the atom to the molecule
-            atoms.append(qube_atom)
-
-        coords = rdkit_mol.GetConformer().GetPositions()
-        atoms = atoms or None
-        return cls(
-            topology=topology,
-            atoms=atoms,
-            coords=coords,
-            rdkit_mol=rdkit_mol,
-            name=name,
-        )
+    # @classmethod
+    # def from_rdkit(cls, rdkit_mol, name: Optional[str] = None) -> "ReadInput":
+    #     """
+    #     Using an RDKit Molecule object, extract the name, topology, coordinates and atoms
+    #     """
+    #
+    #     if name is None:
+    #         name = rdkit_mol.GetProp("_Name")
+    #
+    #     atoms = []
+    #     topology = nx.Graph()
+    #     # Collect the atom names and bonds
+    #     for atom in rdkit_mol.GetAtoms():
+    #         # Collect info about each atom
+    #         atomic_number = atom.GetAtomicNum()
+    #         index = atom.GetIdx()
+    #         try:
+    #             # PDB file extraction
+    #             atom_name = atom.GetMonomerInfo().GetName().strip()
+    #         except AttributeError:
+    #             try:
+    #                 # Mol2 file extraction
+    #                 atom_name = atom.GetProp("_TriposAtomName")
+    #             except KeyError:
+    #                 # smiles and mol files have no atom names so generate them here if they are not declared
+    #                 atom_name = f"{atom.GetSymbol()}{index}"
+    #
+    #         qube_atom = Atom(
+    #             atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge()
+    #         )
+    #
+    #         # Add the atoms as nodes
+    #         topology.add_node(atom.GetIdx())
+    #
+    #         # Add the bonds
+    #         for bonded in atom.GetNeighbors():
+    #             topology.add_edge(atom.GetIdx(), bonded.GetIdx())
+    #             qube_atom.add_bond(bonded.GetIdx())
+    #
+    #         # Now add the atom to the molecule
+    #         atoms.append(qube_atom)
+    #
+    #     coords = rdkit_mol.GetConformer().GetPositions()
+    #     atoms = atoms or None
+    #     return cls(
+    #         topology=topology,
+    #         atoms=atoms,
+    #         coords=coords,
+    #         rdkit_mol=rdkit_mol,
+    #         name=name,
+    #     )
 
     @classmethod
     def from_qc_json(cls, qc_json) -> "ReadInput":
         """
         Given a QC JSON object, extracts the topology, atoms and coords of the molecule.
+        #TODO we need to be absle to read mapped smiles for this to work with stereochem and aromaticity
         """
 
         topology = nx.Graph()
@@ -228,7 +224,7 @@ class ReadInput:
 
         coords = np.array(qc_json.geometry).reshape((len(atoms), 3)) * BOHR_TO_ANGS
         atoms = atoms or None
-        return cls(topology=topology, atoms=atoms, coords=coords)
+        return cls(name=None, rdkit_mol=None, coords=coords)
 
     # def _read_pdb(self):
     #     """
@@ -388,7 +384,7 @@ class ReadInput:
                     coords = []
 
         coords = traj_molecules[0] if len(traj_molecules) == 1 else traj_molecules
-        return cls(coords=coords, topology=None, atoms=None, rdkit_mol=None)
+        return cls(coords=coords, name=None, rdkit_mol=None)
 
 
 class ReadInputProtein:

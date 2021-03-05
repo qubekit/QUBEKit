@@ -15,6 +15,19 @@ class RDKit:
     """Class for controlling useful RDKit functions."""
 
     @staticmethod
+    def mol_to_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
+        """
+        Write the rdkit molecule to the requested file type.
+        """
+        file_path = Path(file_name)
+        if file_path.suffix == ".pdb":
+            return Chem.MolToPDBFile(rdkit_mol, file_name)
+        elif file_path.suffix == ".sdf" or ".mol":
+            return Chem.MolToMolFile(rdkit_mol, file_name)
+        elif file_path.suffix == ".xyz":
+            return Chem.MolToXYZFile(rdkit_mol, file_name)
+
+    @staticmethod
     def file_to_rdkit_mol(file_path: Path) -> Chem.Mol:
         """
         :param mol_input: pathlib.Path of the filename provided or the smiles string
@@ -43,6 +56,14 @@ class RDKit:
         except KeyError:
             # set the name of the input file
             mol.SetProp("_Name", file_path.stem)
+
+        # run some sanitation
+        Chem.SanitizeMol(
+            mol,
+            (Chem.SANITIZE_ALL ^ Chem.SANITIZE_SETAROMATICITY ^ Chem.SANITIZE_ADJUSTHS),
+        )
+        Chem.SetAromaticity(mol, Chem.AromaticityModel.AROMATICITY_MDL)
+        Chem.AssignStereochemistryFrom3D(mol)
 
         return mol
 

@@ -55,7 +55,8 @@ class Parametrisation:
         self.molecule.AtomTypes = {}
         try:
             self.molecule.HarmonicBondForce = {
-                bond: [0, 0] for bond in self.molecule.bonds
+                (bond.atom1_index, bond.atom2_index): [0, 0]
+                for bond in self.molecule.bonds
             }
             self.molecule.HarmonicAngleForce = {
                 angle: [0, 0] for angle in self.molecule.angles
