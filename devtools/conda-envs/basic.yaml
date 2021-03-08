@@ -12,6 +12,8 @@ dependencies:
   - rdkit
   - torsiondrive
   - numpy >=1.18.1
+  - forcebalance
+  - jinja2
   - scipy
   - networkx >=2.4
   - matplotlib-base

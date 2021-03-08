@@ -9,13 +9,15 @@ dependencies:
   - rdkit
   - torsiondrive
     # extras
-  - qcengine >=0.14.0
-  - openforcefield
+  - qcengine >=0.18.0
+  - openff-toolkit
+  - forcebalance
   - geometric
   - psi4
   - numpy >=1.18.1
   - scipy
   - networkx >=2.4
   - matplotlib-base
+  - jinja2
 
 
