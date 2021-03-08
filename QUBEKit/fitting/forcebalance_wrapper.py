@@ -262,7 +262,7 @@ class ForceBalanceFitting(BaseModel):
             )
 
         # set up the master fitting folder
-        with forcebalance_setup(folder_name=f"{molecule.name}_fb"):
+        with forcebalance_setup(folder_name=f"ForceBalance"):
             fitting_folder = os.getcwd()
             fitting_targets = {}
             # prep the target folders
