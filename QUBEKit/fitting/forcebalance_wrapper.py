@@ -3,8 +3,8 @@ Classes that help with parameter fitting using ForceBalance.
 """
 import abc
 import os
-from typing import Any, Dict, List
 import subprocess
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field, PositiveFloat, PositiveInt
 from typing_extensions import Literal
@@ -113,7 +113,7 @@ class TorsionProfile(TargetBase):
         description="If the weights should be attenuated as a function of the energy above the minimum.",
     )
     restrain_k: float = Field(
-        1.0,
+        0.0,
         description="The strength of the harmonic restraint in kcal/mol used in the mm relaxation on all non-torsion atoms.",
     )
     keywords: Dict[str, Any] = {"pdb": "molecule.pdb", "coords": "scan.xyz"}

@@ -1,7 +1,8 @@
 import pytest
+
 from QUBEKit.ligand import Protein
-from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.file_handling import get_data
 
 
 def test_from_pdb():

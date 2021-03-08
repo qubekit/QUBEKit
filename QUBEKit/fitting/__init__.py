@@ -1,1 +1,5 @@
-from QUBEKit.fitting.forcebalance import ForceBalanceFitting
+from QUBEKit.fitting.forcebalance_wrapper import (
+    ForceBalanceFitting,
+    Priors,
+    TorsionProfile,
+)

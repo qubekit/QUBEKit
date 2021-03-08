@@ -21,6 +21,7 @@ from shutil import copy, move
 
 import numpy as np
 
+import QUBEKit
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, QCEngine, RDKit
 from QUBEKit.lennard_jones import LennardJones
@@ -52,7 +53,6 @@ from QUBEKit.utils.helpers import (
     update_ligand,
 )
 from QUBEKit.virtual_sites import VirtualSites
-import QUBEKit
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -1336,6 +1336,7 @@ class Execute:
             os.chdir(os.path.join(molecule.home, "10_torsion_optimise"))
         if molecule.torsion_method == "internal":
             TorsionOptimiser(molecule).run()
+            fit_molecule = molecule
         elif molecule.torsion_method == "forcebalance":
             from QUBEKit.fitting import ForceBalanceFitting
 
@@ -1343,6 +1344,10 @@ class Execute:
             # TODO expose extra configs? like restraint strength
             fb_fit = ForceBalanceFitting()
             fit_molecule = fb_fit.optimise(molecule=molecule)
+        else:
+            raise OptimisationFailed(
+                f"The method {molecule.torsion_method} is not supported please chose from internal or forcebalance."
+            )
 
         append_to_log("Finishing torsion_optimisations")
 

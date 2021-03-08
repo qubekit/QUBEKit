@@ -178,11 +178,13 @@ class ReadInput:
             for line in lines:
                 line = line.split()
                 # skip frame heading lines
-                if len(line) <= 1 or "Iteration" in line:
+                if len(line) != 4:
                     continue
-
-                coords.append([float(line[1]), float(line[2]), float(line[3])])
-
+                # now we need to check we 3 floats
+                try:
+                    coords.append([float(line[1]), float(line[2]), float(line[3])])
+                except ValueError:
+                    continue
                 if len(coords) == n_atoms:
                     # we have collected the molecule now store the frame
                     traj_molecules.append(np.array(coords))

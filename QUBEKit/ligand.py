@@ -39,8 +39,8 @@ from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import (
     Atom,
     ExtraSite,
-    TorsionDriveData,
     ParameterTags,
+    TorsionDriveData,
 )
 from QUBEKit.utils.exceptions import FileTypeError, MissingReferenceData
 from QUBEKit.utils.file_handling import ReadInput, ReadInputProtein

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 import numpy as np
 from rdkit import Chem

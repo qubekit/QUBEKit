@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 from types import SimpleNamespace
-from typing import Dict, Tuple
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from pydantic import BaseModel, Field, validator
 from qcelemental.models.types import Array
 from rdkit.Chem.rdchem import GetPeriodicTable, PeriodicTable
+
+from QUBEKit.utils.exceptions import MissingReferenceData, TorsionDriveDataError
 
 
 class CustomNamespace(SimpleNamespace):
@@ -186,7 +187,7 @@ class TorsionData(ReferenceData):
 
 class TorsionDriveData(BaseModel):
     """
-    A container class to help store torsiondrive reference data.
+    A container class to help store torsiondrive reference data the class is locked once made to ensure the data is valid.
     """
 
     grid_spacing: int = Field(
@@ -206,6 +207,7 @@ class TorsionDriveData(BaseModel):
 
     class Config:
         validate_assignment = True
+        allow_mutation = False
 
     @validator("torsion_drive_range")
     def _check_scan_range(cls, scan_range: Tuple[int, int]) -> Tuple[int, int]:
@@ -227,6 +229,8 @@ class TorsionDriveData(BaseModel):
         cls,
         dihedral: Tuple[int, int, int, int],
         qdata_file: str = "qdata.txt",
+        grid_spacing: int = 15,
+        torsion_drive_range: Tuple[int, int] = (-165, 180),
     ) -> "TorsionDriveData":
         """
         Create a TorsionDrive Data class from a qdata.txt file and the target dihedral.
@@ -237,6 +241,11 @@ class TorsionDriveData(BaseModel):
             The path to the qdata file which should be read, be default this is qdata.txt.
         dihedral
             The indices of the atoms which make up the target dihedral.
+        grid_spacing
+            The spacing of the dihedral expected in the input file.
+        torsion_drive_range
+            The torsion angle scan range expected in the input file.
+
 
         Returns
         -------
@@ -259,10 +268,9 @@ class TorsionDriveData(BaseModel):
                     angles.append(angle)
                     geometries.append(coords)
 
-        spacing = abs(angles[0] - angles[1])
         torsion_data = cls(
-            grid_spacing=spacing,
-            torsion_drive_range=(angles[0], angles[-1]),
+            grid_spacing=grid_spacing,
+            torsion_drive_range=torsion_drive_range,
             dihedral=dihedral,
         )
         # now for each grid point at the reference data
@@ -311,20 +319,27 @@ class TorsionDriveData(BaseModel):
         for i in range(
             self.min_angle, self.max_angle + self.grid_spacing, self.grid_spacing
         ):
-            assert i in self.reference_data
+            if i not in self.reference_data:
+                raise MissingReferenceData(
+                    f"the torsion angle {i} has no reference data but is required for fitting."
+                )
 
     def add_grid_point(self, grid_data: TorsionData) -> None:
         """
         Add some grid point data to the torsion drive dataset. Here we make sure an angle only appears once and is within
         the specified scan range.
         """
-        if grid_data.angle not in self.reference_data and (
-            self.min_angle <= grid_data.angle <= self.max_angle
-        ):
+        possible_angles = [
+            i
+            for i in range(
+                self.min_angle, self.max_angle + self.grid_spacing, self.grid_spacing
+            )
+        ]
+        if grid_data.angle in possible_angles:
             self.reference_data[grid_data.angle] = grid_data
         else:
-            raise ValueError(
-                f"Can not add reference data for angle {grid_data.angle} to torsion drive as it is already present."
+            raise TorsionDriveDataError(
+                f"Can not add data for torsion angle {grid_data.angle} as it is not consistent with a scan range off {self.torsion_drive_range} and grid spacing {self.grid_spacing}"
             )
 
     @property

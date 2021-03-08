@@ -102,14 +102,14 @@ class TorsionScan:
                 non_rotatable.add(dihedral)
                 continue
 
-            self.molecule.dih_starts[dihedral] = -170
+            self.molecule.dih_starts[dihedral] = -165
             self.molecule.dih_ends[dihedral] = 180
             rev_dihedral = tuple(reversed(dihedral))
-            self.molecule.dih_starts[rev_dihedral] = -170
+            self.molecule.dih_starts[rev_dihedral] = -165
             self.molecule.dih_ends[rev_dihedral] = 180
             self.molecule.scan_order.append(dihedral)
-            self.molecule.increments[dihedral] = 10
-            self.molecule.increments[rev_dihedral] = 10
+            self.molecule.increments[dihedral] = 15
+            self.molecule.increments[rev_dihedral] = 15
 
         if hasattr(self.molecule, "skip_nonrotatable"):
             if self.molecule.skip_nonrotatable == "no":
