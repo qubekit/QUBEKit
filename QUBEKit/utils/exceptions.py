@@ -50,3 +50,9 @@ class PSI4Error(Exception):
     """
     PSI4 did not execute properly
     """
+
+
+class SmartsError(Exception):
+    """
+    The requested smarts could not be interpreted by rdkit
+    """

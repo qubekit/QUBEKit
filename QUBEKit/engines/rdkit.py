@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+import copy
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from rdkit import Chem
@@ -8,7 +9,7 @@ from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 from rdkit.Geometry.rdGeometry import Point3D
 
-from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.exceptions import FileTypeError, SmartsError
 
 
 class RDKit:
@@ -18,14 +19,21 @@ class RDKit:
     def mol_to_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
         """
         Write the rdkit molecule to the requested file type.
+        #TODO do we want multiframe support for all files? just xyz?
         """
         file_path = Path(file_name)
         if file_path.suffix == ".pdb":
             return Chem.MolToPDBFile(rdkit_mol, file_name)
-        elif file_path.suffix == ".sdf" or ".mol":
+        elif file_path.suffix == ".sdf" or file_path.suffix == ".mol":
             return Chem.MolToMolFile(rdkit_mol, file_name)
         elif file_path.suffix == ".xyz":
-            return Chem.MolToXYZFile(rdkit_mol, file_name)
+            with open(file_name, "w") as xyz:
+                for i in range(rdkit_mol.GetNumConformers()):
+                    xyz.write(Chem.MolToXYZBlock(rdkit_mol, confId=i))
+        else:
+            raise FileTypeError(
+                f"The file type {file_path.suffix} is not supported please chose from xyz, pdb, mol or sdf."
+            )
 
     @staticmethod
     def file_to_rdkit_mol(file_path: Path) -> Chem.Mol:
@@ -50,13 +58,6 @@ class RDKit:
             )
         else:
             raise FileTypeError(f"The file type {file_path.suffix} is not supported.")
-        # apply the mol name
-        try:
-            mol.GetProp("_Name")
-        except KeyError:
-            # set the name of the input file
-            mol.SetProp("_Name", file_path.stem)
-
         # run some sanitation
         Chem.SanitizeMol(
             mol,
@@ -64,6 +65,9 @@ class RDKit:
         )
         Chem.SetAromaticity(mol, Chem.AromaticityModel.AROMATICITY_MDL)
         Chem.AssignStereochemistryFrom3D(mol)
+
+        # set the name of the input file
+        mol.SetProp("_Name", file_path.stem)
 
         return mol
 
@@ -116,14 +120,80 @@ class RDKit:
         }
 
     @staticmethod
-    def get_smiles(rdkit_mol: Chem.Mol) -> str:
+    def get_smiles(
+        rdkit_mol: Chem.Mol,
+        isomeric: bool = True,
+        explicit_hydrogens: bool = True,
+        mapped: bool = False,
+    ) -> str:
         """
-        Use RDKit to load in the pdb file of the molecule and get the smiles code.
-        :param rdkit_mol: The rdkit molecule
-        :return: The smiles string
-        """
+        Use RDKit to generate a smiles string for the molecule.
 
-        return Chem.MolToSmiles(rdkit_mol, isomericSmiles=True, allHsExplicit=True)
+        We work with a copy of the input molecule as we may assign an atom map number which will effect the CIP algorithm
+        and could break symmetry groups.
+
+        Args:
+            rdkit_mol:
+                A complete Chem.Mol instance of a molecule.
+            isomeric:
+                If the smiles should encode the stereochemistry `True` or not `False`.
+            explicit_hydrogens:
+                If the smiles should explicitly encode hydrogens `True` or not `False`.
+            mapped:
+                If the smiles should be mapped to preserve the ordering of the molecule `True` or not `False`.
+
+        Returns:
+            A string which encodes the molecule smiles corresponding the the input options.
+        """
+        cp_mol = copy.deepcopy(rdkit_mol)
+        if mapped:
+            explicit_hydrogens = True
+            for atom in cp_mol.GetAtoms():
+                # mapping starts from 1 as 0 means no mapping in rdkit
+                atom.SetAtomMapNum(atom.GetIdx() + 1)
+        if not explicit_hydrogens:
+            cp_mol = Chem.RemoveHs(cp_mol)
+        return Chem.MolToSmiles(
+            cp_mol, isomericSmiles=isomeric, allHsExplicit=explicit_hydrogens
+        )
+
+    @staticmethod
+    def get_smirks_matches(rdkit_mol: Chem.Mol, smirks: str) -> List[Tuple[int, ...]]:
+        """
+        Query the molecule for the tagged smarts pattern (OpenFF SMIRKS).
+
+        Args:
+            rdkit_mol:
+                The rdkit molecule instance that should be checked against the smarts pattern.
+            smirks:
+                The tagged SMARTS pattern that should be checked against the molecule.
+
+        Returns:
+            A list of atom index tuples which match the corresponding tagged atoms in the smarts pattern.
+            Note only tagged atoms indices are returned.
+        """
+        cp_mol = copy.deepcopy(rdkit_mol)
+        smarts_mol = Chem.MolFromSmarts(smirks)
+        if smarts_mol is None:
+            raise SmartsError(
+                f"RDKit could not understand the query {smirks} please check again."
+            )
+        # we need a mapping between atom map and index in the smarts mol
+        # to work out the index of the matched atom
+        mapping = {}
+        for atom in smarts_mol.GetAtoms():
+            smart_index = atom.GetAtomMapNum()
+            if smart_index != 0:
+                # atom was tagged in the smirks
+                mapping[smart_index - 1] = atom.GetIdx()
+        # smarts can match forward and backwards so condense the matches
+        all_matches = set()
+        for match in cp_mol.GetSubstructMatches(
+            smarts_mol, uniquify=True, useChirality=True
+        ):
+            smirks_atoms = [match[atom] for atom in mapping.values()]
+            all_matches.add(tuple(sorted(smirks_atoms)))
+        return list(all_matches)
 
     @staticmethod
     def get_smarts(rdkit_mol: Chem.Mol) -> str:
@@ -134,31 +204,6 @@ class RDKit:
         """
 
         return Chem.MolToSmarts(rdkit_mol)
-
-    @staticmethod
-    def to_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
-        """
-        For the given rdkit molecule write it to the specified file, the type will be geussed from the suffix.
-        """
-        file_name = Path(file_name)
-        if file_name.suffix == ".pdb":
-            return Chem.MolToPDBFile(rdkit_mol, file_name)
-        elif file_name.suffix == ".mol" or file_name.suffix == ".sdf":
-            return Chem.MolToMolFile(rdkit_mol, file_name)
-
-    @staticmethod
-    def get_mol(rdkit_mol: Chem.Mol, file_name: str) -> None:
-        """
-        Use RDKit to generate a mol file.
-        :param rdkit_mol: The input rdkit molecule
-        :param file_name: The name of the file to write
-        :return: The name of the mol file made
-        """
-        if ".mol" not in file_name:
-            mol_name = f"{file_name}.mol"
-        else:
-            mol_name = file_name
-        Chem.MolToMolFile(rdkit_mol, mol_name)
 
     @staticmethod
     def generate_conformers(rdkit_mol: Chem.Mol, conformer_no=10) -> List[np.ndarray]:

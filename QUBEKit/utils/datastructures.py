@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
+from enum import Enum
 from types import SimpleNamespace
 from typing import List, Optional
 
-from rdkit.Chem.rdchem import GetPeriodicTable, PeriodicTable
 from pydantic import BaseModel, Field, PositiveInt
-from enum import Enum
 from rdkit import Chem
+from rdkit.Chem.rdchem import GetPeriodicTable, PeriodicTable
 
 
 class CustomNamespace(SimpleNamespace):

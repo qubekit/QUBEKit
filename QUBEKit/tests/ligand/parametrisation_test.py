@@ -23,37 +23,24 @@ def test_parameter_prep():
     assert len(mol.NonbondedForce) == mol.n_atoms
 
 
-def test_antechamber(tmpdir):
+@pytest.mark.parametrize(
+    "parameter_engine",
+    [
+        pytest.param(AnteChamber, id="Antechamber"),
+        pytest.param(OpenFF, id="Openff"),
+    ],
+)
+def test_parameter_engines(tmpdir, parameter_engine):
     """
     Make sure we can parametrise a molecule using antechamber
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("acetone.sdf"))
-        AnteChamber(mol)
+        parameter_engine(mol)
 
         # loop over the parameters and make sure they not defaults
         for bond in mol.bonds:
-            assert mol.HarmonicBondForce[bond] != [0, 0]
-        for angle in mol.angles:
-            assert mol.HarmonicAngleForce[angle] != [0, 0]
-        assert (
-            len(mol.PeriodicTorsionForce) == mol.n_dihedrals + mol.n_improper_torsions
-        )
-        for i in range(mol.n_atoms):
-            assert mol.NonbondedForce[i] != [0, 0, 0]
-
-
-def test_openff(tmpdir):
-    """
-    Make sure we can parametrise a molecule using openff.
-    """
-    with tmpdir.as_cwd():
-        mol = Ligand.from_file(get_data("acetone.sdf"))
-        OpenFF(mol)
-
-        # loop over the parameters and make sure they not defaults
-        for bond in mol.bonds:
-            assert mol.HarmonicBondForce[bond] != [0, 0]
+            assert mol.HarmonicBondForce[(bond.atom1_index, bond.atom2_index)] != [0, 0]
         for angle in mol.angles:
             assert mol.HarmonicAngleForce[angle] != [0, 0]
         assert (

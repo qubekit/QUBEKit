@@ -156,9 +156,6 @@ class Parametrisation:
                             float(Atom.get("sig")),
                             float(Atom.get("eps")),
                         ]
-                        self.molecule.atoms[atom_num].partial_charge = float(
-                            Atom.get("q")
-                        )
                         atom_num += 1
 
             # Check if we found any sites

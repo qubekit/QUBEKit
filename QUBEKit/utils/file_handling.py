@@ -21,7 +21,7 @@ import numpy as np
 
 from QUBEKit.engines import RDKit
 from QUBEKit.utils.constants import ANGS_TO_NM, BOHR_TO_ANGS
-from QUBEKit.utils.datastructures import Atom, CustomNamespace, Element, ExtraSite
+from QUBEKit.utils.datastructures import Atom, Bond, CustomNamespace, Element, ExtraSite
 
 
 class ReadInput:
@@ -99,7 +99,7 @@ class ReadInput:
             return cls.from_xyz(file_name=input_file.as_posix())
         # read the input with rdkit
         rdkit_mol = RDKit.file_to_rdkit_mol(file_path=input_file)
-        return cls(rdkit_mol=rdkit_mol, coords=None, name=None)
+        return cls(rdkit_mol=rdkit_mol, coords=None, name=rdkit_mol.GetProp("_Name"))
 
     # def _read_input(self):
     #     """
@@ -395,15 +395,15 @@ class ReadInputProtein:
 
     def __init__(
         self,
-        topology: Optional[nx.Graph] = None,
-        atoms: Optional[List[Atom]] = None,
+        atoms: List[Atom],
+        bonds: Optional[List[Bond]] = None,
         coords: Optional[np.ndarray] = None,
         pdb_names: Optional[List[str]] = None,
         residues: Optional[List[str]] = None,
         name: Optional[str] = None,
     ):
-        self.topology = topology
         self.atoms = atoms
+        self.bonds = bonds
         self.coords = coords
         self.name = name
         self.residues = residues
@@ -420,7 +420,7 @@ class ReadInputProtein:
 
         coords = []
         atoms = []
-        topology = nx.Graph()
+        bonds = []
         Residues = []
         pdb_names = []
 
@@ -441,7 +441,14 @@ class ReadInputProtein:
                     atomic_symbol = atomic_symbol[0]
 
                 atom_name = f"{atomic_symbol}{atom_count}"
-                qube_atom = Atom(Element().number(atomic_symbol), atom_count, atom_name)
+                # TODO should we use a protein pdb package for this?
+                qube_atom = Atom(
+                    atomic_number=Element().number(atomic_symbol),
+                    atom_index=atom_count,
+                    atom_name=atom_name,
+                    formal_charge=0,
+                    aromatic=False,
+                )
 
                 atoms.append(qube_atom)
 
@@ -450,8 +457,6 @@ class ReadInputProtein:
                 # also get the residue order from the pdb file so we can rewrite the file
                 Residues.append(str(line.split()[3]))
 
-                # Also add the atom number as the node in the graph
-                topology.add_node(atom_count)
                 atom_count += 1
                 coords.append(
                     [float(line[30:38]), float(line[38:46]), float(line[46:54])]
@@ -461,15 +466,21 @@ class ReadInputProtein:
                 conect_terms = line.split()
                 for atom in conect_terms[2:]:
                     if int(atom):
-                        topology.add_edge(int(conect_terms[1]) - 1, int(atom) - 1)
+                        bond = Bond(
+                            atom1_index=int(conect_terms[1]) - 1,
+                            atom2_index=int(atom) - 1,
+                            bond_order=1,
+                            aromatic=False,
+                        )
+                        bonds.append(bond)
 
         coords = np.array(coords)
         residues = [res for res, group in groupby(Residues)]
         if name is None:
             name = Path(file_name).stem
         return cls(
-            topology=topology,
             atoms=atoms,
+            bonds=bonds,
             coords=coords,
             pdb_names=pdb_names,
             residues=residues,

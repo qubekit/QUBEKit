@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 from setuptools import find_packages, setup
-import versioneer
 
+import versioneer
 
 with open("README.md", "r") as file:
     long_description = file.read()

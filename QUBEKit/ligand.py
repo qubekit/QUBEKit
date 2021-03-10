@@ -28,17 +28,20 @@ import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Set, Tuple
 from xml.dom.minidom import parseString
 
 import networkx as nx
 import numpy as np
 from rdkit import Chem, Geometry
+from simtk import unit
+from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple
+from simtk.openmm.app.element import Element
 
 import QUBEKit
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import Atom, ExtraSite, Bond
+from QUBEKit.utils.datastructures import Atom, Bond, ExtraSite
 from QUBEKit.utils.exceptions import FileTypeError
 from QUBEKit.utils.file_handling import ReadInput, ReadInputProtein
 
@@ -127,11 +130,9 @@ class Molecule:
         """
         # Namings
         name                    str; Molecule name e.g. 'methane'
-        is_protein              bool; whether or not the molecule is a protein
 
         # Structure
         coords                  Dict of numpy arrays of the coords where the keys are the input type ('mm', 'qm', etc)
-        topology                networkx Graph() object. Contains connection information for molecule
         symm_hs
         qm_energy
 
@@ -165,10 +166,6 @@ class Molecule:
         restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
         self.name: str = name
-        self.is_protein: bool = False
-
-        self.rdkit_mol = None
-
         # Structure
         self.coords: Dict = {
             "input": [] or coordinates,
@@ -189,7 +186,6 @@ class Molecule:
 
         self.symm_hs = None
         self.qm_energy: Optional[float] = None
-        self.charge: int = 0
         self.qm_scans = None
         self.scan_order = None
         self.descriptors = None
@@ -372,6 +368,13 @@ class Molecule:
                     atom1, atom3 = bonded[i], bonded[j]
                     angles.append((atom1, node, atom3))
         return angles or None
+
+    @property
+    def charge(self) -> int:
+        """
+        Return the interger charge of the molecule as the sum of the formal charge.
+        """
+        return sum([atom.formal_charge for atom in self.atoms])
 
     @property
     def n_angles(self) -> int:
@@ -574,9 +577,8 @@ class Molecule:
         AtomTypes = ET.SubElement(root, "AtomTypes")
         Residues = ET.SubElement(root, "Residues")
 
-        Residue = ET.SubElement(
-            Residues, "Residue", name=f'{"QUP" if self.is_protein else "UNK"}'
-        )
+        resname = "QUP" if self.__class__.__name__ == "Protein" else "MOL"
+        Residue = ET.SubElement(Residues, "Residue", name=resname)
 
         HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
         HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
@@ -751,42 +753,6 @@ class Molecule:
         # Store the tree back into the molecule
         return ET.ElementTree(root)
 
-    def write_xyz(self, input_type="input", name=None):
-        """
-        Write a general xyz file of the molecule if there are multiple geometries in the molecule write a traj
-        :param input_type: Where the molecule coordinates are taken from
-        :param name: The name of the xyz file to be produced; otherwise self.name is used.
-        """
-
-        with open(f"{name if name is not None else self.name}.xyz", "w+") as xyz_file:
-
-            if len(self.coords[input_type]) == len(self.atoms):
-                message = "xyz file generated with QUBEKit"
-                end = ""
-                trajectory = [self.coords[input_type]]
-
-            else:
-                message = "QUBEKit xyz trajectory FRAME "
-                end = 1
-                trajectory = self.coords[input_type]
-
-            # Write out each frame
-            for frame in trajectory:
-
-                xyz_file.write(f"{len(self.atoms)}\n")
-                xyz_file.write(f"{message}{end}\n")
-
-                for i, atom in enumerate(frame):
-                    xyz_file.write(
-                        f"{self.atoms[i].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}\n"
-                    )
-
-                try:
-                    end += 1
-                except TypeError:
-                    # This is the result of only printing one frame so catch the error and ignore
-                    pass
-
     def pickle(self, state=None):
         """
         Pickles the Molecule object in its current state to the (hidden) pickle file.
@@ -937,22 +903,30 @@ class Molecule:
 
     @property
     def atom_types(self) -> Optional[Dict[int, str]]:
-        """Returns a dictionary of atom indices mapped to their class or None if there is no rdkit molecule.
-        #TODO we need a to_rdkit method as this should always work for well defined inputs.
-        """
+        """Returns a dictionary of atom indices mapped to their class or None if there is no rdkit molecule."""
 
         return RDKit.find_symmetry_classes(self.to_rdkit())
 
     def to_rdkit(self, input_type: str = "input") -> Chem.Mol:
         """
         Generate an rdkit representation of the QUBEKit ligand object.
+
+        #TODO what properties should be put in the rdkit molecule? Multiplicity?
+
+        Args:
+            input_type:
+                The name of the input coords that should be supplied to the rdkit molecule.
+
+        Returns:
+            An rdkit representation of the molecule.
         """
         # make an editable molecule
         rd_mol = Chem.RWMol()
         if self.name is not None:
             rd_mol.SetProp("_Name", self.name)
 
-        # now add each atom checking that the atom order is the same
+        # when building the molecule we have to loop multipule times
+        # so always make sure the indexing is the same in qube and rdkit
         for atom in self.atoms:
             rd_index = rd_mol.AddAtom(atom.to_rdkit())
             assert rd_index == atom.atom_index
@@ -965,16 +939,14 @@ class Molecule:
             rd_bond: Chem.Bond = rd_mol.GetBondBetweenAtoms(*atom_ids)
             rd_bond.SetIsAromatic(True)
             rd_bond.SetBondType(bond.rdkit_type)
-            if bond.stereochemistry is not None:
-                rd_bond.SetStereo(bond.rdkit_stereo)
 
         Chem.SanitizeMol(
             rd_mol,
             Chem.SANITIZE_ALL ^ Chem.SANITIZE_ADJUSTHS ^ Chem.SANITIZE_SETAROMATICITY,
         )
-        # now lets set the aromaticity model
+        # must use openff MDL model for compatibility
         Chem.SetAromaticity(rd_mol, Chem.AromaticityModel.AROMATICITY_MDL)
-        # lets clean up stereochemistry
+
         Chem.AssignStereochemistry(
             rd_mol, force=True, cleanIt=True, flagPossibleStereoCenters=True
         )
@@ -988,18 +960,19 @@ class Molecule:
                     qb_atom.stereochemistry, rd_atom.GetProp("_CIPCode")
                 )
 
-        # now do the same for bonds
         for rd_bond in rd_mol.GetBonds():
             index = rd_bond.GetIdx()
             qb_bond = self.bonds[index]
             assert rd_bond.GetBondTypeAsDouble() == qb_bond.bond_order
+            if qb_bond.stereochemistry is not None:
+                rd_bond.SetStereo(qb_bond.rdkit_stereo)
             rd_stereo = rd_bond.GetStereo()
-            if rd_stereo == Chem.BondStereo.STEREOE:
-                assert qb_bond.stereochemistry == "E"
-            elif rd_stereo == Chem.BondStereo.STEREOZ:
-                assert qb_bond.stereochemistry == "Z"
+            if qb_bond.stereochemistry == "E":
+                assert rd_stereo == Chem.BondStereo.STEREOE
+            elif qb_bond.stereochemistry == "Z":
+                assert rd_stereo == Chem.BondStereo.STEREOZ
 
-        # now add the conformers
+        # conformers
         coords = self.coords[input_type]
         if isinstance(coords, np.ndarray):
             coords = [coords]
@@ -1010,6 +983,13 @@ class Molecule:
             rd_mol.AddConformer(rd_conf, assignId=True)
 
         return Chem.Mol(rd_mol)
+
+    def get_smarts_matches(self, smirks: str) -> Optional[List[Tuple[int, ...]]]:
+        """"""
+        matches = RDKit.get_smirks_matches(rdkit_mol=self.to_rdkit(), smirks=smirks)
+        if not matches:
+            return None
+        return matches
 
     def symmetrise_from_topology(self) -> None:
         """
@@ -1052,20 +1032,25 @@ class Molecule:
         self.symm_hs = {"methyl": methyl_hs, "amine": amine_hs, "other": other_hs}
         self.methyl_amine_nitride_cores = methyl_amine_nitride_cores
 
-    def openmm_coordinates(self, input_type="input") -> List[np.array]:
+    def openmm_coordinates(self, input_type="input") -> unit.Quantity:
         """
-        Take a set of coordinates from the molecule and convert them to OpenMM format
-        :param input_type: The set of coordinates that should be used
-        :return: A list of tuples of the coords
-        TODO Move elsewhere; currently breaks
+        Convert the coordinates to an openMM quantity.
+
+        Build a single set of coordinates for the molecule that work in openMM.
+        Note this must be a single conformer, if multiple are given only the first is used.
+
+        Args:
+            input_type:
+                The name of the coordinate array that should be converted.
+
+        Returns:
+            A openMM quantity wrapped array of the coordinates in angstrom.
         """
 
         coordinates = self.coords[input_type]
-
-        # Multiple frames in this case
-        if input_type == "traj" and len(coordinates) != self.n_atoms:
-            return [frame / 10 for frame in coordinates]
-        return [coordinates / 10]
+        if isinstance(coordinates, list):
+            coordinates = coordinates[0]
+        return unit.Quantity(coordinates, unit.angstroms)
 
     def read_tdrive(self, bond_scan):
         """
@@ -1163,8 +1148,6 @@ class Ligand(DefaultsMixin, Molecule):
             routine=routine,
         )
 
-        self.is_protein = False
-
         self.parameter_engine = "openmm"
         self.hessian = None
         self.modes = None
@@ -1189,6 +1172,14 @@ class Ligand(DefaultsMixin, Molecule):
     ) -> "Ligand":
         """
         Build an instance of a qubekit ligand directly from an rdkit molecule.
+
+        Args:
+            rdkit_mol:
+                An instance of an rdkit.Chem.Mol from which the QUBEKit ligand should be built.
+            name:
+                The name that should be assigned to the molecule, this will overwrite any name already assigned.
+            multiplicity:
+                The multiplicity of the molecule, used in QM calculations.
         """
         if name is None:
             if rdkit_mol.HasProp("_Name"):
@@ -1221,7 +1212,7 @@ class Ligand(DefaultsMixin, Molecule):
         )
 
     @staticmethod
-    def _check_file_name(file_name):
+    def _check_file_name(file_name: str) -> None:
         """
         Make sure that if an unsupported file type is passed we can not make a molecule from it.
         """
@@ -1233,7 +1224,13 @@ class Ligand(DefaultsMixin, Molecule):
     @classmethod
     def from_file(cls, file_name: str, multiplicity: int = 1) -> "Ligand":
         """
-        Build a ligand from an input file.
+        Build a ligand from a supported input file.
+
+        Args:
+            file_name:
+                The abs path to the file including the extension which determines how the file is read.
+            multiplicity:
+                The multiplicity of the molecule which is required for QM calculations.
         """
         cls._check_file_name(file_name=file_name)
         input_data = ReadInput.from_file(file_name=file_name)
@@ -1253,7 +1250,15 @@ class Ligand(DefaultsMixin, Molecule):
         cls, smiles_string: str, name: str, multiplicity: int = 1
     ) -> "Ligand":
         """
-        Build the ligand molecule directly from the smiles string.
+        Build the ligand molecule directly from a non mapped smiles string.
+
+        Args:
+            smiles_string:
+                The smiles string from which a molecule instance should be made.
+            name:
+                The name that should be assigned to the molecule.
+            multiplicity:
+                The multiplicity of the molecule, important for QM calculations.
         """
         input_data = ReadInput.from_smiles(smiles=smiles_string, name=name)
         ligand = cls.from_rdkit(
@@ -1264,6 +1269,71 @@ class Ligand(DefaultsMixin, Molecule):
             ["QUBEKit.ligand.from_smiles", smiles_string]
         )
         return ligand
+
+    def to_openmm_topology(self) -> Topology:
+        """
+        Convert the Molecule to a OpenMM topology representation.
+
+        We assume we have a single molecule so a single chain is made with a single residue.
+        Note this will not work with proteins as we will need to have distinct residues.
+
+        Returns:
+            An openMM topology object which can be used to construct a system.
+        """
+        topology = Topology()
+        bond_types = {1: Single, 2: Double, 3: Triple}
+        chain = topology.addChain()
+        # create a molecule specific residue
+        residue = topology.addResidue(name=self.name, chain=chain)
+        # add atoms and keep track so we can add bonds
+        top_atoms = []
+        for atom in self.atoms:
+            element = Element.getByAtomicNumber(atom.atomic_number)
+            top_atom = topology.addAtom(
+                name=atom.atom_name, element=element, residue=residue
+            )
+            top_atoms.append(top_atom)
+        for bond in self.bonds:
+            atom1 = top_atoms[bond.atom1_index]
+            atom2 = top_atoms[bond.atom2_index]
+            # work out the type
+            if bond.aromatic:
+                b_type = Aromatic
+            else:
+                b_type = bond_types[bond.bond_order]
+            topology.addBond(
+                atom1=atom1, atom2=atom2, type=b_type, order=bond.bond_order
+            )
+
+        return topology
+
+    def to_smiles(
+        self,
+        isomeric: bool = True,
+        explicit_hydrogens: bool = True,
+        mapped: bool = False,
+    ) -> str:
+        """
+        Create a canonical smiles representation for the molecule based on the input setttings.
+
+        Args:
+            isomeric:
+                If the smiles string should encode stereochemistry `True` or not `False`.
+            explicit_hydrogens:
+                If hydrogens should be explicitly encoded into the smiles string `True` or not `False`.
+            mapped:
+                If the smiles should encode the original atom ordering `True` or not `False` as this might be different
+                from the canonical ordering.
+
+        Returns:
+            A smiles string which encodes the molecule with the desired settings.
+        """
+        return RDKit.get_smiles(
+            rdkit_mol=self.to_rdkit(),
+            isomeric=isomeric,
+            explicit_hydrogens=explicit_hydrogens,
+            mapped=mapped,
+        )
 
     def generate_atom_names(self) -> None:
         """
@@ -1299,61 +1369,6 @@ class Ligand(DefaultsMixin, Molecule):
             coords = input_data.coords
         self.coords[input_type] = coords
 
-    # def _save_to_ligand(self, mol_input: ReadInput, input_type="input") -> None:
-    #     """
-    #     Public access to private file_handlers.py file.
-    #     Users shouldn't ever need to interface with file_handlers.py directly.
-    #     All parameters will be set from a file (or other input) via this public method.
-    #
-    #     Don't bother updating name, topology or atoms if they are already stored.
-    #     Do bother updating coords and rdkit_mol
-    #
-    #     :param mol_input:
-    #     :param name:
-    #     :param input_type: "input", "mm", "qm", "traq", or "temp"
-    #     """
-    #
-    #     if mol_input.name is not None:
-    #         self.name = mol_input.name
-    #     if mol_input.topology is not None:
-    #         self.topology = mol_input.topology
-    #     if mol_input.atoms is not None:
-    #         self.atoms = mol_input.atoms
-    #     if mol_input.coords is not None:
-    #         self.coords[input_type] = mol_input.coords
-    #     if mol_input.rdkit_mol is not None:
-    #         self.rdkit_mol = mol_input.rdkit_mol
-
-    def write_pdb(self, input_type="input", name=None):
-        """
-        Take the current molecule and topology and write a pdb file for the molecule.
-        Only for small molecules, not standard residues. No size limit.
-        """
-
-        molecule = self.coords[input_type]
-
-        with open(f"{name if name is not None else self.name}.pdb", "w+") as pdb_file:
-
-            # Write out the atomic xyz coordinates
-            pdb_file.write(f"REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n")
-            pdb_file.write(f"COMPND    {self.name:<20}\n")
-            for i, atom in enumerate(molecule):
-                pdb_file.write(
-                    f"HETATM {i+1:>4}{self.atoms[i].atom_name:>4}  UNL     1{atom[0]:12.3f}{atom[1]:8.3f}{atom[2]:8.3f}"
-                    f"  1.00  0.00         {self.atoms[i].atomic_symbol.title():>3}\n"
-                )
-
-            # Now add the connection terms
-            topology = self.to_topology()
-            for node in topology.nodes:
-                bonded = sorted(list(nx.neighbors(topology, node)))
-                if len(bonded) > 1:
-                    pdb_file.write(
-                        f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n'
-                    )
-
-            pdb_file.write("END\n")
-
 
 class Protein(DefaultsMixin, Molecule):
     """
@@ -1371,7 +1386,6 @@ class Protein(DefaultsMixin, Molecule):
 
         super().__init__(mol_input, name)
 
-        self.is_protein = True
         self.home = os.getcwd()
         self.residues = None
         self.Residues = None
@@ -1414,8 +1428,6 @@ class Protein(DefaultsMixin, Molecule):
 
         if mol_input.name is not None:
             self.name = mol_input.name
-        if mol_input.topology is not None:
-            self.topology = mol_input.topology
         if mol_input.atoms is not None:
             self.atoms = mol_input.atoms
         if mol_input.coords is not None:
@@ -1424,21 +1436,15 @@ class Protein(DefaultsMixin, Molecule):
             self.residues = mol_input.residues
         if mol_input.pdb_names is not None:
             self.pdb_names = mol_input.pdb_names
+        if mol_input.bonds is not None:
+            self.bonds = mol_input.bonds
 
-        if not self.topology.edges:
+        if not self.bonds:
             print(
                 "No connections found in pdb file; topology will be inferred by OpenMM."
             )
             return
 
-        # self.find_angles()
-        # self.find_dihedrals()
-        # self.find_rotatable_dihedrals()
-        # self.find_impropers()
-        # self.measure_dihedrals(input_type)
-        # self.bond_lengths(input_type)
-        # self.measure_angles(input_type)
-        # This creates the dictionary of terms that should be symmetrised.
         self.symmetrise_from_topology()
 
     def write_pdb(self, name=None):
@@ -1459,12 +1465,10 @@ class Protein(DefaultsMixin, Molecule):
                 )
 
             # Add the connection terms based on the molecule topology.
-            for node in self.topology.nodes:
-                bonded = sorted(list(nx.neighbors(self.topology, node)))
-                if len(bonded) >= 1:
-                    pdb_file.write(
-                        f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n'
-                    )
+            for bond in self.bonds:
+                pdb_file.write(
+                    f"CONECT{bond.atom1_index + 1:5} {bond.atom2_index + 1:5}\n"
+                )
 
             pdb_file.write("END\n")
 
@@ -1473,17 +1477,17 @@ class Protein(DefaultsMixin, Molecule):
         After the protein has been passed to the parametrisation class we get back the bond info
         use this to update all missing terms.
         """
+        if not self.bonds:
+            self.bonds = []
+            # using the new harmonic bond force dict we can add the bond edges to the topology graph
+            for bond in self.HarmonicBondForce:
+                self.bonds.append(
+                    Bond(
+                        atom1_indx=bond[0],
+                        atom2_index=bond[1],
+                        bond_order=1,
+                        aromatic=False,
+                    )
+                )
 
-        # using the new harmonic bond force dict we can add the bond edges to the topology graph
-        for bond in self.HarmonicBondForce:
-            self.topology.add_edge(*bond)
-
-        # self.find_angles()
-        # self.find_dihedrals()
-        # self.find_rotatable_dihedrals()
-        # self.find_impropers()
-        # self.measure_dihedrals(input_type)
-        # self.bond_lengths(input_type)
-        # self.measure_angles(input_type)
-        # This creates the dictionary of terms that should be symmetrised.
         self.symmetrise_from_topology()

@@ -1,10 +1,12 @@
+import networkx as nx
 import numpy as np
 import pytest
 from openff.toolkit.topology import Molecule as OFFMolecule
 from rdkit.Chem import rdMolTransforms
+from simtk import unit
 
 from QUBEKit.ligand import Ligand
-from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.exceptions import FileTypeError, SmartsError
 from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.helpers import unpickle
 
@@ -311,20 +313,7 @@ def test_to_openmm_coords(acetone):
     Make sure we can convert the coordinates to openmm style coords
     """
     coords = acetone.openmm_coordinates(input_type="input")
-    assert np.allclose(coords[0] * 10, acetone.coords["input"])
-
-
-def test_to_openmm_coords_multiple():
-    """
-    Make sure we can convert to openmm style coords for multiple conformers.
-    """
-    mol = Ligand.from_file(file_name=get_data("butane.pdb"))
-    # fake a set of conformers
-    coords = [mol.coords["input"], mol.coords["input"]]
-    mol.coords["traj"] = coords
-    openmm_coords = mol.openmm_coordinates(input_type="traj")
-    for i in range(len(openmm_coords)):
-        assert np.allclose(openmm_coords[i] * 10, mol.coords["traj"][i])
+    assert np.allclose(coords.in_units_of(unit.angstrom), acetone.coords["input"])
 
 
 def test_pickle_round_trip(tmpdir, acetone):
@@ -359,27 +348,30 @@ def test_double_pickle(tmpdir, acetone):
         assert "input" in mols
 
 
-def test_write_xyz_single_conformer(tmpdir, acetone):
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        pytest.param("acetone.xyz", id="xyz"),
+        pytest.param("acetone.pdb", id="pdb"),
+        pytest.param("acetone.sdf", id="sdf"),
+        pytest.param("acetone.mol", id="mol"),
+    ],
+)
+def test_to_file(tmpdir, file_name, acetone):
     """
-    Write a single conformer xyz file for the molecule.
+    Try and write out a molecule to the specified file type.
     """
     with tmpdir.as_cwd():
-        acetone.write_xyz(input_type="input", name="acetone")
+        acetone.to_file(file_name=file_name)
 
-        # now read in and check the file
-        with open("acetone.xyz") as xyz:
-            lines = xyz.readlines()
-            # atoms plus 2 comment lines
-            assert len(lines) == acetone.n_atoms + 2
-            assert float(lines[0]) == acetone.n_atoms
-            # now loop over the atoms and make sure they match and the coords
-            for i, line in enumerate(lines[2:]):
-                atom = acetone.atoms[i]
-                assert atom.atomic_symbol == line.split()[0]
-                assert np.allclose(
-                    acetone.coords["input"][i],
-                    [float(coord) for coord in line.split()[1:]],
-                )
+
+def test_to_file_fail(tmpdir, acetone):
+    """
+    Make sure an error is raised if we try and write to an unsupported file type.
+    """
+    with tmpdir.as_cwd():
+        with pytest.raises(FileTypeError):
+            acetone.to_file(file_name="badfile.smi")
 
 
 def test_write_xyz_multiple_conformer(tmpdir):
@@ -389,9 +381,9 @@ def test_write_xyz_multiple_conformer(tmpdir):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("butane.pdb"))
         # fake a set of conformers
-        coords = [mol.coords["input"], mol.coords["input"]]
+        coords = [mol.coords["input"], np.random.random((mol.n_atoms, 3))]
         mol.coords["traj"] = coords
-        mol.write_xyz(input_type="traj", name="butane")
+        mol.to_file(input_type="traj", file_name="butane.xyz")
 
         # now read in the file again
         with open("butane.xyz") as xyz:
@@ -507,9 +499,112 @@ def test_from_rdkit():
     assert np.allclose(mol.coords["input"], mol2.coords["input"])
 
 
-def test_to_rdkit():
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("bace0.sdf", id="bace0 chiral"),
+        pytest.param("12-dichloroethene.sdf", id="12dichloroethene bond stereo"),
+    ],
+)
+def test_to_rdkit(molecule):
     """
     Make sure we can convert to rdkit.
+    We test on bace which has a chiral center and 12-dichloroethane which has a stereo bond.
+    """
+    mol = Ligand.from_file(file_name=get_data(molecule))
+    _ = mol.to_rdkit()
+
+
+@pytest.mark.parametrize(
+    "molecule, charge",
+    [
+        pytest.param("acetone.sdf", 0, id="acetone"),
+        pytest.param("bace0.sdf", 1, id="bace0"),
+        pytest.param("pyridine.sdf", 0, id="pyridine"),
+    ],
+)
+def test_charge(molecule, charge):
+    """
+    Make sure that the charge is correctly identified.
+    """
+    mol = Ligand.from_file(file_name=get_data(molecule))
+    assert mol.charge == charge
+
+
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("pyridine.sdf", id="pyridine"),
+        pytest.param("acetone.sdf", id="acetone"),
+        pytest.param("bace0.sdf", id="bace0"),
+    ],
+)
+def test_to_topology(molecule):
+    """
+    Make sure that a topology generated using qubekit matches an openff one.
+    """
+    mol = Ligand.from_file(file_name=get_data(molecule))
+    offmol = OFFMolecule.from_file(file_path=get_data(molecule))
+    assert (
+        nx.algorithms.isomorphism.is_isomorphic(mol.to_topology(), offmol.to_networkx())
+        is True
+    )
+
+
+def test_to_smiles_isomeric():
+    """
+    Make sure we can write out smiles strings with the correct settings.
+    """
+    # use bace as it has a chiral center
+    mol = Ligand.from_file(file_name=get_data("bace0.sdf"))
+    smiles = mol.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False)
+    assert "@@" in smiles
+    smiles = mol.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False)
+    assert "@" not in smiles
+
+
+def test_to_smiles_hydrogens(acetone):
+    """
+    Make sure the explicit hydrogens flag is respected.
+    """
+    smiles_h = acetone.to_smiles(isomeric=False, explicit_hydrogens=True, mapped=False)
+    assert smiles_h == "[H][C]([H])([H])[C](=[O])[C]([H])([H])[H]"
+    smiles = acetone.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False)
+    assert smiles == "CC(C)=O"
+
+
+def test_to_mapped_smiles():
+    """
+    Make sure the the mapped smiles flag is respected.
     """
     mol = Ligand.from_file(file_name=get_data("bace0.sdf"))
-    rd_mol = mol.to_rdkit()
+    no_map = mol.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=False)
+    mapped = mol.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
+    assert no_map != mapped
+
+
+def test_smarts_matches(acetone):
+    """
+    Make sure we can find the same environment matches as openff.
+    """
+    matches = acetone.get_smarts_matches(smirks="[#6:1](=[#8:2])-[#6]")
+    off = OFFMolecule.from_file(file_path=get_data("acetone.sdf"))
+    off_matches = off.chemical_environment_matches(query="[#6:1](=[#8:2])-[#6]")
+    # check we match the same bonds
+    assert set(off_matches) == set(matches)
+
+
+def test_smarts_matches_bad_query(acetone):
+    """
+    Make sure an error is raised if we try and search with a bad smarts pattern.
+    """
+    with pytest.raises(SmartsError):
+        acetone.get_smarts_matches(smirks="skfbj")
+
+
+def test_smarts_no_matches(acetone):
+    """
+    Make sure None is returned if we have no matches.
+    """
+    matches = acetone.get_smarts_matches(smirks="[#16:1]")
+    assert matches is None
