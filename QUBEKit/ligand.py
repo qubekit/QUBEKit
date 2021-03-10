@@ -184,7 +184,7 @@ class Molecule:
         )
         self.provenance = provenance
 
-        self.symm_hs = None
+        self.symm_hs: Optional[Dict] = None
         self.qm_energy: Optional[float] = None
         self.qm_scans = None
         self.scan_order = None
@@ -1359,7 +1359,7 @@ class Ligand(DefaultsMixin, Molecule):
     def add_conformers(self, file_name: str, input_type="input") -> None:
         """
         Read the given input file extract  the conformers and save them to the ligand.
-        #TODO do we want to check that the conectivity is the same?
+        TODO do we want to check that the connectivity is the same?
         """
         input_data = ReadInput.from_file(file_name=file_name)
         if input_data.coords is None:

@@ -1,0 +1,9 @@
+REMARK   1 CREATED WITH QUBEKit 2021-02-22 15:49:31.515772
+COMPND    chloromethane
+HETATM    1  C0  UNL     1      -0.122  -0.019   0.012  1.00  0.00           C
+HETATM    2 Cl1  UNL     1       1.645   0.068  -0.021  1.00  0.00          Cl
+HETATM    3  H2  UNL     1      -0.468  -0.532  -0.912  1.00  0.00           H
+HETATM    4  H3  UNL     1      -0.480  -0.514   0.938  1.00  0.00           H
+HETATM    5  H4  UNL     1      -0.575   0.997  -0.017  1.00  0.00           H
+CONECT    1    2    3    4    5
+END
