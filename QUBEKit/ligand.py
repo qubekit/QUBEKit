@@ -42,7 +42,7 @@ import QUBEKit
 from QUBEKit.engines import RDKit
 from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import Atom, Bond, ExtraSite
-from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
 from QUBEKit.utils.file_handling import ReadInput, ReadInputProtein
 
 
@@ -290,6 +290,33 @@ class Molecule:
             if atom.atom_name == name:
                 return atom
         raise AttributeError("No atom found with that name.")
+
+    def get_bond_between(self, atom1_index: int, atom2_index: int) -> Bond:
+        """
+        Try and find a bond between the two atom indices.
+
+        The bond may not have the atoms in the expected order.
+
+        Args:
+            atom1_index:
+                The index of the first atom in the atoms list.
+            atom2_index:
+                The index of the second atom in the atoms list.
+
+        Returns:
+            The bond object between the two target atoms.
+
+        Raises:
+            TopologyMismatch:
+                When no bond can be found between the atoms.
+        """
+        target = [atom1_index, atom2_index]
+        for bond in self.bonds:
+            if bond.atom1_index in target and bond.atom2_index in target:
+                return bond
+        raise TopologyMismatch(
+            f"There is no bond between atoms {atom1_index} and {atom2_index} in this molecule."
+        )
 
     def read_geometric_traj(self, trajectory):
         """

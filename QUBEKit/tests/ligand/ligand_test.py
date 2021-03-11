@@ -6,7 +6,7 @@ from rdkit.Chem import rdMolTransforms
 from simtk import unit
 
 from QUBEKit.ligand import Ligand
-from QUBEKit.utils.exceptions import FileTypeError, SmartsError
+from QUBEKit.utils.exceptions import FileTypeError, SmartsError, TopologyMismatch
 from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.helpers import unpickle
 
@@ -606,6 +606,13 @@ def test_smarts_matches(acetone):
     Make sure we can find the same environment matches as openff.
     """
     matches = acetone.get_smarts_matches(smirks="[#6:1](=[#8:2])-[#6]")
+    # make sure the atoms are in the correct order
+    assert len(matches) == 1
+    match = matches[0]
+    assert acetone.atoms[match[0]].atomic_symbol == "C"
+    assert acetone.atoms[match[1]].atomic_symbol == "O"
+    # make sure these atoms are bonded
+    _ = acetone.get_bond_between(*match)
     off = OFFMolecule.from_file(file_path=get_data("acetone.sdf"))
     off_matches = off.chemical_environment_matches(query="[#6:1](=[#8:2])-[#6]")
     # check we match the same bonds
@@ -626,3 +633,11 @@ def test_smarts_no_matches(acetone):
     """
     matches = acetone.get_smarts_matches(smirks="[#16:1]")
     assert matches is None
+
+
+def test_get_bond_error(acetone):
+    """
+    Make sure an error is raised if we can not find a bond between to atoms.
+    """
+    with pytest.raises(TopologyMismatch):
+        acetone.get_bond_between(atom1_index=4, atom2_index=9)
