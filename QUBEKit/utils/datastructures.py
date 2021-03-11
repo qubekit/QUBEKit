@@ -88,7 +88,7 @@ class Atom(BaseModel):
 
     atomic_number: PositiveInt = Field(
         ...,
-        description="The atomic number of the atom all other properties are bassed on this number.",
+        description="The atomic number of the atom all other properties are based on this number.",
     )
     atom_index: int = Field(
         ..., description="The index this atom has in the molecule object", gt=-1
@@ -107,7 +107,10 @@ class Atom(BaseModel):
     )
     stereochemistry: Optional[AtomStereoChemistry] = Field(
         None,
-        description="The sterochemistry of the atom where None means not stereogenic and U is unknown or ambigous.",
+        description="The stereochemistry of the atom where None means not stereogenic and U is unknown or ambiguous.",
+    )
+    bonds: Optional[List[int]] = Field(
+        None, description="The list of atom indices which are bonded to this atom."
     )
 
     @classmethod
@@ -119,6 +122,7 @@ class Atom(BaseModel):
         index = rd_atom.GetIdx()
         formal_charge = rd_atom.GetFormalCharge()
         aromatic = rd_atom.GetIsAromatic()
+        bonds = [a.GetIdx() for a in rd_atom.GetNeighbors()]
         # check for names in the normal places pdb, mol2 and mol
         if rd_atom.HasProp("_Name"):
             name = rd_atom.GetProp("_Name")
@@ -141,6 +145,7 @@ class Atom(BaseModel):
             formal_charge=formal_charge,
             aromatic=aromatic,
             stereochemistry=stereo_code,
+            bonds=bonds,
         )
 
     @property

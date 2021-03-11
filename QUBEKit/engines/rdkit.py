@@ -192,7 +192,7 @@ class RDKit:
             smarts_mol, uniquify=True, useChirality=True
         ):
             smirks_atoms = [match[atom] for atom in mapping.values()]
-            all_matches.add(tuple(sorted(smirks_atoms)))
+            all_matches.add(tuple(smirks_atoms))
         return list(all_matches)
 
     @staticmethod

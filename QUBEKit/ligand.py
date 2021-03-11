@@ -169,10 +169,6 @@ class Molecule:
         # Structure
         self.coords: Dict = {
             "input": [] or coordinates,
-            "mm": [],
-            "qm": [],
-            "temp": [],
-            "traj": [],
         }
         self.atoms: List[Atom] = atoms
         self.bonds: Optional[List[Bond]] = bonds
@@ -985,7 +981,17 @@ class Molecule:
         return Chem.Mol(rd_mol)
 
     def get_smarts_matches(self, smirks: str) -> Optional[List[Tuple[int, ...]]]:
-        """"""
+        """
+        Get substructure matches for a mapped SMARTS pattern.
+
+        Args:
+            smirks:
+                The mapped SMARTS pattern that should be used to query the molecule.
+
+        Returns:
+            `None` if there are no matches, else a list of tuples of atom indices which match the tagged atoms in
+            the SMARTS pattern. These are returned in the same order.
+        """
         matches = RDKit.get_smirks_matches(rdkit_mol=self.to_rdkit(), smirks=smirks)
         if not matches:
             return None

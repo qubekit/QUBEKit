@@ -507,10 +507,30 @@ def test_from_rdkit():
 def test_to_rdkit(molecule):
     """
     Make sure we can convert to rdkit.
-    We test on bace which has a chiral center and 12-dichloroethane which has a stereo bond.
+    We test on bace which has a chiral center and 12-dichloroethene which has a stereo bond.
     """
+    from rdkit import Chem
+
     mol = Ligand.from_file(file_name=get_data(molecule))
-    _ = mol.to_rdkit()
+    rd_mol = mol.to_rdkit()
+    # make sure the atom and bond stereo match
+    for atom in rd_mol.GetAtoms():
+        qb_atom = mol.atoms[atom.GetIdx()]
+        assert atom.GetIsAromatic() is qb_atom.aromatic
+        if qb_atom.stereochemistry is not None:
+            if qb_atom.stereochemistry == "S":
+                assert atom.GetChiralTag() == Chem.CHI_TETRAHEDRAL_CCW
+            else:
+                assert atom.GetChiralTag() == Chem.CHI_TETRAHEDRAL_CW
+    for bond in rd_mol.GetBonds():
+        qb_bond = mol.bonds[bond.GetIdx()]
+        assert qb_bond.aromatic is bond.GetIsAromatic()
+        assert qb_bond.bond_order == bond.GetBondTypeAsDouble()
+        if qb_bond.stereochemistry is not None:
+            if qb_bond.stereochemistry == "E":
+                assert bond.GetStereo() == Chem.BondStereo.STEREOE
+            else:
+                assert bond.GetStereo() == Chem.BondStereo.STEREOZ
 
 
 @pytest.mark.parametrize(
