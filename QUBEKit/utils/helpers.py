@@ -393,6 +393,8 @@ def update_ligand(restart_key, cls):
             name=old_mol.name,
             multiplicity=old_mol.multiplicity,
         )
+        # make sure we set the qm geometry
+        new_mol.coordinates = old_mol.coords["qm"]
     except AttributeError:
         new_mol = cls.from_rdkit(
             rdkit_mol=old_mol.to_rdkit(),
