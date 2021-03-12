@@ -919,7 +919,7 @@ class Execute:
         skipping = False
         if self.order[start_key] == self.skip:
             printf(f"{COLOURS.blue}Skipping stage: {start_key}{COLOURS.end}")
-            append_to_log(f"skipping stage: {start_key}")
+            append_to_log(mol.home, f"skipping stage: {start_key}", major=True)
             skipping = True
         else:
             if begin_log_msg:
@@ -950,7 +950,7 @@ class Execute:
     def parametrise(molecule: Ligand, verbose: bool = True) -> Ligand:
         """Perform initial molecule parametrisation using OpenFF, Antechamber or XML."""
         if verbose:
-            append_to_log("Starting parametrisation")
+            append_to_log(molecule.home, "Starting parametrisation", major=True)
 
         # Parametrisation options:
         param_dict = {"antechamber": AnteChamber, "xml": XML, "openff": OpenFF}
@@ -981,7 +981,9 @@ class Execute:
 
         if verbose:
             append_to_log(
-                f"Finishing parametrisation of molecule with {molecule.parameter_engine}"
+                molecule.home,
+                f"Finishing parametrisation of molecule with {molecule.parameter_engine}",
+                major=True,
             )
 
         return molecule
@@ -999,7 +1001,7 @@ class Execute:
         #TODO replace with a general optimiser using QCEngine.
         """
 
-        append_to_log("Starting mm_optimisation")
+        append_to_log(molecule.home, "Starting mm_optimisation", major=True)
         # Check which method we want then do the optimisation
         if molecule.mm_opt_method == "openmm":
             if molecule.parameter_engine == "none":
@@ -1033,14 +1035,16 @@ class Execute:
             molecule.coordinates = rdkit_mol.GetConformer().GetPositions()
 
         append_to_log(
-            f"Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}"
+            molecule.home,
+            f"Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}",
+            major=True,
         )
         return molecule
 
     def qm_optimise(self, molecule: Ligand) -> Ligand:
         """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
 
-        append_to_log("Starting qm_optimisation")
+        append_to_log(molecule.home, "Starting qm_optimisation", major=True)
         MAX_RESTARTS = 3
 
         if molecule.geometric and (molecule.bonds_engine == "psi4"):
@@ -1054,8 +1058,8 @@ class Execute:
 
             while (not result["success"]) and (restart_count < MAX_RESTARTS):
                 append_to_log(
+                    molecule.home,
                     f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
-                    msg_type="minor",
                 )
 
                 try:
@@ -1107,17 +1111,16 @@ class Execute:
             restart_count = 0
             while (not result["success"]) and (restart_count < MAX_RESTARTS):
                 append_to_log(
+                    molecule.home,
                     f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
-                    msg_type="minor",
                 )
 
                 if result["error"] == "FileIO":
                     result = qm_engine.generate_input(
-                        "mm", optimise=True, restart=True, execute=molecule.bonds_engine
+                        optimise=True, restart=True, execute=molecule.bonds_engine
                     )
                 elif result["error"] == "Max iterations":
                     result = qm_engine.generate_input(
-                        "input",
                         optimise=True,
                         restart=True,
                         execute=molecule.bonds_engine,
@@ -1143,7 +1146,9 @@ class Execute:
             molecule.to_file(file_name="opt.xyz")
 
         append_to_log(
-            f'Finishing qm_optimisation of molecule{" using geometric" if molecule.geometric else ""}'
+            molecule.home,
+            f'Finishing qm_optimisation of molecule{" using geometric" if molecule.geometric else ""}',
+            major=True,
         )
 
         return molecule
@@ -1152,7 +1157,7 @@ class Execute:
     def hessian(molecule: Ligand) -> Ligand:
         """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
 
-        append_to_log("Starting hessian calculation")
+        append_to_log(molecule.home, "Starting hessian calculation", major=True)
 
         if molecule.bonds_engine in ["g09", "g16"]:
             qm_engine = Gaussian(molecule)
@@ -1167,11 +1172,11 @@ class Execute:
                 )
             except FileNotFoundError:
                 append_to_log(
+                    molecule.home,
                     "qm_optimise checkpoint not found, optimising first to refine atomic coordinates",
-                    msg_type="minor",
                 )
                 result = qm_engine.generate_input(
-                    "qm", optimise=True, hessian=True, execute=molecule.bonds_engine
+                    optimise=True, hessian=True, execute=molecule.bonds_engine
                 )
 
             if not result["success"]:
@@ -1187,7 +1192,11 @@ class Execute:
 
         molecule.hessian = hessian
 
-        append_to_log(f"Finishing Hessian calculation using {molecule.bonds_engine}")
+        append_to_log(
+            molecule.home,
+            f"Finishing Hessian calculation using {molecule.bonds_engine}",
+            major=True,
+        )
 
         return molecule
 
@@ -1195,7 +1204,7 @@ class Execute:
     def mod_sem(molecule: Ligand) -> Ligand:
         """Modified Seminario for bonds and angles."""
 
-        append_to_log("Starting mod_Seminario method")
+        append_to_log(molecule.home, "Starting mod_Seminario method", major=True)
 
         mod_sem = ModSeminario(molecule)
 
@@ -1203,19 +1212,19 @@ class Execute:
         if molecule.enable_symmetry:
             mod_sem.symmetrise_bonded_parameters()
 
-        append_to_log("Finishing Mod_Seminario method")
+        append_to_log(molecule.home, "Finishing Mod_Seminario method", major=True)
 
         return molecule
 
     def density(self, molecule):
         """Perform density calculation with the qm engine."""
 
-        append_to_log("Starting density calculation")
+        append_to_log(molecule.home, "Starting density calculation", major=True)
 
         if molecule.density_engine == "onetep":
             molecule.write_xyz(input_type="qm")
             # If using ONETEP, stop after this step
-            append_to_log("Density analysis file made for ONETEP")
+            append_to_log(molecule.home, "Density analysis file made for ONETEP")
 
             # Edit the order to end here
             self.order = OrderedDict(
@@ -1235,7 +1244,7 @@ class Execute:
                 density=True,
                 execute=molecule.density_engine,
             )
-            append_to_log("Finishing Density calculation")
+            append_to_log(molecule.home, "Finishing Density calculation", major=True)
 
         return molecule
 
@@ -1243,7 +1252,7 @@ class Execute:
     def charges(molecule):
         """Perform DDEC calculation with Chargemol."""
 
-        append_to_log("Starting charge partitioning")
+        append_to_log(molecule.home, "Starting charge partitioning", major=True)
         copy(
             os.path.join(molecule.home, "06_density", f"{molecule.name}.wfx"),
             f"{molecule.name}.wfx",
@@ -1254,9 +1263,11 @@ class Execute:
         ExtractChargeData(molecule).extract_charge_data()
 
         append_to_log(
-            f"Finishing charge partitioning with Chargemol and DDEC{molecule.ddec_version}"
+            molecule.home,
+            f"Finishing charge partitioning with Chargemol and DDEC{molecule.ddec_version}",
+            major=True,
         )
-        append_to_log("Starting virtual sites calculation")
+        append_to_log(molecule.home, "Starting virtual sites calculation", major=True)
 
         if molecule.enable_virtual_sites:
             vs = VirtualSites(molecule)
@@ -1269,7 +1280,7 @@ class Execute:
         # Ensure the net charge is an integer value and adds up to molecule.charge
         fix_net_charge(molecule)
 
-        append_to_log("Finishing virtual sites calculation")
+        append_to_log(molecule.home, "Finishing virtual sites calculation", major=True)
 
         return molecule
 
@@ -1277,11 +1288,15 @@ class Execute:
     def lennard_jones(molecule):
         """Calculate Lennard-Jones parameters, and extract virtual sites."""
 
-        append_to_log("Starting Lennard-Jones parameter calculation")
+        append_to_log(
+            molecule.home, "Starting Lennard-Jones parameter calculation", major=True
+        )
 
         LennardJones(molecule).calculate_non_bonded_force()
 
-        append_to_log("Finishing Lennard-Jones parameter calculation")
+        append_to_log(
+            molecule.home, "Finishing Lennard-Jones parameter calculation", major=True
+        )
 
         return molecule
 
@@ -1289,7 +1304,7 @@ class Execute:
     def torsion_scan(molecule):
         """Perform torsion scan."""
 
-        append_to_log("Starting torsion_scans")
+        append_to_log(molecule.home, "Starting torsion_scans", major=True)
 
         tor_scan = TorsionScan(molecule)
 
@@ -1297,7 +1312,7 @@ class Execute:
         tor_scan.find_scan_order()
         tor_scan.scan()
 
-        append_to_log("Finishing torsion_scans")
+        append_to_log(molecule.home, "Finishing torsion_scans", major=True)
 
         return molecule
 
@@ -1305,7 +1320,7 @@ class Execute:
     def torsion_optimise(molecule):
         """Perform torsion optimisation."""
 
-        append_to_log("Starting torsion_optimisations")
+        append_to_log(molecule.home, "Starting torsion_optimisations", major=True)
 
         # First we should make sure we have collected the results of the scans
         if molecule.qm_scans is None:
@@ -1318,7 +1333,7 @@ class Execute:
 
         TorsionOptimiser(molecule).run()
 
-        append_to_log("Finishing torsion_optimisations")
+        append_to_log(molecule.home, "Finishing torsion_optimisations", major=True)
 
         return molecule
 
