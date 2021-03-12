@@ -1423,7 +1423,10 @@ class Ligand(DefaultsMixin, Molecule):
             # get the coords from the rdkit molecule
             coords = input_data.rdkit_mol.GetConformer().GetPositions()
         else:
-            coords = input_data.coords[-1]
+            if isinstance(input_data.coords, list):
+                coords = input_data.coords[-1]
+            else:
+                coords = input_data.coords
         self.coordinates = coords
 
 
