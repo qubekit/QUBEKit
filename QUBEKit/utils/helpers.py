@@ -387,7 +387,20 @@ def update_ligand(restart_key, cls):
     # Get the old mol from the pickle file (probably in ../)
     old_mol = unpickle()[restart_key]
     # Initialise a new molecule based on the same mol_input that was used from before (cls = Ligand)
-    new_mol = cls(old_mol.mol_input, old_mol.name)
+    try:
+        new_mol = cls.from_rdkit(
+            rdkit_mol=old_mol.rdkit_mol,
+            name=old_mol.name,
+            multiplicity=old_mol.multiplicity,
+        )
+        # make sure we set the qm geometry
+        new_mol.coordinates = old_mol.coords["qm"]
+    except AttributeError:
+        new_mol = cls.from_rdkit(
+            rdkit_mol=old_mol.to_rdkit(),
+            name=old_mol.name,
+            multiplicity=old_mol.multiplicity,
+        )
 
     for attr, val in new_mol.__dict__.items():
         try:

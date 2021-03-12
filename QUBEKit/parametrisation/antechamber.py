@@ -51,10 +51,10 @@ class AnteChamber(Parametrisation):
         # Do this in a temp directory as it produces a lot of files
         with TemporaryDirectory() as temp:
             os.chdir(temp)
-            self.molecule.write_pdb(name="in")
+            self.molecule.to_file(file_name="in.sdf")
 
             # Call Antechamber
-            cmd = f"antechamber -i in.pdb -fi pdb -o out.mol2 -fo mol2 -s 2 -at {self.fftype} -c bcc -nc {self.molecule.charge}"
+            cmd = f"antechamber -i in.sdf -fi sdf -o out.mol2 -fo mol2 -s 2 -m {self.molecule.multiplicity} -c bcc -nc {self.molecule.charge} -pf yes"
 
             with open("ante_log.txt", "w+") as log:
                 sp.run(cmd, shell=True, stdout=log, stderr=log)

@@ -6,7 +6,7 @@ import shutil
 
 import pytest
 
-from QUBEKit.molecules import Ligand
+from QUBEKit.ligand import Ligand
 from QUBEKit.run import Execute
 from QUBEKit.utils.file_handling import get_data
 
@@ -24,7 +24,7 @@ def test_parametrise_all(parameter_engine, tmpdir):
     For each parameter engine make sure the molecule is correctly parameterised.
     """
     with tmpdir.as_cwd():
-        mol = Ligand.from_file(get_data("pyridine.pdb"))
+        mol = Ligand.from_file(get_data("pyridine.sdf"))
         mol.parameter_engine = parameter_engine
         if parameter_engine == "xml":
             shutil.copy(get_data("pyridine.xml"), "pyridine.xml")

@@ -54,7 +54,8 @@ class Parametrisation:
         self.molecule.AtomTypes = {}
         try:
             self.molecule.HarmonicBondForce = {
-                bond: [0, 0] for bond in self.molecule.bonds
+                (bond.atom1_index, bond.atom2_index): [0, 0]
+                for bond in self.molecule.bonds
             }
             self.molecule.HarmonicAngleForce = {
                 angle: [0, 0] for angle in self.molecule.angles
@@ -154,9 +155,6 @@ class Parametrisation:
                             float(Atom.get("sig")),
                             float(Atom.get("eps")),
                         ]
-                        self.molecule.atoms[atom_num].partial_charge = float(
-                            Atom.get("q")
-                        )
                         atom_num += 1
 
             # Check if we found any sites

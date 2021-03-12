@@ -43,7 +43,7 @@ class OpenFF(Parametrisation):
 
         # Create an openFF molecule from the rdkit molecule
         off_molecule = Molecule.from_rdkit(
-            self.molecule.rdkit_mol, allow_undefined_stereo=True
+            self.molecule.to_rdkit(), allow_undefined_stereo=True
         )
 
         # Make the OpenMM system

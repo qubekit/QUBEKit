@@ -195,7 +195,10 @@ class ModSeminario:
         self.size_mol = molecule.n_atoms
         # Find bond lengths and create empty matrix of correct size.
         self.bond_lens = np.zeros((self.size_mol, self.size_mol))
-        self.coords = self.molecule.coords["qm"]
+        self.coords = self.molecule.coordinates
+        # reset the ligand data
+        self.molecule.HarmonicBondForce = {}
+        self.molecule.HarmonicAngleForce = {}
         # convert the hessian from atomic units
         conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
         self.hessian = molecule.hessian * conversion
@@ -380,7 +383,7 @@ class ModSeminario:
         Uses the modified Seminario method to find the bond parameters and print them to file.
         """
 
-        bonds = self.molecule.topology.edges
+        bonds = self.molecule.to_topology().edges
         conversion = constants.KCAL_TO_KJ * 200
 
         k_b, bond_len_list = np.zeros(len(bonds)), np.zeros(len(bonds))

@@ -52,6 +52,12 @@ class PSI4Error(Exception):
     """
 
 
+class SmartsError(Exception):
+    """
+    The requested smarts could not be interpreted by rdkit
+    """
+
+
 class SpecificationError(Exception):
     """
     When a requested specification is not possible.

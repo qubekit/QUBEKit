@@ -61,10 +61,11 @@ class TorsionScan:
         self.home = os.getcwd()
 
     def is_short_cc_bond(self, bond):
-        atom_0, atom_1 = [self.molecule.rdkit_mol.GetAtomWithIdx(atom) for atom in bond]
+        rdkit_mol = self.molecule.to_rdkit()
+        atom_0, atom_1 = [rdkit_mol.GetAtomWithIdx(atom) for atom in bond]
 
         if atom_0.GetSymbol().upper() == "C" and atom_1.GetSymbol().upper() == "C":
-            if atom_0.GetDegree() == 3 and self.molecule.measure_bonds[bond] < 1.42:
+            if atom_0.GetDegree() == 3 and self.molecule.measure_bonds()[bond] < 1.42:
                 return True
         return False
 
@@ -111,11 +112,12 @@ class TorsionScan:
             self.molecule.increments[rev_dihedral] = 10
 
         if hasattr(self.molecule, "skip_nonrotatable"):
+            rdkit_mol = self.molecule.to_rdkit()
             if self.molecule.skip_nonrotatable == "no":
                 for dihedral in non_rotatable:
                     bond = dihedral[1:3]
                     restricted, half_restricted = False, False
-                    atom_0 = self.molecule.rdkit_mol.GetAtomWithIdx(bond[0])
+                    atom_0 = rdkit_mol.GetAtomWithIdx(bond[0])
                     if (
                         atom_0.IsInRingSize(3)
                         or atom_0.IsInRingSize(4)
@@ -128,8 +130,8 @@ class TorsionScan:
 
                     current_val = self.molecule.measure_dihedrals()[dihedral]
                     if restricted:
-                        atom_0 = self.molecule.rdkit_mol.GetAtomWithIdx(dihedral[0])
-                        atom_3 = self.molecule.rdkit_mol.GetAtomWithIdx(dihedral[3])
+                        atom_0 = rdkit_mol.GetAtomWithIdx(dihedral[0])
+                        atom_3 = rdkit_mol.GetAtomWithIdx(dihedral[3])
                         half_restricted = not (atom_0.IsInRing() and atom_3.IsInRing())
 
                     if restricted:
@@ -372,7 +374,12 @@ class TorsionOptimiser:
     """
 
     def __init__(
-        self, molecule, weight_mm=True, step_size=0.02, error_tol=1e-5, x_tol=1e-5
+        self,
+        molecule: Ligand,
+        weight_mm=True,
+        step_size=0.02,
+        error_tol=1e-5,
+        x_tol=1e-5,
     ):
 
         self.molecule = molecule
@@ -417,7 +424,7 @@ class TorsionOptimiser:
         self.optimiser_log = None
 
         # Convert the optimised qm coords to OpenMM format
-        self.opt_coords = self.molecule.openmm_coordinates(input_type="qm")
+        self.opt_coords = self.molecule.openmm_coordinates()
 
         # constants
         self.k_b = constants.KB_KCAL_P_MOL_K
@@ -425,7 +432,6 @@ class TorsionOptimiser:
         self.home = os.getcwd()
 
         # start the OpenMM system
-        self.molecule.write_pdb()
         self.load_torsions()
         # Now start the OpenMM engine
         self.open_mm = OpenMM(self.molecule)
@@ -806,8 +812,8 @@ class TorsionOptimiser:
         # Set up the first fitting
         for self.scan in self.molecule.scan_order:
             # Get the MM coords from the QM torsion drive in OpenMM format
-            self.molecule.coords["traj"] = self.molecule.qm_scans[self.scan][1]
-            self.scan_coords = self.molecule.openmm_coordinates(input_type="traj")
+            self.molecule.coordinates = self.molecule.qm_scans[self.scan][1]
+            self.scan_coords = self.molecule.openmm_coordinates()
             self._create_rdkit_molecules(self.scan_coords)
             # Set up the fitting folders
             try:
@@ -987,8 +993,6 @@ class TorsionOptimiser:
             to_fit = [self.scan]
         # Now expand to include all symmetry equivalent dihedrals
         torsions_and_types = {}
-        if self.molecule.dihedral_types is None:
-            self.molecule.dihedral_types = {}
 
         for key, dihedral_class in self.molecule.dihedral_types.items():
             for dihedral in dihedral_class:
@@ -1054,7 +1058,7 @@ class TorsionOptimiser:
 
         self.rmsd_atoms = []
         for coord in coordinates:
-            rdkit_mol = deepcopy(self.molecule.rdkit_mol)
+            rdkit_mol = deepcopy(self.molecule.to_rdkit())
             rdkit_mol.RemoveAllConformers()
             rdkit_mol = RDKit.add_conformer(
                 rdkit_mol, np.array(coord) * constants.NM_TO_ANGS
@@ -1429,7 +1433,7 @@ class TorsionOptimiser:
         make_and_change_into(temp)
 
         # Write out a pdb file of the qm optimised geometry
-        self.molecule.write_pdb(name="openmm")
+        self.molecule.to_file(file_name="openmm.pdb")
         # Also need an xml file for the molecule to use in geometric
         self.molecule.write_parameters(name="openmm")
         # openmm.pdb and input.xml are the expected names for geometric
@@ -1451,8 +1455,7 @@ class TorsionOptimiser:
                 )
 
                 self.molecule.read_tdrive(self.scan)
-                self.molecule.coords["traj"] = self.molecule.qm_scans[self.scan][1]
-                positions = self.molecule.openmm_coordinates(input_type="traj")
+                positions = self.molecule.qm_scans[self.scan][1]
 
             elif engine == "geometric":
                 if self.molecule.constraints_file is not None:
@@ -1469,8 +1472,6 @@ class TorsionOptimiser:
                     check=True,
                 )
 
-                self.molecule.save_to_ligand("scan.xyz")
-
             else:
                 raise NotImplementedError(
                     "Invalid torsion engine. Please use torsiondrive or geometric"
@@ -1481,51 +1482,51 @@ class TorsionOptimiser:
 
         return positions
 
-    def single_point(self):
-        """Take set of coordinates of a molecule and do a single point calculation; returns an array of the energies."""
-
-        # reset the temp entry in the molecule
-        self.molecule.coords["temp"] = self.molecule.coords["input"]
-        # for each coordinate in the system we need to write a qm input file and get the single point energy
-        try:
-            rmtree("Single_points")
-        except FileNotFoundError:
-            pass
-
-        make_and_change_into("Single_points")
-
-        sp_energy = []
-
-        for i, x in enumerate(self.scan_coords):
-            make_and_change_into(f"SP_{i}")
-            print(
-                f"Doing single point calculations on new structures ... {i + 1}/{len(self.scan_coords)}"
-            )
-            # Change the positions of the molecule in the molecule array
-            for y, coord in enumerate(x):
-                for z, pos in enumerate(coord):
-                    # Convert from nanometers in openmm to Angs in QM and store in the temp position in the molecule
-                    self.qm_engine.molecule.coords["temp"][y][z] = (
-                        pos * constants.NM_TO_ANGS
-                    )
-
-            # Write the new coordinate file and run the calculation
-            result = self.qm_engine.generate_input(input_type="temp", energy=True)
-            if result["success"] and self.qm_engine.__class__.__name__ == "Gaussian":
-                coords, energy = self.qm_engine.optimised_structure()
-                sp_energy.append(energy)
-
-            elif result["success"] and self.qm_engine.__class__.__name__ == "PSI4":
-                # Extract the energy and save to the array
-                sp_energy.append(PSI4.get_energy())
-
-            # Move back to the base directory
-            os.chdir("../")
-
-        # move out to the main folder
-        os.chdir("../")
-
-        return np.array(sp_energy)
+    # def single_point(self):
+    #     """Take set of coordinates of a molecule and do a single point calculation; returns an array of the energies."""
+    #
+    #     # reset the temp entry in the molecule
+    #     self.molecule.coords["temp"] = self.molecule.coords["input"]
+    #     # for each coordinate in the system we need to write a qm input file and get the single point energy
+    #     try:
+    #         rmtree("Single_points")
+    #     except FileNotFoundError:
+    #         pass
+    #
+    #     make_and_change_into("Single_points")
+    #
+    #     sp_energy = []
+    #
+    #     for i, x in enumerate(self.scan_coords):
+    #         make_and_change_into(f"SP_{i}")
+    #         print(
+    #             f"Doing single point calculations on new structures ... {i + 1}/{len(self.scan_coords)}"
+    #         )
+    #         # Change the positions of the molecule in the molecule array
+    #         for y, coord in enumerate(x):
+    #             for z, pos in enumerate(coord):
+    #                 # Convert from nanometers in openmm to Angs in QM and store in the temp position in the molecule
+    #                 self.qm_engine.molecule.coords["temp"][y][z] = (
+    #                     pos * constants.NM_TO_ANGS
+    #                 )
+    #
+    #         # Write the new coordinate file and run the calculation
+    #         result = self.qm_engine.generate_input(input_type="temp", energy=True)
+    #         if result["success"] and self.qm_engine.__class__.__name__ == "Gaussian":
+    #             coords, energy = self.qm_engine.optimised_structure()
+    #             sp_energy.append(energy)
+    #
+    #         elif result["success"] and self.qm_engine.__class__.__name__ == "PSI4":
+    #             # Extract the energy and save to the array
+    #             sp_energy.append(PSI4.get_energy())
+    #
+    #         # Move back to the base directory
+    #         os.chdir("../")
+    #
+    #     # move out to the main folder
+    #     os.chdir("../")
+    #
+    #     return np.array(sp_energy)
 
     def update_mol(self):
         """When the optimisation is complete, update the PeriodicTorsionForce parameters in the molecule."""

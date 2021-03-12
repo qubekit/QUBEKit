@@ -4,19 +4,232 @@
 Purpose of this file is to read various inputs and produce the info required for
     Ligand() or Protein()
 Should be very little calculation here, simply file reading and some small validations / checks
-
-TODO
-    Need to re-add topology checking and name checking (Do this in ligand.py?)
-    Descriptors should be accessed separately if needed (need to re-add)
 """
 
 import os
 
 import numpy as np
 
-from QUBEKit.molecules.components import ExtraSite
-from QUBEKit.utils.constants import ANGS_TO_NM
-from QUBEKit.utils.datastructures import CustomNamespace
+from QUBEKit.engines import RDKit
+from QUBEKit.utils.constants import ANGS_TO_NM, BOHR_TO_ANGS
+from QUBEKit.utils.datastructures import Atom, Bond, CustomNamespace, Element, ExtraSite
+
+
+class ReadInput:
+    """
+    Called inside Ligand; used to handle reading any kind of input valid in QUBEKit
+        QC JSON object
+        SMILES string
+        PDB, MOL2, XYZ file
+    """
+
+    def __init__(
+        self,
+        coords: Optional[np.ndarray] = None,
+        rdkit_mol: Optional = None,
+        name: Optional[str] = None,
+    ):
+
+        self.coords = coords
+        self.rdkit_mol = rdkit_mol
+        self.name = name
+
+    @classmethod
+    def from_smiles(cls, smiles: str, name: Optional[str] = None) -> "ReadInput":
+        """
+        Make a ReadInput object which can be taken by the Ligand class to make the model.
+
+        Note
+        ----
+        This method will generate a conformer for the molecule.
+
+        Parameters
+        ----------
+        smiles:
+            The smiles string which should be parsed by rdkit.
+        name:
+            The name that should be given to the molecule.
+        """
+        # Smiles string input
+        rdkit_mol = RDKit.smiles_to_rdkit_mol(smiles_string=smiles, name=name)
+        return cls(name=name, coords=None, rdkit_mol=rdkit_mol)
+
+    @classmethod
+    def from_file(cls, file_name: str) -> "ReadInput":
+        """
+        Read the input file using RDKit and return the molecule data.
+        """
+        input_file = Path(file_name)
+        # if the file is not there raise an error
+        if not input_file.exists():
+            raise FileNotFoundError(
+                f"{input_file.as_posix()} could not be found is this path correct?"
+            )
+        # xyz is a special case of file only internal readers catch
+        if input_file.suffix == ".xyz":
+            return cls.from_xyz(file_name=input_file.as_posix())
+        # read the input with rdkit
+        rdkit_mol = RDKit.file_to_rdkit_mol(file_path=input_file)
+        return cls(rdkit_mol=rdkit_mol, coords=None, name=rdkit_mol.GetProp("_Name"))
+
+    @classmethod
+    def from_qc_json(cls, qc_json) -> "ReadInput":
+        """
+        Given a QC JSON object, extracts the topology, atoms and coords of the molecule.
+        #TODO we need to be absle to read mapped smiles for this to work with stereochem and aromaticity
+        """
+
+        topology = nx.Graph()
+        atoms = []
+
+        for i, atom in enumerate(qc_json.symbols):
+            atoms.append(
+                Atom(
+                    atomic_number=Element().number(atom),
+                    atom_index=i,
+                    atom_name=f"{atom}{i}",
+                )
+            )
+            topology.add_node(i)
+
+        for bond in qc_json.connectivity:
+            topology.add_edge(*bond[:2])
+
+        coords = np.array(qc_json.geometry).reshape((len(atoms), 3)) * BOHR_TO_ANGS
+        atoms = atoms or None
+        return cls(name=None, rdkit_mol=None, coords=coords)
+
+    @classmethod
+    def from_xyz(cls, file_name: str) -> "ReadInput":
+        """
+        Internal xyz reader.
+        Extracts the coords of the molecule.
+        """
+
+        traj_molecules = []
+        coords = []
+
+        with open(file_name) as xyz_file:
+            lines = xyz_file.readlines()
+
+            n_atoms = float(lines[0])
+
+            for line in lines:
+                line = line.split()
+                # skip frame heading lines
+                if len(line) <= 1 or "Iteration" in line:
+                    continue
+
+                coords.append([float(line[1]), float(line[2]), float(line[3])])
+
+                if len(coords) == n_atoms:
+                    # we have collected the molecule now store the frame
+                    traj_molecules.append(np.array(coords))
+                    coords = []
+
+        coords = traj_molecules[0] if len(traj_molecules) == 1 else traj_molecules
+        return cls(coords=coords, name=None, rdkit_mol=None)
+
+
+class ReadInputProtein:
+    """
+    A class that specialises in reading Protein input files.
+    #TODO are we better doing this with openmm or another tool?
+    """
+
+    def __init__(
+        self,
+        atoms: List[Atom],
+        bonds: Optional[List[Bond]] = None,
+        coords: Optional[np.ndarray] = None,
+        pdb_names: Optional[List[str]] = None,
+        residues: Optional[List[str]] = None,
+        name: Optional[str] = None,
+    ):
+        self.atoms = atoms
+        self.bonds = bonds
+        self.coords = coords
+        self.name = name
+        self.residues = residues
+        self.pdb_names = pdb_names
+
+    @classmethod
+    def from_pdb(cls, file_name: str, name: Optional[str] = None):
+        """
+        Read the protein input pdb file.
+        :return:
+        """
+        with open(file_name, "r") as pdb:
+            lines = pdb.readlines()
+
+        coords = []
+        atoms = []
+        bonds = []
+        Residues = []
+        pdb_names = []
+
+        # atom counter used for graph node generation
+        atom_count = 0
+        for line in lines:
+            if "ATOM" in line or "HETATM" in line:
+                atomic_symbol = str(line[76:78])
+                atomic_symbol = re.sub("[0-9]+", "", atomic_symbol).strip()
+
+                # If the element column is missing from the pdb, extract the atomic_symbol from the atom name.
+                if not atomic_symbol:
+                    atomic_symbol = str(line.split()[2])
+                    atomic_symbol = re.sub("[0-9]+", "", atomic_symbol)
+
+                # now make sure we have a valid element
+                if atomic_symbol.lower() != "cl" and atomic_symbol.lower() != "br":
+                    atomic_symbol = atomic_symbol[0]
+
+                atom_name = f"{atomic_symbol}{atom_count}"
+                # TODO should we use a protein pdb package for this?
+                qube_atom = Atom(
+                    atomic_number=Element().number(atomic_symbol),
+                    atom_index=atom_count,
+                    atom_name=atom_name,
+                    formal_charge=0,
+                    aromatic=False,
+                )
+
+                atoms.append(qube_atom)
+
+                pdb_names.append(str(line.split()[2]))
+
+                # also get the residue order from the pdb file so we can rewrite the file
+                Residues.append(str(line.split()[3]))
+
+                atom_count += 1
+                coords.append(
+                    [float(line[30:38]), float(line[38:46]), float(line[46:54])]
+                )
+
+            elif "CONECT" in line:
+                conect_terms = line.split()
+                for atom in conect_terms[2:]:
+                    if int(atom):
+                        bond = Bond(
+                            atom1_index=int(conect_terms[1]) - 1,
+                            atom2_index=int(atom) - 1,
+                            bond_order=1,
+                            aromatic=False,
+                        )
+                        bonds.append(bond)
+
+        coords = np.array(coords)
+        residues = [res for res, group in groupby(Residues)]
+        if name is None:
+            name = Path(file_name).stem
+        return cls(
+            atoms=atoms,
+            bonds=bonds,
+            coords=coords,
+            pdb_names=pdb_names,
+            residues=residues,
+            name=name,
+        )
 
 
 class ExtractChargeData:

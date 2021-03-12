@@ -1061,7 +1061,6 @@ class Execute:
         append_to_log(
             f"Finishing mm_optimisation of the molecule with {molecule.pre_opt_method}"
         )
-
         return molecule
 
     @staticmethod
@@ -1174,7 +1173,6 @@ class Execute:
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
             qm_engine.generate_input(
-                input_type="qm" if list(molecule.coords["qm"]) else "input",
                 density=True,
                 execute=molecule.density_engine,
             )
@@ -1266,13 +1264,13 @@ class Execute:
         return molecule
 
     @staticmethod
-    def finalise(molecule):
+    def finalise(molecule: Ligand) -> Ligand:
         """
         Make the xml and pdb file;
         print the ligand object to terminal (in abbreviated form) and to the log file (unabbreviated).
         """
 
-        molecule.write_pdb()
+        molecule.to_file(file_name=f"{molecule.name}.pdb")
         molecule.write_parameters()
 
         if molecule.verbose:
