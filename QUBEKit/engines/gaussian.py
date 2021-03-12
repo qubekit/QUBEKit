@@ -39,7 +39,6 @@ class Gaussian(Engines):
 
     def generate_input(
         self,
-        input_type="input",
         optimise=False,
         hessian=False,
         energy=False,
@@ -112,7 +111,7 @@ class Gaussian(Engines):
 
             if not restart:
                 # Add the atomic coordinates if we are not restarting from the chk file
-                for atom_index, coord in enumerate(self.molecule.coords[input_type]):
+                for atom_index, coord in enumerate(self.molecule.coordinates):
                     input_file.write(
                         f"{self.molecule.atoms[atom_index].atomic_symbol} "
                         f"{float(coord[0]): .10f} {float(coord[1]): .10f} {float(coord[2]): .10f}\n"

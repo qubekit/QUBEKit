@@ -141,15 +141,15 @@ def test_coords(acetone):
     """
     Make sure that when reading an input file the coordinates are saved.
     """
-    assert acetone.coords["input"].shape == (acetone.n_atoms, 3)
+    assert acetone.coordinates.shape == (acetone.n_atoms, 3)
 
 
 def test_bond_lengths(acetone):
     """
     Make sure we can measure bond lengths for a given conformer and the distances match those given by rdkit.
     """
-    bond_lengths = acetone.measure_bonds(input_type="input")
-    rdkit_mol = acetone.to_rdkit(input_type="input")
+    bond_lengths = acetone.measure_bonds()
+    rdkit_mol = acetone.to_rdkit()
     for bond, length in bond_lengths.items():
         assert pytest.approx(
             rdMolTransforms.GetBondLength(rdkit_mol.GetConformer(), *bond) == length
@@ -160,8 +160,8 @@ def test_measure_angles(acetone):
     """
     Make sure we can correctly measure all of the angles in the molecule.
     """
-    angle_values = acetone.measure_angles(input_type="input")
-    rdkit_mol = acetone.to_rdkit(input_type="input")
+    angle_values = acetone.measure_angles()
+    rdkit_mol = acetone.to_rdkit()
     for angle, value in angle_values.items():
         assert pytest.approx(
             rdMolTransforms.GetAngleDeg(rdkit_mol.GetConformer(), *angle) == value
@@ -172,8 +172,8 @@ def test_measure_dihedrals(acetone):
     """
     Make sure we can correctly measure all dihedrals in the molecule.
     """
-    dihedral_values = acetone.measure_dihedrals(input_type="input")
-    rdkit_mol = acetone.to_rdkit(input_type="input")
+    dihedral_values = acetone.measure_dihedrals()
+    rdkit_mol = acetone.to_rdkit()
     for dihedral, value in dihedral_values.items():
         assert pytest.approx(
             rdMolTransforms.GetDihedralDeg(rdkit_mol.GetConformer(), *dihedral) == value
@@ -183,7 +183,7 @@ def test_measure_dihedrals(acetone):
 def test_measure_no_dihedrals():
     """Make sure None is returned when there are no dihedrals to measure."""
     mol = Ligand.from_file(file_name=get_data("water.pdb"))
-    assert mol.measure_dihedrals(input_type="input") is None
+    assert mol.measure_dihedrals() is None
 
 
 def test_get_atom(acetone):
@@ -310,8 +310,8 @@ def test_to_openmm_coords(acetone):
     """
     Make sure we can convert the coordinates to openmm style coords
     """
-    coords = acetone.openmm_coordinates(input_type="input")
-    assert np.allclose(coords.in_units_of(unit.angstrom), acetone.coords["input"])
+    coords = acetone.openmm_coordinates()
+    assert np.allclose(coords.in_units_of(unit.angstrom), acetone.coordinates)
 
 
 def test_pickle_round_trip(tmpdir, acetone):
@@ -337,7 +337,7 @@ def test_double_pickle(tmpdir, acetone):
     with tmpdir.as_cwd():
         acetone.pickle(state="input")
         # remove all coords
-        acetone.coords["input"] = []
+        acetone.coordinates = None
         acetone.pickle(state="after")
 
         # now check we have both states
@@ -379,9 +379,8 @@ def test_write_xyz_multiple_conformer(tmpdir):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("butane.pdb"))
         # fake a set of conformers
-        coords = [mol.coords["input"], np.random.random((mol.n_atoms, 3))]
-        mol.coords["traj"] = coords
-        mol.to_file(input_type="traj", file_name="butane.xyz")
+        coords = [mol.coordinates, np.random.random((mol.n_atoms, 3))]
+        mol.to_multiconformer_file(file_name="butane.xyz", positions=coords)
 
         # now read in the file again
         with open("butane.xyz") as xyz:
@@ -389,12 +388,29 @@ def test_write_xyz_multiple_conformer(tmpdir):
             assert len(lines) == 2 * mol.n_atoms + 4
 
 
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        pytest.param("acetone.pdb", id="pdb"),
+        pytest.param("acetone.sdf", id="sdf"),
+        pytest.param("acetone.xyz", id="xyz"),
+    ],
+)
+def test_write_multi_conformer(tmpdir, acetone, file_name):
+    """
+    Make sure the each file type is supported.
+    """
+    with tmpdir.as_cwd():
+        coords = [acetone.coordinates, np.random.random((acetone.n_atoms, 3))]
+        acetone.to_multiconformer_file(file_name=file_name, positions=coords)
+
+
 def test_sdf_round_trip(tmpdir, acetone):
     """
     Make sure we can write a molecule to pdb and load it back.
     """
     with tmpdir.as_cwd():
-        acetone.to_file(input_type="input", file_name="test.sdf")
+        acetone.to_file(file_name="test.sdf")
 
         mol2 = Ligand.from_file(file_name="test.sdf")
         for atom in acetone.atoms:
@@ -454,8 +470,9 @@ def test_add_conformers(file_name):
     Load up the bace pdb and then add conformers to it from other file types.
     """
     mol = Ligand.from_file(file_name=get_data("bace0.pdb"))
-    mol.add_conformers(file_name=get_data(file_name), input_type="mm")
-    assert np.allclose(mol.coords["input"], mol.coords["mm"])
+    mol.coordinates = None
+    mol.add_conformer(file_name=get_data(file_name))
+    assert mol.coordinates.shape == (mol.n_atoms, 3)
 
 
 @pytest.mark.parametrize(
@@ -494,7 +511,7 @@ def test_from_rdkit():
         bon2 = mol2.bonds[i]
         assert bond1.dict() == bon2.dict()
 
-    assert np.allclose(mol.coords["input"], mol2.coords["input"])
+    assert np.allclose(mol.coordinates, mol2.coordinates)
 
 
 @pytest.mark.parametrize(

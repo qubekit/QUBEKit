@@ -22,7 +22,7 @@ class TorsionDrive(Engines):
 
         grid_spacing = []
         elements = []
-        init_coords = self.molecule.coords
+        init_coords = self.molecule.coordinates
         grid_status = dict()
 
         scan_info = [self.dihedral, grid_spacing, elements, init_coords, grid_status]

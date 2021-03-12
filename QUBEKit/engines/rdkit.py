@@ -19,7 +19,6 @@ class RDKit:
     def mol_to_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
         """
         Write the rdkit molecule to the requested file type.
-        #TODO do we want multiframe support for all files? just xyz?
         """
         file_path = Path(file_name)
         if file_path.suffix == ".pdb":
@@ -27,13 +26,32 @@ class RDKit:
         elif file_path.suffix == ".sdf" or file_path.suffix == ".mol":
             return Chem.MolToMolFile(rdkit_mol, file_name)
         elif file_path.suffix == ".xyz":
-            with open(file_name, "w") as xyz:
-                for i in range(rdkit_mol.GetNumConformers()):
-                    xyz.write(Chem.MolToXYZBlock(rdkit_mol, confId=i))
+            return Chem.MolToXYZFile(rdkit_mol, file_name)
         else:
             raise FileTypeError(
                 f"The file type {file_path.suffix} is not supported please chose from xyz, pdb, mol or sdf."
             )
+
+    @staticmethod
+    def mol_to_mutliconformer_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
+        """
+        Write the rdkit molecule to a multi conformer file.
+        """
+        file_path = Path(file_name)
+        # get the file block writer
+        if file_path.suffix == ".pdb":
+            writer = Chem.MolToPDBBlock
+        elif file_path.suffix == ".mol" or file_path.suffix == ".sdf":
+            writer = Chem.MolToMolBlock
+        elif file_path.suffix == ".xyz":
+            writer = Chem.MolToXYZBlock
+        else:
+            raise FileTypeError(
+                f"The file type {file_path.suffix} is not supported please chose from xyz, pdb, mol or sdf."
+            )
+        with open(file_name, "w") as out:
+            for i in range(rdkit_mol.GetNumConformers()):
+                out.write(writer(rdkit_mol, confId=i))
 
     @staticmethod
     def file_to_rdkit_mol(file_path: Path) -> Chem.Mol:
