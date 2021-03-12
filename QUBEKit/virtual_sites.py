@@ -72,10 +72,7 @@ class VirtualSites:
 
         self.molecule: Ligand = molecule
         self.debug: bool = debug
-        try:
-            self.coords: np.ndarray = self.molecule.coords["qm"]
-        except KeyError:
-            self.coords: np.ndarray = self.molecule.coords["input"]
+        self.coords = self.molecule.coordinates
 
         # List of tuples where each tuple is the xyz coords of the v-site(s),
         # followed by their charge and index of the parent atom.
@@ -770,14 +767,14 @@ class VirtualSites:
                 "The addition of one virtual site was found to be best.", "plain", True
             )
             self.v_sites_coords.extend(self.one_site_coords)
-            self.molecule.atoms[atom_index].partial_charge -= self.one_site_coords[0][1]
+            self.molecule.NonbondedForce[atom_index][0] -= self.one_site_coords[0][1]
             self.molecule.ddec_data[atom_index].charge -= self.one_site_coords[0][1]
         else:
             append_to_log(
                 "The addition of two virtual sites was found to be best.", "plain", True
             )
             self.v_sites_coords.extend(self.two_site_coords)
-            self.molecule.atoms[atom_index].partial_charge -= (
+            self.molecule.NonbondedForce[atom_index][0] -= (
                 self.two_site_coords[0][1] + self.two_site_coords[1][1]
             )
             self.molecule.ddec_data[atom_index].charge -= (
@@ -816,8 +813,8 @@ class VirtualSites:
 
         # List of tuples where each tuple is the xyz atom coords, followed by their partial charge
         atom_points = [
-            (coord, atom.partial_charge)  # [((x, y, z), q), ... ]
-            for coord, atom in zip(self.coords, self.molecule.atoms)
+            (coord, atom_data[0])  # [((x, y, z), q), ... ]
+            for coord, atom_data in zip(self.coords, self.molecule.NonbondedForce)
         ]
 
         # Add atom positions to all subplots
@@ -834,11 +831,20 @@ class VirtualSites:
             )
 
             # Plot the bonds as connecting lines
-            for bond in self.molecule.topology.edges:
+            for bond in self.molecule.bonds:
                 plot.plot(
-                    xs=[self.coords[bond[0]][0], self.coords[bond[1]][0]],
-                    ys=[self.coords[bond[0]][1], self.coords[bond[1]][1]],
-                    zs=[self.coords[bond[0]][2], self.coords[bond[1]][2]],
+                    xs=[
+                        self.coords[bond.atom1_index][0],
+                        self.coords[bond.atom2_index][0],
+                    ],
+                    ys=[
+                        self.coords[bond.atom1_index][1],
+                        self.coords[bond.atom2_index][1],
+                    ],
+                    zs=[
+                        self.coords[bond.atom1_index][2],
+                        self.coords[bond.atom2_index][2],
+                    ],
                     c="darkslategrey",
                     alpha=0.5,
                 )
@@ -911,7 +917,7 @@ class VirtualSites:
             for atom_index, atom in enumerate(self.coords):
                 xyz_file.write(
                     f"{self.molecule.atoms[atom_index].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}"
-                    f"   {self.molecule.atoms[atom_index].partial_charge: .6f}\n"
+                    f"   {self.molecule.NonbondedForce[atom_index][0]: .6f}\n"
                 )
 
                 for site in self.v_sites_coords:
@@ -928,7 +934,7 @@ class VirtualSites:
         """
 
         extra_sites = dict()
-
+        topology = self.molecule.to_topology()
         for site_number, site in enumerate(self.v_sites_coords):
 
             site_data = ExtraSite()
@@ -936,9 +942,9 @@ class VirtualSites:
             site_coords, site_charge, parent = site
             site_data.charge = site_charge
 
-            closest_atoms = list(self.molecule.topology.neighbors(parent))
+            closest_atoms = list(topology.neighbors(parent))
             if (len(closest_atoms) < 2) or (len(self.molecule.atoms[parent].bonds) > 3):
-                for atom in list(self.molecule.topology.neighbors(closest_atoms[0])):
+                for atom in list(topology.neighbors(closest_atoms[0])):
                     if atom not in closest_atoms and atom != parent:
                         closest_atoms.append(atom)
                         break

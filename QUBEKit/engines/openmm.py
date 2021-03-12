@@ -45,10 +45,11 @@ class OpenMM(Engines):
     def create_system(self):
         # set up the system using opls combo rules
         # Load the initial coords into the system and initialise
-        pdb = app.PDBFile(self.pdb_file)
         forcefield = app.ForceField(self.xml_file)
+        top = self.molecule.to_openmm_topology()
+        positions = self.molecule.openmm_coordinates()
         # set the initial positions from the pdb
-        modeller = app.Modeller(pdb.topology, pdb.positions)
+        modeller = app.Modeller(topology=top, positions=positions)
 
         # if there are virtual sites we need to add them here
         try:
@@ -183,7 +184,7 @@ class OpenMM(Engines):
         """
 
         # Create the OpenMM coords list from the qm coordinates and convert to nm.
-        input_coords = self.molecule.coords["qm"].flatten() * constants.ANGS_TO_NM
+        input_coords = self.molecule.coordinates.flatten() * constants.ANGS_TO_NM
 
         # We get each hessian element from = [E(dx + dy) + E(-dx - dy) - E(dx - dy) - E(-dx + dy)] / 4 dx dy
         hessian = np.zeros((3 * len(self.molecule.atoms), 3 * len(self.molecule.atoms)))
@@ -232,18 +233,16 @@ class OpenMM(Engines):
         # use the topology map to get the vsite interaction lists
         # add a connection to the parent then generate the 1-4 list and everything higher list
         exception_pairs, normal_pairs = [], []
-
+        topology = self.molecule.to_topology()
         for site_key, site in self.molecule.extra_sites.items():
             site_no = site_key + len(self.molecule.atoms)
-            self.molecule.topology.add_node(site_no)
-            self.molecule.topology.add_edge(site_no, site.parent_index)
+            topology.add_node(site_no)
+            topology.add_edge(site_no, site.parent_index)
 
         # now that all sites are in the topology we need to work out all pairs
         for site_key, site in self.molecule.extra_sites.items():
             site_no = site_key + len(self.molecule.atoms)
-            path_lengths = nx.single_source_shortest_path_length(
-                self.molecule.topology, site_no
-            )
+            path_lengths = nx.single_source_shortest_path_length(topology, site_no)
 
             for atom, length in path_lengths.items():
                 if length == 3:

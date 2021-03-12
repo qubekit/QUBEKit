@@ -45,7 +45,6 @@ class PSI4(Engines):
     # TODO add restart from log method
     def generate_input(
         self,
-        input_type="input",
         optimise=False,
         hessian=False,
         density=False,
@@ -56,7 +55,6 @@ class PSI4(Engines):
     ):
         """
         Converts to psi4 input format to be run in psi4 without using geometric.
-        :param input_type: The coordinate set of the molecule to be used
         :param optimise: Optimise the molecule to the desired convergence criterion within the iteration limit
         :param hessian: Calculate the hessian matrix
         :param density: Calculate the electron density
@@ -127,7 +125,7 @@ class PSI4(Engines):
                 f"{self.molecule.charge} {self.molecule.multiplicity} \n"
             )
             # molecule is always printed
-            for i, atom in enumerate(self.molecule.coords[input_type]):
+            for i, atom in enumerate(self.molecule.coordinates):
                 input_file.write(
                     f" {self.molecule.atoms[i].atomic_symbol}    "
                     f"{float(atom[0]): .10f}  {float(atom[1]): .10f}  {float(atom[2]): .10f} \n"
@@ -276,13 +274,13 @@ class PSI4(Engines):
 
             return np.array(all_modes)
 
-    def geo_gradient(self, input_type="input", threads=False, execute=True):
+    def geo_gradient(self, threads=False, execute=True):
         """
         Write the psi4 style input file to get the gradient for geometric
         and run geometric optimisation.
         """
 
-        molecule = self.molecule.coords[input_type]
+        molecule = self.molecule.coordinates
 
         with open(f"{self.molecule.name}.psi4in", "w+") as file:
 

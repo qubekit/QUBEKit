@@ -7,7 +7,7 @@ class Engines:
     (PSI4, Gaussian etc) will have.
     """
 
-    def __init__(self, molecule):
+    def __init__(self, molecule: "Ligand"):
 
         self.molecule = molecule
 

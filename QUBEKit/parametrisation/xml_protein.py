@@ -82,7 +82,6 @@ class XMLProtein(Parametrisation):
                     float(Atom.get("sig")),
                     float(Atom.get("eps")),
                 ]
-                self.molecule.atoms[i].partial_charge = float(Atom.get("q"))
                 i += 1
 
         # Extract all of the torsion data

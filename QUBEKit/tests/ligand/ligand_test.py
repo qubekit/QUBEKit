@@ -1,10 +1,12 @@
+import networkx as nx
 import numpy as np
 import pytest
 from openff.toolkit.topology import Molecule as OFFMolecule
 from rdkit.Chem import rdMolTransforms
+from simtk import unit
 
 from QUBEKit.ligand import Ligand
-from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.exceptions import FileTypeError, SmartsError, TopologyMismatch
 from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.helpers import unpickle
 
@@ -14,7 +16,7 @@ def acetone():
     """
     Make a ligand class from the acetone pdb.
     """
-    return Ligand(get_data("acetone.pdb"))
+    return Ligand.from_file(file_name=get_data("acetone.sdf"))
 
 
 def test_has_unique_names(acetone):
@@ -41,7 +43,7 @@ def test_bonds(acetone):
     reference = [(0, 4), (0, 5), (0, 6), (0, 1), (1, 2), (1, 3), (3, 7), (3, 8), (3, 9)]
     # make sure all bonds present
     for bond in acetone.bonds:
-        assert bond in reference
+        assert (bond.atom1_index, bond.atom2_index) in reference
     # make sure the number of bonds is the same
     assert len(reference) == acetone.n_bonds
 
@@ -109,7 +111,7 @@ def test_no_dihedrals():
     """
     Make sure we return None when no dihedrals are found in the molecule.
     """
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     assert mol.dihedrals is None
     assert mol.n_dihedrals == 0
 
@@ -118,7 +120,7 @@ def test_no_impropers():
     """
     Make sure we return None when no impropers are found in the molecule.
     """
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     assert mol.improper_torsions is None
     assert mol.n_improper_torsions == 0
 
@@ -139,15 +141,15 @@ def test_coords(acetone):
     """
     Make sure that when reading an input file the coordinates are saved.
     """
-    assert acetone.coords["input"].shape == (acetone.n_atoms, 3)
+    assert acetone.coordinates.shape == (acetone.n_atoms, 3)
 
 
 def test_bond_lengths(acetone):
     """
     Make sure we can measure bond lengths for a given conformer and the distances match those given by rdkit.
     """
-    bond_lengths = acetone.measure_bonds(input_type="input")
-    rdkit_mol = acetone.rdkit_mol
+    bond_lengths = acetone.measure_bonds()
+    rdkit_mol = acetone.to_rdkit()
     for bond, length in bond_lengths.items():
         assert pytest.approx(
             rdMolTransforms.GetBondLength(rdkit_mol.GetConformer(), *bond) == length
@@ -158,8 +160,8 @@ def test_measure_angles(acetone):
     """
     Make sure we can correctly measure all of the angles in the molecule.
     """
-    angle_values = acetone.measure_angles(input_type="input")
-    rdkit_mol = acetone.rdkit_mol
+    angle_values = acetone.measure_angles()
+    rdkit_mol = acetone.to_rdkit()
     for angle, value in angle_values.items():
         assert pytest.approx(
             rdMolTransforms.GetAngleDeg(rdkit_mol.GetConformer(), *angle) == value
@@ -170,8 +172,8 @@ def test_measure_dihedrals(acetone):
     """
     Make sure we can correctly measure all dihedrals in the molecule.
     """
-    dihedral_values = acetone.measure_dihedrals(input_type="input")
-    rdkit_mol = acetone.rdkit_mol
+    dihedral_values = acetone.measure_dihedrals()
+    rdkit_mol = acetone.to_rdkit()
     for dihedral, value in dihedral_values.items():
         assert pytest.approx(
             rdMolTransforms.GetDihedralDeg(rdkit_mol.GetConformer(), *dihedral) == value
@@ -180,8 +182,8 @@ def test_measure_dihedrals(acetone):
 
 def test_measure_no_dihedrals():
     """Make sure None is returned when there are no dihedrals to measure."""
-    mol = Ligand(get_data("water.pdb"))
-    assert mol.measure_dihedrals(input_type="input") is None
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
+    assert mol.measure_dihedrals() is None
 
 
 def test_get_atom(acetone):
@@ -221,7 +223,7 @@ def test_no_rotatable_bonds():
     """
     If there are no dihedrals in the molecule make sure we return None.
     """
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     assert mol.rotatable_bonds is None
     assert mol.n_rotatable_bonds == 0
 
@@ -230,7 +232,7 @@ def test_rotatable_bonds():
     """
     Make sure we can find true rotatable bonds for a molecule.
     """
-    mol = Ligand(get_data("biphenyl.pdb"))
+    mol = Ligand.from_file(file_name=get_data("biphenyl.pdb"))
     assert mol.rotatable_bonds == [
         (3, 4),
     ]
@@ -289,7 +291,7 @@ def test_improper_types(acetone):
 
 def test_repr():
     """Make sure the ligand repr works."""
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     repr(mol)
 
 
@@ -300,7 +302,7 @@ def test_str(trunc):
     """
     Make sure that the ligand str method does not raise an error.
     """
-    mol = Ligand(get_data("water.pdb"))
+    mol = Ligand.from_file(file_name=get_data("water.pdb"))
     mol.__str__(trunc=trunc)
 
 
@@ -308,21 +310,8 @@ def test_to_openmm_coords(acetone):
     """
     Make sure we can convert the coordinates to openmm style coords
     """
-    coords = acetone.openmm_coordinates(input_type="input")
-    assert np.allclose(coords[0] * 10, acetone.coords["input"])
-
-
-def test_to_openmm_coords_multiple():
-    """
-    Make sure we can convert to openmm style coords for multiple conformers.
-    """
-    mol = Ligand(get_data("butane.pdb"))
-    # fake a set of conformers
-    coords = [mol.coords["input"], mol.coords["input"]]
-    mol.coords["traj"] = coords
-    openmm_coords = mol.openmm_coordinates(input_type="traj")
-    for i in range(len(openmm_coords)):
-        assert np.allclose(openmm_coords[i] * 10, mol.coords["traj"][i])
+    coords = acetone.openmm_coordinates()
+    assert np.allclose(coords.in_units_of(unit.angstrom), acetone.coordinates)
 
 
 def test_pickle_round_trip(tmpdir, acetone):
@@ -348,7 +337,7 @@ def test_double_pickle(tmpdir, acetone):
     with tmpdir.as_cwd():
         acetone.pickle(state="input")
         # remove all coords
-        acetone.coords["input"] = []
+        acetone.coordinates = None
         acetone.pickle(state="after")
 
         # now check we have both states
@@ -357,27 +346,30 @@ def test_double_pickle(tmpdir, acetone):
         assert "input" in mols
 
 
-def test_write_xyz_single_conformer(tmpdir, acetone):
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        pytest.param("acetone.xyz", id="xyz"),
+        pytest.param("acetone.pdb", id="pdb"),
+        pytest.param("acetone.sdf", id="sdf"),
+        pytest.param("acetone.mol", id="mol"),
+    ],
+)
+def test_to_file(tmpdir, file_name, acetone):
     """
-    Write a single conformer xyz file for the molecule.
+    Try and write out a molecule to the specified file type.
     """
     with tmpdir.as_cwd():
-        acetone.write_xyz(input_type="input", name="acetone")
+        acetone.to_file(file_name=file_name)
 
-        # now read in and check the file
-        with open("acetone.xyz") as xyz:
-            lines = xyz.readlines()
-            # atoms plus 2 comment lines
-            assert len(lines) == acetone.n_atoms + 2
-            assert float(lines[0]) == acetone.n_atoms
-            # now loop over the atoms and make sure they match and the coords
-            for i, line in enumerate(lines[2:]):
-                atom = acetone.atoms[i]
-                assert atom.atomic_symbol == line.split()[0]
-                assert np.allclose(
-                    acetone.coords["input"][i],
-                    [float(coord) for coord in line.split()[1:]],
-                )
+
+def test_to_file_fail(tmpdir, acetone):
+    """
+    Make sure an error is raised if we try and write to an unsupported file type.
+    """
+    with tmpdir.as_cwd():
+        with pytest.raises(FileTypeError):
+            acetone.to_file(file_name="badfile.smi")
 
 
 def test_write_xyz_multiple_conformer(tmpdir):
@@ -385,11 +377,10 @@ def test_write_xyz_multiple_conformer(tmpdir):
     Make sure we can write multiple conformer xyz files for a molecule.
     """
     with tmpdir.as_cwd():
-        mol = Ligand(get_data("butane.pdb"))
+        mol = Ligand.from_file(file_name=get_data("butane.pdb"))
         # fake a set of conformers
-        coords = [mol.coords["input"], mol.coords["input"]]
-        mol.coords["traj"] = coords
-        mol.write_xyz(input_type="traj", name="butane")
+        coords = [mol.coordinates, np.random.random((mol.n_atoms, 3))]
+        mol.to_multiconformer_file(file_name="butane.xyz", positions=coords)
 
         # now read in the file again
         with open("butane.xyz") as xyz:
@@ -397,18 +388,36 @@ def test_write_xyz_multiple_conformer(tmpdir):
             assert len(lines) == 2 * mol.n_atoms + 4
 
 
-def test_pdb_round_trip(tmpdir, acetone):
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        pytest.param("acetone.pdb", id="pdb"),
+        pytest.param("acetone.sdf", id="sdf"),
+        pytest.param("acetone.xyz", id="xyz"),
+    ],
+)
+def test_write_multi_conformer(tmpdir, acetone, file_name):
+    """
+    Make sure the each file type is supported.
+    """
+    with tmpdir.as_cwd():
+        coords = [acetone.coordinates, np.random.random((acetone.n_atoms, 3))]
+        acetone.to_multiconformer_file(file_name=file_name, positions=coords)
+
+
+def test_sdf_round_trip(tmpdir, acetone):
     """
     Make sure we can write a molecule to pdb and load it back.
     """
     with tmpdir.as_cwd():
-        acetone.write_pdb(input_type="input", name="test")
+        acetone.to_file(file_name="test.sdf")
 
-        mol2 = Ligand("test.pdb")
+        mol2 = Ligand.from_file(file_name="test.sdf")
         for atom in acetone.atoms:
             pickle_atom = mol2.get_atom_with_name(atom.atom_name)
-            assert pickle_atom.__dict__ == atom.__dict__
-        assert acetone.bonds == mol2.bonds
+            assert pickle_atom.dict() == atom.dict()
+        for i in range(acetone.n_bonds):
+            assert acetone.bonds[i].dict() == mol2.bonds[i].dict()
         assert acetone.angles == mol2.angles
         assert acetone.dihedrals == mol2.dihedrals
 
@@ -445,7 +454,7 @@ def test_ligand_file_not_supported():
     Make sure we raise an error when an unsupported file type is passed.
     """
     with pytest.raises(FileTypeError):
-        _ = Ligand(get_data("bace0.xyz"))
+        _ = Ligand.from_file(file_name=get_data("bace0.xyz"))
 
 
 @pytest.mark.parametrize(
@@ -461,8 +470,9 @@ def test_add_conformers(file_name):
     Load up the bace pdb and then add conformers to it from other file types.
     """
     mol = Ligand.from_file(file_name=get_data("bace0.pdb"))
-    mol.add_conformers(file_name=get_data(file_name), input_type="mm")
-    assert np.allclose(mol.coords["input"], mol.coords["mm"])
+    mol.coordinates = None
+    mol.add_conformer(file_name=get_data(file_name))
+    assert mol.coordinates.shape == (mol.n_atoms, 3)
 
 
 @pytest.mark.parametrize(
@@ -495,6 +505,156 @@ def test_from_rdkit():
     for i in range(mol.n_atoms):
         atom1 = mol.atoms[i]
         atom2 = mol2.atoms[i]
-        assert atom1.__dict__ == atom2.__dict__
+        assert atom1.dict() == atom2.dict()
+    for i in range(mol.n_bonds):
+        bond1 = mol.bonds[i]
+        bon2 = mol2.bonds[i]
+        assert bond1.dict() == bon2.dict()
 
-    assert np.allclose(mol.coords["input"], mol2.coords["input"])
+    assert np.allclose(mol.coordinates, mol2.coordinates)
+
+
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("bace0.sdf", id="bace0 chiral"),
+        pytest.param("12-dichloroethene.sdf", id="12dichloroethene bond stereo"),
+    ],
+)
+def test_to_rdkit(molecule):
+    """
+    Make sure we can convert to rdkit.
+    We test on bace which has a chiral center and 12-dichloroethene which has a stereo bond.
+    """
+    from rdkit import Chem
+
+    mol = Ligand.from_file(file_name=get_data(molecule))
+    rd_mol = mol.to_rdkit()
+    # make sure the atom and bond stereo match
+    for atom in rd_mol.GetAtoms():
+        qb_atom = mol.atoms[atom.GetIdx()]
+        assert atom.GetIsAromatic() is qb_atom.aromatic
+        if qb_atom.stereochemistry is not None:
+            if qb_atom.stereochemistry == "S":
+                assert atom.GetChiralTag() == Chem.CHI_TETRAHEDRAL_CCW
+            else:
+                assert atom.GetChiralTag() == Chem.CHI_TETRAHEDRAL_CW
+    for bond in rd_mol.GetBonds():
+        qb_bond = mol.bonds[bond.GetIdx()]
+        assert qb_bond.aromatic is bond.GetIsAromatic()
+        assert qb_bond.bond_order == bond.GetBondTypeAsDouble()
+        if qb_bond.stereochemistry is not None:
+            if qb_bond.stereochemistry == "E":
+                assert bond.GetStereo() == Chem.BondStereo.STEREOE
+            else:
+                assert bond.GetStereo() == Chem.BondStereo.STEREOZ
+
+
+@pytest.mark.parametrize(
+    "molecule, charge",
+    [
+        pytest.param("acetone.sdf", 0, id="acetone"),
+        pytest.param("bace0.sdf", 1, id="bace0"),
+        pytest.param("pyridine.sdf", 0, id="pyridine"),
+    ],
+)
+def test_charge(molecule, charge):
+    """
+    Make sure that the charge is correctly identified.
+    """
+    mol = Ligand.from_file(file_name=get_data(molecule))
+    assert mol.charge == charge
+
+
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("pyridine.sdf", id="pyridine"),
+        pytest.param("acetone.sdf", id="acetone"),
+        pytest.param("bace0.sdf", id="bace0"),
+    ],
+)
+def test_to_topology(molecule):
+    """
+    Make sure that a topology generated using qubekit matches an openff one.
+    """
+    mol = Ligand.from_file(file_name=get_data(molecule))
+    offmol = OFFMolecule.from_file(file_path=get_data(molecule))
+    assert (
+        nx.algorithms.isomorphism.is_isomorphic(mol.to_topology(), offmol.to_networkx())
+        is True
+    )
+
+
+def test_to_smiles_isomeric():
+    """
+    Make sure we can write out smiles strings with the correct settings.
+    """
+    # use bace as it has a chiral center
+    mol = Ligand.from_file(file_name=get_data("bace0.sdf"))
+    smiles = mol.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False)
+    assert "@@" in smiles
+    smiles = mol.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False)
+    assert "@" not in smiles
+
+
+def test_to_smiles_hydrogens(acetone):
+    """
+    Make sure the explicit hydrogens flag is respected.
+    """
+    smiles_h = acetone.to_smiles(isomeric=False, explicit_hydrogens=True, mapped=False)
+    assert smiles_h == "[H][C]([H])([H])[C](=[O])[C]([H])([H])[H]"
+    smiles = acetone.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False)
+    assert smiles == "CC(C)=O"
+
+
+def test_to_mapped_smiles():
+    """
+    Make sure the the mapped smiles flag is respected.
+    """
+    mol = Ligand.from_file(file_name=get_data("bace0.sdf"))
+    no_map = mol.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=False)
+    mapped = mol.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
+    assert no_map != mapped
+
+
+def test_smarts_matches(acetone):
+    """
+    Make sure we can find the same environment matches as openff.
+    """
+    matches = acetone.get_smarts_matches(smirks="[#6:1](=[#8:2])-[#6]")
+    # make sure the atoms are in the correct order
+    assert len(matches) == 1
+    match = matches[0]
+    assert acetone.atoms[match[0]].atomic_symbol == "C"
+    assert acetone.atoms[match[1]].atomic_symbol == "O"
+    # make sure these atoms are bonded
+    _ = acetone.get_bond_between(*match)
+    off = OFFMolecule.from_file(file_path=get_data("acetone.sdf"))
+    off_matches = off.chemical_environment_matches(query="[#6:1](=[#8:2])-[#6]")
+    # check we match the same bonds
+    assert set(off_matches) == set(matches)
+
+
+def test_smarts_matches_bad_query(acetone):
+    """
+    Make sure an error is raised if we try and search with a bad smarts pattern.
+    """
+    with pytest.raises(SmartsError):
+        acetone.get_smarts_matches(smirks="skfbj")
+
+
+def test_smarts_no_matches(acetone):
+    """
+    Make sure None is returned if we have no matches.
+    """
+    matches = acetone.get_smarts_matches(smirks="[#16:1]")
+    assert matches is None
+
+
+def test_get_bond_error(acetone):
+    """
+    Make sure an error is raised if we can not find a bond between to atoms.
+    """
+    with pytest.raises(TopologyMismatch):
+        acetone.get_bond_between(atom1_index=4, atom2_index=9)

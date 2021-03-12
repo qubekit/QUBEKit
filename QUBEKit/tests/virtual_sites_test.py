@@ -15,7 +15,7 @@ def mol():
     """
     Initialise the Ligand molecule object with data for Chloromethane
     """
-    molecule = Ligand(get_data("chloromethane.pdb"))
+    molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
     molecule.ddec_data = {
         0: CustomNamespace(
             a_i=72461.2438863321,
@@ -111,7 +111,7 @@ def mol():
         3: CustomNamespace(a=0.123448, atomic_symbol="H", b=2.533309),
         4: CustomNamespace(a=0.120282, atomic_symbol="H", b=2.533191),
     }
-    print(f"mol coords: {molecule.coords}")
+    print(f"mol coords: {molecule.coordinates}")
     return molecule
 
 

@@ -1,7 +1,8 @@
 import pytest
+
 from QUBEKit.ligand import Protein
-from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.file_handling import get_data
 
 
 def test_from_pdb():
@@ -10,7 +11,7 @@ def test_from_pdb():
     """
     pro = Protein.from_file(file_name=get_data("capped_leu.pdb"))
     assert pro.n_atoms == 31
-    assert pro.coords["input"].shape == (pro.n_atoms, 3)
+    assert pro.coordinates.shape == (pro.n_atoms, 3)
 
 
 def test_normal_init():

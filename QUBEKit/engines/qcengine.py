@@ -14,7 +14,7 @@ class QCEngine(Engines):
 
         super().__init__(molecule)
 
-    def generate_qschema(self, input_type="input"):
+    def generate_qschema(self):
         """
         Using the molecule object, generate a QCEngine schema. This can then
         be fed into the various QCEngine procedures.
@@ -24,7 +24,7 @@ class QCEngine(Engines):
 
         mol_data = f"{self.molecule.charge} {self.molecule.multiplicity}\n"
 
-        for i, coord in enumerate(self.molecule.coords[input_type]):
+        for i, coord in enumerate(self.molecule.coordinates):
             mol_data += f"{self.molecule.atoms[i].atomic_symbol} "
             for item in coord:
                 mol_data += f"{item} "
@@ -32,17 +32,16 @@ class QCEngine(Engines):
 
         return qcel.models.Molecule.from_data(mol_data)
 
-    def call_qcengine(self, engine, driver, input_type):
+    def call_qcengine(self, engine, driver):
         """
         Using the created schema, run a particular engine, specifying the driver (job type).
         e.g. engine: geo, driver: energies.
         :param engine: The engine to be used psi4 geometric
         :param driver: The calculation type to be done e.g. energy, gradient, hessian, properties
-        :param input_type: The part of the molecule object that should be used when making the schema
         :return: The required driver information
         """
 
-        mol = self.generate_qschema(input_type=input_type)
+        mol = self.generate_qschema()
         options = {"memory": self.molecule.memory, "ncores": self.molecule.threads}
 
         # Call psi4 for energy, gradient, hessian or property calculations
@@ -75,7 +74,7 @@ class QCEngine(Engines):
                 "schema_name": "qcschema_optimization_input",
                 "schema_version": 1,
                 "keywords": {
-                    "coordsys": "tric",
+                    "coordsys": "dlc",
                     "maxiter": self.molecule.iterations,
                     "program": "psi4",
                     "convergence_set": self.molecule.convergence,

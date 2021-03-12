@@ -21,6 +21,7 @@ from shutil import copy, move
 
 import numpy as np
 
+import QUBEKit
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
 from QUBEKit.engines import PSI4, Chargemol, Gaussian, QCEngine, RDKit
 from QUBEKit.lennard_jones import LennardJones
@@ -52,7 +53,6 @@ from QUBEKit.utils.helpers import (
     update_ligand,
 )
 from QUBEKit.virtual_sites import VirtualSites
-import QUBEKit
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -1001,14 +1001,7 @@ class Execute:
 
         append_to_log("Starting mm_optimisation")
         # Check which method we want then do the optimisation
-        if (
-            molecule.mm_opt_method == "none"
-            or molecule.parameter_engine == "OpenFF_generics"
-        ):
-            # Skip the optimisation step
-            molecule.coords["mm"] = molecule.coords["input"]
-
-        elif molecule.mm_opt_method == "openmm":
+        if molecule.mm_opt_method == "openmm":
             if molecule.parameter_engine == "none":
                 raise OptimisationFailed(
                     "You cannot optimise a molecule with OpenMM and no initial parameters; "
@@ -1016,34 +1009,32 @@ class Execute:
                 )
             else:
                 # Make the inputs
-                molecule.write_pdb(input_type="input")
+                molecule.to_file(file_name=f"{molecule.name}.pdb")
                 molecule.write_parameters()
                 # Run geometric
                 # TODO Should this be moved to a function? Seems like a likely point of failure
                 with open("log.txt", "w+") as log:
                     sp.run(
                         f"geometric-optimize --epsilon 0.0 --maxiter {molecule.iterations} --pdb "
-                        f"{molecule.name}.pdb --engine openmm {molecule.name}.xml "
+                        f"{molecule.name}.pdb --openmm {molecule.name}.xml "
                         f'{molecule.constraints_file if molecule.constraints_file is not None else ""}',
                         shell=True,
                         stdout=log,
                         stderr=log,
                     )
 
-                molecule.add_conformers(f"{molecule.name}_optim.xyz", input_type="traj")
-                molecule.coords["mm"] = molecule.coords["traj"][-1]
+                molecule.add_conformer(f"{molecule.name}_optim.xyz")
 
         else:
             # TODO change to qcengine as this can already be done
             # Run an rdkit optimisation with the right FF
             rdkit_ff = {"rdkit_mff": "MFF", "rdkit_uff": "UFF"}[molecule.mm_opt_method]
-            rdkit_mol = RDKit.mm_optimise(molecule.rdkit_mol, ff=rdkit_ff)
-            molecule.coords["mm"] = rdkit_mol.GetConformer().GetPositions()
+            rdkit_mol = RDKit.mm_optimise(molecule.to_rdkit(), ff=rdkit_ff)
+            molecule.coordinates = rdkit_mol.GetConformer().GetPositions()
 
         append_to_log(
             f"Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}"
         )
-
         return molecule
 
     def qm_optimise(self, molecule: Ligand) -> Ligand:
@@ -1057,7 +1048,6 @@ class Execute:
             result = qceng.call_qcengine(
                 engine="geometric",
                 driver="gradient",
-                input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}',
             )
 
             restart_count = 0
@@ -1069,46 +1059,47 @@ class Execute:
                 )
 
                 try:
-                    molecule.coords["temp"] = np.array(
+                    molecule.coordinates = np.array(
                         result["input_data"]["final_molecule"]["geometry"]
                     ).reshape((len(molecule.atoms), 3))
-                    molecule.coords["temp"] *= constants.BOHR_TO_ANGS
+                    molecule.coordinates *= constants.BOHR_TO_ANGS
 
-                    result = qceng.call_qcengine(
-                        engine="geometric", driver="gradient", input_type="temp"
-                    )
+                    result = qceng.call_qcengine(engine="geometric", driver="gradient")
 
                 except (KeyError, TypeError):
                     result = qceng.call_qcengine(
                         engine="geometric",
                         driver="gradient",
-                        input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}',
                     )
 
                 restart_count += 1
 
             if not result["success"]:
                 raise OptimisationFailed("The optimisation did not converge")
-
-            molecule.read_geometric_traj(result["trajectory"])
+            trajectory = [
+                np.array(mol["molecule"]["geometry"]).reshape((molecule.n_atoms, 3))
+                * constants.BOHR_TO_ANGS
+                for mol in result["trajectory"]
+            ]
 
             # store the final molecule as the qm optimised structure
-            molecule.coords["qm"] = np.array(
+            molecule.coordinates = np.array(
                 result["final_molecule"]["geometry"]
-            ).reshape((len(molecule.atoms), 3))
-            molecule.coords["qm"] *= constants.BOHR_TO_ANGS
+            ).reshape((molecule.n_atoms, 3))
+            molecule.coordinates *= constants.BOHR_TO_ANGS
 
             molecule.qm_energy = result["energies"][-1]
 
             # Write out the trajectory file
-            molecule.write_xyz("traj", name=f"{molecule.name}_opt")
-            molecule.write_xyz("qm", name="opt")
+            molecule.to_multiconformer_file(
+                file_name=f"{molecule.name}_opt.xyz", positions=trajectory
+            )
+            molecule.to_file(file_name="opt.xyz")
 
         # Using Gaussian or geometric off
         else:
             qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
             result = qm_engine.generate_input(
-                input_type=f'{"mm" if list(molecule.coords["mm"]) else "input"}',
                 optimise=True,
                 execute=molecule.bonds_engine,
             )
@@ -1133,11 +1124,11 @@ class Execute:
                     )
 
                 else:
-                    molecule.coords["temp"] = RDKit.generate_conformers(
-                        molecule.rdkit_mol
+                    molecule.coordinates = RDKit.generate_conformers(
+                        molecule.to_rdkit()
                     )[-1]
                     result = qm_engine.generate_input(
-                        "temp", optimise=True, execute=molecule.bonds_engine
+                        optimise=True, execute=molecule.bonds_engine
                     )
 
                 restart_count += 1
@@ -1148,8 +1139,8 @@ class Execute:
                     f"last error {result['error']}"
                 )
 
-            molecule.coords["qm"], molecule.qm_energy = qm_engine.optimised_structure()
-            molecule.write_xyz("qm", name="opt")
+            molecule.coordinates, molecule.qm_energy = qm_engine.optimised_structure()
+            molecule.to_file(file_name="opt.xyz")
 
         append_to_log(
             f'Finishing qm_optimisation of molecule{" using geometric" if molecule.geometric else ""}'
@@ -1191,9 +1182,7 @@ class Execute:
             hessian = qm_engine.hessian()
 
         else:
-            hessian = QCEngine(molecule).call_qcengine(
-                engine="psi4", driver="hessian", input_type="qm"
-            )
+            hessian = QCEngine(molecule).call_qcengine(engine="psi4", driver="hessian")
             np.savetxt("hessian.txt", hessian)
 
         molecule.hessian = hessian
@@ -1243,7 +1232,6 @@ class Execute:
         else:
             qm_engine = self.engine_dict[molecule.density_engine](molecule)
             qm_engine.generate_input(
-                input_type="qm" if list(molecule.coords["qm"]) else "input",
                 density=True,
                 execute=molecule.density_engine,
             )
@@ -1335,13 +1323,13 @@ class Execute:
         return molecule
 
     @staticmethod
-    def finalise(molecule):
+    def finalise(molecule: Ligand) -> Ligand:
         """
         Make the xml and pdb file;
         print the ligand object to terminal (in abbreviated form) and to the log file (unabbreviated).
         """
 
-        molecule.write_pdb()
+        molecule.to_file(file_name=f"{molecule.name}.pdb")
         molecule.write_parameters()
 
         if molecule.verbose:
