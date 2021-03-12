@@ -33,7 +33,7 @@ from xml.dom.minidom import parseString
 
 import networkx as nx
 import numpy as np
-from rdkit import Chem, Geometry
+from rdkit import Chem
 from simtk import unit
 from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple
 from simtk.openmm.app.element import Element
@@ -1017,9 +1017,7 @@ class Molecule:
             index = rd_atom.GetIdx()
             qb_atom = self.atoms[index]
             if qb_atom.stereochemistry is not None:
-                assert qb_atom.stereochemistry == rd_atom.GetProp("_CIPCode"), print(
-                    qb_atom.stereochemistry, rd_atom.GetProp("_CIPCode")
-                )
+                assert qb_atom.stereochemistry == rd_atom.GetProp("_CIPCode")
 
         for rd_bond in rd_mol.GetBonds():
             index = rd_bond.GetIdx()
