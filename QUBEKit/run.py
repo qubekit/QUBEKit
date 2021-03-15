@@ -89,10 +89,6 @@ class ArgsAndConfigs:
 
         self.args = self.parse_commands()
 
-        # If we are doing the torsion test add the attribute to the molecule so we can catch it in execute
-        if self.args.torsion_test:
-            self.args.restart = "finalise"
-
         # If it's a bulk run, handle it separately
         if self.args.bulk_run is not None:
             self.handle_bulk()
@@ -129,11 +125,6 @@ class ArgsAndConfigs:
         for name, val in vars(self.args).items():
             if val is not None:
                 setattr(self.molecule, name, val)
-
-        # Now we need to remove torsion_test as it is passed from the command line
-        # is False to check it's not True nor None
-        if self.args.torsion_test is False:
-            delattr(self.molecule, "torsion_test")
 
         # Now check if we have been supplied a dihedral file and a constraints file
         if self.args.dihedral_file:
@@ -247,6 +238,24 @@ class ArgsAndConfigs:
                             f"  {scan_di[0]:2}     {scan_di[1]:2}     {scan_di[2]:2}     {scan_di[3]:2}\n"
                         )
                 printf(f"{mol.name}.dihedrals made.")
+
+                sys.exit()
+
+        class TorsionTestAction(argparse.Action):
+            """
+            Using the molecule, test the agreement with QM by doing a torsiondrive and checking the single
+            point energies for each rotatable dihedral.
+            """
+
+            def __call__(self, pars, namespace, values, option_string=None):
+                molecule = update_ligand("finalise", Ligand)
+                # If there is a constraints file we should move it
+                if molecule.constraints_file is not None:
+                    copy(molecule.constraints_file, molecule.constraints_file.name)
+
+                TorsionOptimiser(molecule).torsion_test()
+
+                printf("Torsion testing done!")
 
                 sys.exit()
 
@@ -425,16 +434,16 @@ class ArgsAndConfigs:
             help="Option to skip certain stages of the execution.",
         )
         parser.add_argument(
-            "-tor_test",
-            "--torsion_test",
-            action="store_true",
-            help="Enter True if you would like to run a torsion test on the chosen torsions.",
-        )
-        parser.add_argument(
             "-tor_make",
             "--torsion_maker",
             action=TorsionMakerAction,
             help="Allow QUBEKit to help you make a torsion input file for the given molecule",
+        )
+        parser.add_argument(
+            "-tor_test",
+            "--torsion_test",
+            action=TorsionTestAction,
+            help="Enter True if you would like to run a torsion test on the chosen torsions.",
         )
         parser.add_argument(
             "-log",
@@ -568,7 +577,7 @@ class ArgsAndConfigs:
             # Get pdb from smiles or name if no smiles is given
             if bulk_data[name]["smiles"] is not None:
                 smiles_string = bulk_data[name]["smiles"]
-                self.molecule = Ligand(smiles_string, name)
+                self.molecule = Ligand.from_smiles(smiles_string, name)
 
             else:
                 # Initialise molecule, ready to add configs to it
@@ -642,7 +651,6 @@ class Execute:
                 ("torsion_scan", self.torsion_scan),
                 ("torsion_optimise", self.torsion_optimise),
                 ("finalise", self.finalise),
-                ("torsion_test", self.torsion_test),
             ]
         )
 
@@ -669,42 +677,28 @@ class Execute:
         Creates a new self.order based on self.molecule's configs.
         """
 
-        # If we are doing a torsion_test we have to redo the order as follows:
-        # 1 Skip the finalise step to create a pickled ligand at the torsion_test stage
-        # 2 Do the torsion_test and delete the torsion_test attribute
-        # 3 Do finalise again to save the ligand with the correct attributes
-        if getattr(self.molecule, "torsion_test", None) not in [None, False]:
-            self.order = OrderedDict(
-                [
-                    ("finalise", self.skip),
-                    ("torsion_test", self.torsion_test),
-                    ("finalise", self.skip),
-                ]
-            )
+        start = (
+            self.molecule.restart
+            if self.molecule.restart is not None
+            else "parametrise"
+        )
+        end = self.molecule.end if self.molecule.end is not None else "finalise"
+        skip = self.molecule.skip if self.molecule.skip is not None else []
 
-        else:
-            start = (
-                self.molecule.restart
-                if self.molecule.restart is not None
-                else "parametrise"
-            )
-            end = self.molecule.end if self.molecule.end is not None else "finalise"
-            skip = self.molecule.skip if self.molecule.skip is not None else []
+        # Create list of all keys
+        stages = list(self.order)
 
-            # Create list of all keys
-            stages = list(self.order)
+        # Cut out the keys before the start_point and after the end_point
+        # Add finalise back in if it's removed (finalise should always be called).
+        stages = stages[stages.index(start) : stages.index(end) + 1] + ["finalise"]
 
-            # Cut out the keys before the start_point and after the end_point
-            # Add finalise back in if it's removed (finalise should always be called).
-            stages = stages[stages.index(start) : stages.index(end) + 1] + ["finalise"]
+        # Redefine self.order to only contain the key, val pairs from stages
+        self.order = OrderedDict(
+            pair for pair in self.order.items() if pair[0] in set(stages)
+        )
 
-            # Redefine self.order to only contain the key, val pairs from stages
-            self.order = OrderedDict(
-                pair for pair in self.order.items() if pair[0] in set(stages)
-            )
-
-            for pair in self.order.items():
-                self.order[pair[0]] = self.skip if pair[0] in skip else pair[1]
+        for pair in self.order.items():
+            self.order[pair[0]] = self.skip if pair[0] in skip else pair[1]
 
     def create_log(self):
         """
@@ -869,10 +863,6 @@ class Execute:
             "finalise": ["Finalising analysis", "Molecule analysis complete!"],
             "pause": ["Pausing analysis", "Analysis paused!"],
             "skip": ["Skipping section", "Section skipped"],
-            "torsion_test": [
-                "Testing torsion single point energies",
-                "Torsion testing complete",
-            ],
         }
 
         # Do the first stage in the order to get the next_key for the following loop
@@ -1399,21 +1389,6 @@ class Execute:
                     scan_order.append(reversed(core))
 
             molecule.scan_order = scan_order
-
-        return molecule
-
-    @staticmethod
-    def torsion_test(molecule):
-        """Take the molecule and do the torsion test method."""
-
-        # If there is a constraints file we should move it
-        if molecule.constraints_file is not None:
-            copy(molecule.constraints_file, molecule.constraints_file.name)
-
-        TorsionOptimiser(molecule).torsion_test()
-
-        printf("Torsion testing done!")
-        delattr(molecule, "torsion_test")
 
         return molecule
 

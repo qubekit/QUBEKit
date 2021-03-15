@@ -1,4 +1,4 @@
-# Include the README and style guide
+# Include the READMEs
 include *.md
 
 # Include the license
@@ -9,4 +9,3 @@ include setup.py
 recursive-include QUBEKit *.py
 include QUBEKit/GUI/*
 include QUBEKit/tests/files/*
-
