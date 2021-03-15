@@ -640,6 +640,16 @@ class VirtualSites:
             for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
         )
 
+    @staticmethod
+    def two_site_two_bond_contraint(x):
+        """
+        In the case of two sites and two bonds, the vectors are added or subtracted together,
+        rather than one vector per site.
+        This constraint ensures the max scaling factor of the vectors combined is less than 1.
+        NB They can then be scaled to be up to 1.5 by the scale factor.
+        """
+        return 1 - x[0] ** 2 - x[1] ** 2
+
     def fit(self, atom_index: int):
         """
         The error for the objective functionsis defined as the sum of differences at each sample point
@@ -714,6 +724,10 @@ class VirtualSites:
                         np.array([0.0, 1.0]),
                         args=(atom_index, vec_a, vec_b),
                         bounds=bounds[1:3],
+                        constraints={
+                            "type": "ineq",
+                            "fun": VirtualSites.two_site_two_bond_contraint,
+                        },
                     )
                     if (two_site_fit.fun / n_sample_points) < final_err:
                         final_err = two_site_fit.fun / n_sample_points
@@ -758,20 +772,24 @@ class VirtualSites:
             self.site_errors[1] * max_err, self.site_errors[2] * max_err
         ):
             append_to_log(
+                self.molecule.home,
                 "No virtual site placement has reduced the error significantly.",
-                "plain",
-                True,
+                and_print=True,
             )
         elif self.site_errors[1] < self.site_errors[2] * max_err:
             append_to_log(
-                "The addition of one virtual site was found to be best.", "plain", True
+                self.molecule.home,
+                "The addition of one virtual site was found to be best.",
+                and_print=True,
             )
             self.v_sites_coords.extend(self.one_site_coords)
             self.molecule.NonbondedForce[atom_index][0] -= self.one_site_coords[0][1]
             self.molecule.ddec_data[atom_index].charge -= self.one_site_coords[0][1]
         else:
             append_to_log(
-                "The addition of two virtual sites was found to be best.", "plain", True
+                self.molecule.home,
+                "The addition of two virtual sites was found to be best.",
+                and_print=True,
             )
             self.v_sites_coords.extend(self.two_site_coords)
             self.molecule.NonbondedForce[atom_index][0] -= (
@@ -781,11 +799,11 @@ class VirtualSites:
                 self.two_site_coords[0][1] + self.two_site_coords[1][1]
             )
         append_to_log(
+            self.molecule.home,
             f"Errors (kcal/mol):\n"
             f"No Site     One Site     Two Sites\n"
             f"{self.site_errors[0]:.4f}      {self.site_errors[1]:.4f}       {self.site_errors[2]:.4f}",
-            "plain",
-            True,
+            and_print=True,
         )
         self.plot(atom_index)
 

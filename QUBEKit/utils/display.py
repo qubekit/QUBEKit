@@ -194,7 +194,7 @@ def pretty_print(molecule, to_file=False, finished=True):
 
     # Print to log file rather than to terminal
     if to_file:
-        log_location = os.path.join(getattr(molecule, "home"), "QUBEKit_log.txt")
+        log_location = os.path.join(molecule.home, "QUBEKit_log.txt")
         with open(log_location, "a+") as log_file:
             log_file.write(f"{pre_string.upper()}\n\n{molecule.__str__()}")
 

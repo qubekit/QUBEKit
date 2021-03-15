@@ -69,16 +69,21 @@ class PSI4(Engines):
         tasks = ""
 
         if energy:
-            append_to_log("Writing psi4 energy calculation input")
+            append_to_log(self.molecule.home, "Writing psi4 energy calculation input")
             tasks += f"\nenergy('{self.molecule.theory}')"
 
         if optimise:
-            append_to_log("Writing PSI4 optimisation input", "minor")
+            append_to_log(
+                self.molecule.home, "Writing PSI4 optimisation input", "minor"
+            )
             setters += f" g_convergence {self.molecule.convergence}\n GEOM_MAXITER {self.molecule.iterations}\n"
             tasks += f"\noptimize('{self.molecule.theory.lower()}')"
 
         if hessian:
-            append_to_log("Writing PSI4 Hessian matrix calculation input", "minor")
+            append_to_log(
+                self.molecule.home,
+                "Writing PSI4 Hessian matrix calculation input",
+            )
             setters += " hessian_write on\n"
 
             tasks += f"\nenergy, wfn = frequency('{self.molecule.theory.lower()}', return_wfn=True)"
@@ -91,26 +96,14 @@ class PSI4(Engines):
                 "PSI4 cannot currently be used for density calculations. Please use Gaussian "
                 "instead."
             )
-        #     append_to_log('Writing PSI4 density calculation input', 'minor')
-        #     setters += " cubeprop_tasks ['density']\n"
-        #
-        #     overage = get_overage(self.molecule.name)
-        #     setters += ' CUBIC_GRID_OVERAGE [{0}, {0}, {0}]\n'.format(overage)
-        #     setters += ' CUBIC_GRID_SPACING [0.13, 0.13, 0.13]\n'
-        #     tasks += f"grad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)\ncubeprop(wfn)"
 
         if fchk:
-            append_to_log("Writing PSI4 input file to generate fchk file")
+            append_to_log(
+                self.molecule.home, "Writing PSI4 input file to generate fchk file"
+            )
             tasks += f"\ngrad, wfn = gradient('{self.molecule.theory.lower()}', return_wfn=True)"
             tasks += "\nfchk_writer = psi4.core.FCHKWriter(wfn)"
             tasks += f'\nfchk_writer.write("{self.molecule.name}_psi4.fchk")\n'
-
-        # if self.molecule.solvent:
-        #     setters += ' pcm true\n pcm_scf_type total\n'
-        #     tasks += '\n\npcm = {'
-        #     tasks += '\n units = Angstrom\n Medium {\n  SolverType = IEFPCM\n  Solvent = Chloroform\n }'
-        #     tasks += '\n Cavity {\n  RadiiSet = UFF\n  Type = GePol\n  Scaling = False\n  Area = 0.3\n  Mode = Implicit'
-        #     tasks += '\n }\n}'
 
         setters += "}\n"
 

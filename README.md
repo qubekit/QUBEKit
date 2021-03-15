@@ -22,7 +22,6 @@
         * [High Throughput](https://github.com/qubekit/QUBEKit#qubekit-commands-high-throughput)
         * [Custom Start and End Points](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-single-molecule)
             * [Single Molecules](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-single-molecule)
-            * [Skipping Stages](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-skipping-stages)
             * [Multiple Molecules](https://github.com/qubekit/QUBEKit#qubekit-commands-custom-start-and-end-points-multiple-molecules)
         * [Checking Progress](https://github.com/qubekit/QUBEKit#qubekit-commands-checking-progress)
         * [Other Commands and Information](https://github.com/qubekit/QUBEKit#qubekit-commands-other-commands-and-information)
@@ -105,7 +104,7 @@ If any packages are missing from the install or causing issues, this table shows
 | **Package** | Conda Install |
 | :------ | :------ |
 | [GeomeTRIC](https://github.com/leeping/geomeTRIC) | `conda install -c conda-forge geometric` |
-| [OpenForceField](https://openforcefield.org/) | `conda install -c omnia openforcefield` |
+| [OpenForceField](https://openforcefield.org/) | `conda install -c conda-forge openff-toolkit` |
 | [OpenMM](http://openmm.org/) | `conda install -c omnia openmm` |
 | [PSI4](http://www.psicode.org/) | `conda install -c psi4 psi4` |
 | [QCEngine](https://pypi.org/project/qcengine/) | `conda install -c conda-forge qcengine` |
@@ -126,7 +125,7 @@ or follow the described steps in the respective documentation.
 #### Installing as dev
 
 If downloading QUBEKit to edit the latest version of the source code, 
-the easiest method is install via conda, then remove the conda version of qubekit and git clone.
+the easiest method is to install via conda, then remove the conda version of qubekit and git clone.
 This is accomplished with a few simple commands:
     
     # Install QUBEKit as normal
@@ -140,7 +139,7 @@ This is accomplished with a few simple commands:
     git clone https://github.com/qubekit/QUBEKit.git
     
     # Re-install QUBEKit outside of conda
-    cd QUBEKit/
+    cd QUBEKit
     python setup.py install
 
 ## Help
@@ -351,26 +350,36 @@ The stages are:
 | *hessian* | This again uses PSI4 or Gaussian to calculate the Hessian matrix which is needed for calculating bonding parameters. |
 | *mod_sem* | Using the Hessian matrix, the bond lengths, angles and force constants are calculated with the Modified Seminario Method. |
 | *density* | The density is calculated using Gaussian09. This is where the solvent is applied as well (if configured). | 
-| *charges* | The charges are partitioned and calculated using Chargemol with DDEC3 or 6. |
+| *charges* | The charges are partitioned and calculated using Chargemol with DDEC3 or 6. Virtual sites are added where the error in ESP would be large without them. |
 | *lennard_jones* | The charges are extracted and Lennard-Jones parameters (sigma and epsilon) are calculated. |
 | *torsion_scan* | Using the molecule's geometry, a torsion scan is performed. The molecule can then be optimised with respect to these parameters. |
 | *torsion_optimise* | The fitting and optimisation step for the torsional analysis. |
 | *finalise* | This step (which is always performed, regardless of end-point) produces an xml file for the molecule. This stage also prints the final information to the log file and a truncated version to the terminal. |
 
 In a normal run, all of these stages are executed sequentially,
-but with `-end` and `-restart` you are free to run *from* any step *to* any step inclusively.
+but with `-end`, `-restart` and `-skip` you are free to run *from* any step *to* any step inclusively while skipping any non-essential steps.
 
-When using `-end`, simply specify the end-point in the proceeding command (default `finalise`),
-when using `-restart`, specify the start-point in the proceeding command (default `parametrise`).
-The end-point (if not `finalise`) can then be specified with the `-end` command.
+When using `-end`, specify the end-point in the proceeding command (default `finalise`).
+
+When using `-restart`, specify the start-point in the proceeding command (default `parametrise`).
+
+When using `-skip`, specify any stage(s) which you needn't run. Be aware some stages depend on one another and cannot necessarily be skipped.
 
 When using these commands, all other config-changing commands can be used in the same ways as before. For example:
 
-    QUBEKit -i methanol.pdb -end charges
-    QUBEKit -restart qm_optimise -end density
-    QUBEKit -i benzene.pdb -log BEN001 -end charges -geo false 
-    QUBEKit -restart hessian -ddec 3
-    
+**Beware skipping steps which are required for other stages of the analysis.**
+
+```shell
+# Inside the folder from a previous execution, 
+# restart the qm optimisation and end having calculated the density.
+QUBEKit -restart qm_optimise -end density
+```
+```shell
+# Start a full parametrisation of benzene, 
+# skip ahead to the qm optimisation and end before analysing the torsions.
+QUBEKit -i benzene.pdb -log BEN001 -skip mm_optimise -end lennard_jones
+```
+
 If using `-end` but not `-restart`, a new directory and log file will be created within wherever the command is run from.
 Just like a normal analysis.
 
@@ -382,45 +391,16 @@ Therefore, `-restart` can only be run from *inside* a directory with those files
 To illustrate this point, a possible use case would be to perform a full calculation on the molecule ethane,
 then recalculate using a different (set of) default value(s):
 
-    QUBEKit -i ethane.pdb -log ETH001
-    ...
-    cd QUBEKit_ethane_2019_01_01_ETH001
-    QUBEKit -restart density -end charges -ddec 3
-    
+```shell
+QUBEKit -i ethane.pdb -log ETH001
+...
+cd QUBEKit_ethane_2019_01_01_ETH001
+QUBEKit -restart density -end charges -ddec 3
+```
 Here, the calculation was performed with the default DDEC version 6, then rerun with version 3 instead, skipping over the early stages which would be unchanged.
 It is recommended to copy (**not cut**) the directory containing the files because some of them will be overwritten when restarting.
 
 Note that because `-restart` was used, it was not necessary to specify the pdb file name with `-i`.
-
-### QUBEKit Commands: Skipping Stages
-
-There is another command for controlling the flow of execution: `-skip`.
-The skip command allows you to skip any number of *proceeding* steps.
-This is useful if using a method not covered by QUBEKit for a particular stage, 
-or if you're just not interested in certain time-consuming results.
-
-`-skip` takes at least one argument and on use will completely skip over the provided stage(s).
-Say you are not interested in calculating bonds and angles, and simply want the charges; the command:
-
-    QUBEKit -i acetone.pdb -skip hessian mod_sem
-
-will skip over the Hessian matrix calculation which is necessary for the modified Seminario method (skipping that too).
-QUBEKit will then go on to calculate density, charges and so on.
-
-**Beware skipping steps which are required for other stages of the analysis.**
-
-Just like the other commands, `-skip` can be used in conjunction with other commands like config changing, 
-and `-end` or `-restart`. Using the same example above, you can stop having calculated charges:
-
-    QUBEKit -i acetone.pdb -skip hessian mod_sem -end charges
-
-**`-skip` is not available for `-bulk` commands and probably never will be. 
-This is to keep bulk commands reasonably simple. 
-We recommend creating a simple script to run single analysis commands if you would like to skip stages frequently.**
-
-In case you want to add external files to be used by QUBEKit, empty folders are created in the correct place even when skipped.
-This makes it easy to drop in, say, a .cube file from another charges engine, 
-then calculate the Lennard-Jones parameters with QUBEKit.
 
 ### QUBEKit Commands: Custom Start and End Points (multiple molecules)
 
@@ -485,7 +465,7 @@ is not a valid command. These should be performed separately:
     
 Be wary of running QUBEKit concurrently through different terminal windows.
 The programs QUBEKit calls often just try to use however much memory is assigned in the config files;
-this means they may try to take more than is available, leading to a crash.
+this means they may try to take more than is available, leading to a hang-up, or--rarely--a crash.
 
 ## Cook Book
 
@@ -507,7 +487,7 @@ All commands can be viewed by calling `QUBEKit -h`. Below is an explanation of w
 | `-vib` | Float: `0.0 - 1.0` | Change the vibrational scaling used with the basis set |
 | `-memory` | Int: `1 - PC limit` | Change the amount of memory allocated |
 | `-threads` | Int: `1 - PC limit` | Change the number of threads allocated |
-| `-v` | Bool | Change the verbosity of the output |
+| `-v` | Bool | Change the verbosity of the output to terminal |
 | `-sites` | Bool | Enable or disable virtual sites |
 | `-symmetry` | Bool | Enable or disable symmetrisation in the molecule parameters |
 | `-display` | String: `<any valid QUBEKit object>` | Display a particular config option or parameter for this execution. e.g. `-display basis` would show the basis set used.
@@ -575,7 +555,7 @@ Run the analysis:
 
     QUBEKit -bulk density.csv
     
-Note, you can add more commands to the execution but it is recommended that changes are made to the config files instead.
+Note, you can add more commands to the execution, but it is recommended that changes are made to the config files instead.
 
 ---
 

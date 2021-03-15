@@ -1206,13 +1206,13 @@ class Ligand(DefaultsMixin, Molecule):
         self.parameter_engine = "openmm"
         self.hessian = None
         self.modes = None
-        self.home = None
+        self.home: Optional[str] = None
 
         # Charge and LJ data from Chargemol / ONETEP
-        self.ddec_data = None
-        self.dipole_moment_data = None
-        self.quadrupole_moment_data = None
-        self.cloud_pen_data = None
+        self.ddec_data: Optional[Dict] = None
+        self.dipole_moment_data: Optional[Dict] = None
+        self.quadrupole_moment_data: Optional[Dict] = None
+        self.cloud_pen_data: Optional[Dict] = None
 
         self.constraints_file = None
 
