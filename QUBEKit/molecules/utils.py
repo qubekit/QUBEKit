@@ -1,23 +1,61 @@
+import copy
 import re
 from itertools import groupby
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import networkx as nx
 import numpy as np
-from qcelemental.models import Molecule as QCEMolecule
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
 from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 from rdkit.Geometry.rdGeometry import Point3D
 
-from QUBEKit.molecules.components import Atom, Element
+from QUBEKit.molecules.components import Atom, Bond, Element
 from QUBEKit.utils.constants import BOHR_TO_ANGS
-from QUBEKit.utils.exceptions import FileTypeError
+from QUBEKit.utils.exceptions import FileTypeError, SmartsError
 
 
 class RDKit:
     """Class for controlling useful RDKit functions."""
+
+    @staticmethod
+    def mol_to_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
+        """
+        Write the rdkit molecule to the requested file type.
+        """
+        file_path = Path(file_name)
+        if file_path.suffix == ".pdb":
+            return Chem.MolToPDBFile(rdkit_mol, file_name)
+        elif file_path.suffix == ".sdf" or file_path.suffix == ".mol":
+            return Chem.MolToMolFile(rdkit_mol, file_name)
+        elif file_path.suffix == ".xyz":
+            return Chem.MolToXYZFile(rdkit_mol, file_name)
+        else:
+            raise FileTypeError(
+                f"The file type {file_path.suffix} is not supported please chose from xyz, pdb, mol or sdf."
+            )
+
+    @staticmethod
+    def mol_to_mutliconformer_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
+        """
+        Write the rdkit molecule to a multi conformer file.
+        """
+        file_path = Path(file_name)
+        # get the file block writer
+        if file_path.suffix == ".pdb":
+            writer = Chem.MolToPDBBlock
+        elif file_path.suffix == ".mol" or file_path.suffix == ".sdf":
+            writer = Chem.MolToMolBlock
+        elif file_path.suffix == ".xyz":
+            writer = Chem.MolToXYZBlock
+        else:
+            raise FileTypeError(
+                f"The file type {file_path.suffix} is not supported please chose from xyz, pdb, mol or sdf."
+            )
+        with open(file_name, "w") as out:
+            for i in range(rdkit_mol.GetNumConformers()):
+                out.write(writer(rdkit_mol, confId=i))
 
     @staticmethod
     def file_to_rdkit_mol(file_path: Path) -> Chem.Mol:
@@ -42,12 +80,16 @@ class RDKit:
             )
         else:
             raise FileTypeError(f"The file type {file_path.suffix} is not supported.")
-        # apply the mol name
-        try:
-            mol.GetProp("_Name")
-        except KeyError:
-            # set the name of the input file
-            mol.SetProp("_Name", file_path.stem)
+        # run some sanitation
+        Chem.SanitizeMol(
+            mol,
+            (Chem.SANITIZE_ALL ^ Chem.SANITIZE_SETAROMATICITY ^ Chem.SANITIZE_ADJUSTHS),
+        )
+        Chem.SetAromaticity(mol, Chem.AromaticityModel.AROMATICITY_MDL)
+        Chem.AssignStereochemistryFrom3D(mol)
+
+        # set the name of the input file
+        mol.SetProp("_Name", file_path.stem)
 
         return mol
 
@@ -71,18 +113,6 @@ class RDKit:
         return mol_hydrogens
 
     @staticmethod
-    def mm_optimise(rdkit_mol: Chem.Mol, ff="MMF") -> Chem.Mol:
-        """
-        Perform rough preliminary optimisation to speed up later optimisations.
-        :param filename: The Path of the input file
-        :param ff: The Force field to be used either MMF or UFF
-        :return: The name of the optimised pdb file that is made
-        """
-
-        {"MMF": MMFFOptimizeMolecule, "UFF": UFFOptimizeMolecule}[ff](rdkit_mol)
-        return rdkit_mol
-
-    @staticmethod
     def rdkit_descriptors(rdkit_mol: Chem.Mol) -> Dict[str, float]:
         """
         Use RDKit Descriptors to extract properties and store in Descriptors dictionary.
@@ -100,14 +130,80 @@ class RDKit:
         }
 
     @staticmethod
-    def get_smiles(rdkit_mol: Chem.Mol) -> str:
+    def get_smiles(
+        rdkit_mol: Chem.Mol,
+        isomeric: bool = True,
+        explicit_hydrogens: bool = True,
+        mapped: bool = False,
+    ) -> str:
         """
-        Use RDKit to load in the pdb file of the molecule and get the smiles code.
-        :param rdkit_mol: The rdkit molecule
-        :return: The smiles string
-        """
+        Use RDKit to generate a smiles string for the molecule.
 
-        return Chem.MolToSmiles(rdkit_mol, isomericSmiles=True, allHsExplicit=True)
+        We work with a copy of the input molecule as we may assign an atom map number which will effect the CIP algorithm
+        and could break symmetry groups.
+
+        Args:
+            rdkit_mol:
+                A complete Chem.Mol instance of a molecule.
+            isomeric:
+                If the smiles should encode the stereochemistry `True` or not `False`.
+            explicit_hydrogens:
+                If the smiles should explicitly encode hydrogens `True` or not `False`.
+            mapped:
+                If the smiles should be mapped to preserve the ordering of the molecule `True` or not `False`.
+
+        Returns:
+            A string which encodes the molecule smiles corresponding the the input options.
+        """
+        cp_mol = copy.deepcopy(rdkit_mol)
+        if mapped:
+            explicit_hydrogens = True
+            for atom in cp_mol.GetAtoms():
+                # mapping starts from 1 as 0 means no mapping in rdkit
+                atom.SetAtomMapNum(atom.GetIdx() + 1)
+        if not explicit_hydrogens:
+            cp_mol = Chem.RemoveHs(cp_mol)
+        return Chem.MolToSmiles(
+            cp_mol, isomericSmiles=isomeric, allHsExplicit=explicit_hydrogens
+        )
+
+    @staticmethod
+    def get_smirks_matches(rdkit_mol: Chem.Mol, smirks: str) -> List[Tuple[int, ...]]:
+        """
+        Query the molecule for the tagged smarts pattern (OpenFF SMIRKS).
+
+        Args:
+            rdkit_mol:
+                The rdkit molecule instance that should be checked against the smarts pattern.
+            smirks:
+                The tagged SMARTS pattern that should be checked against the molecule.
+
+        Returns:
+            A list of atom index tuples which match the corresponding tagged atoms in the smarts pattern.
+            Note only tagged atoms indices are returned.
+        """
+        cp_mol = copy.deepcopy(rdkit_mol)
+        smarts_mol = Chem.MolFromSmarts(smirks)
+        if smarts_mol is None:
+            raise SmartsError(
+                f"RDKit could not understand the query {smirks} please check again."
+            )
+        # we need a mapping between atom map and index in the smarts mol
+        # to work out the index of the matched atom
+        mapping = {}
+        for atom in smarts_mol.GetAtoms():
+            smart_index = atom.GetAtomMapNum()
+            if smart_index != 0:
+                # atom was tagged in the smirks
+                mapping[smart_index - 1] = atom.GetIdx()
+        # smarts can match forward and backwards so condense the matches
+        all_matches = set()
+        for match in cp_mol.GetSubstructMatches(
+            smarts_mol, uniquify=True, useChirality=True
+        ):
+            smirks_atoms = [match[atom] for atom in mapping.values()]
+            all_matches.add(tuple(smirks_atoms))
+        return list(all_matches)
 
     @staticmethod
     def get_smarts(rdkit_mol: Chem.Mol) -> str:
@@ -118,31 +214,6 @@ class RDKit:
         """
 
         return Chem.MolToSmarts(rdkit_mol)
-
-    @staticmethod
-    def to_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
-        """
-        For the given rdkit molecule write it to the specified file, the type will be geussed from the suffix.
-        """
-        file_name = Path(file_name)
-        if file_name.suffix == ".pdb":
-            return Chem.MolToPDBFile(rdkit_mol, file_name)
-        elif file_name.suffix == ".mol" or file_name.suffix == ".sdf":
-            return Chem.MolToMolFile(rdkit_mol, file_name)
-
-    @staticmethod
-    def get_mol(rdkit_mol: Chem.Mol, file_name: str) -> None:
-        """
-        Use RDKit to generate a mol file.
-        :param rdkit_mol: The input rdkit molecule
-        :param file_name: The name of the file to write
-        :return: The name of the mol file made
-        """
-        if ".mol" not in file_name:
-            mol_name = f"{file_name}.mol"
-        else:
-            mol_name = file_name
-        Chem.MolToMolFile(rdkit_mol, mol_name)
 
     @staticmethod
     def generate_conformers(rdkit_mol: Chem.Mol, conformer_no=10) -> List[np.ndarray]:
@@ -232,29 +303,19 @@ class RDKit:
 
 class ReadInput:
     """
-    Called inside Ligand or Protein; used to handle reading any kind of input valid in QUBEKit
+    Called inside Ligand; used to handle reading any kind of input valid in QUBEKit
         QC JSON object
         SMILES string
         PDB, MOL2, XYZ file
-    :param mol_input: One of the accepted input types:
-        QC JSON object
-        SMILES string
-        PDB, MOL2, XYZ file
-    :param name: The name of the molecule. Only necessary for smiles strings but can be
-        provided regardless of input type.
     """
 
     def __init__(
         self,
-        topology: Optional[nx.Graph] = None,
-        atoms: Optional[List[Atom]] = None,
         coords: Optional[np.ndarray] = None,
         rdkit_mol: Optional = None,
         name: Optional[str] = None,
     ):
 
-        self.topology = topology
-        self.atoms = atoms
         self.coords = coords
         self.rdkit_mol = rdkit_mol
         self.name = name
@@ -277,7 +338,7 @@ class ReadInput:
         """
         # Smiles string input
         rdkit_mol = RDKit.smiles_to_rdkit_mol(smiles_string=smiles, name=name)
-        return cls.from_rdkit(rdkit_mol=rdkit_mol)
+        return cls(name=name, coords=None, rdkit_mol=rdkit_mol)
 
     @classmethod
     def from_file(cls, file_name: str) -> "ReadInput":
@@ -295,73 +356,22 @@ class ReadInput:
             return cls.from_xyz(file_name=input_file.as_posix())
         # read the input with rdkit
         rdkit_mol = RDKit.file_to_rdkit_mol(file_path=input_file)
-        return cls.from_rdkit(rdkit_mol=rdkit_mol)
+        return cls(rdkit_mol=rdkit_mol, coords=None, name=rdkit_mol.GetProp("_Name"))
 
     @classmethod
-    def from_rdkit(cls, rdkit_mol, name: Optional[str] = None) -> "ReadInput":
-        """
-        Using an RDKit Molecule object, extract the name, topology, coordinates and atoms
-        """
-
-        if name is None:
-            name = rdkit_mol.GetProp("_Name")
-
-        atoms = []
-        topology = nx.Graph()
-        # Collect the atom names and bonds
-        for atom in rdkit_mol.GetAtoms():
-            # Collect info about each atom
-            atomic_number = atom.GetAtomicNum()
-            index = atom.GetIdx()
-            try:
-                # PDB file extraction
-                atom_name = atom.GetMonomerInfo().GetName().strip()
-            except AttributeError:
-                try:
-                    # Mol2 file extraction
-                    atom_name = atom.GetProp("_TriposAtomName")
-                except KeyError:
-                    # smiles and mol files have no atom names so generate them here if they are not declared
-                    atom_name = f"{atom.GetSymbol()}{index}"
-
-            qube_atom = Atom(
-                atomic_number, index, atom_name, formal_charge=atom.GetFormalCharge()
-            )
-
-            # Add the atoms as nodes
-            topology.add_node(atom.GetIdx())
-
-            # Add the bonds
-            for bonded in atom.GetNeighbors():
-                topology.add_edge(atom.GetIdx(), bonded.GetIdx())
-                qube_atom.add_bond(bonded.GetIdx())
-
-            # Now add the atom to the molecule
-            atoms.append(qube_atom)
-
-        coords = rdkit_mol.GetConformer().GetPositions()
-        atoms = atoms or None
-        return cls(
-            topology=topology,
-            atoms=atoms,
-            coords=coords,
-            rdkit_mol=rdkit_mol,
-            name=name,
-        )
-
-    @classmethod
-    def from_qc_json(cls, qc_json: QCEMolecule) -> "ReadInput":
+    def from_qc_json(cls, qc_json) -> "ReadInput":
         """
         Given a QC JSON object, extracts the topology, atoms and coords of the molecule.
+        #TODO we need to be absle to read mapped smiles for this to work with stereochem and aromaticity
         """
 
         topology = nx.Graph()
         atoms = []
 
-        for i, atom in enumerate(qc_json.atomic_numbers):
+        for i, atom in enumerate(qc_json.symbols):
             atoms.append(
                 Atom(
-                    atomic_number=atom,
+                    atomic_number=Element().number(atom),
                     atom_index=i,
                     atom_name=f"{atom}{i}",
                 )
@@ -373,7 +383,7 @@ class ReadInput:
 
         coords = np.array(qc_json.geometry).reshape((len(atoms), 3)) * BOHR_TO_ANGS
         atoms = atoms or None
-        return cls(topology=topology, atoms=atoms, coords=coords)
+        return cls(name=None, rdkit_mol=None, coords=coords)
 
     @classmethod
     def from_xyz(cls, file_name: str) -> "ReadInput":
@@ -404,7 +414,7 @@ class ReadInput:
                     coords = []
 
         coords = traj_molecules[0] if len(traj_molecules) == 1 else traj_molecules
-        return cls(coords=coords, topology=None, atoms=None, rdkit_mol=None)
+        return cls(coords=coords, name=None, rdkit_mol=None)
 
 
 class ReadInputProtein:
@@ -415,15 +425,15 @@ class ReadInputProtein:
 
     def __init__(
         self,
-        topology: Optional[nx.Graph] = None,
-        atoms: Optional[List[Atom]] = None,
+        atoms: List[Atom],
+        bonds: Optional[List[Bond]] = None,
         coords: Optional[np.ndarray] = None,
         pdb_names: Optional[List[str]] = None,
         residues: Optional[List[str]] = None,
         name: Optional[str] = None,
     ):
-        self.topology = topology
         self.atoms = atoms
+        self.bonds = bonds
         self.coords = coords
         self.name = name
         self.residues = residues
@@ -440,7 +450,7 @@ class ReadInputProtein:
 
         coords = []
         atoms = []
-        topology = nx.Graph()
+        bonds = []
         Residues = []
         pdb_names = []
 
@@ -461,7 +471,14 @@ class ReadInputProtein:
                     atomic_symbol = atomic_symbol[0]
 
                 atom_name = f"{atomic_symbol}{atom_count}"
-                qube_atom = Atom(Element().number(atomic_symbol), atom_count, atom_name)
+                # TODO should we use a protein pdb package for this?
+                qube_atom = Atom(
+                    atomic_number=Element().number(atomic_symbol),
+                    atom_index=atom_count,
+                    atom_name=atom_name,
+                    formal_charge=0,
+                    aromatic=False,
+                )
 
                 atoms.append(qube_atom)
 
@@ -470,8 +487,6 @@ class ReadInputProtein:
                 # also get the residue order from the pdb file so we can rewrite the file
                 Residues.append(str(line.split()[3]))
 
-                # Also add the atom number as the node in the graph
-                topology.add_node(atom_count)
                 atom_count += 1
                 coords.append(
                     [float(line[30:38]), float(line[38:46]), float(line[46:54])]
@@ -481,15 +496,21 @@ class ReadInputProtein:
                 conect_terms = line.split()
                 for atom in conect_terms[2:]:
                     if int(atom):
-                        topology.add_edge(int(conect_terms[1]) - 1, int(atom) - 1)
+                        bond = Bond(
+                            atom1_index=int(conect_terms[1]) - 1,
+                            atom2_index=int(atom) - 1,
+                            bond_order=1,
+                            aromatic=False,
+                        )
+                        bonds.append(bond)
 
         coords = np.array(coords)
         residues = [res for res, group in groupby(Residues)]
         if name is None:
             name = Path(file_name).stem
         return cls(
-            topology=topology,
             atoms=atoms,
+            bonds=bonds,
             coords=coords,
             pdb_names=pdb_names,
             residues=residues,

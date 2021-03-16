@@ -18,7 +18,7 @@ from matplotlib.cm import ScalarMappable
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import minimize
 
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules import ExtraSite, Ligand
 from QUBEKit.utils.constants import (
     ANGS_TO_NM,
     BOHR_TO_ANGS,
@@ -28,7 +28,6 @@ from QUBEKit.utils.constants import (
     PI,
     VACUUM_PERMITTIVITY,
 )
-from QUBEKit.utils.datastructures import ExtraSite
 from QUBEKit.utils.helpers import append_to_log
 
 

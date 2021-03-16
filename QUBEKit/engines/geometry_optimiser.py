@@ -1,15 +1,17 @@
 """
 A class which handles general geometry optimisation tasks.
 """
+import copy
 from typing import Dict, Optional, Union
 
 import qcelemental as qcel
 import qcengine as qcng
-from pydantic import BaseModel, Field, PositiveInt, validator
+from pydantic import Field, PositiveInt, validator
 from typing_extensions import Literal
 
 from QUBEKit.engines.base_engine import BaseEngine
 from QUBEKit.molecules import Ligand
+from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import SpecificationError
 
 
@@ -140,11 +142,22 @@ class GeometryOptimiser(BaseEngine):
         _ = qcng.get_procedure(name=optimiser)
         return True
 
-    def optimise(
-        self, molecule: Ligand, input_type: str = "input"
-    ) -> qcel.models.OptimizationResult:
+    def optimise(self, molecule: Ligand, allow_fail: bool = False) -> Ligand:
         """
         For the given specification in the class run an optimisation on the ligand.
+
+        Run the specified optimisation on the ligand the final coordinates are extracted and stored in the ligand.
+        The optimisation schema is dumped to file along with the optimised geometry and the trajectory.
+
+        Args:
+            molecule:
+                The molecule which should be optimised
+            allow_fail:
+                If we should not raise an error if the molecule fails to be optimised, this will extract the last geometry
+                from the trajectory and return it.
+
+        Returns:
+            A new copy of the molecule at the optimised coordinates.
         """
         # first validate the settings
         self._validate_specification()
@@ -154,7 +167,7 @@ class GeometryOptimiser(BaseEngine):
         # now we need to distribute the job
         model = self.qc_model
         specification = qcel.models.procedures.QCInputSpecification(model=model)
-        initial_mol = molecule.to_qcschema(input_type=input_type)
+        initial_mol = molecule.to_qcschema()
         opt_task = qcel.models.OptimizationInput(
             initial_molecule=initial_mol,
             input_specification=specification,
@@ -163,7 +176,64 @@ class GeometryOptimiser(BaseEngine):
         opt_result = qcng.compute_procedure(
             input_data=opt_task,
             procedure=self.optimiser,
-            raise_error=True,
+            raise_error=False,
             local_options=self.local_options,
         )
-        return opt_result
+        # dump info to file
+        result_mol = self.handle_output(molecule=molecule, opt_output=opt_result)
+        # check if we can/have failed and raise the error
+        if not opt_result.success and not allow_fail:
+            raise RuntimeError(
+                f"{opt_result.error.error_type}: {opt_result.error.error_message}"
+            )
+
+        return result_mol
+
+    def handle_output(
+        self,
+        molecule: Ligand,
+        opt_output: Union[
+            qcel.models.OptimizationResult, qcel.models.common_models.FailedOperation
+        ],
+    ) -> Ligand:
+        """
+        Sort the output of the optimisation depending on success.
+
+        Take a molecule and an optimisation result or failed operation and unpack the trajectory and final geometry into
+        a copy of the molecule. Also save the result to file.
+
+        Args:
+            molecule:
+                The molecule that the optimisation was ran on.
+            opt_output:
+                The output of an optimisation which may be a valid result or a FailedOperation.
+
+        Returns:
+            A copy of the molecule with the final geometry in the trajectory saved.
+        """
+        result_mol = copy.deepcopy(molecule)
+        # Store the entire result to file
+        with open("result.json", "w") as out:
+            out.write(opt_output.json())
+
+        # Now sort the result
+        if opt_output.success:
+            # passed operation so act normal
+            trajectory = [result.molecule for result in opt_output.trajectory]
+        else:
+            trajectory = [
+                qcel.models.Molecule.from_data(mol["molecule"])
+                for mol in opt_output.input_data["trajectory"]
+            ]
+
+        # TODO how do we get this in the log
+        print(f"Optimisation finished in {len(trajectory)} steps.")
+        traj = [mol.geometry * constants.BOHR_TO_ANGS for mol in trajectory]
+        result_mol.coordinates = traj[-1]
+        # write to file
+        result_mol.to_file(file_name="opt.xyz")
+        result_mol.to_multiconformer_file(
+            file_name="opt_trajectory.xyz", positions=traj
+        )
+
+        return result_mol

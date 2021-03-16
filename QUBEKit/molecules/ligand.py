@@ -23,30 +23,32 @@ TODO ligand.py Refactor:
         Be more strict about public/private class/method/function naming?
 """
 
+import os
 import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
 from xml.dom.minidom import parseString
 
 import networkx as nx
 import numpy as np
+import qcelemental as qcel
 from rdkit import Chem
 from simtk import unit
 from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple
 from simtk.openmm.app.element import Element
-import qcelemental as qcel
 
 import QUBEKit
-from QUBEKit.engines import RDKit
-from QUBEKit.utils.datastructures import Atom, Bond, ExtraSite
-from QUBEKit.utils.exceptions import FileTypeError, TopologyMismatch
-from QUBEKit.utils.file_handling import ReadInput, ReadInputProtein
-from QUBEKit.molecules.components import Atom, ExtraSite
-from QUBEKit.molecules.utils import ReadInput
+from QUBEKit.molecules.components import Atom, Bond, ExtraSite
+from QUBEKit.molecules.utils import RDKit, ReadInput
 from QUBEKit.utils import constants
-from QUBEKit.utils.exceptions import ConformerError, FileTypeError
+from QUBEKit.utils.exceptions import (
+    ConformerError,
+    FileTypeError,
+    StereoChemistryError,
+    TopologyMismatch,
+)
+from QUBEKit.utils.helpers import _assert_wrapper
 
 
 class DefaultsMixin:
@@ -373,24 +375,6 @@ class Molecule:
         raise TopologyMismatch(
             f"There is no bond between atoms {atom1_index} and {atom2_index} in this molecule."
         )
-
-    # def read_geometric_traj(self, trajectory):
-    #     """
-    #     Read in the molecule coordinates to the traj holder from a geometric optimisation using qcengine.
-    #     :param trajectory: The qcengine trajectory
-    #
-    #     TODO Move to QCEngine()
-    #     """
-    #
-    #     for frame in trajectory:
-    #         opt_traj = []
-    #         # Convert coordinates from bohr to angstroms
-    #         geometry = np.array(frame["molecule"]["geometry"]) * constants.BOHR_TO_ANGS
-    #         for i, atom in enumerate(frame["molecule"]["symbols"]):
-    #             opt_traj.append(
-    #                 [geometry[0 + i * 3], geometry[1 + i * 3], geometry[2 + i * 3]]
-    #             )
-    #         self.coords["traj"].append(np.array(opt_traj))
 
     @property
     def has_unique_atom_names(self) -> bool:
@@ -980,11 +964,14 @@ class Molecule:
         """
         Generate an rdkit representation of the QUBEKit ligand object.
 
-        #TODO what properties should be put in the rdkit molecule? Multiplicity?
+        Here we build the molecule and assign the stereochemistry using the coordinates as we should always have a set of coordinates in the model.
+        This allows us to skip complicated local vs global stereo chemistry checks however this could break in future.
 
         Returns:
             An rdkit representation of the molecule.
         """
+        # TODO what properties should be put in the rdkit molecule? Multiplicity?
+
         # make an editable molecule
         rd_mol = Chem.RWMol()
         if self.name is not None:
@@ -1012,33 +999,39 @@ class Molecule:
         # must use openff MDL model for compatibility
         Chem.SetAromaticity(rd_mol, Chem.AromaticityModel.AROMATICITY_MDL)
 
-        Chem.AssignStereochemistry(
-            rd_mol, force=True, cleanIt=True, flagPossibleStereoCenters=True
+        # conformers
+        rd_mol = RDKit.add_conformer(
+            rdkit_mol=rd_mol, conformer_coordinates=self.coordinates
         )
+        Chem.AssignStereochemistryFrom3D(rd_mol)
 
         # now we should check that the stereo has not been broken
         for rd_atom in rd_mol.GetAtoms():
             index = rd_atom.GetIdx()
             qb_atom = self.atoms[index]
             if qb_atom.stereochemistry is not None:
-                assert qb_atom.stereochemistry == rd_atom.GetProp("_CIPCode")
+                with _assert_wrapper(StereoChemistryError):
+                    assert qb_atom.stereochemistry == rd_atom.GetProp(
+                        "_CIPCode"
+                    ), f"StereoChemistry incorrect expected {qb_atom.stereochemistry} got {rd_atom.GetProp('_CIPCode')} for atom {qb_atom}"
 
         for rd_bond in rd_mol.GetBonds():
             index = rd_bond.GetIdx()
             qb_bond = self.bonds[index]
-            assert rd_bond.GetBondTypeAsDouble() == qb_bond.bond_order
             if qb_bond.stereochemistry is not None:
                 rd_bond.SetStereo(qb_bond.rdkit_stereo)
             rd_stereo = rd_bond.GetStereo()
             if qb_bond.stereochemistry == "E":
-                assert rd_stereo == Chem.BondStereo.STEREOE
+                with _assert_wrapper(StereoChemistryError):
+                    assert (
+                        rd_stereo == Chem.BondStereo.STEREOE
+                    ), f"StereoChemistry incorrect expected E got {rd_stereo}"
             elif qb_bond.stereochemistry == "Z":
-                assert rd_stereo == Chem.BondStereo.STEREOZ
+                with _assert_wrapper(StereoChemistryError):
+                    assert (
+                        rd_stereo == Chem.BondStereo.STEREOZ
+                    ), f"StereoChemistry incorrect expected Z got {rd_stereo}"
 
-        # conformers
-        rd_mol = RDKit.add_conformer(
-            rdkit_mol=rd_mol, conformer_coordinates=self.coordinates
-        )
         return Chem.Mol(rd_mol)
 
     def get_smarts_matches(self, smirks: str) -> Optional[List[Tuple[int, ...]]]:
@@ -1415,22 +1408,22 @@ class Ligand(DefaultsMixin, Molecule):
         if not self.has_unique_atom_names:
             self.generate_atom_names()
 
-    def to_qcschema(
-        self, extras: Optional[Dict] = None
-    ) -> qcel.models.Molecule:
+    def to_qcschema(self, extras: Optional[Dict] = None) -> qcel.models.Molecule:
         """
         build a qcschema molecule from the ligand object, this is useful to interface with QCEngine and QCArchive.
         """
         # make sure we have a conformer
         coords = self.coordinates
-        if coords == []:
+        if coords == [] or coords is None:
             raise ConformerError(
                 "The molecule must have a conformation to make a qcschema molecule."
             )
         # input must be in bohr
         coords *= constants.ANGS_TO_BOHR
         # we do not store explicit bond order so guess at 1
-        bonds = [(*bond, 1.0) for bond in self.bonds]
+        bonds = [
+            (bond.atom1_index, bond.atom2_index, bond.bond_order) for bond in self.bonds
+        ]
         symbols = [atom.atomic_symbol for atom in self.atoms]
         schema_info = {
             "symbols": symbols,
@@ -1457,126 +1450,3 @@ class Ligand(DefaultsMixin, Molecule):
             else:
                 coords = input_data.coords
         self.coordinates = coords
-
-
-class Protein(DefaultsMixin, Molecule):
-    """
-    This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it.
-    """
-
-    def __init__(self, mol_input, name=None):
-        """
-        is_protein      Bool; True for Protein class
-        home            Current working directory (location for QUBEKit execution).
-        residues        List of all residues in the molecule in order e.g. ['ARG', 'HIS', ... ]
-        Residues        List of residue names for each atom e.g. ['ARG', 'ARG', 'ARG', ... 'HIS', 'HIS', ... ]
-        pdb_names       List
-        """
-
-        super().__init__(mol_input, name)
-
-        self.home = os.getcwd()
-        self.residues = None
-        self.Residues = None
-        self.pdb_names = None
-
-        self.combination = "opls"
-
-        if not isinstance(mol_input, ReadInputProtein):
-            self._check_file_type(file_name=mol_input)
-            input_data = ReadInputProtein.from_pdb(file_name=mol_input)
-        else:
-            input_data = mol_input
-        self._save_to_protein(input_data)
-
-    @classmethod
-    def from_file(cls, file_name: str, name: Optional[str] = None) -> "Protein":
-        """
-        Instance the protein class from a pdb file.
-        """
-        cls._check_file_type(file_name=file_name)
-        input_data = ReadInputProtein.from_pdb(file_name=file_name, name=name)
-        return cls(input_data)
-
-    @staticmethod
-    def _check_file_type(file_name: str) -> None:
-        """
-        Make sure the protien is being read from a pdb file.
-        """
-        if ".pdb" not in file_name:
-            raise FileTypeError("Proteins can only be read from pdb.")
-
-    def _save_to_protein(self, mol_input: ReadInputProtein):
-        """
-        Public access to private file_handlers.py file.
-        Users shouldn't ever need to interface with file_handlers.py directly.
-        All parameters will be set from a file (or other input) via this public method.
-            * Don't bother updating name, topology or atoms if they are already stored.
-            * Do bother updating coords, rdkit_mol, residues, Residues, pdb_names
-        """
-
-        if mol_input.name is not None:
-            self.name = mol_input.name
-        if mol_input.atoms is not None:
-            self.atoms = mol_input.atoms
-        if mol_input.coords is not None:
-            self.coordinates = mol_input.coords
-        if mol_input.residues is not None:
-            self.residues = mol_input.residues
-        if mol_input.pdb_names is not None:
-            self.pdb_names = mol_input.pdb_names
-        if mol_input.bonds is not None:
-            self.bonds = mol_input.bonds
-
-        if not self.bonds:
-            print(
-                "No connections found in pdb file; topology will be inferred by OpenMM."
-            )
-            return
-
-        self.symmetrise_from_topology()
-
-    def write_pdb(self, name=None):
-        """
-        This method replaces the ligand method as all of the atom names and residue names have to be replaced.
-        """
-
-        with open(f"{name if name is not None else self.name}.pdb", "w+") as pdb_file:
-
-            pdb_file.write(f"REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n")
-            # Write out the atomic xyz coordinates
-            for i, (coord, atom) in enumerate(zip(self.coordinates, self.atoms)):
-                x, y, z = coord
-                # May cause issues if protein contains more than 10,000 atoms.
-                pdb_file.write(
-                    f"HETATM {i+1:>4}{atom.atom_name:>5} QUP     1{x:12.3f}{y:8.3f}{z:8.3f}"
-                    f"  1.00  0.00         {atom.atomic_symbol.upper():>3}\n"
-                )
-
-            # Add the connection terms based on the molecule topology.
-            for bond in self.bonds:
-                pdb_file.write(
-                    f"CONECT{bond.atom1_index + 1:5} {bond.atom2_index + 1:5}\n"
-                )
-
-            pdb_file.write("END\n")
-
-    def update(self):
-        """
-        After the protein has been passed to the parametrisation class we get back the bond info
-        use this to update all missing terms.
-        """
-        if not self.bonds:
-            self.bonds = []
-            # using the new harmonic bond force dict we can add the bond edges to the topology graph
-            for bond in self.HarmonicBondForce:
-                self.bonds.append(
-                    Bond(
-                        atom1_indx=bond[0],
-                        atom2_index=bond[1],
-                        bond_order=1,
-                        aromatic=False,
-                    )
-                )
-
-        self.symmetrise_from_topology()

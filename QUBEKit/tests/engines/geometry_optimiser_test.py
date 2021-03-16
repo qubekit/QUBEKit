@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import qcengine
 
@@ -132,13 +134,25 @@ def test_optimise(program, basis, method, tmpdir):
             optimiser="geometric",
             convergence="GAU",
         )
-        result = g.optimise(molecule=mol)
-        assert result.success is True
-        assert len(result.trajectory) > 1
-        assert (
-            result.final_molecule.geometry.tolist()
-            != mol.to_qcschema().geometry.tolist()
+        result_mol = g.optimise(molecule=mol)
+        assert result_mol.coordinates.tolist() != mol.coordinates.tolist()
+
+
+def test_optimise_fail(tmpdir):
+    """
+    Make sure the optimised geometries and result is still wrote out if we fail the molecule and an error is rasied.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(file_name=get_data("water.pdb"))
+        g = GeometryOptimiser(
+            program="torchani", method="ani1ccx", basis=None, maxiter=5
         )
+        with pytest.raises(RuntimeError):
+            g.optimise(molecule=mol, allow_fail=False)
+        files = os.listdir()
+        assert "opt.xyz" in files
+        assert "opt_trajectory.xyz" in files
+        assert "result.json" in files
 
 
 def test_optking_fail():

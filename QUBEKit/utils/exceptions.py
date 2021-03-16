@@ -68,3 +68,9 @@ class ConformerError(Exception):
     """
     When a conformation is incorrect or missing.
     """
+
+
+class StereoChemistryError(Exception):
+    """
+    When the stereochemistry is incorrect in an rdkit instance created from a qubekit molecule.
+    """

@@ -2,8 +2,7 @@ import os
 from datetime import datetime
 from typing import Optional
 
-import networkx as nx
-
+from QUBEKit.molecules.components import Bond
 from QUBEKit.molecules.ligand import DefaultsMixin, Molecule
 from QUBEKit.molecules.utils import ReadInputProtein
 from QUBEKit.utils.exceptions import FileTypeError
@@ -25,7 +24,6 @@ class Protein(DefaultsMixin, Molecule):
 
         super().__init__(mol_input, name)
 
-        self.is_protein = True
         self.home = os.getcwd()
         self.residues = None
         self.Residues = None
@@ -38,7 +36,7 @@ class Protein(DefaultsMixin, Molecule):
             input_data = ReadInputProtein.from_pdb(file_name=mol_input)
         else:
             input_data = mol_input
-        self._save_to_protein(input_data, input_type="input")
+        self._save_to_protein(input_data)
 
     @classmethod
     def from_file(cls, file_name: str, name: Optional[str] = None) -> "Protein":
@@ -57,7 +55,7 @@ class Protein(DefaultsMixin, Molecule):
         if ".pdb" not in file_name:
             raise FileTypeError("Proteins can only be read from pdb.")
 
-    def _save_to_protein(self, mol_input: ReadInputProtein, input_type="input"):
+    def _save_to_protein(self, mol_input: ReadInputProtein):
         """
         Public access to private file_handlers.py file.
         Users shouldn't ever need to interface with file_handlers.py directly.
@@ -68,22 +66,23 @@ class Protein(DefaultsMixin, Molecule):
 
         if mol_input.name is not None:
             self.name = mol_input.name
-        if mol_input.topology is not None:
-            self.topology = mol_input.topology
         if mol_input.atoms is not None:
             self.atoms = mol_input.atoms
         if mol_input.coords is not None:
-            self.coords[input_type] = mol_input.coords
+            self.coordinates = mol_input.coords
         if mol_input.residues is not None:
             self.residues = mol_input.residues
         if mol_input.pdb_names is not None:
             self.pdb_names = mol_input.pdb_names
+        if mol_input.bonds is not None:
+            self.bonds = mol_input.bonds
 
-        if not self.topology.edges:
+        if not self.bonds:
             print(
                 "No connections found in pdb file; topology will be inferred by OpenMM."
             )
             return
+
         self.symmetrise_from_topology()
 
     def write_pdb(self, name=None):
@@ -95,7 +94,7 @@ class Protein(DefaultsMixin, Molecule):
 
             pdb_file.write(f"REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n")
             # Write out the atomic xyz coordinates
-            for i, (coord, atom) in enumerate(zip(self.coords["input"], self.atoms)):
+            for i, (coord, atom) in enumerate(zip(self.coordinates, self.atoms)):
                 x, y, z = coord
                 # May cause issues if protein contains more than 10,000 atoms.
                 pdb_file.write(
@@ -104,31 +103,29 @@ class Protein(DefaultsMixin, Molecule):
                 )
 
             # Add the connection terms based on the molecule topology.
-            for node in self.topology.nodes:
-                bonded = sorted(list(nx.neighbors(self.topology, node)))
-                if len(bonded) >= 1:
-                    pdb_file.write(
-                        f'CONECT{node + 1:5}{"".join(f"{x + 1:5}" for x in bonded)}\n'
-                    )
+            for bond in self.bonds:
+                pdb_file.write(
+                    f"CONECT{bond.atom1_index + 1:5} {bond.atom2_index + 1:5}\n"
+                )
 
             pdb_file.write("END\n")
 
-    def update(self, input_type="input"):
+    def update(self):
         """
         After the protein has been passed to the parametrisation class we get back the bond info
         use this to update all missing terms.
         """
+        if not self.bonds:
+            self.bonds = []
+            # using the new harmonic bond force dict we can add the bond edges to the topology graph
+            for bond in self.HarmonicBondForce:
+                self.bonds.append(
+                    Bond(
+                        atom1_indx=bond[0],
+                        atom2_index=bond[1],
+                        bond_order=1,
+                        aromatic=False,
+                    )
+                )
 
-        # using the new harmonic bond force dict we can add the bond edges to the topology graph
-        for bond in self.HarmonicBondForce:
-            self.topology.add_edge(*bond)
-
-        # self.find_angles()
-        # self.find_dihedrals()
-        # self.find_rotatable_dihedrals()
-        # self.find_impropers()
-        # self.measure_dihedrals(input_type)
-        # self.bond_lengths(input_type)
-        # self.measure_angles(input_type)
-        # This creates the dictionary of terms that should be symmetrised.
         self.symmetrise_from_topology()

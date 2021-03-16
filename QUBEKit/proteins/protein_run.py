@@ -32,7 +32,7 @@ def main():
             protein = Protein(values)
             printf(f"{len(protein.residues)} residues found!")
             # TODO find the magic numbers for the box for onetep
-            protein.write_xyz(name="protein")
+            protein.to_file(file_name="protein.xyz")
             printf(f"protein.xyz file made for ONETEP\n Run this file")
             sys.exit()
 
@@ -49,7 +49,6 @@ def main():
 
             # finally we need the non-bonded parameters from onetep
             # TODO should we also have the ability to get DDEC6 charges from the cube file?
-            pro.charge = 0
             pro.charges_engine = "onetep"
             pro.density_engine = "onetep"
 

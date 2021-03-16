@@ -19,7 +19,8 @@ class QCEngine(BaseEngine):
     )
 
     def call_qcengine(
-        self, molecule: Ligand, input_type: str = "input"
+        self,
+        molecule: Ligand,
     ) -> qcel.models.AtomicResult:
         """
         Calculate the requested property using qcengine for the given molecule.
@@ -36,7 +37,7 @@ class QCEngine(BaseEngine):
         qcel.models.AtomicResult
             The full qcelemental atomic result so any required information can be extracted.
         """
-        qc_mol = molecule.to_qcschema(input_type=input_type)
+        qc_mol = molecule.to_qcschema()
         task = qcel.models.AtomicInput(
             molecule=qc_mol,
             driver=self.driver,

@@ -22,7 +22,7 @@ import numpy as np
 
 import QUBEKit
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
-from QUBEKit.engines import Chargemol, Gaussian, QCEngine
+from QUBEKit.engines import Chargemol, Gaussian, GeometryOptimiser, QCEngine
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.molecules import Ligand
@@ -36,7 +36,7 @@ from QUBEKit.utils.display import (
     pretty_print,
     pretty_progress,
 )
-from QUBEKit.utils.exceptions import HessianCalculationFailed
+from QUBEKit.utils.exceptions import HessianCalculationFailed, SpecificationError
 from QUBEKit.utils.file_handling import (
     ExtractChargeData,
     extract_extra_sites_onetep,
@@ -1010,10 +1010,7 @@ class Execute:
 
         """
         # TODO drop all of this once we change configs
-        from QUBEKit.engines import GeometryOptimiser
-        from QUBEKit.utils.exceptions import SpecificationError
 
-        append_to_log("Starting pre_optimisation")
         # now we want to build the optimiser from the inputs
         method = molecule.pre_opt_method.lower()
         if method in ["mmff94", "mmff94s", "uff"]:
@@ -1037,71 +1034,43 @@ class Execute:
                 f"mmff94, mmff94s, uff, gfn1xtb, gfn2xtb, gfn0xtb, gaff-2.11, ani1x, ani1ccx, ani2x, openff-1.3.0"
             )
 
+        append_to_log(
+            f"Starting pre_optimisation with program: {program} basis: {basis} method: {method}"
+        )
+
         g_opt = GeometryOptimiser(
-            program=program, method=method, basis=basis, convergence="GAU"
+            program=program, method=method, basis=basis, convergence="GAU", maxiter=10
         )
         # errors are auto raised from the class so catch the result, and write to file
-        result = g_opt.optimise(molecule=molecule, input_type="input")
-        append_to_log(
-            f"Pre optimisation finished in {len(result.trajectory)} iterations."
-        )
-        with open("result.json", "w") as out:
-            out.write(result.json())
-        final_geometry = result.final_molecule.geometry
-        final_geometry *= constants.BOHR_TO_ANGS
-        molecule.coords["mm"] = final_geometry
-        # get the trajectory and write out
-        traj = [
-            mol.molecule.geometry * constants.BOHR_TO_ANGS for mol in result.trajectory
-        ]
-        molecule.coords["traj"] = traj
-        molecule.write_xyz(input_type="traj", name="pre_opt")
-        del molecule.coords["traj"]
+        result_mol = g_opt.optimise(molecule=molecule, allow_fail=True)
 
         append_to_log(
             f"Finishing mm_optimisation of the molecule with {molecule.pre_opt_method}"
         )
-        return molecule
+        return result_mol
 
     @staticmethod
     def qm_optimise(molecule: Ligand) -> Ligand:
         """
         Optimise the molecule using qm via qcengine.
         """
-        from QUBEKit.engines import GeometryOptimiser
-
-        append_to_log("Starting qm_optimisation")
+        append_to_log(
+            f"Starting qm_optimisation with program: {molecule.bonds_engine} basis: {molecule.basis} method: {molecule.theory}"
+        )
         # TODO do we want the geometry optimiser to handle restarts?
-        # MAX_RESTARTS = 3
 
         g_opt = GeometryOptimiser(
             program=molecule.bonds_engine,
             method=molecule.theory,
             basis=molecule.basis,
             convergence=molecule.convergence,
+            maxiter=molecule.iterations,
         )
-        # errors are auto raised from the class so catch the result, and write to file
-        # make sure we start from the pre opt coords
-        qm_result = g_opt.optimise(molecule=molecule, input_type="mm")
-        append_to_log(
-            f"QM optimisation finished in {len(qm_result.trajectory)} iterations."
-        )
+        # errors are auto raised from the class output is always dumped to file
+        qm_result = g_opt.optimise(molecule=molecule, allow_fail=False)
+        append_to_log(f"QM optimisation finished")
 
-        with open("result.json", "w") as out:
-            out.write(qm_result.json())
-        final_geometry = qm_result.final_molecule.geometry
-        final_geometry *= constants.BOHR_TO_ANGS
-        molecule.coords["qm"] = final_geometry
-        # get the trajectory and write out
-        traj = [
-            mol.molecule.geometry * constants.BOHR_TO_ANGS
-            for mol in qm_result.trajectory
-        ]
-        molecule.coords["traj"] = traj
-        molecule.write_xyz(input_type="traj", name="qm_opt")
-        del molecule.coords["traj"]
-
-        return molecule
+        return qm_result
 
     @staticmethod
     def hessian(molecule: Ligand) -> Ligand:
@@ -1116,7 +1085,7 @@ class Execute:
             basis=molecule.basis,
             driver="hessian",
         )
-        result = qm_engine.call_qcengine(molecule=molecule, input_type="qm")
+        result = qm_engine.call_qcengine(molecule=molecule)
 
         if not result.success:
             raise HessianCalculationFailed(
