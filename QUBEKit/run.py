@@ -27,7 +27,6 @@ from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
-from QUBEKit.utils import constants
 from QUBEKit.utils.configs import Configure
 from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
@@ -1026,9 +1025,10 @@ class Execute:
                 f"mmff94, mmff94s, uff, gfn1xtb, gfn2xtb, gfn0xtb, gaff-2.11, ani1x, ani1ccx, ani2x, openff-1.3.0"
             )
 
-        append_to_log(molecule.home,
+        append_to_log(
+            molecule.home,
             f"Starting pre_optimisation with program: {program} basis: {basis} method: {method}",
-            major=True
+            major=True,
         )
 
         g_opt = GeometryOptimiser(
@@ -1037,9 +1037,10 @@ class Execute:
         # errors are auto raised from the class so catch the result, and write to file
         result_mol = g_opt.optimise(molecule=molecule, allow_fail=True)
 
-        append_to_log(molecule.home,
-            f"Finishing mm_optimisation of the molecule with {molecule.pre_opt_method}"
-            major=True
+        append_to_log(
+            molecule.home,
+            f"Finishing mm_optimisation of the molecule with {molecule.pre_opt_method}",
+            major=True,
         )
         return result_mol
 
@@ -1048,9 +1049,10 @@ class Execute:
         """
         Optimise the molecule using qm via qcengine.
         """
-        append_to_log(molecule.home,
+        append_to_log(
+            molecule.home,
             f"Starting qm_optimisation with program: {molecule.bonds_engine} basis: {molecule.basis} method: {molecule.theory}",
-            major=True
+            major=True,
         )
         # TODO do we want the geometry optimiser to handle restarts?
 

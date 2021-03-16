@@ -8,7 +8,6 @@ import networkx as nx
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
-from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule, UFFOptimizeMolecule
 from rdkit.Geometry.rdGeometry import Point3D
 
 from QUBEKit.molecules.components import Atom, Bond, Element
