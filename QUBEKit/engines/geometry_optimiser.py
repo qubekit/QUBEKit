@@ -221,10 +221,14 @@ class GeometryOptimiser(BaseEngine):
             # passed operation so act normal
             trajectory = [result.molecule for result in opt_output.trajectory]
         else:
-            trajectory = [
-                qcel.models.Molecule.from_data(mol["molecule"])
-                for mol in opt_output.input_data["trajectory"]
-            ]
+            try:
+                trajectory = [
+                    qcel.models.Molecule.from_data(mol["molecule"])
+                    for mol in opt_output.input_data["trajectory"]
+                ]
+            except KeyError:
+                # this is a fatal error as no compute was performed so exit early with no traj
+                return result_mol
 
         # TODO how do we get this in the log
         print(f"Optimisation finished in {len(trajectory)} steps.")

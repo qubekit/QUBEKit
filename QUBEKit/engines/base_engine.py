@@ -14,7 +14,7 @@ class BaseEngine(BaseModel):
 
     program: str = "psi4"
     basis: Optional[str] = "6-311++G(d,p)"
-    method: str = "wB97XD"
+    method: str = "wB97X-D"
     cores: PositiveInt = 4
     memory: PositiveInt = 4
 

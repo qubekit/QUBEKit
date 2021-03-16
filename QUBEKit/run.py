@@ -1032,7 +1032,11 @@ class Execute:
         )
 
         g_opt = GeometryOptimiser(
-            program=program, method=method, basis=basis, convergence="GAU", maxiter=10
+            program=program,
+            method=method,
+            basis=basis,
+            convergence="GAU",
+            maxiter=molecule.iterations,
         )
         # errors are auto raised from the class so catch the result, and write to file
         result_mol = g_opt.optimise(molecule=molecule, allow_fail=True)
@@ -1055,7 +1059,6 @@ class Execute:
             major=True,
         )
         # TODO do we want the geometry optimiser to handle restarts?
-
         g_opt = GeometryOptimiser(
             program=molecule.bonds_engine,
             method=molecule.theory,
@@ -1074,7 +1077,7 @@ class Execute:
         """Using the assigned bonds engine, calculate the Hessian matrix and store in atomic units."""
         from QUBEKit.utils.helpers import check_symmetry
 
-        append_to_log("Starting hessian calculation")
+        append_to_log(molecule.home, "Starting hessian calculation", major=True)
         # build the QM engine
         qm_engine = QCEngine(
             program=molecule.bonds_engine,

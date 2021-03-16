@@ -138,12 +138,12 @@ def test_optimise(program, basis, method, tmpdir):
         assert result_mol.coordinates.tolist() != mol.coordinates.tolist()
 
 
-def test_optimise_fail(tmpdir):
+def test_optimise_fail_output(tmpdir):
     """
     Make sure the optimised geometries and result is still wrote out if we fail the molecule and an error is rasied.
     """
     with tmpdir.as_cwd():
-        mol = Ligand.from_file(file_name=get_data("water.pdb"))
+        mol = Ligand.from_file(file_name=get_data("wat er.pdb"))
         g = GeometryOptimiser(
             program="torchani", method="ani1ccx", basis=None, maxiter=5
         )
@@ -153,6 +153,19 @@ def test_optimise_fail(tmpdir):
         assert "opt.xyz" in files
         assert "opt_trajectory.xyz" in files
         assert "result.json" in files
+
+
+def test_optmiser_fail_no_output(tmpdir):
+    """
+    Make sure we raise an error correctly when there is no output from a failed optimisation.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(file_name=get_data("water.pdb"))
+        g = GeometryOptimiser(
+            program="psi4", method="wb97x-dbj", basis="dzvp", maxiter=10
+        )
+        with pytest.raises(RuntimeError):
+            g.optimise(molecule=mol, allow_fail=False)
 
 
 def test_optking_fail():
