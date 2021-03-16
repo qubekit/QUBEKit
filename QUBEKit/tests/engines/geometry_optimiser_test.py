@@ -159,6 +159,8 @@ def test_optmiser_fail_no_output(tmpdir):
     """
     Make sure we raise an error correctly when there is no output from a failed optimisation.
     """
+    if "psi4" not in qcengine.list_available_programs():
+        pytest.skip("Psi4 missing skipping test.")
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("water.pdb"))
         g = GeometryOptimiser(
