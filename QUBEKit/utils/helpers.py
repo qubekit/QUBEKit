@@ -15,7 +15,7 @@ import numpy as np
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.constants import COLOURS
-from QUBEKit.utils.exceptions import PickleFileNotFound, QUBEKitLogFileNotFound
+from QUBEKit.utils.exceptions import PickleFileNotFound
 
 # TODO Move csv stuff for bulk runs to file_handling.py
 
@@ -146,38 +146,35 @@ def generate_bulk_csv(csv_name, max_execs=None):
         print(f"{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv generated.", flush=True)
 
 
-def append_to_log(message, msg_type="major", and_print=False):
+def append_to_log(
+    log_file_path: str, message: str, major: bool = False, and_print: bool = False
+):
     """
     Appends a message to the log file in a specific format.
     Used for significant stages in the program such as when a stage has finished.
+    Args:
+        log_file_path:
+            The log file path usually stored in Ligand as home. e.g. self.molecule.home
+        message:
+            Whatever text should be written to the log file (and printed).
+        major:
+            Is this a major message? Major messages are used to indicate progress of stages, and warnings.
+        and_print:
+            Should this be printed to terminal as well as to file?
+    Returns:
+        Only returns when no log file can be found.
     """
 
-    # Starting in the current directory walk back looking for the log file
-    search_dir = os.getcwd()
-    while "QUBEKit_log.txt" not in os.listdir(search_dir):
-        search_dir = os.path.split(search_dir)[0]
-        if not search_dir:
-            raise QUBEKitLogFileNotFound("Cannot locate QUBEKit log file.")
-
-    log_file = os.path.abspath(os.path.join(search_dir, "QUBEKit_log.txt"))
-
-    # Check if the message is a blank string to avoid adding blank lines and unnecessary separators
+    # Check if the message is an empty string to avoid adding blank lines and extra separators
     if message:
-        with open(log_file, "a+") as file:
-            if msg_type == "major":
-                file.write(f"~~~~~~~~{message.upper()}~~~~~~~~")
-            elif msg_type == "warning":
-                file.write(f"########{message.upper()}########")
-            elif msg_type == "minor":
-                file.write(f"~~~~~~~~{message}~~~~~~~~")
-            elif msg_type == "plain":
-                file.write(message)
-            else:
-                raise KeyError("Invalid message type; use major, warning or minor.")
-            if msg_type != "plain":
-                file.write(f'\n\n{"-" * 50}\n\n')
-            else:
-                file.write("\n")
+        log_file = os.path.join(log_file_path, "QUBEKit_log.txt")
+        if major:
+            message = message.upper()
+        try:
+            with open(log_file, "a+") as file:
+                file.write(f"\n{message}\n")
+        except FileNotFoundError:
+            return
         if and_print:
             print(message)
 

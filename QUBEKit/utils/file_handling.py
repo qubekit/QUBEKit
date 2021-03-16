@@ -60,15 +60,15 @@ class ExtractChargeData:
         else:
             raise ValueError("Unsupported DDEC version; please use version 3 or 6.")
 
-        if not os.path.exists(net_charge_file_name):
+        try:
+            with open(net_charge_file_name, "r+") as charge_file:
+                lines = charge_file.readlines()
+        except FileNotFoundError:
             raise FileNotFoundError(
                 "Cannot find the DDEC output file.\nThis could be indicative of several issues.\n"
                 "Please check Chargemol is installed in the correct location and that the configs"
                 " point to that location."
             )
-
-        with open(net_charge_file_name, "r+") as charge_file:
-            lines = charge_file.readlines()
 
         # Find number of atoms
         atom_total = int(lines[0])

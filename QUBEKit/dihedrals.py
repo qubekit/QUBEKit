@@ -19,6 +19,7 @@ from QUBEKit.molecules.ligand import Ligand
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import TorsionDriveFailed
 from QUBEKit.utils.file_handling import make_and_change_into
+from QUBEKit.utils.helpers import append_to_log
 
 matplotlib.use("Agg")  # Fix for clusters?
 
@@ -816,18 +817,19 @@ class TorsionOptimiser:
             self.scan_coords = self.molecule.openmm_coordinates()
             self._create_rdkit_molecules(self.scan_coords)
             # Set up the fitting folders
+            scan_name = f"SCAN_{self.scan[0]}_{self.scan[1]}"
             try:
-                os.mkdir(f"SCAN_{self.scan[0]}_{self.scan[1]}")
+                os.mkdir(scan_name)
             except FileExistsError:
                 # back up the old scan data
                 os.rename(
-                    f"SCAN_{self.scan[0]}_{self.scan[1]}",
-                    f"SCAN_{self.scan[0]}_{self.scan[1]}_backup",
+                    scan_name,
+                    f"{scan_name}_backup",
                 )
-                os.mkdir(f"SCAN_{self.scan[0]}_{self.scan[1]}")
+                os.mkdir(scan_name)
 
             # Make and move through the folders  and create the log file
-            os.chdir(f"SCAN_{self.scan[0]}_{self.scan[1]}")
+            os.chdir(scan_name)
             self.optimiser_log = open("Optimiser_log.txt", "w")
             self.optimiser_log.write(
                 f'Starting dihedral optimisation at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.\n'
@@ -872,12 +874,22 @@ class TorsionOptimiser:
             self.optimiser_log.write(
                 f"Starting initial optimisation\nThe starting error is: {starting_error}\n"
             )
+            append_to_log(
+                self.molecule.home,
+                f"Initial error of {self.scan}, before dihedral optimisation: {starting_error}",
+                and_print=True,
+            )
             self.optimiser_log.flush()
             # Get the optimisation method if it is a hybrid take the first option
             self.method = self.methods.get(self.molecule.opt_method.split("_")[0], None)
             error, opt_parameters = self.scipy_optimiser()
             self.optimiser_log.write(f"fitted parameters {opt_parameters}\n")
             self.optimiser_log.write(f"Fitted error {error}\n")
+            append_to_log(
+                self.molecule.home,
+                f"Fitted error for {self.scan}: {error}",
+                and_print=True,
+            )
             self.optimiser_log.flush()
 
             self.param_vector = opt_parameters

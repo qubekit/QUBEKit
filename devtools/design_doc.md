@@ -3,7 +3,7 @@ The aim of this document is to outline a general overview of how QUBEKit works f
 #### The Molecule Object
 
 Throughout QUBEKit, we use a class which we call the "Molecule Object".
-This class acts as a container which has all of the necessary information for an execution.
+This class acts as a container which has all the necessary information for an execution.
 Configs, coordinates, home directory, etc is all stored in this object.
 As a result, a lot of the main execution methods and classes will take a molecule object.
 Whenever a class or method takes an argument: `molecule`, this is what is meant.
@@ -22,8 +22,8 @@ propane = Ligand('propane.mol2')
 
     
 Upon initialisation, QUBEKit automatically builds the topology for the object, infers charge, multiplicity
-and calculates all of the bonds, angles, dihedrals etc within the molecule.
-    
+and calculates all the bonds, angles, dihedrals etc within the molecule.
+
 Once the information is stored into the molecule object, it can be easily accessed and mutated.
 
     >>> molecule = Ligand('methane.pdb')

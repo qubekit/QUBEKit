@@ -18,8 +18,10 @@ class Chargemol(Engines):
 
         if (self.molecule.ddec_version != 6) and (self.molecule.ddec_version != 3):
             append_to_log(
+                self.molecule.home,
                 message="Invalid or unsupported DDEC version given, running with default version 6.",
-                msg_type="warning",
+                major=True,
+                and_print=True,
             )
             self.molecule.ddec_version = 6
 
