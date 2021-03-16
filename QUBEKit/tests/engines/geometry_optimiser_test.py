@@ -143,7 +143,7 @@ def test_optimise_fail_output(tmpdir):
     Make sure the optimised geometries and result is still wrote out if we fail the molecule and an error is rasied.
     """
     with tmpdir.as_cwd():
-        mol = Ligand.from_file(file_name=get_data("wat er.pdb"))
+        mol = Ligand.from_file(file_name=get_data("water.pdb"))
         g = GeometryOptimiser(
             program="torchani", method="ani1ccx", basis=None, maxiter=5
         )

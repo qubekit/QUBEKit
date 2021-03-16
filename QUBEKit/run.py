@@ -1129,7 +1129,9 @@ class Execute:
         if molecule.density_engine == "onetep":
             molecule.write_xyz(input_type="qm")
             # If using ONETEP, stop after this step
-            append_to_log(molecule.home, "Density analysis file made for ONETEP")
+            append_to_log(
+                molecule.home, "Density analysis file made for ONETEP", major=True
+            )
 
             # Edit the order to end here
             self.order = OrderedDict(
