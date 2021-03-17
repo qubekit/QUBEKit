@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules import Ligand
 from QUBEKit.utils.constants import BOHR_TO_ANGS
 from QUBEKit.utils.datastructures import CustomNamespace
 from QUBEKit.utils.file_handling import get_data

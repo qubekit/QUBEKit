@@ -325,7 +325,7 @@ DOI: 10.1021/jp508971m</Reference>
 def pdb_reformat(reference, target):
     """Rewrite a QUBEKit system pdb traj file to have the correct atom and residue names."""
 
-    from QUBEKit.ligand import Protein
+    from QUBEKit.molecules.protein import Protein
 
     # load the original file as a reference
     pro = Protein(reference)

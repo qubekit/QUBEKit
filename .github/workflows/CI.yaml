@@ -12,20 +12,36 @@ on:
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }}, 🐍=${{ matrix.python-version }}, Program=${{ matrix.conda-env }}
-    runs-on: ${{ matrix.os }}
+    name: Test on ${{ matrix.cfg.os }}, 🐍=${{ matrix.cfg.python-version }}, Program=${{ matrix.cfg.conda-env }}
+    runs-on: ${{ matrix.cfg.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.6, 3.7, 3.8]
-        os: [ubuntu-latest, macOS-latest]
-        conda-env: [basic]
+        cfg:
+          - conda-env: basic
+            python-version: 3.7
+            os: ubuntu-latest
 
+          - conda-env: basic
+            python-version: 3.7
+            os: macOS-latest
+
+          - conda-env: everything
+            python-version: 3.7
+            os: ubuntu-latest
+
+          - conda-env: basic
+            python-version: 3.8
+            os: ubuntu-latest
+
+          - conda-env: basic
+            python-version: 3.8
+            os: macOS-latest
 
     env:
-      CI_OS: ${{ matrix.os }}
-      ENV: ${{ matrix.conda-env }}
-      PYVER: ${{ matrix.python-version }}
+      CI_OS: ${{ matrix.cfg.os }}
+      ENV: ${{ matrix.cfg.conda-env }}
+      PYVER: ${{ matrix.cfg.python-version }}
 
     steps:
       - uses: actions/checkout@v2
@@ -41,8 +57,8 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: test
-          environment-file: devtools/conda-envs/${{ matrix.conda-env }}.yaml
-          python-version: ${{ matrix.python-version }}
+          environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
+          python-version: ${{ matrix.cfg.python-version }}
           auto-activate-base: false
 
       - name: Environment Information

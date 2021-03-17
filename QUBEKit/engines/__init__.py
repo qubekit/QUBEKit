@@ -1,14 +1,10 @@
-#!/usr/bin/env python3
 """
 Ensures that errors with particular engines are only raised if said engine is being used.
 No point raising "cannot execute psi4 command" if user is using g09. See try_load docstring for info.
 """
-from QUBEKit.utils.helpers import try_load
-
-from .chargemol import Chargemol
-from .gaussian import Gaussian
-from .rdkit import RDKit
-
-OpenMM = try_load("OpenMM", "QUBEKit.engines.openmm")
-PSI4 = try_load("PSI4", "QUBEKit.engines.psi4")
-QCEngine = try_load("QCEngine", "QUBEKit.engines.qcengine")
+from QUBEKit.engines.chargemol import Chargemol
+from QUBEKit.engines.gaussian import Gaussian
+from QUBEKit.engines.gaussian_harness import GaussianHarness
+from QUBEKit.engines.geometry_optimiser import GeometryOptimiser
+from QUBEKit.engines.openmm import OpenMM
+from QUBEKit.engines.qcengine import QCEngine

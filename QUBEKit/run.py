@@ -12,7 +12,6 @@ TODO
 
 import argparse
 import os
-import subprocess as sp
 import sys
 from collections import OrderedDict
 from datetime import datetime
@@ -23,12 +22,11 @@ import numpy as np
 
 import QUBEKit
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
-from QUBEKit.engines import PSI4, Chargemol, Gaussian, QCEngine, RDKit
+from QUBEKit.engines import Chargemol, Gaussian, GeometryOptimiser, QCEngine
 from QUBEKit.lennard_jones import LennardJones
-from QUBEKit.ligand import Ligand
 from QUBEKit.mod_seminario import ModSeminario
+from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
-from QUBEKit.utils import constants
 from QUBEKit.utils.configs import Configure
 from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
@@ -37,7 +35,7 @@ from QUBEKit.utils.display import (
     pretty_print,
     pretty_progress,
 )
-from QUBEKit.utils.exceptions import HessianCalculationFailed, OptimisationFailed
+from QUBEKit.utils.exceptions import HessianCalculationFailed, SpecificationError
 from QUBEKit.utils.file_handling import (
     ExtractChargeData,
     extract_extra_sites_onetep,
@@ -304,17 +302,17 @@ class ArgsAndConfigs:
             type=int,
             help="Enter the ddec version for charge partitioning, does not effect ONETEP partitioning.",
         )
-        parser.add_argument(
-            "-geo",
-            "--geometric",
-            choices=[True, False],
-            type=string_to_bool,
-            help="Turn on geometric to use this during the qm optimisations, recommended.",
-        )
+        # parser.add_argument(
+        #     "-geo",
+        #     "--geometric",
+        #     choices=[True, False],
+        #     type=string_to_bool,
+        #     help="Turn on geometric to use this during the qm optimisations, recommended.",
+        # )
         parser.add_argument(
             "-bonds",
             "--bonds_engine",
-            choices=["psi4", "g09", "g16"],
+            choices=["psi4", "gaussian"],
             help="Choose the QM code to calculate the bonded terms.",
         )
         parser.add_argument(
@@ -352,10 +350,22 @@ class ArgsAndConfigs:
             "if xml make sure the xml has the same name as the pdb file.",
         )
         parser.add_argument(
-            "-mm",
-            "--mm_opt_method",
-            choices=["openmm", "rdkit_mff", "rdkit_uff", "none"],
-            help="Enter the mm optimisation method for pre qm optimisation.",
+            "-pre-opt",
+            "--pre_opt_method",
+            choices=[
+                "mmff94",
+                "mmff94s",
+                "uff",
+                "gfn1xtb",
+                "gfn2xtb",
+                "gfn0xtb",
+                "gaff-2.11",
+                "ani1x",
+                "ani1ccx",
+                "ani2x",
+                "openff-1.3.0",
+            ],
+            help="Enter the optimisation method for pre qm optimisation.",
         )
         parser.add_argument(
             "-config",
@@ -377,7 +387,7 @@ class ArgsAndConfigs:
             "--restart",
             choices=[
                 "parametrise",
-                "mm_optimise",
+                "pre_optimise",
                 "qm_optimise",
                 "hessian",
                 "mod_sem",
@@ -394,7 +404,7 @@ class ArgsAndConfigs:
             "-end",
             choices=[
                 "parametrise",
-                "mm_optimise",
+                "pre_optimise",
                 "qm_optimise",
                 "hessian",
                 "mod_sem",
@@ -548,7 +558,9 @@ class ArgsAndConfigs:
         groups.add_argument(
             "-i", "--input", help="Enter the molecule input pdb file (only pdb so far!)"
         )
-        groups.add_argument("-version", "--version", action="version", version="2.6.3")
+        groups.add_argument(
+            "-version", "--version", action="version", version=QUBEKit.__version__
+        )
 
         # Ensures help is shown (rather than an error) if no arguments are provided.
         return parser.parse_args(args=None if sys.argv[1:] else ["--help"])
@@ -641,7 +653,7 @@ class Execute:
         self.order = OrderedDict(
             [
                 ("parametrise", self.parametrise),
-                ("mm_optimise", self.mm_optimise),
+                ("pre_optimise", self.pre_optimise),
                 ("qm_optimise", self.qm_optimise),
                 ("hessian", self.hessian),
                 ("mod_sem", self.mod_sem),
@@ -657,7 +669,7 @@ class Execute:
         # Keep this for reference (used for numbering folders correctly)
         self.immutable_order = tuple(self.order)
 
-        self.engine_dict = {"psi4": PSI4, "g09": Gaussian, "g16": Gaussian}
+        self.engine_dict = {"g09": Gaussian, "g16": Gaussian}
 
         printf(self.start_up_msg)
 
@@ -822,8 +834,8 @@ class Execute:
                 f"Parametrising molecule with {self.molecule.parameter_engine}",
                 "Molecule parametrised",
             ],
-            "mm_optimise": [
-                "Partially optimising with MM",
+            "pre_optimise": [
+                f"Partially optimising with {self.molecule.pre_opt_method}",
                 "Partial optimisation complete",
             ],
             "qm_optimise": [
@@ -979,208 +991,111 @@ class Execute:
         return molecule
 
     @staticmethod
-    def mm_optimise(molecule: Ligand) -> Ligand:
+    def pre_optimise(molecule: Ligand) -> Ligand:
         """
-        Use an mm force field to get the initial optimisation of a molecule
+        Do a pre optimisation of the molecule using the specified program.
 
         options
         ---------
-        RDKit MFF or UFF force fields can have strange effects on the geometry of molecules
+        "mmff94", "uff", "mmff94s", "gfn1xtb", "gfn2xtb", "fgn0xtb", "gaff-2.11", "ani1x", "ani1ccx", "ani2x", "openff-1.3.0
 
-        Geometric / OpenMM depends on the force field the molecule was parameterised with gaff/2, OPLS smirnoff.
-        #TODO replace with a general optimiser using QCEngine.
         """
+        # TODO drop all of this once we change configs
 
-        append_to_log(molecule.home, "Starting mm_optimisation", major=True)
-        # Check which method we want then do the optimisation
-        if molecule.mm_opt_method == "openmm":
-            if molecule.parameter_engine == "none":
-                raise OptimisationFailed(
-                    "You cannot optimise a molecule with OpenMM and no initial parameters; "
-                    "consider parametrising or using UFF/MFF in RDKit"
-                )
-            else:
-                # Make the inputs
-                molecule.to_file(file_name=f"{molecule.name}.pdb")
-                molecule.write_parameters()
-                # Run geometric
-                # TODO Should this be moved to a function? Seems like a likely point of failure
-                with open("log.txt", "w+") as log:
-                    sp.run(
-                        f"geometric-optimize --epsilon 0.0 --maxiter {molecule.iterations} --pdb "
-                        f"{molecule.name}.pdb --openmm {molecule.name}.xml "
-                        f'{molecule.constraints_file if molecule.constraints_file is not None else ""}',
-                        shell=True,
-                        stdout=log,
-                        stderr=log,
-                    )
-
-                molecule.add_conformer(f"{molecule.name}_optim.xyz")
-
+        # now we want to build the optimiser from the inputs
+        method = molecule.pre_opt_method.lower()
+        if method in ["mmff94", "mmff94s", "uff"]:
+            program = "rdkit"
+            basis = None
+        elif method in ["gfn1xtb", "gfn2xtb", "gfn0xtb"]:
+            program = "xtb"
+            basis = None
+        elif method in ["ani1x", "ani1ccx", "ani2x"]:
+            program = "torchani"
+            basis = None
+        elif method == "gaff-2.11":
+            program = "openmm"
+            basis = "antechamber"
+        elif method == "openff-1.3.0":
+            program = "openmm"
+            basis = "smirnoff"
         else:
-            # TODO change to qcengine as this can already be done
-            # Run an rdkit optimisation with the right FF
-            rdkit_ff = {"rdkit_mff": "MFF", "rdkit_uff": "UFF"}[molecule.mm_opt_method]
-            rdkit_mol = RDKit.mm_optimise(molecule.to_rdkit(), ff=rdkit_ff)
-            molecule.coordinates = rdkit_mol.GetConformer().GetPositions()
+            raise SpecificationError(
+                f"The pre optimisation method {method} is not supported please chose from "
+                f"mmff94, mmff94s, uff, gfn1xtb, gfn2xtb, gfn0xtb, gaff-2.11, ani1x, ani1ccx, ani2x, openff-1.3.0"
+            )
 
         append_to_log(
             molecule.home,
-            f"Finishing mm_optimisation of the molecule with {molecule.mm_opt_method}",
+            f"Starting pre_optimisation with program: {program} basis: {basis} method: {method}",
             major=True,
         )
-        return molecule
 
-    def qm_optimise(self, molecule: Ligand) -> Ligand:
-        """Optimise the molecule coords. Can be through PSI4 (with(out) geometric) or through Gaussian."""
-
-        append_to_log(molecule.home, "Starting qm_optimisation", major=True)
-        MAX_RESTARTS = 3
-
-        if molecule.geometric and (molecule.bonds_engine == "psi4"):
-            qceng = QCEngine(molecule)
-            result = qceng.call_qcengine(
-                engine="geometric",
-                driver="gradient",
-            )
-
-            restart_count = 0
-
-            while (not result["success"]) and (restart_count < MAX_RESTARTS):
-                append_to_log(
-                    molecule.home,
-                    f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
-                )
-
-                try:
-                    molecule.coordinates = np.array(
-                        result["input_data"]["final_molecule"]["geometry"]
-                    ).reshape((len(molecule.atoms), 3))
-                    molecule.coordinates *= constants.BOHR_TO_ANGS
-
-                    result = qceng.call_qcengine(engine="geometric", driver="gradient")
-
-                except (KeyError, TypeError):
-                    result = qceng.call_qcengine(
-                        engine="geometric",
-                        driver="gradient",
-                    )
-
-                restart_count += 1
-
-            if not result["success"]:
-                raise OptimisationFailed("The optimisation did not converge")
-            trajectory = [
-                np.array(mol["molecule"]["geometry"]).reshape((molecule.n_atoms, 3))
-                * constants.BOHR_TO_ANGS
-                for mol in result["trajectory"]
-            ]
-
-            # store the final molecule as the qm optimised structure
-            molecule.coordinates = np.array(
-                result["final_molecule"]["geometry"]
-            ).reshape((molecule.n_atoms, 3))
-            molecule.coordinates *= constants.BOHR_TO_ANGS
-
-            molecule.qm_energy = result["energies"][-1]
-
-            # Write out the trajectory file
-            molecule.to_multiconformer_file(
-                file_name=f"{molecule.name}_opt.xyz", positions=trajectory
-            )
-            molecule.to_file(file_name="opt.xyz")
-
-        # Using Gaussian or geometric off
-        else:
-            qm_engine = self.engine_dict[molecule.bonds_engine](molecule)
-            result = qm_engine.generate_input(
-                optimise=True,
-                execute=molecule.bonds_engine,
-            )
-
-            restart_count = 0
-            while (not result["success"]) and (restart_count < MAX_RESTARTS):
-                append_to_log(
-                    molecule.home,
-                    f'{molecule.bonds_engine} optimisation failed with error {result["error"]}; restarting',
-                )
-
-                if result["error"] == "FileIO":
-                    result = qm_engine.generate_input(
-                        optimise=True, restart=True, execute=molecule.bonds_engine
-                    )
-                elif result["error"] == "Max iterations":
-                    result = qm_engine.generate_input(
-                        optimise=True,
-                        restart=True,
-                        execute=molecule.bonds_engine,
-                    )
-
-                else:
-                    molecule.coordinates = RDKit.generate_conformers(
-                        molecule.to_rdkit()
-                    )[-1]
-                    result = qm_engine.generate_input(
-                        optimise=True, execute=molecule.bonds_engine
-                    )
-
-                restart_count += 1
-
-            if not result["success"]:
-                raise OptimisationFailed(
-                    f"{molecule.bonds_engine} optimisation did not converge after 3 restarts; "
-                    f"last error {result['error']}"
-                )
-
-            molecule.coordinates, molecule.qm_energy = qm_engine.optimised_structure()
-            molecule.to_file(file_name="opt.xyz")
+        g_opt = GeometryOptimiser(
+            program=program,
+            method=method,
+            basis=basis,
+            convergence="GAU",
+            maxiter=molecule.iterations,
+        )
+        # errors are auto raised from the class so catch the result, and write to file
+        result_mol = g_opt.optimise(molecule=molecule, allow_fail=True)
 
         append_to_log(
             molecule.home,
-            f'Finishing qm_optimisation of molecule{" using geometric" if molecule.geometric else ""}',
+            f"Finishing mm_optimisation of the molecule with {molecule.pre_opt_method}",
             major=True,
         )
+        return result_mol
 
-        return molecule
+    @staticmethod
+    def qm_optimise(molecule: Ligand) -> Ligand:
+        """
+        Optimise the molecule using qm via qcengine.
+        """
+        append_to_log(
+            molecule.home,
+            f"Starting qm_optimisation with program: {molecule.bonds_engine} basis: {molecule.basis} method: {molecule.theory}",
+            major=True,
+        )
+        # TODO do we want the geometry optimiser to handle restarts?
+        g_opt = GeometryOptimiser(
+            program=molecule.bonds_engine,
+            method=molecule.theory,
+            basis=molecule.basis,
+            convergence=molecule.convergence,
+            maxiter=molecule.iterations,
+        )
+        # errors are auto raised from the class output is always dumped to file
+        qm_result = g_opt.optimise(molecule=molecule, allow_fail=False)
+        append_to_log(molecule.home, f"QM optimisation finished", major=True)
+
+        return qm_result
 
     @staticmethod
     def hessian(molecule: Ligand) -> Ligand:
-        """Using the assigned bonds engine, calculate and extract the Hessian matrix."""
+        """Using the assigned bonds engine, calculate the Hessian matrix and store in atomic units."""
+        from QUBEKit.utils.helpers import check_symmetry
 
         append_to_log(molecule.home, "Starting hessian calculation", major=True)
+        # build the QM engine
+        qm_engine = QCEngine(
+            program=molecule.bonds_engine,
+            method=molecule.theory,
+            basis=molecule.basis,
+            driver="hessian",
+        )
+        result = qm_engine.call_qcengine(molecule=molecule)
 
-        if molecule.bonds_engine in ["g09", "g16"]:
-            qm_engine = Gaussian(molecule)
+        if not result.success:
+            raise HessianCalculationFailed(
+                "The hessian was not calculated check the log file."
+            )
 
-            # Use the checkpoint file as this has higher xyz precision
-            try:
-                copy(
-                    os.path.join(molecule.home, "03_qm_optimise", "lig.chk"), "lig.chk"
-                )
-                result = qm_engine.generate_input(
-                    "qm", hessian=True, restart=True, execute=molecule.bonds_engine
-                )
-            except FileNotFoundError:
-                append_to_log(
-                    molecule.home,
-                    "qm_optimise checkpoint not found, optimising first to refine atomic coordinates",
-                )
-                result = qm_engine.generate_input(
-                    optimise=True, hessian=True, execute=molecule.bonds_engine
-                )
+        np.savetxt("hessian.txt", result.return_result)
 
-            if not result["success"]:
-                raise HessianCalculationFailed(
-                    "The hessian was not calculated check the log file."
-                )
-
-            hessian = qm_engine.hessian()
-
-        else:
-            hessian = QCEngine(molecule).call_qcengine(engine="psi4", driver="hessian")
-            np.savetxt("hessian.txt", hessian)
-
-        molecule.hessian = hessian
+        molecule.hessian = result.return_result
+        check_symmetry(molecule.hessian)
 
         append_to_log(
             molecule.home,
@@ -1214,7 +1129,9 @@ class Execute:
         if molecule.density_engine == "onetep":
             molecule.write_xyz(input_type="qm")
             # If using ONETEP, stop after this step
-            append_to_log(molecule.home, "Density analysis file made for ONETEP")
+            append_to_log(
+                molecule.home, "Density analysis file made for ONETEP", major=True
+            )
 
             # Edit the order to end here
             self.order = OrderedDict(

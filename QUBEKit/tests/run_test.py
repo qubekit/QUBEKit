@@ -6,7 +6,7 @@ import shutil
 
 import pytest
 
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules import Ligand
 from QUBEKit.run import Execute
 from QUBEKit.utils.file_handling import get_data
 

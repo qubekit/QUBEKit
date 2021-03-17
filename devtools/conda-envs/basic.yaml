@@ -1,7 +1,7 @@
 name: test
 channels:
   - conda-forge
-  - omnia
+  - psi4/label/dev
 dependencies:
     # Core
   - python
@@ -11,11 +11,14 @@ dependencies:
   - openff-toolkit
   - rdkit
   - torsiondrive
+  - optking
   - numpy >=1.18.1
   - scipy
   - networkx >=2.4
   - matplotlib-base
   - qcengine >=0.18.0
+  - jinja2
   - typing-extensions
   - pytest
   - pytest-cov
+  - torchani

@@ -5,8 +5,13 @@ from openff.toolkit.topology import Molecule as OFFMolecule
 from rdkit.Chem import rdMolTransforms
 from simtk import unit
 
-from QUBEKit.ligand import Ligand
-from QUBEKit.utils.exceptions import FileTypeError, SmartsError, TopologyMismatch
+from QUBEKit.molecules import Ligand
+from QUBEKit.utils.exceptions import (
+    ConformerError,
+    FileTypeError,
+    SmartsError,
+    TopologyMismatch,
+)
 from QUBEKit.utils.file_handling import get_data
 from QUBEKit.utils.helpers import unpickle
 
@@ -550,6 +555,17 @@ def test_to_rdkit(molecule):
                 assert bond.GetStereo() == Chem.BondStereo.STEREOZ
 
 
+def test_to_rdkit_complicated_stereo():
+    """
+    Make sure we can convert a complicated molecule with multiple stereo centres to rdkit.
+    """
+    mol = Ligand.from_smiles(
+        "[H][C@]1([C@@]([C@](O[C@@]1([H])C([H])([H])OP(=O)(O[H])O[H])([H])N2C(=C([N+](C2([H])[H])([H])[H])C(=O)N([H])[H])O[H])([H])O[H])O[H]",
+        name="complicated",
+    )
+    mol.to_rdkit()
+
+
 @pytest.mark.parametrize(
     "molecule, charge",
     [
@@ -658,3 +674,24 @@ def test_get_bond_error(acetone):
     """
     with pytest.raises(TopologyMismatch):
         acetone.get_bond_between(atom1_index=4, atom2_index=9)
+
+
+def test_to_qcschema_no_conformer(acetone):
+    """
+    Make sure we raise an error when trying to make a qcelemental molecule with no coordinates.
+    """
+    with pytest.raises(ConformerError):
+        acetone.coordinates = None
+        acetone.to_qcschema()
+
+
+def test_to_qcschema(acetone):
+    """
+    Make sure we can convert to a valid qcelemental molecule.
+    """
+    qcel_mol = acetone.to_qcschema()
+    assert qcel_mol.atomic_numbers.tolist() == [
+        atom.atomic_number for atom in acetone.atoms
+    ]
+    assert len(qcel_mol.symbols) == acetone.n_atoms
+    assert qcel_mol.geometry.shape == (acetone.n_atoms, 3)

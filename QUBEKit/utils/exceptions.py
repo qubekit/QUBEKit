@@ -56,3 +56,21 @@ class SmartsError(Exception):
     """
     The requested smarts could not be interpreted by rdkit
     """
+
+
+class SpecificationError(Exception):
+    """
+    When a requested specification is not possible.
+    """
+
+
+class ConformerError(Exception):
+    """
+    When a conformation is incorrect or missing.
+    """
+
+
+class StereoChemistryError(Exception):
+    """
+    When the stereochemistry is incorrect in an rdkit instance created from a qubekit molecule.
+    """

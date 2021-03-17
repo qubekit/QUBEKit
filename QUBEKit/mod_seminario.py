@@ -11,7 +11,7 @@ from operator import itemgetter
 
 import numpy as np
 
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules import Ligand
 from QUBEKit.utils import constants
 
 
@@ -199,6 +199,9 @@ class ModSeminario:
         # reset the ligand data
         self.molecule.HarmonicBondForce = {}
         self.molecule.HarmonicAngleForce = {}
+        # convert the hessian from atomic units
+        conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
+        self.hessian = molecule.hessian * conversion
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__!r})"

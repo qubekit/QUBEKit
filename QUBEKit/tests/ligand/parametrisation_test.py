@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from QUBEKit.ligand import Ligand
+from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
 from QUBEKit.utils.file_handling import get_data
 

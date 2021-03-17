@@ -14,8 +14,8 @@ import numpy as np
 from scipy.optimize import differential_evolution, minimize
 from scipy.stats import linregress
 
-from QUBEKit.engines import PSI4, Gaussian, OpenMM, RDKit
-from QUBEKit.ligand import Ligand
+from QUBEKit.engines import Gaussian, OpenMM
+from QUBEKit.molecules.ligand import Ligand
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import TorsionDriveFailed
 from QUBEKit.utils.file_handling import make_and_change_into
@@ -48,9 +48,9 @@ class TorsionScan:
         self.molecule.convergence = "GAU"
         self.constraints_made = constraints_made
 
-        self.qm_engine = {"psi4": PSI4, "g09": Gaussian, "g16": Gaussian}.get(
-            molecule.bonds_engine
-        )(molecule)
+        self.qm_engine = {"g09": Gaussian, "g16": Gaussian}.get(molecule.bonds_engine)(
+            molecule
+        )
         self.native_opt = True
 
         # Ensure geometric can only be used with psi4 so far
@@ -1066,6 +1066,7 @@ class TorsionOptimiser:
         :param coordinates: A list of numpy arrays used to generate the conformers
         :return: a list of rdkit molecules each corresponding to a point on the torsionscan
         """
+        from QUBEKit.molecules.utils import RDKit
 
         self.rmsd_atoms = []
         for coord in coordinates:
@@ -1082,6 +1083,8 @@ class TorsionOptimiser:
         :param coordinates:  A list of numpy coordinate arrays
         :return: a list containing the rmsd values for each pair of coordinates
         """
+        from QUBEKit.molecules.utils import RDKit
+
         # Make sure the number of coordinates we pass is the same as the number of reference positions that we have
         if len(coordinates) != len(self.rmsd_atoms):
             print(

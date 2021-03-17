@@ -2,7 +2,7 @@ import shutil
 
 import pytest
 
-from QUBEKit.ligand import Protein
+from QUBEKit.molecules import Protein
 from QUBEKit.parametrisation import XMLProtein
 from QUBEKit.utils.file_handling import get_data
 
