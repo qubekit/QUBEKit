@@ -419,7 +419,6 @@ class ReadInput:
             topology.add_edge(*bond[:2])
 
         coords = np.array(qc_json.geometry).reshape((len(atoms), 3)) * BOHR_TO_ANGS
-        atoms = atoms or None
         return cls(name=None, rdkit_mol=None, coords=coords)
 
     @classmethod
