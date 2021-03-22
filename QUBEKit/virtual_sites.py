@@ -640,14 +640,33 @@ class VirtualSites:
         )
 
     @staticmethod
-    def two_site_two_bond_contraint(x):
+    def two_site_one_bond_constraint_charge(x):
+        """
+        In the case of a halogen atom being given two virtual sites,
+        mimicking the chemistry would imply a positive and negative charge either side of the atom.
+        This constraint forces a negative and a positive charge.
+        The result of this is usually both charges lying on the C-Halo bond.
+        """
+        return -1 * x[0] * x[1]
+
+    @staticmethod
+    def two_site_one_bond_constraint_lambda(x):
+        """
+        In the case of a halogen atom being given two virtual sites,
+        mimicking the chemistry would imply a positive and negative charge either side of the atom.
+        This constraint forces a negative and a positive lambda.
+        """
+        return -1 * x[2] * x[3]
+
+    @staticmethod
+    def two_site_two_bond_constraint(x):
         """
         In the case of two sites and two bonds, the vectors are added or subtracted together,
         rather than one vector per site.
         This constraint ensures the max scaling factor of the vectors combined is less than 1.
         NB They can then be scaled to be up to 1.5 by the scale factor.
         """
-        return 1 - x[0] ** 2 - x[1] ** 2
+        return 1 - x[2] ** 2 - x[3] ** 2
 
     def fit(self, atom_index: int):
         """
@@ -693,11 +712,19 @@ class VirtualSites:
         # 1 or 3 bonds
         if len(self.molecule.atoms[atom_index].bonds) != 2:
             vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2)
+            if len(self.molecule.atoms[atom_index].bonds) == 1:
+                constraint = {
+                    "type": "ineq",
+                    "fun": VirtualSites.two_site_one_bond_constraint_lambda,
+                }
+            else:
+                constraint = None
             two_site_fit = minimize(
                 self.two_sites_objective_function,
                 np.array([0.0, 0.0, 1.0, 1.0]),
                 args=(atom_index, vec_a, vec_b),
                 bounds=bounds,
+                constraints=constraint,
             )
             self.site_errors[2] = two_site_fit.fun / n_sample_points
             q_a, q_b, lam_a, lam_b = two_site_fit.x
@@ -725,7 +752,7 @@ class VirtualSites:
                         bounds=bounds[1:3],
                         constraints={
                             "type": "ineq",
-                            "fun": VirtualSites.two_site_two_bond_contraint,
+                            "fun": VirtualSites.two_site_two_bond_constraint,
                         },
                     )
                     if (two_site_fit.fun / n_sample_points) < final_err:
