@@ -27,7 +27,7 @@ import os
 import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from xml.dom.minidom import parseString
 
 import networkx as nx
@@ -39,6 +39,15 @@ from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple
 from simtk.openmm.app.element import Element
 
 import QUBEKit
+from QUBEKit.forcefield import (
+    BaseForceGroup,
+    HarmonicAngleForce,
+    HarmonicBondForce,
+    ImproperTorsionForce,
+    LennardJones126Force,
+    PeriodicTorsionForce,
+    VirtualSiteGroup,
+)
 from QUBEKit.molecules.components import Atom, Bond, ExtraSite
 from QUBEKit.molecules.utils import RDKit, ReadInput
 from QUBEKit.utils import constants
@@ -173,18 +182,15 @@ class Molecule:
         qm_energy
 
         # XML Info
-        xml_tree                An XML class object containing the force field values
-        AtomTypes               dict of lists; basic non-symmetrised atoms types for each atom in the molecule
-                                e.g. {0, ['C1', 'opls_800', 'C800'], 1: ['H1', 'opls_801', 'H801'], ... }
         extra_sites
         qm_scans                Dictionary of central scanned bonds and there energies and structures
 
         # This section has different units due to it interacting with OpenMM
-        HarmonicBondForce       Dictionary of equilibrium distances and force constants stored under the bond tuple.
+        BondForce       Dictionary of equilibrium distances and force constants stored under the bond tuple.
                                 {(1, 2): [0.108, 405.65]} (nano meters, kJ/mol)
-        HarmonicAngleForce      Dictionary of equilibrium angles and force constants stored under the angle tuple
+        AngleForce      Dictionary of equilibrium angles and force constants stored under the angle tuple
                                 e.g. {(2, 1, 3): [2.094395, 150.00]} (radians, kJ/mol)
-        PeriodicTorsionForce    Dictionary of lists of the torsions values [periodicity, k, phase] stored under the
+        TorsionForce    Dictionary of lists of the torsions values [periodicity, k, phase] stored under the
                                 dihedral tuple with an improper tag only for improper torsions
                                 e.g. {(3, 1, 2, 6): [[1, 0.6, 0], [2, 0, 3.141592653589793], ... Improper]}
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
@@ -220,13 +226,13 @@ class Molecule:
         self.scan_order = None
         self.descriptors = None
 
-        # XML Info
-        self.AtomTypes: Optional[Dict] = None
-        self.extra_sites: Optional[Dict[int, ExtraSite]] = None
-        self.HarmonicBondForce: Optional[Dict] = None
-        self.HarmonicAngleForce: Optional[Dict] = None
-        self.PeriodicTorsionForce: Optional[Dict] = None
-        self.NonbondedForce: Optional[Dict] = None
+        # Forcefield Info
+        self.extra_sites: VirtualSiteGroup = VirtualSiteGroup()
+        self.BondForce: BaseForceGroup = HarmonicBondForce()
+        self.AngleForce: BaseForceGroup = HarmonicAngleForce()
+        self.TorsionForce: BaseForceGroup = PeriodicTorsionForce()
+        self.ImproperTorsionForce: BaseForceGroup = ImproperTorsionForce()
+        self.NonbondedForce: BaseForceGroup = LennardJones126Force()
 
         # Dihedral settings
         self.dih_starts: Dict = {}
@@ -607,201 +613,193 @@ class Molecule:
         """
         return len(self.atoms)
 
-    def write_parameters(self, name=None):
+    def write_parameters(self, file_name: str):
         """
         Take the molecule's parameter set and write an xml file for the molecule.
         """
 
-        tree = self._build_tree().getroot()
+        tree = self._build_forcefield().getroot()
         messy = ET.tostring(tree, "utf-8")
 
         pretty_xml_as_string = parseString(messy).toprettyxml(indent="")
 
-        with open(f"{name if name is not None else self.name}.xml", "w+") as xml_doc:
+        with open(file_name, "w") as xml_doc:
             xml_doc.write(pretty_xml_as_string)
 
-    def _build_tree(self):
+    def _build_forcefield(self):
         """
         Separates the parameters and builds an xml tree ready to be used.
+
+        #TODO how do we support OPLS combination rules.
+        Important:
+            The ordering here should not be changed due to the way sites have to be added.
         """
 
         # Create XML layout
         root = ET.Element("ForceField")
+
         AtomTypes = ET.SubElement(root, "AtomTypes")
         Residues = ET.SubElement(root, "Residues")
 
         resname = "QUP" if self.__class__.__name__ == "Protein" else "MOL"
         Residue = ET.SubElement(Residues, "Residue", name=resname)
-
-        HarmonicBondForce = ET.SubElement(root, "HarmonicBondForce")
-        HarmonicAngleForce = ET.SubElement(root, "HarmonicAngleForce")
-        PeriodicTorsionForce = ET.SubElement(root, "PeriodicTorsionForce")
-
-        # Assign the combination rule
-        c14 = "0.83333" if self.combination == "amber" else "0.5"
-        l14 = "0.5"
-
-        # add the combination rule to the xml for geometric.
-        NonbondedForce = ET.SubElement(
-            root,
-            "NonbondedForce",
-            attrib={
-                "coulomb14scale": c14,
-                "lj14scale": l14,
-                "combination": self.combination,
-            },
-        )
-
-        for key, val in self.AtomTypes.items():
+        # declare atom `types` and properties
+        for atom in self.atoms:
+            atom_type = f"QUBE_{atom.atom_index}"
             ET.SubElement(
                 AtomTypes,
                 "Type",
                 attrib={
-                    "name": val[1],
-                    "class": val[2],
-                    "element": self.atoms[key].atomic_symbol,
-                    "mass": str(self.atoms[key].atomic_mass),
+                    "name": atom_type,
+                    "class": str(atom.atom_index),
+                    "element": atom.atomic_symbol,
+                    "mass": str(atom.atomic_mass),
                 },
             )
 
-            ET.SubElement(Residue, "Atom", attrib={"name": val[0], "type": val[1]})
-
-        # Add the bonds / connections
-        for key, val in self.HarmonicBondForce.items():
             ET.SubElement(
-                Residue, "Bond", attrib={"from": str(key[0]), "to": str(key[1])}
+                Residue, "Atom", attrib={"name": atom.atom_name, "type": atom_type}
             )
 
+        # add the combination rule to the xml for geometric.
+        NonbondedForce = ET.SubElement(
+            root,
+            self.NonbondedForce.openmm_group(),
+            attrib=self.NonbondedForce.xml_data(),
+        )
+        for parameter in self.NonbondedForce.parameters.values():
             ET.SubElement(
-                HarmonicBondForce,
-                "Bond",
-                attrib={
-                    "class1": self.AtomTypes[key[0]][2],
-                    "class2": self.AtomTypes[key[1]][2],
-                    "length": f"{float(val[0]):.6f}",
-                    "k": f"{float(val[1]):.6f}",
-                },
+                NonbondedForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
 
-        # Add the angles
-        for key, val in self.HarmonicAngleForce.items():
+        # add sites to Atomtypes, topology and nonbonded
+        for i, site in enumerate(self.extra_sites.iter_sites(), start=1):
+            site_name = f"v-site{i}"
+            site_class = f"X{i}"
             ET.SubElement(
-                HarmonicAngleForce,
-                "Angle",
-                attrib={
-                    "class1": self.AtomTypes[key[0]][2],
-                    "class2": self.AtomTypes[key[1]][2],
-                    "class3": self.AtomTypes[key[2]][2],
-                    "angle": f"{float(val[0]):.6f}",
-                    "k": f"{float(val[1]):.6f}",
-                },
+                AtomTypes,
+                "Type",
+                attrib={"name": site_name, "class": site_class, "mass": "0"},
             )
-
-        # add the proper and improper torsion terms
-        for key in self.PeriodicTorsionForce:
-            if self.PeriodicTorsionForce[key][-1] == "Improper":
-                tor_type = "Improper"
-            else:
-                tor_type = "Proper"
-
+            # for some reason we swap name and class here but it works !
             ET.SubElement(
-                PeriodicTorsionForce,
-                tor_type,
-                attrib={
-                    "class1": self.AtomTypes[key[0]][2],
-                    "class2": self.AtomTypes[key[1]][2],
-                    "class3": self.AtomTypes[key[2]][2],
-                    "class4": self.AtomTypes[key[3]][2],
-                    "k1": str(self.PeriodicTorsionForce[key][0][1]),
-                    "k2": str(self.PeriodicTorsionForce[key][1][1]),
-                    "k3": str(self.PeriodicTorsionForce[key][2][1]),
-                    "k4": str(self.PeriodicTorsionForce[key][3][1]),
-                    "periodicity1": "1",
-                    "periodicity2": "2",
-                    "periodicity3": "3",
-                    "periodicity4": "4",
-                    "phase1": str(self.PeriodicTorsionForce[key][0][2]),
-                    "phase2": str(self.PeriodicTorsionForce[key][1][2]),
-                    "phase3": str(self.PeriodicTorsionForce[key][2][2]),
-                    "phase4": str(self.PeriodicTorsionForce[key][3][2]),
-                },
+                Residue, "Atom", attrib={"name": site_class, "type": site_name}
             )
-
-        # add the non-bonded parameters
-        for key in self.NonbondedForce:
             ET.SubElement(
                 NonbondedForce,
                 "Atom",
                 attrib={
-                    "type": self.AtomTypes[key][1],
-                    "charge": f"{self.NonbondedForce[key][0]:.6f}",
-                    "sigma": f"{self.NonbondedForce[key][1]:.6f}",
-                    "epsilon": f"{self.NonbondedForce[key][2]:.6f}",
+                    "charge": str(site.charge),
+                    "epsilon": "0",
+                    "sigma": "0",
+                    "type": site_name,
                 },
             )
 
-        # Add all of the virtual site info if present
-        if self.extra_sites is not None:
-            # Add the atom type to the top
-            for key, site in self.extra_sites.items():
-                ET.SubElement(
-                    AtomTypes,
-                    "Type",
-                    attrib={
-                        "name": f"v-site{key + 1}",
-                        "class": f"X{key + 1}",
-                        "mass": "0",
-                    },
-                )
+        BondForce = ET.SubElement(
+            root, self.BondForce.openmm_group(), attrib=self.BondForce.xml_data()
+        )
+        for parameter in self.BondForce.parameters.values():
+            ET.SubElement(
+                BondForce, parameter.openmm_type(), attrib=parameter.xml_data()
+            )
+            ET.SubElement(
+                Residue,
+                "Bond",
+                attrib={"from": str(parameter.atoms[0]), "to": str(parameter.atoms[1])},
+            )
+        AngleForce = ET.SubElement(
+            root, self.AngleForce.openmm_group(), attrib=self.AngleForce.xml_data()
+        )
+        for parameter in self.AngleForce.parameters.values():
+            ET.SubElement(
+                AngleForce, parameter.openmm_type(), attrib=parameter.xml_data()
+            )
+        TorsionForce = ET.SubElement(
+            root, self.TorsionForce.openmm_group(), attrib=self.TorsionForce.xml_data()
+        )
+        for parameter in self.TorsionForce.parameters.values():
+            ET.SubElement(
+                TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+            )
+        for parameter in self.ImproperTorsionForce.parameters.values():
+            ET.SubElement(
+                TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+            )
 
-                # Add the atom info
-                ET.SubElement(
-                    Residue,
-                    "Atom",
-                    attrib={"name": f"X{key + 1}", "type": f"v-site{key + 1}"},
-                )
+        # now we add more site info after general bonding
+        for i, site in enumerate(self.extra_sites.iter_sites(), start=1):
+            site_data = site.xml_data()
+            # we have to add its global index
+            site_data["index"] = str(i + self.n_atoms)
+            ET.SubElement(Residue, site.openmm_type(), attrib=site_data)
 
-                # Add the local coords site info
-                attrib = {
-                    "type": "localCoords",
-                    "index": str(key + len(self.atoms)),
-                    "atom1": str(site.parent_index),
-                    "atom2": str(site.closest_a_index),
-                    "atom3": str(site.closest_b_index),
-                    "wo1": str(site.o_weights[0]),
-                    "wo2": str(site.o_weights[1]),
-                    "wo3": str(site.o_weights[2]),
-                    "wx1": str(site.x_weights[0]),
-                    "wx2": str(site.x_weights[1]),
-                    "wx3": str(site.x_weights[2]),
-                    "wy1": str(site.y_weights[0]),
-                    "wy2": str(site.y_weights[1]),
-                    "wy3": str(site.y_weights[2]),
-                    "p1": str(site.p1),
-                    "p2": str(site.p2),
-                    "p3": str(site.p3),
-                }
+        # # Assign the combination rule
+        # c14 = "0.83333" if self.combination == "amber" else "0.5"
+        # l14 = "0.5"
 
-                # For the Nitrogen case
-                if len(site.o_weights) == 4:
-                    attrib["wo4"] = str(site.o_weights[3])
-                    attrib["wx4"] = str(site.x_weights[3])
-                    attrib["wy4"] = str(site.y_weights[3])
-                    attrib["atom4"] = str(site.closest_c_index)
-
-                ET.SubElement(Residue, "VirtualSite", attrib=attrib)
-
-                # Add the nonbonded info
-                ET.SubElement(
-                    NonbondedForce,
-                    "Atom",
-                    attrib={
-                        "type": f"v-site{key + 1}",
-                        "charge": str(site.charge),
-                        "sigma": "1.000000",
-                        "epsilon": "0.000000",
-                    },
-                )
+        # # Add all of the virtual site info if present
+        # if self.extra_sites is not None:
+        #     # Add the atom type to the top
+        #     for key, site in self.extra_sites.items():
+        #         ET.SubElement(
+        #             AtomTypes,
+        #             "Type",
+        #             attrib={
+        #                 "name": f"v-site{key + 1}",
+        #                 "class": f"X{key + 1}",
+        #                 "mass": "0",
+        #             },
+        #         )
+        #
+        #         # Add the atom info
+        #         ET.SubElement(
+        #             Residue,
+        #             "Atom",
+        #             attrib={"name": f"X{key + 1}", "type": f"v-site{key + 1}"},
+        #         )
+        #
+        #         # Add the local coords site info
+        #         attrib = {
+        #             "type": "localCoords",
+        #             "index": str(key + len(self.atoms)),
+        #             "atom1": str(site.parent_index),
+        #             "atom2": str(site.closest_a_index),
+        #             "atom3": str(site.closest_b_index),
+        #             "wo1": str(site.o_weights[0]),
+        #             "wo2": str(site.o_weights[1]),
+        #             "wo3": str(site.o_weights[2]),
+        #             "wx1": str(site.x_weights[0]),
+        #             "wx2": str(site.x_weights[1]),
+        #             "wx3": str(site.x_weights[2]),
+        #             "wy1": str(site.y_weights[0]),
+        #             "wy2": str(site.y_weights[1]),
+        #             "wy3": str(site.y_weights[2]),
+        #             "p1": str(site.p1),
+        #             "p2": str(site.p2),
+        #             "p3": str(site.p3),
+        #         }
+        #
+        #         # For the Nitrogen case
+        #         if len(site.o_weights) == 4:
+        #             attrib["wo4"] = str(site.o_weights[3])
+        #             attrib["wx4"] = str(site.x_weights[3])
+        #             attrib["wy4"] = str(site.y_weights[3])
+        #             attrib["atom4"] = str(site.closest_c_index)
+        #
+        #         ET.SubElement(Residue, "VirtualSite", attrib=attrib)
+        #
+        #         # Add the nonbonded info
+        #         ET.SubElement(
+        #             NonbondedForce,
+        #             "Atom",
+        #             attrib={
+        #                 "type": f"v-site{key + 1}",
+        #                 "charge": str(site.charge),
+        #                 "sigma": "1.000000",
+        #                 "epsilon": "0.000000",
+        #             },
+        #         )
 
         # Store the tree back into the molecule
         return ET.ElementTree(root)

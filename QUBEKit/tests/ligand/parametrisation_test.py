@@ -113,10 +113,10 @@ def test_xml_with_sites(tmpdir):
         mol = Ligand.from_file(get_data("pyridine.pdb"))
         XML(mol, input_file=get_data("pyridine.xml"))
 
-        assert mol.extra_sites is not None
-        assert len(mol.extra_sites) == 1
+        assert mol.extra_sites.n_sites == 1
         # make sure that charge we extracted
-        assert mol.extra_sites[0].charge == -0.180000
+        sites = mol.extra_sites.get_sites(parent_index=3)
+        assert sites[0].charge == -0.180000
 
 
 def test_xml_sites_roundtrip(tmpdir):
@@ -128,7 +128,7 @@ def test_xml_sites_roundtrip(tmpdir):
         mol = Ligand.from_file(get_data("pyridine.pdb"))
         XML(mol, input_file=get_data("pyridine.xml"))
 
-        mol.write_parameters(name="test")
+        mol.write_parameters(file_name="test.xml")
 
         mol2 = Ligand.from_file(get_data("pyridine.pdb"))
         XML(mol2, input_file="test.xml")
@@ -166,3 +166,12 @@ def test_xml_sites_roundtrip(tmpdir):
             except KeyError:
                 other_dih = mol2.PeriodicTorsionForce[tuple(reversed(dihedral))]
             assert np.allclose(terms[:4], other_dih[:4])
+
+
+def test_no_parameters_lost(tmpdir):
+    """
+    Make sure that when parameterizing we do not lose parameters by round tripping the energies in openmm.
+    """
+    mol = Ligand.from_file(get_data("benzene.sdf"))
+    OpenFF(molecule=mol)
+    mol.write_parameters(file_name="test.xml")
