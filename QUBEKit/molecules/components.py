@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from pydantic import BaseModel, Field, PositiveInt
 from rdkit import Chem
@@ -242,6 +242,10 @@ class Bond(BaseModel):
         elif self.stereochemistry == "Z":
             return Chem.BondStereo.STEREOZ
         return None
+
+    @property
+    def indices(self) -> Tuple[int, int]:
+        return self.atom1_index, self.atom2_index
 
 
 class ExtraSite:

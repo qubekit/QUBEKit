@@ -91,7 +91,7 @@ If you do, please make sure Gaussian09 is executable with the command `g09`.
 * [Chargemol](https://sourceforge.net/projects/ddec/files/)
 
 Chargemol can be downloaded and installed from a zip file in the above link. 
-Be sure to add the path to the QUBEKit configs once you've generated them *([explanation](https://github.com/qubekit/QUBEKit#before-you-start-config-files))*.
+Be sure to add the chargemol path to the QUBEKit config files.
 
 Most conda packages are included in the conda-forge install.
 Packages not available through conda-forge may need to be installed separately.
@@ -212,13 +212,13 @@ you may use whatever case you like for the name of files (e.g. `-i DMSO.pdb`) or
 [Cook Book](https://github.com/qubekit/QUBEKit#cook-book) section. 
 This section covers some simple examples*
 
-Running a full analysis on `molecule.pdb` with a non-default charge of `1`, the default charge engine `Chargemol` and with GeomeTRIC `off`:
+Running a full analysis on `molecule.pdb` with a non-default charge of `1`, the default charge engine `Chargemol` and with virtual sites `disabled`:
 Note, ordering does not matter as long as tuples commands (`-c` `1`) are together.
 
-`-i` is for the input, `-c` denotes the charge and `-geo` is for (en/dis)abling geomeTRIC.
+`-i` is for the input, `-c` denotes the charge and `-sites` is for (en/dis)abling virtual site fitting.
     
-    QUBEKit -i molecule.pdb -c 1 -geo false
-    QUBEKit -c 1 -geo false -i molecule.pdb
+    QUBEKit -i molecule.pdb -c 1 -sites false
+    QUBEKit -c 1 -sites false -i molecule.pdb
 
 Running a full analysis with a non-default bonds engine: Gaussian09 (g09):
 
@@ -477,7 +477,6 @@ All commands can be viewed by calling `QUBEKit -h`. Below is an explanation of w
 
 | Command | Type | Description |
 | --- | --- | --- |
-| `-geo` | Bool: `True`, `true`, `t`, `False`, `false`, `f` | Enable or disable GeomeTRIC |
 | `-ddec` | Int: `3`, `6` | Change DDEC version |
 | `-solvent` | Bool | Enable or disable the solvent model |
 | `-param` | String: `antechamber`, `openff`, `xml`  | Change the method for initial parametrisation |
