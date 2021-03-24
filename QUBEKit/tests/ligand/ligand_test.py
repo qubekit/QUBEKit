@@ -710,7 +710,10 @@ def test_find_rotatable_bonds_n_rotatables(molecule, n_rotatables):
     Ensure the number of rotatable bonds found matches the expected.
     """
     mol = Ligand.from_file(get_data(molecule))
-    assert len(mol.find_rotatable_bonds(["[*:1]-[CH3:2]", "[*:1]-[NH2:2]"])) == n_rotatables
+    assert (
+        len(mol.find_rotatable_bonds(["[*:1]-[CH3:2]", "[*:1]-[NH2:2]"]))
+        == n_rotatables
+    )
 
 
 @pytest.mark.parametrize(
@@ -718,7 +721,7 @@ def test_find_rotatable_bonds_n_rotatables(molecule, n_rotatables):
     [
         pytest.param("pyridine.pdb", id="pyridinepdb"),
         pytest.param("chloromethane.pdb", id="chloromethanepdb"),
-    ]
+    ],
 )
 def test_find_rotatable_bonds_no_rotatables(molecule):
     """
