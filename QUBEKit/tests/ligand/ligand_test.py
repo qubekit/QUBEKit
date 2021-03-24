@@ -215,35 +215,6 @@ def test_n_atoms(acetone):
     assert acetone.n_atoms == 10
 
 
-def test_rotatable_bonds_filtered(acetone):
-    """
-    For acetone while there are dihedrals we do not class these as rotatable as they are methyl, make sure
-    this is true.
-    """
-    assert acetone.rotatable_bonds is None
-    assert acetone.n_rotatable_bonds == 0
-
-
-def test_no_rotatable_bonds():
-    """
-    If there are no dihedrals in the molecule make sure we return None.
-    """
-    mol = Ligand.from_file(file_name=get_data("water.pdb"))
-    assert mol.rotatable_bonds is None
-    assert mol.n_rotatable_bonds == 0
-
-
-def test_rotatable_bonds():
-    """
-    Make sure we can find true rotatable bonds for a molecule.
-    """
-    mol = Ligand.from_file(file_name=get_data("biphenyl.pdb"))
-    assert mol.rotatable_bonds == [
-        (3, 4),
-    ]
-    assert mol.n_rotatable_bonds == 1
-
-
 def test_atom_types(acetone):
     """
     Make sure we can assign atom types to a molecule based on the CIP rank.
