@@ -695,3 +695,60 @@ def test_to_qcschema(acetone):
     ]
     assert len(qcel_mol.symbols) == acetone.n_atoms
     assert qcel_mol.geometry.shape == (acetone.n_atoms, 3)
+
+
+@pytest.mark.parametrize(
+    "molecule, n_rotatables",
+    [
+        pytest.param("bace0.pdb", 2, id="bace0pdb"),
+        pytest.param("butane.pdb", 1, id="butanepdb"),
+        pytest.param("biphenyl.pdb", 1, id="biphenylpdb"),
+    ],
+)
+def test_find_rotatable_bonds_n_rotatables(molecule, n_rotatables):
+    """
+    Ensure the number of rotatable bonds found matches the expected.
+    """
+    mol = Ligand.from_file(get_data(molecule))
+    assert len(mol.find_rotatable_bonds(["[*:1]-[CH3:2]", "[*:1]-[NH2:2]"])) == n_rotatables
+
+
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("pyridine.pdb", id="pyridinepdb"),
+        pytest.param("chloromethane.pdb", id="chloromethanepdb"),
+    ]
+)
+def test_find_rotatable_bonds_no_rotatables(molecule):
+    """
+    Ensure rigid molecules, or molecules without any rotatable bonds
+    do not have any rotatable bonds.
+    """
+    mol = Ligand.from_file(get_data(molecule))
+    assert mol.find_rotatable_bonds(["[*:1]-[CH3:2]", "[*:1]-[NH2:2]"]) is None
+
+
+def test_find_rotatable_bonds_smirks_option():
+    """
+    Ensure custom smirks pattern matches the expected rotatables.
+    """
+    mol = Ligand.from_file(get_data("butane.pdb"))
+    # Only remove amine groups via smirks pattern match.
+    rotatables = mol.find_rotatable_bonds(["[*:1]-[NH2:2]"])
+    assert len(rotatables) == 3
+    # Only remove methyl groups via smirks pattern match.
+    rotatables = mol.find_rotatable_bonds(["[*:1]-[CH3:2]"])
+    assert len(rotatables) == 1
+    # Only remove ethyl groups via smirks pattern match.
+    rotatables = mol.find_rotatable_bonds(["[*]-[CH2:1]-[CH3:2]"])
+    assert len(rotatables) == 1
+
+
+def test_find_rotatable_bonds_indices_of_bonds():
+    mol = Ligand.from_file(get_data("bace0.pdb"))
+    rotatables = mol.find_rotatable_bonds(["[*:1]-[CH3:2]", "[*:1]-[NH2:2]"])
+    bonds = [(bond.atom1_index, bond.atom2_index) for bond in rotatables]
+    expected_bonds = [(12, 13), (5, 13)]
+    for bond in bonds:
+        assert bond in expected_bonds or tuple(reversed(bond)) in expected_bonds

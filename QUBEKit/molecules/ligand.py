@@ -294,7 +294,7 @@ class Molecule:
     def to_topology(self) -> nx.Graph:
         """
         Build a networkx representation of the molecule.
-        #TODO add other attributes to the graph?
+        TODO add other attributes to the graph?
         """
         graph = nx.Graph()
         for atom in self.atoms:
@@ -512,49 +512,48 @@ class Molecule:
             return 0
         return sum([len(torsions) for torsions in dihedrals.values()])
 
-    @property
-    def rotatable_bonds(self) -> Optional[List[Tuple[int, int]]]:
+    def find_rotatable_bonds(self, smirks_to_remove=None) -> Optional[List[Bond]]:
         """
-        For each dihedral in the topology graph network and dihedrals dictionary, work out if the torsion is
-        rotatable. Returns a list of dihedral dictionary keys representing the rotatable dihedrals.
-        Also exclude standard rotations such as amides and methyl groups.
-        TODO replace with smarts matching
+        Args:
+            smirks_to_remove:
+                Optional list of smirks patterns which will be discarded
+                from the rotatable bonds
+        Find all rotatable bonds in the molecule.
+        Remove any groups which are not relevant for torsion scans.
+            e.g. methyl / amine groups
+        return:
+            The rotatable bonds in the molecule to be used for torsion scans.
         """
-        dihedrals = self.dihedrals
-        if dihedrals is None:
+
+        rotatable_bond_smarts = "[!$(*#*)&!D1:1]-&!@[!$(*#*)&!D1:2]"
+
+        rotatable_matches = self.get_smarts_matches(rotatable_bond_smarts)
+        if rotatable_matches is None:
             return None
 
-        rotatable = []
-        topology = self.to_topology()
-        # For each dihedral key remove the edge from the network
-        for key in dihedrals:
-            topology.remove_edge(*key)
+        if smirks_to_remove is not None:
+            for smirk in smirks_to_remove:
+                matches_to_remove = self.get_smarts_matches(smirk)
+                if matches_to_remove is not None:
+                    for match in matches_to_remove:
+                        try:
+                            rotatable_matches.remove(match)
+                        except ValueError:
+                            try:
+                                # If the match is not in the list, it may be in backwards
+                                rotatable_matches.remove(tuple(reversed(match)))
+                            except ValueError:
+                                continue
 
-            # Check if there is still a path between the two atoms in the edges.
-            if not nx.has_path(topology, *key):
-                rotatable.append(key)
+        # gather a list of bond instances to return
+        rotatable_bonds = [self.get_bond_between(*bond) for bond in rotatable_matches]
 
-            # Add edge back to the network and try next key
-            topology.add_edge(*key)
-
-        remove_list = []
-        if rotatable and self.methyl_amine_nitride_cores is not None:
-            for key in rotatable:
-                if (
-                    key[0] in self.methyl_amine_nitride_cores
-                    or key[1] in self.methyl_amine_nitride_cores
-                ):
-                    remove_list.append(key)
-
-            for torsion in remove_list:
-                rotatable.remove(torsion)
-
-        return rotatable or None
+        return rotatable_bonds or None
 
     @property
     def n_rotatable_bonds(self) -> int:
         """The number of rotatable bonds."""
-        rotatable_bonds = self.rotatable_bonds
+        rotatable_bonds = self.find_rotatable_bonds()
         if rotatable_bonds is None:
             return 0
         return len(rotatable_bonds)

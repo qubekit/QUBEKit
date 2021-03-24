@@ -83,8 +83,10 @@ class TorsionScan:
 
         # Get the rotatable dihedrals from the molecule
         self.molecule.scan_order = []
-        if self.molecule.rotatable_bonds is None:
+        rotatables_bonds = self.molecule.find_rotatable_bonds()
+        if rotatables_bonds is None:
             return
+        rotatables_bonds = [bond.indices for bond in rotatables_bonds]
 
         rotatable = set()
         non_rotatable = set()
@@ -92,7 +94,7 @@ class TorsionScan:
         for dihedral_class in self.molecule.dihedral_types.values():
             dihedral = dihedral_class[0]
             bond = dihedral[1:3]
-            if bond in self.molecule.rotatable_bonds:
+            if bond in rotatables_bonds:
                 rotatable.add(bond)
             else:
                 non_rotatable.add(dihedral)
