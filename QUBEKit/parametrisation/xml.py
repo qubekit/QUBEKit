@@ -1,31 +1,39 @@
-#!/usr/bin/env python3
+from typing import List, Optional
 
-from simtk.openmm import XmlSerializer, app
+from simtk.openmm import System, app
+from typing_extensions import Literal
 
+from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 
 
 class XML(Parametrisation):
     """Read in the parameters for a molecule from an XML file and store them into the molecule."""
 
-    def __init__(self, molecule, input_file=None, fftype="CM1A/OPLS"):
+    type: Literal["xml"] = "xml"
 
-        super().__init__(molecule, input_file, fftype)
+    @classmethod
+    def _improper_torsion_ordering(cls) -> str:
+        return "default"
 
-        # self.check_xml()
-        self.xml = self.input_file if self.input_file else f"{self.molecule.name}.xml"
-        self.serialise_system()
-        self.gather_parameters()
-        self.molecule.parameter_engine = "XML input " + self.fftype
-
-    def serialise_system(self):
+    def _build_system(
+        self, molecule: Ligand, input_files: Optional[List[str]] = None
+    ) -> System:
         """Serialise the input XML system using openmm."""
 
         modeller = app.Modeller(
-            self.molecule.to_openmm_topology(), self.molecule.openmm_coordinates()
+            molecule.to_openmm_topology(), molecule.openmm_coordinates()
         )
+        xml = None
+        if input_files is not None:
+            for file in input_files:
+                if file.endswith(".xml"):
+                    xml = file
+                    break
+        # if we did not find one guess the name
+        xml = xml or f"{molecule.name}.xml"
 
-        forcefield = app.ForceField(self.xml)
+        forcefield = app.ForceField(xml)
         # Check for virtual sites
         try:
             system = forcefield.createSystem(
@@ -38,6 +46,4 @@ class XML(Parametrisation):
                 modeller.topology, nonbondedMethod=app.NoCutoff, constraints=None
             )
 
-        xml = XmlSerializer.serializeSystem(system)
-        with open("serialised.xml", "w+") as out:
-            out.write(xml)
+        return system

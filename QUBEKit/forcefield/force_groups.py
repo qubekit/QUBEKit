@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, Generator, List, Optional, Tuple, Type
 
 from pydantic import BaseModel, Field
 from typing_extensions import Literal
@@ -35,6 +35,14 @@ class BaseForceGroup(BaseModel):
         """The openMM friendly group name."""
         ...
 
+    @classmethod
+    @abc.abstractmethod
+    def symmetry_parameters(cls) -> List[str]:
+        """
+        Get a list of the per parameter attributes which this force group declares are safe to apply symmetry to.
+        """
+        ...
+
     @property
     def n_parameters(self) -> int:
         if self.parameters is None:
@@ -44,6 +52,18 @@ class BaseForceGroup(BaseModel):
 
     class Config:
         validate_assignment = True
+
+    @property
+    def iter_parameters(self) -> Generator[Type[BaseParameter], None, None]:
+        """
+        An iterator over the parameters in the force group.
+        """
+        if self.parameters is None:
+            parameters = []
+        else:
+            parameters = self.parameters.values()
+        for parmaeter in parameters:
+            yield parmaeter
 
     def xml_data(self) -> Dict[str, str]:
         """
@@ -131,6 +151,10 @@ class HarmonicBondForce(BaseForceGroup):
     def openmm_group(cls):
         return "HarmonicBondForce"
 
+    @classmethod
+    def symmetry_parameters(cls) -> List[str]:
+        return ["k", "length"]
+
 
 class HarmonicAngleForce(BaseForceGroup):
 
@@ -144,10 +168,15 @@ class HarmonicAngleForce(BaseForceGroup):
     def openmm_group(cls):
         return "HarmonicAngleForce"
 
+    @classmethod
+    def symmetry_parameters(cls) -> List[str]:
+        return ["angle", "k"]
+
 
 class PeriodicTorsionForce(BaseForceGroup):
 
     type: Literal["PeriodicTorsionForce"] = "PeriodicTorsionForce"
+    ordering: Literal["default", "amber", "charmm", "smirnoff"] = "default"
 
     @classmethod
     def _parameter_class(cls):
@@ -156,6 +185,11 @@ class PeriodicTorsionForce(BaseForceGroup):
     @classmethod
     def openmm_group(cls):
         return "PeriodicTorsionForce"
+
+    @classmethod
+    def symmetry_parameters(cls) -> List[str]:
+        """Not sure we should change anything here so keep at default."""
+        return []
 
 
 class ImproperTorsionForce(BaseForceGroup):
@@ -169,6 +203,10 @@ class ImproperTorsionForce(BaseForceGroup):
     @classmethod
     def openmm_group(cls):
         return "PeriodicTorsionForce"
+
+    @classmethod
+    def symmetry_parameters(cls) -> List[str]:
+        return []
 
 
 class LennardJones126Force(BaseForceGroup):
@@ -187,3 +225,7 @@ class LennardJones126Force(BaseForceGroup):
     @classmethod
     def openmm_group(cls):
         return "NonbondedForce"
+
+    @classmethod
+    def symmetry_parameters(cls) -> List[str]:
+        return ["charge", "sigma", "epsilon"]

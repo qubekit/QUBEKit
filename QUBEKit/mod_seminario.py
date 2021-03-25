@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """
 Module to implement the Modified Seminario Method
 Originally written by Alice E. A. Allen, TCM, University of Cambridge
@@ -7,12 +5,15 @@ Modified by Joshua T. Horton and rewritten by Chris Ringrose, Newcastle Universi
 Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785
 """
 
+import copy
 from operator import itemgetter
 
 import numpy as np
+from pydantic import Field
 
 from QUBEKit.molecules import Ligand
 from QUBEKit.utils import constants
+from QUBEKit.utils.datastructures import StageBase
 
 
 class ModSemMaths:
@@ -188,39 +189,65 @@ class ModSemMaths:
         return k_theta, theta_0
 
 
-class ModSeminario:
-    def __init__(self, molecule: Ligand):
+class ModSeminario(StageBase):
 
-        self.molecule = molecule
-        self.size_mol = molecule.n_atoms
-        # Find bond lengths and create empty matrix of correct size.
-        self.bond_lens = np.zeros((self.size_mol, self.size_mol))
-        self.coords = self.molecule.coordinates
-        # reset the ligand data
-        self.molecule.HarmonicBondForce = {}
-        self.molecule.HarmonicAngleForce = {}
+    vibrational_scaling: float = Field(
+        1,
+        description="The vibration scaling that should be used to correct the reference DFT frequencies.",
+    )
+    symmetrise_parameters: bool = Field(
+        True,
+        description="If the final parameters should be symmetrised after they are derived.",
+    )
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """This class is part of qubekit and always available."""
+        return True
+
+    def run(self, molecule: Ligand, **kwargs) -> Ligand:
+        """
+        The main worker stage which takes the molecule and its hessian and calculates the modified seminario method.
+
+        Args:
+            molecule: The qubekit molecule class that should contain a valid hessian and optimised coordinates.
+
+        Note:
+            Please cite this method using <J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785>
+        """
+
+        # reset the bond and angle parameter groups
+        molecule.BondForce.clear_parameters()
+        molecule.AngleForce.clear_parameters()
         # convert the hessian from atomic units
         conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
-        self.hessian = molecule.hessian * conversion
+        # make sure we do not change the molecule hessian
+        hessian = copy.deepcopy(molecule.hessian)
+        hessian *= conversion
+        self._modified_seminario_method(molecule=molecule, hessian=hessian)
+        if self.symmetrise_parameters:
+            molecule.symmetrise_bonded_parameters()
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.__dict__!r})"
+        return molecule
 
-    def modified_seminario_method(self):
+    def _modified_seminario_method(
+        self, molecule: Ligand, hessian: np.ndarray
+    ) -> Ligand:
         """
         Calculate the new bond and angle terms after being passed the symmetric Hessian and
         optimised molecule coordinates.
         """
+        size_mol = molecule.n_atoms
+        eigenvecs = np.empty((3, 3, size_mol, size_mol), dtype=complex)
+        eigenvals = np.empty((size_mol, size_mol, 3), dtype=complex)
+        bond_lens = np.zeros((size_mol, size_mol))
 
-        eigenvecs = np.empty((3, 3, self.size_mol, self.size_mol), dtype=complex)
-        eigenvals = np.empty((self.size_mol, self.size_mol, 3), dtype=complex)
+        for i in range(size_mol):
+            for j in range(size_mol):
+                diff_i_j = molecule.coordinates[i, :] - molecule.coordinates[j, :]
+                bond_lens[i, j] = np.linalg.norm(diff_i_j)
 
-        for i in range(self.size_mol):
-            for j in range(self.size_mol):
-                diff_i_j = self.coords[i, :] - self.coords[j, :]
-                self.bond_lens[i, j] = np.linalg.norm(diff_i_j)
-
-                partial_hessian = self.molecule.hessian[
+                partial_hessian = hessian[
                     (i * 3) : ((i + 1) * 3), (j * 3) : ((j + 1) * 3)
                 ]
 
@@ -229,10 +256,13 @@ class ModSeminario:
                 )
 
         # The bond and angle values are calculated and written to file.
-        self.calculate_bonds(eigenvals, eigenvecs)
-        self.calculate_angles(eigenvals, eigenvecs)
+        self.calculate_bonds(eigenvals, eigenvecs, molecule, bond_lens)
+        self.calculate_angles(eigenvals, eigenvecs, molecule, bond_lens)
+        return molecule
 
-    def calculate_angles(self, eigenvals, eigenvecs):
+    def calculate_angles(
+        self, eigenvals, eigenvecs, molecule: Ligand, bond_lengths: np.ndarray
+    ):
         """
         Uses the modified Seminario method to find the angle parameters and prints them to file.
         """
@@ -244,9 +274,9 @@ class ModSeminario:
         # Connectivity information for Modified Seminario Method
         central_atoms_angles = []
 
-        for coord in range(self.size_mol):
+        for coord in range(molecule.n_atoms):
             central_atoms_angles.append([])
-            for count, angle in enumerate(self.molecule.angles):
+            for count, angle in enumerate(molecule.angles):
                 if coord == angle[1]:
                     # For angle abc, atoms a, c are written to array
                     central_atoms_angles[coord].append([angle[0], angle[2], count])
@@ -255,7 +285,7 @@ class ModSeminario:
                     central_atoms_angles[coord].append([angle[2], angle[0], count])
 
         # Sort rows by atom number
-        for coord in range(self.size_mol):
+        for coord in range(molecule.n_atoms):
             central_atoms_angles[coord] = sorted(
                 central_atoms_angles[coord], key=itemgetter(0)
             )
@@ -270,7 +300,7 @@ class ModSeminario:
                 # where abc corresponds to the order of the arguments. This is why the reverse order was also added.
                 angle = central_atoms_angles[i][j][0], i, central_atoms_angles[i][j][1]
                 unit_pa_all_angles[i].append(
-                    ModSemMaths.u_pa_from_angles(angle, self.coords)
+                    ModSemMaths.u_pa_from_angles(angle, molecule.coordinates)
                 )
 
         # Finds the contributing factors from the other angle terms
@@ -323,7 +353,7 @@ class ModSeminario:
                     # Finds the mean value of the additional contribution
                     scaling_factor_all_angles[i][j][0] += extra_contribs / (m + n - 2)
 
-        scaling_factors_angles_list = [[]] * len(self.molecule.angles)
+        scaling_factors_angles_list = [[]] * len(molecule.angles)
 
         # Orders the scaling factors according to the angle list
         for i in range(len(central_atoms_angles)):
@@ -332,127 +362,130 @@ class ModSeminario:
                     scaling_factor_all_angles[i][j][0]
                 )
 
-        k_theta, theta_0 = np.zeros(len(self.molecule.angles)), np.zeros(
-            len(self.molecule.angles)
+        k_theta, theta_0 = np.zeros(len(molecule.angles)), np.zeros(
+            len(molecule.angles)
         )
 
         conversion = constants.KCAL_TO_KJ * 2
 
-        with open(
-            "Modified_Seminario_Angles.txt", f'{"w" if self.molecule.restart else "a+"}'
-        ) as angle_file:
+        with open("Modified_Seminario_Angles.txt", "w") as angle_file:
 
-            for i, angle in enumerate(self.molecule.angles):
+            for i, angle in enumerate(molecule.angles):
 
                 scalings = scaling_factors_angles_list[i][:2]
 
                 # Ensures that there is no difference when the ordering is changed.
                 ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(
-                    angle, self.bond_lens, eigenvals, eigenvecs, self.coords, scalings
+                    angle,
+                    bond_lengths,
+                    eigenvals,
+                    eigenvecs,
+                    molecule.coordinates,
+                    scalings,
                 )
                 ba_k_theta, ba_theta_0 = ModSemMaths.force_constant_angle(
                     angle[::-1],
-                    self.bond_lens,
+                    bond_lengths,
                     eigenvals,
                     eigenvecs,
-                    self.coords,
+                    molecule.coordinates,
                     scalings[::-1],
                 )
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
                 k_theta[i] = ((ab_k_theta + ba_k_theta) / 2) * (
-                    self.molecule.vib_scaling ** 2
+                    self.vibrational_scaling ** 2
                 )
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
                 angle_file.write(
-                    f"{self.molecule.atoms[angle[0]].atom_name}-{self.molecule.atoms[angle[1]].atom_name}-{self.molecule.atoms[angle[2]].atom_name}  "
+                    f"{molecule.atoms[angle[0]].atom_name}-{molecule.atoms[angle[1]].atom_name}-{molecule.atoms[angle[2]].atom_name}  "
                 )
                 angle_file.write(
                     f"{k_theta[i]:.3f}   {theta_0[i]:.3f}   {angle[0]}   {angle[1]}   {angle[2]}\n"
                 )
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicAngleForce[angle] = [
-                    theta_0[i] * constants.DEG_TO_RAD,
-                    k_theta[i] * conversion,
-                ]
+                molecule.AngleForce.set_parameter(
+                    atoms=angle,
+                    angle=theta_0[i] * constants.DEG_TO_RAD,
+                    k=k_theta[i] * conversion,
+                )
 
-    def calculate_bonds(self, eigenvals, eigenvecs):
+    def calculate_bonds(
+        self, eigenvals, eigenvecs, molecule: Ligand, bond_lengths: np.ndarray
+    ):
         """
         Uses the modified Seminario method to find the bond parameters and print them to file.
         """
 
-        bonds = self.molecule.to_topology().edges
+        bonds = molecule.to_topology().edges
         conversion = constants.KCAL_TO_KJ * 200
 
         k_b, bond_len_list = np.zeros(len(bonds)), np.zeros(len(bonds))
 
-        with open(
-            "Modified_Seminario_Bonds.txt", f'{"w" if self.molecule.restart else "a+"}'
-        ) as bond_file:
+        with open("Modified_Seminario_Bonds.txt", "w") as bond_file:
 
             for pos, bond in enumerate(bonds):
                 ab = ModSemMaths.force_constant_bond(
-                    bond, eigenvals, eigenvecs, self.coords
+                    bond, eigenvals, eigenvecs, molecule.coordinates
                 )
                 ba = ModSemMaths.force_constant_bond(
-                    bond[::-1], eigenvals, eigenvecs, self.coords
+                    bond[::-1], eigenvals, eigenvecs, molecule.coordinates
                 )
 
                 # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
-                k_b[pos] = np.real((ab + ba) / 2) * (self.molecule.vib_scaling ** 2)
+                k_b[pos] = np.real((ab + ba) / 2) * (self.vibrational_scaling ** 2)
 
-                bond_len_list[pos] = self.bond_lens[bond]
+                bond_len_list[pos] = bond_lengths[bond]
                 bond_file.write(
-                    f"{self.molecule.atoms[bond[0]].atom_name}-{self.molecule.atoms[bond[1]].atom_name}  "
+                    f"{molecule.atoms[bond[0]].atom_name}-{molecule.atoms[bond[1]].atom_name}  "
                 )
                 bond_file.write(
                     f"{k_b[pos]:.3f}   {bond_len_list[pos]:.3f}   {bond[0]}   {bond[1]}\n"
                 )
 
                 # Add ModSem values to ligand object.
-                self.molecule.HarmonicBondForce[bond] = [
-                    bond_len_list[pos] / 10,
-                    conversion * k_b[pos],
-                ]
+                molecule.BondForce.set_parameter(
+                    atoms=bond, length=bond_len_list[pos] / 10, k=conversion * k_b[pos]
+                )
 
-    def symmetrise_bonded_parameters(self):
-        """
-        Apply symmetry to the bonded parameters stored in the molecule based on types from rdkit.
-        """
-
-        if (self.molecule.bond_types is None) or (not self.molecule.enable_symmetry):
-            return
-
-        # Collect all of the bond values from the HarmonicBondForce dict
-        for bonds in self.molecule.bond_types.values():
-            bond_lens, bond_forces = zip(
-                *[self.molecule.HarmonicBondForce[bond] for bond in bonds]
-            )
-
-            # Average
-            bond_lens, bond_forces = (
-                sum(bond_lens) / len(bond_lens),
-                sum(bond_forces) / len(bond_forces),
-            )
-
-            # Replace with averaged values
-            for bond in bonds:
-                self.molecule.HarmonicBondForce[bond] = [bond_lens, bond_forces]
-
-        # Collect all of the angle values from the HarmonicAngleForce dict
-        for angles in self.molecule.angle_types.values():
-            angle_vals, angle_forces = zip(
-                *[self.molecule.HarmonicAngleForce[angle] for angle in angles]
-            )
-
-            # Average
-            angle_vals, angle_forces = (
-                sum(angle_vals) / len(angle_vals),
-                sum(angle_forces) / len(angle_forces),
-            )
-
-            # Replace with averaged values
-            for angle in angles:
-                self.molecule.HarmonicAngleForce[angle] = [angle_vals, angle_forces]
+    # def symmetrise_bonded_parameters(self):
+    #     """
+    #     Apply symmetry to the bonded parameters stored in the molecule based on types from rdkit.
+    #     """
+    #
+    #     if (self.molecule.bond_types is None) or (not self.molecule.enable_symmetry):
+    #         return
+    #
+    #     # Collect all of the bond values from the HarmonicBondForce dict
+    #     for bonds in self.molecule.bond_types.values():
+    #         bond_lens, bond_forces = zip(
+    #             [self.molecule.BondForce.get_parameter(bond) for bond in bonds]
+    #         )
+    #
+    #         # Average
+    #         bond_lens, bond_forces = (
+    #             sum(bond_lens) / len(bond_lens),
+    #             sum(bond_forces) / len(bond_forces),
+    #         )
+    #
+    #         # Replace with averaged values
+    #         for bond in bonds:
+    #             self.molecule.HarmonicBondForce[bond] = [bond_lens, bond_forces]
+    #
+    #     # Collect all of the angle values from the HarmonicAngleForce dict
+    #     for angles in self.molecule.angle_types.values():
+    #         angle_vals, angle_forces = zip(
+    #             *[self.molecule.HarmonicAngleForce[angle] for angle in angles]
+    #         )
+    #
+    #         # Average
+    #         angle_vals, angle_forces = (
+    #             sum(angle_vals) / len(angle_vals),
+    #             sum(angle_forces) / len(angle_forces),
+    #         )
+    #
+    #         # Replace with averaged values
+    #         for angle in angles:
+    #             self.molecule.HarmonicAngleForce[angle] = [angle_vals, angle_forces]

@@ -443,9 +443,10 @@ def check_proper_torsion(
 
 def check_improper_torsion(
     improper: Tuple[int, int, int, int], molecule: "Ligand"
-) -> bool:
+) -> Tuple[int, int, int, int]:
     """
     Check that the given improper is valid for the molecule graph.
+    and always return the central bond as the first atom.
     """
     for atom_index in improper:
         try:
@@ -454,7 +455,10 @@ def check_improper_torsion(
             for bonded in atom.bonds:
                 bonded_atoms.add(bonded)
             if len(bonded_atoms.intersection(set(improper))) == 3:
-                return True
+                if improper[0] == atom_index:
+                    return improper
+                else:
+                    return (atom_index, *atom.bonds)
         except IndexError:
             continue
-    return False
+    raise TopologyMismatch(f"The improper {improper} is not a valid for this molecule.")

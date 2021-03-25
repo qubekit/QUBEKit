@@ -2,9 +2,9 @@
 Build up a list of forcefield objects to be stored in the main forcefield model
 """
 import abc
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, Set, Tuple
 
-from pydantic import BaseModel, Field, PositiveFloat, validator
+from pydantic import BaseModel, Field, validator
 from typing_extensions import Literal
 
 from QUBEKit.utils.constants import PI
@@ -38,7 +38,7 @@ class BasicParameterModel(BaseModel, abc.ABC):
 
     def update(self, **kwargs):
         """Update the parameter attributes which are valid for this parameter."""
-        for key, value in kwargs:
+        for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
 
@@ -88,11 +88,11 @@ class BaseParameter(BasicParameterModel):
 class HarmonicBondParameter(BaseParameter):
 
     type: Literal["HarmonicBondParameter"] = "HarmonicBondParameter"
-    length: PositiveFloat = Field(
+    length: float = Field(
         ...,
         description="The equilibrium bond length for a harmonic bond potential in nanometers.",
     )
-    k: PositiveFloat = Field(
+    k: float = Field(
         ...,
         description="The force constant in a harmonic bond potential in kj/mol/ nm.",
     )
@@ -109,11 +109,11 @@ class HarmonicBondParameter(BaseParameter):
 class HarmonicAngleParameter(BaseParameter):
 
     type: Literal["HarmonicAngleParameter"] = "HarmonicAngleParameter"
-    k: PositiveFloat = Field(
+    k: float = Field(
         ...,
         description="The force constant for a harmonic angle potential in kj/mol/ rad**2.",
     )
-    angle: PositiveFloat = Field(
+    angle: float = Field(
         ..., description="The equilibrium angle in a harmonic potential in rad."
     )
 
@@ -133,14 +133,14 @@ class PeriodicTorsionParameter(BaseParameter):
     k2: float = 0
     k3: float = 0
     k4: float = 0
-    periodicity1: Literal[1] = 1
-    periodicity2: Literal[2] = 2
-    periodicity3: Literal[3] = 3
-    periodicity4: Literal[4] = 4
-    phase1: Literal[0] = 0
-    phase2: Literal["pi"] = "pi"
-    phase3: Literal[0] = 0
-    phase4: Literal["pi"] = "pi"
+    periodicity1: int = 1
+    periodicity2: int = 2
+    periodicity3: int = 3
+    periodicity4: int = 4
+    phase1: float = 0
+    phase2: float = PI
+    phase3: float = 0
+    phase4: float = PI
 
     @classmethod
     def _n_tags(cls) -> int:
@@ -249,6 +249,7 @@ class VirtualSite3Point(BasicParameterModel):
                 "atom1": self.parent_index,
                 "atom2": self.closest_a_index,
                 "atom3": self.closest_b_index,
+                "type": "localCoords",
             }
         )
         # now do special list formatting

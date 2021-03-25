@@ -27,7 +27,7 @@ import os
 import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 from xml.dom.minidom import parseString
 
 import networkx as nx
@@ -41,6 +41,7 @@ from simtk.openmm.app.element import Element
 import QUBEKit
 from QUBEKit.forcefield import (
     BaseForceGroup,
+    BaseParameter,
     HarmonicAngleForce,
     HarmonicBondForce,
     ImproperTorsionForce,
@@ -48,7 +49,7 @@ from QUBEKit.forcefield import (
     PeriodicTorsionForce,
     VirtualSiteGroup,
 )
-from QUBEKit.molecules.components import Atom, Bond, ExtraSite
+from QUBEKit.molecules.components import Atom, Bond
 from QUBEKit.molecules.utils import RDKit, ReadInput
 from QUBEKit.utils import constants
 from QUBEKit.utils.exceptions import (
@@ -565,6 +566,74 @@ class Molecule:
             return 0
         return len(rotatable_bonds)
 
+    def symmetrise_nonbonded_parameters(self) -> bool:
+        """
+        Symmetrise all nonbonded force group parameters.
+
+        Using the CIP rankings from RDKit apply symmetry to the nonbonded force group.
+
+        Important:
+            We respect the predefined parameters in the nonbonded force group which can be symmetrised.
+        """
+        # group atom types as they are in a different format to other types
+        atom_types = {}
+        for atom_index, cip_type in self.atom_types.items():
+            atom_types.setdefault(cip_type, []).append((atom_index,))
+        for atoms in atom_types.items():
+            self._symmetrise_parameters(
+                force_group=self.NonbondedForce, parameter_keys=atoms
+            )
+
+        return True
+
+    def symmetrise_bonded_parameters(self) -> bool:
+        """Symmetrise all bond and angle force group parameters.
+
+        Using the CIP rankings from RDKit apply symmetry to the bond and angle force groups.
+
+        Important:
+            We respect the predefined parameters in the bond/angle force group which can be symmetrised.
+        """
+
+        for bonds in self.bond_types.values():
+            self._symmetrise_parameters(
+                force_group=self.BondForce, parameter_keys=bonds
+            )
+
+        for angles in self.angle_types.values():
+            self._symmetrise_parameters(
+                force_group=self.AngleForce, parameter_keys=angles
+            )
+
+        return True
+
+    def _symmetrise_parameters(
+        self, force_group: BaseForceGroup, parameter_keys: List[Tuple[int, ...]]
+    ):
+        """
+        Internal method which applies symmetry to a group of parameter references in a particular force group.
+
+        Args:
+            force_group: The force group we should query for parameters.
+            parameter_keys: The list of atom indices tuples that the symmetry should be applied to.
+        """
+
+        symmetry_attrs = force_group.symmetry_parameters()
+
+        raw_parameter_values = {}
+        for parameter_key in parameter_keys:
+            param = force_group.get_parameter(atoms=parameter_key)
+            for attr in symmetry_attrs:
+                raw_parameter_values.setdefault(attr, []).append(getattr(param, attr))
+
+        # now average the raw values
+        for key, value in raw_parameter_values.items():
+            raw_parameter_values[key] = np.array(value).mean()
+
+        # now set back
+        for parameter_key in parameter_keys:
+            force_group.set_parameter(atoms=parameter_key, **raw_parameter_values)
+
     def measure_dihedrals(self) -> Optional[Dict[Tuple[int, int, int, int], float]]:
         """
         For the given conformation measure the dihedrals in the topology in degrees.
@@ -661,17 +730,6 @@ class Molecule:
                 Residue, "Atom", attrib={"name": atom.atom_name, "type": atom_type}
             )
 
-        # add the combination rule to the xml for geometric.
-        NonbondedForce = ET.SubElement(
-            root,
-            self.NonbondedForce.openmm_group(),
-            attrib=self.NonbondedForce.xml_data(),
-        )
-        for parameter in self.NonbondedForce.parameters.values():
-            ET.SubElement(
-                NonbondedForce, parameter.openmm_type(), attrib=parameter.xml_data()
-            )
-
         # add sites to Atomtypes, topology and nonbonded
         for i, site in enumerate(self.extra_sites.iter_sites(), start=1):
             site_name = f"v-site{i}"
@@ -685,21 +743,11 @@ class Molecule:
             ET.SubElement(
                 Residue, "Atom", attrib={"name": site_class, "type": site_name}
             )
-            ET.SubElement(
-                NonbondedForce,
-                "Atom",
-                attrib={
-                    "charge": str(site.charge),
-                    "epsilon": "0",
-                    "sigma": "0",
-                    "type": site_name,
-                },
-            )
 
         BondForce = ET.SubElement(
             root, self.BondForce.openmm_group(), attrib=self.BondForce.xml_data()
         )
-        for parameter in self.BondForce.parameters.values():
+        for parameter in self.BondForce.iter_parameters:
             ET.SubElement(
                 BondForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
@@ -711,97 +759,52 @@ class Molecule:
         AngleForce = ET.SubElement(
             root, self.AngleForce.openmm_group(), attrib=self.AngleForce.xml_data()
         )
-        for parameter in self.AngleForce.parameters.values():
+        for parameter in self.AngleForce.iter_parameters:
             ET.SubElement(
                 AngleForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
         TorsionForce = ET.SubElement(
             root, self.TorsionForce.openmm_group(), attrib=self.TorsionForce.xml_data()
         )
-        for parameter in self.TorsionForce.parameters.values():
+        for parameter in self.TorsionForce.iter_parameters:
             ET.SubElement(
                 TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
-        for parameter in self.ImproperTorsionForce.parameters.values():
+        for parameter in self.ImproperTorsionForce.iter_parameters:
             ET.SubElement(
                 TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
 
         # now we add more site info after general bonding
-        for i, site in enumerate(self.extra_sites.iter_sites(), start=1):
+        for i, site in enumerate(self.extra_sites.iter_sites()):
             site_data = site.xml_data()
             # we have to add its global index
             site_data["index"] = str(i + self.n_atoms)
             ET.SubElement(Residue, site.openmm_type(), attrib=site_data)
 
-        # # Assign the combination rule
-        # c14 = "0.83333" if self.combination == "amber" else "0.5"
-        # l14 = "0.5"
+        NonbondedForce = ET.SubElement(
+            root,
+            self.NonbondedForce.openmm_group(),
+            attrib=self.NonbondedForce.xml_data(),
+        )
+        for parameter in self.NonbondedForce.iter_parameters:
+            ET.SubElement(
+                NonbondedForce, parameter.openmm_type(), attrib=parameter.xml_data()
+            )
 
-        # # Add all of the virtual site info if present
-        # if self.extra_sites is not None:
-        #     # Add the atom type to the top
-        #     for key, site in self.extra_sites.items():
-        #         ET.SubElement(
-        #             AtomTypes,
-        #             "Type",
-        #             attrib={
-        #                 "name": f"v-site{key + 1}",
-        #                 "class": f"X{key + 1}",
-        #                 "mass": "0",
-        #             },
-        #         )
-        #
-        #         # Add the atom info
-        #         ET.SubElement(
-        #             Residue,
-        #             "Atom",
-        #             attrib={"name": f"X{key + 1}", "type": f"v-site{key + 1}"},
-        #         )
-        #
-        #         # Add the local coords site info
-        #         attrib = {
-        #             "type": "localCoords",
-        #             "index": str(key + len(self.atoms)),
-        #             "atom1": str(site.parent_index),
-        #             "atom2": str(site.closest_a_index),
-        #             "atom3": str(site.closest_b_index),
-        #             "wo1": str(site.o_weights[0]),
-        #             "wo2": str(site.o_weights[1]),
-        #             "wo3": str(site.o_weights[2]),
-        #             "wx1": str(site.x_weights[0]),
-        #             "wx2": str(site.x_weights[1]),
-        #             "wx3": str(site.x_weights[2]),
-        #             "wy1": str(site.y_weights[0]),
-        #             "wy2": str(site.y_weights[1]),
-        #             "wy3": str(site.y_weights[2]),
-        #             "p1": str(site.p1),
-        #             "p2": str(site.p2),
-        #             "p3": str(site.p3),
-        #         }
-        #
-        #         # For the Nitrogen case
-        #         if len(site.o_weights) == 4:
-        #             attrib["wo4"] = str(site.o_weights[3])
-        #             attrib["wx4"] = str(site.x_weights[3])
-        #             attrib["wy4"] = str(site.y_weights[3])
-        #             attrib["atom4"] = str(site.closest_c_index)
-        #
-        #         ET.SubElement(Residue, "VirtualSite", attrib=attrib)
-        #
-        #         # Add the nonbonded info
-        #         ET.SubElement(
-        #             NonbondedForce,
-        #             "Atom",
-        #             attrib={
-        #                 "type": f"v-site{key + 1}",
-        #                 "charge": str(site.charge),
-        #                 "sigma": "1.000000",
-        #                 "epsilon": "0.000000",
-        #             },
-        #         )
+        for i, site in enumerate(self.extra_sites.iter_sites(), start=1):
+            site_name = f"v-site{i}"
+            ET.SubElement(
+                NonbondedForce,
+                "Atom",
+                attrib={
+                    "charge": str(site.charge),
+                    "epsilon": "0",
+                    "sigma": "0",
+                    "type": site_name,
+                },
+            )
 
-        # Store the tree back into the molecule
         return ET.ElementTree(root)
 
     def pickle(self, state=None):
@@ -837,7 +840,7 @@ class Molecule:
                 pickle.dump(val, pickle_jar)
 
     @property
-    def bond_types(self) -> Dict[str, Tuple[int, int]]:
+    def bond_types(self) -> Dict[str, List[Tuple[int, int]]]:
         """
         Using the symmetry dict, give each bond a code. If any codes match, the bonds can be symmetrised.
         e.g. bond_symmetry_classes = {(0, 3): '2-0', (0, 4): '2-0', (0, 5): '2-0' ...}
@@ -861,7 +864,7 @@ class Molecule:
         return bond_types
 
     @property
-    def angle_types(self) -> Dict[str, Tuple[int, int, int]]:
+    def angle_types(self) -> Dict[str, List[Tuple[int, int, int]]]:
         """
         Using the symmetry dict, give each angle a code. If any codes match, the angles can be symmetrised.
         e.g. angle_symmetry_classes = {(1, 0, 3): '3-2-0', (1, 0, 4): '3-2-0', (1, 0, 5): '3-2-0' ...}
@@ -886,7 +889,7 @@ class Molecule:
         return angle_types
 
     @property
-    def dihedral_types(self) -> Dict[str, Tuple[int, int, int, int]]:
+    def dihedral_types(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
         """
         Using the symmetry dict, give each dihedral a code. If any codes match, the dihedrals can be clustered and their
         parameters should be the same, this is to be used in dihedral fitting so all symmetry equivalent dihedrals are
@@ -912,7 +915,7 @@ class Molecule:
         return dihedral_types
 
     @property
-    def improper_types(self) -> Dict[str, Tuple[int, int, int, int]]:
+    def improper_types(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
         """Using the atom symmetry types work out the improper types."""
 
         atom_types = self.atom_types
@@ -953,7 +956,7 @@ class Molecule:
         return new_classes
 
     @property
-    def atom_types(self) -> Optional[Dict[int, str]]:
+    def atom_types(self) -> Dict[int, str]:
         """Returns a dictionary of atom indices mapped to their class or None if there is no rdkit molecule."""
 
         return RDKit.find_symmetry_classes(self.to_rdkit())

@@ -1,12 +1,13 @@
-#!/usr/bin/env python3
-
 import os
 import shutil
 import subprocess as sp
 from tempfile import TemporaryDirectory
+from typing import List, Optional
 
-from simtk.openmm import XmlSerializer, app
+from simtk.openmm import System, app
+from typing_extensions import Literal
 
+from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
 
 
@@ -16,45 +17,43 @@ class AnteChamber(Parametrisation):
     then build and export the xml tree object.
     """
 
-    def __init__(self, molecule, input_file=None, fftype="gaff"):
+    type: Literal["antechamber"] = "antechamber"
+    force_field: Literal["gaff", "gaff2"] = "gaff2"
 
-        super().__init__(molecule, input_file, fftype)
+    @classmethod
+    def _improper_torsion_ordering(cls) -> str:
+        return "amber"
 
-        self.antechamber_cmd()
-        self.serialise_system()
-        self.gather_parameters()
-        self.prmtop = None
-        self.inpcrd = None
-        self.molecule.parameter_engine = "AnteChamber " + self.fftype
-
-    def serialise_system(self):
-        """Serialise the amber style files into an openmm object."""
-
-        prmtop = app.AmberPrmtopFile(self.prmtop)
+    def _build_system(
+        self, molecule: Ligand, input_files: Optional[List[str]] = None
+    ) -> System:
+        """
+        Build a system using the amber prmtop files, first we must use antechamber to prep the molecule.
+        """
+        prmtoop_file = self._get_prmtop(molecule=molecule)
+        prmtop = app.AmberPrmtopFile(prmtoop_file)
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
+        return system
 
-        with open("serialised.xml", "w+") as out:
-            out.write(XmlSerializer.serializeSystem(system))
-
-    def antechamber_cmd(self):
+    def _get_prmtop(self, molecule: Ligand) -> str:
         """Method to run Antechamber, parmchk2 and tleap."""
 
         # file paths when moving in and out of temp locations
         cwd = os.getcwd()
-        mol2 = os.path.abspath(f"{self.molecule.name}.mol2")
-        frcmod_file = os.path.abspath(f"{self.molecule.name}.frcmod")
-        prmtop_file = os.path.abspath(f"{self.molecule.name}.prmtop")
-        inpcrd_file = os.path.abspath(f"{self.molecule.name}.inpcrd")
+        mol2 = os.path.abspath(f"{molecule.name}.mol2")
+        frcmod_file = os.path.abspath(f"{molecule.name}.frcmod")
+        prmtop_file = os.path.abspath(f"{molecule.name}.prmtop")
+        inpcrd_file = os.path.abspath(f"{molecule.name}.inpcrd")
         ant_log = os.path.abspath("Antechamber.log")
 
         # Call Antechamber
         # Do this in a temp directory as it produces a lot of files
         with TemporaryDirectory() as temp:
             os.chdir(temp)
-            self.molecule.to_file(file_name="in.sdf")
+            molecule.to_file(file_name="in.sdf")
 
             # Call Antechamber
-            cmd = f"antechamber -i in.sdf -fi sdf -o out.mol2 -fo mol2 -s 2 -m {self.molecule.multiplicity} -c bcc -nc {self.molecule.charge} -pf yes"
+            cmd = f"antechamber -i in.sdf -fi sdf -o out.mol2 -fo mol2 -s 2 -m {molecule.multiplicity} -c bcc -nc {molecule.charge} -pf yes"
 
             with open("ante_log.txt", "w+") as log:
                 sp.run(cmd, shell=True, stdout=log, stderr=log)
@@ -80,7 +79,7 @@ class AnteChamber(Parametrisation):
             # Run parmchk
             with open("Antechamber.log", "a") as log:
                 sp.run(
-                    f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.fftype}",
+                    f"parmchk2 -i out.mol2 -f mol2 -o out.frcmod -s {self.force_field}",
                     shell=True,
                     stdout=log,
                     stderr=log,
@@ -130,5 +129,5 @@ class AnteChamber(Parametrisation):
             os.chdir(cwd)
 
         # Now give the file names to parametrisation method
-        self.prmtop = f"{self.molecule.name}.prmtop"
-        self.inpcrd = f"{self.molecule.name}.inpcrd"
+        prmtop = f"{molecule.name}.prmtop"
+        return prmtop

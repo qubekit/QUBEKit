@@ -14,4 +14,6 @@ def test_protein_params(tmpdir):
     with tmpdir.as_cwd():
         pro = Protein.from_file(file_name=get_data("capped_leu.pdb"))
         shutil.copy(get_data("capped_leu.pdb"), "capped_leu.pdb")
-        XMLProtein(protein=pro)
+        xml_pro = XMLProtein()
+        new_pro = xml_pro.parametrsie_molecule(molecule=pro)
+        new_pro.write_parameters("pro.xml")
