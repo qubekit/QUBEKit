@@ -327,6 +327,7 @@ class ArgsAndConfigs:
             choices=["onetep", "g09", "g16", "psi4"],
             help="Enter the name of the QM code to calculate the electron density of the molecule.",
         )
+        # TODO Maybe separate into known solvents and IPCM constants?
         parser.add_argument(
             "-solvent",
             "--solvent",
@@ -334,7 +335,6 @@ class ArgsAndConfigs:
             type=string_to_bool,
             help="Enter whether or not you would like to use a solvent.",
         )
-        # Maybe separate into known solvents and IPCM constants?
         parser.add_argument(
             "-convergence",
             "--convergence",
@@ -346,8 +346,8 @@ class ArgsAndConfigs:
             "-param",
             "--parameter_engine",
             choices=["xml", "antechamber", "openff", "none"],
-            help="Enter the method of where we should get the initial molecule parameters from, "
-            "if xml make sure the xml has the same name as the pdb file.",
+            help="Enter the method of where to get the initial molecule parameters from; "
+            "if xml, make sure the xml file has the same name as the input file or smiles input name.",
         )
         parser.add_argument(
             "-pre-opt",
@@ -418,14 +418,6 @@ class ArgsAndConfigs:
             help="Enter the end point of the QUBEKit job.",
         )
         parser.add_argument(
-            "-progress",
-            "--progress",
-            nargs="?",
-            const=True,
-            help="Get the current progress of a QUBEKit single or bulk job.",
-            action=ProgressAction,
-        )
-        parser.add_argument(
             "-skip",
             "--skip",
             nargs="+",
@@ -459,7 +451,7 @@ class ArgsAndConfigs:
             "-log",
             "--log",
             type=str,
-            help="Enter a name to tag working directories with. Can be any alphanumeric string."
+            help="Enter a name to tag working directories with. Can be any alphanumeric string. "
             "This helps differentiate (by more than just date) different analyses of the "
             "same molecule.",
         )
@@ -493,14 +485,6 @@ class ArgsAndConfigs:
             choices=[True, False],
             type=string_to_bool,
             help="Decide whether the log file should contain all the input/output information",
-        )
-        parser.add_argument(
-            "-display",
-            "--display",
-            type=str,
-            nargs="+",
-            action=DisplayMolAction,
-            help="Get the molecule object with this name in the cwd",
         )
         parser.add_argument(
             "-symmetry",
@@ -561,6 +545,22 @@ class ArgsAndConfigs:
         groups.add_argument(
             "-version", "--version", action="version", version=QUBEKit.__version__
         )
+        groups.add_argument(
+            "-progress",
+            "--progress",
+            nargs="?",
+            const=True,
+            action=ProgressAction,
+            help="Get the current progress of a QUBEKit single or bulk job.",
+        )
+        groups.add_argument(
+            "-display",
+            "--display",
+            type=str,
+            nargs="+",
+            action=DisplayMolAction,
+            help="Get the molecule object with this name in the cwd",
+        )
 
         # Ensures help is shown (rather than an error) if no arguments are provided.
         return parser.parse_args(args=None if sys.argv[1:] else ["--help"])
@@ -589,6 +589,7 @@ class ArgsAndConfigs:
             # Get pdb from smiles or name if no smiles is given
             if bulk_data[name]["smiles"] is not None:
                 smiles_string = bulk_data[name]["smiles"]
+                printf(f"smile string: {smiles_string}\n")
                 self.molecule = Ligand.from_smiles(smiles_string, name)
 
             else:
@@ -970,10 +971,10 @@ class Execute:
                     )
                 except FileNotFoundError:
                     raise FileNotFoundError(
-                        """You need to supply an xml file if you wish to use xml-based parametrisation;
-                                            put this file in the location you are running QUBEKit from.
-                                            Alternatively, use a different parametrisation method such as:
-                                            -param antechamber"""
+                        "You need to supply an xml file if you wish to use xml-based parametrisation; "
+                        "put this file in the location you are running QUBEKit from. "
+                        "Alternatively, use a different parametrisation method such as: "
+                        "-param openff"
                     )
 
         # Perform the parametrisation
@@ -1022,7 +1023,7 @@ class Execute:
             basis = "smirnoff"
         else:
             raise SpecificationError(
-                f"The pre optimisation method {method} is not supported please chose from "
+                f"The pre optimisation method {method} is not supported, please choose from "
                 f"mmff94, mmff94s, uff, gfn1xtb, gfn2xtb, gfn0xtb, gaff-2.11, ani1x, ani1ccx, ani2x, openff-1.3.0"
             )
 

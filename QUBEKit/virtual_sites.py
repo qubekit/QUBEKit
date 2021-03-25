@@ -79,20 +79,6 @@ class VirtualSites:
         # [((x, y, z), q, atom_index), ... ]
         self.v_sites_coords: List[Tuple[np.ndarray, float, int]] = []
 
-        # Kept separate for graphing comparisons
-        # These lists are reset for each atom with (a) virtual site - unlike v_sites_coords
-        # [((x, y, z), q, atom_index)]
-        self.one_site_coords: Optional[List[Tuple[np.ndarray, float, int]]] = None
-        # [((x, y, z), q, atom_index), ((x, y, z), q, atom_index)]
-        self.two_site_coords: Optional[List[Tuple[np.ndarray, float, int]]] = None
-
-        # Reset for each new atom; initial params are irrelevant.
-        self.site_errors: Dict[int, float] = {
-            0: 5,
-            1: 10,
-            2: 15,
-        }
-
         self.sample_points: Optional[List[np.ndarray]] = None
         self.no_site_esps: Optional[List[np.ndarray]] = None
 
@@ -640,18 +626,160 @@ class VirtualSites:
         )
 
     @staticmethod
-    def two_site_two_bond_contraint(x):
+    def two_site_one_bond_constraint_charge(x):
+        """
+        In the case of a halogen atom being given two virtual sites,
+        mimicking the chemistry would imply a positive and negative charge either side of the atom.
+        This constraint forces a negative and a positive charge.
+        The result of this is usually both charges lying on the C-Halo bond.
+        """
+        return -1 * x[0] * x[1]
+
+    @staticmethod
+    def two_site_one_bond_constraint_lambda(x):
+        """
+        In the case of a halogen atom being given two virtual sites,
+        mimicking the chemistry would imply a positive and negative charge either side of the atom.
+        This constraint forces a negative and a positive lambda.
+        """
+        return -1 * x[2] * x[3]
+
+    @staticmethod
+    def two_site_two_bond_constraint(x):
         """
         In the case of two sites and two bonds, the vectors are added or subtracted together,
         rather than one vector per site.
         This constraint ensures the max scaling factor of the vectors combined is less than 1.
         NB They can then be scaled to be up to 1.5 by the scale factor.
         """
-        return 1 - x[0] ** 2 - x[1] ** 2
+        return 1 - x[2] ** 2 - x[3] ** 2
+
+    def fit_one_site(self, atom_index):
+        """
+        Fit method for one site whose parent is <atom_index>
+        """
+        vec = self.get_vector_from_coords(atom_index, n_sites=1)
+        bounds = ((-1.0, 1.0), (-1.0, 1.0))
+        one_site_fit = minimize(
+            self.one_site_objective_function,
+            np.array([0, 1]),
+            args=(atom_index, vec),
+            bounds=bounds,
+        )
+        error = one_site_fit.fun / len(self.sample_points)
+        q, lam = one_site_fit.x
+        one_site_coords = [((vec * lam) + self.coords[atom_index], q)]
+
+        return error, one_site_coords
+
+    def fit_two_sites(self, atom_index):
+        """
+        Fit method for two sites whose parent is <atom_index>
+        """
+        if len(self.molecule.atoms[atom_index].bonds) != 2:
+            error, site_coords = self.fit_two_sites_one_or_three_bonds(atom_index)
+        else:
+            error, site_coords = self.fit_two_sites_two_bonds(atom_index)
+
+        return error, site_coords
+
+    def fit_two_sites_one_or_three_bonds(self, atom_index):
+        """
+        Fit method for two sites whose parent, <atom_index> has one or three bonds
+        e.g. uncharged halogens and nitrogens
+        """
+        vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2)
+        bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
+        if len(self.molecule.atoms[atom_index].bonds) == 1:
+            constraint = {
+                "type": "ineq",
+                "fun": VirtualSites.two_site_one_bond_constraint_charge,
+            }
+        else:
+            constraint = None
+        two_site_fit = minimize(
+            self.two_sites_objective_function,
+            np.array([0.0, 0.0, 1.0, 1.0]),
+            args=(atom_index, vec_a, vec_b),
+            bounds=bounds,
+            constraints=constraint,
+        )
+        error = two_site_fit.fun / len(self.sample_points)
+        q_a, q_b, lam_a, lam_b = two_site_fit.x
+        site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(
+            atom_index, lam_a, lam_b, vec_a, vec_b
+        )
+        two_site_coords = [
+            (site_a_coords, q_a),
+            (site_b_coords, q_b),
+        ]
+        return error, two_site_coords
+
+    def fit_two_sites_two_bonds(self, atom_index):
+        """
+        Fit method for two sites whose parent, <atom_index> has two bonds
+        e.g. uncharged oxygens
+        """
+        # Dummy error value to be overwritten
+        error = 10000
+        for alt in [True, False]:
+            bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
+            vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
+            if self.molecule.enable_symmetry:
+                two_site_fit = minimize(
+                    self.symm_two_sites_objective_function,
+                    np.array([0.0, 1.0]),
+                    args=(atom_index, vec_a, vec_b),
+                    bounds=bounds[1:3],
+                    constraints={
+                        "type": "ineq",
+                        "fun": VirtualSites.two_site_two_bond_constraint,
+                    },
+                )
+                if (two_site_fit.fun / len(self.sample_points)) < error:
+                    error = two_site_fit.fun / len(self.sample_points)
+                    q, lam = two_site_fit.x
+                    q_a = q_b = q
+                    lam_a = lam_b = lam
+                    (
+                        site_a_coords,
+                        site_b_coords,
+                    ) = self.sites_coords_from_vecs_and_lams(
+                        atom_index, lam_a, lam_b, vec_a, vec_b
+                    )
+                    two_site_coords = [
+                        (site_a_coords, q_a),
+                        (site_b_coords, q_b),
+                    ]
+            else:
+                two_site_fit = minimize(
+                    self.two_sites_objective_function,
+                    np.array([0.0, 0.0, 1.0, 1.0]),
+                    args=(atom_index, vec_a, vec_b),
+                    bounds=bounds,
+                    constraints={
+                        "type": "ineq",
+                        "fun": VirtualSites.two_site_two_bond_constraint,
+                    },
+                )
+                if (two_site_fit.fun / len(self.sample_points)) < error:
+                    error = two_site_fit.fun / len(self.sample_points)
+                    q_a, q_b, lam_a, lam_b = two_site_fit.x
+                    (
+                        site_a_coords,
+                        site_b_coords,
+                    ) = self.sites_coords_from_vecs_and_lams(
+                        atom_index, lam_a, lam_b, vec_a, vec_b
+                    )
+                    two_site_coords = [
+                        (site_a_coords, q_a),
+                        (site_b_coords, q_b),
+                    ]
+        return error, two_site_coords
 
     def fit(self, atom_index: int):
         """
-        The error for the objective functionsis defined as the sum of differences at each sample point
+        The error for the objective functions is defined as the sum of differences at each sample point
         between the ideal ESP and the ESP with and without sites.
 
         * The ESP is first calculated without any virtual sites, if the error is below 1.0, no fitting
@@ -665,148 +793,70 @@ class VirtualSites:
         :param atom_index: The index of the atom being analysed.
         """
 
-        n_sample_points = len(self.no_site_esps)
-
-        # No site
+        # Calc error in esp when no sites are present
         vec = self.get_vector_from_coords(atom_index, n_sites=1)
         no_site_error = self.one_site_objective_function((0, 1), atom_index, vec)
-        self.site_errors[0] = no_site_error / n_sample_points
+        no_site_error /= len(self.sample_points)
 
-        if self.site_errors[0] <= 1.0:
+        # Error in esp is sufficiently low to not require virtual sites.
+        if no_site_error <= 1.0:
             return
 
-        # Bounds for fitting, format: charge, charge, lambda, lambda
-        # Since the vectors are scaled to be 1 angstrom long, lambda makes the v-site distance -1 to 1 angstrom.
-        bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
+        one_site_error, one_site_coords = self.fit_one_site(atom_index)
 
-        # One site
-        one_site_fit = minimize(
-            self.one_site_objective_function,
-            np.array([0, 1]),
-            args=(atom_index, vec),
-            bounds=bounds[1:3],
-        )
-        self.site_errors[1] = one_site_fit.fun / n_sample_points
-        q, lam = one_site_fit.x
-        self.one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
+        two_site_error, two_site_coords = self.fit_two_sites(atom_index)
 
-        # 1 or 3 bonds
-        if len(self.molecule.atoms[atom_index].bonds) != 2:
-            vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2)
-            two_site_fit = minimize(
-                self.two_sites_objective_function,
-                np.array([0.0, 0.0, 1.0, 1.0]),
-                args=(atom_index, vec_a, vec_b),
-                bounds=bounds,
-            )
-            self.site_errors[2] = two_site_fit.fun / n_sample_points
-            q_a, q_b, lam_a, lam_b = two_site_fit.x
-            site_a_coords, site_b_coords = self.sites_coords_from_vecs_and_lams(
-                atom_index, lam_a, lam_b, vec_a, vec_b
-            )
-            self.two_site_coords = [
-                (site_a_coords, q_a, atom_index),
-                (site_b_coords, q_b, atom_index),
-            ]
-
-        # 2 bonds
-        else:
-            # Arbitrarily large error; this will be overwritten.
-            final_err = 10000
-            for alt in [True, False]:
-                vec_a, vec_b = self.get_vector_from_coords(
-                    atom_index, n_sites=2, alt=alt
-                )
-                if self.molecule.enable_symmetry:
-                    two_site_fit = minimize(
-                        self.symm_two_sites_objective_function,
-                        np.array([0.0, 1.0]),
-                        args=(atom_index, vec_a, vec_b),
-                        bounds=bounds[1:3],
-                        constraints={
-                            "type": "ineq",
-                            "fun": VirtualSites.two_site_two_bond_contraint,
-                        },
-                    )
-                    if (two_site_fit.fun / n_sample_points) < final_err:
-                        final_err = two_site_fit.fun / n_sample_points
-                        self.site_errors[2] = two_site_fit.fun / n_sample_points
-                        q, lam = two_site_fit.x
-                        q_a = q_b = q
-                        lam_a = lam_b = lam
-                        (
-                            site_a_coords,
-                            site_b_coords,
-                        ) = self.sites_coords_from_vecs_and_lams(
-                            atom_index, lam_a, lam_b, vec_a, vec_b
-                        )
-                        self.two_site_coords = [
-                            (site_a_coords, q_a, atom_index),
-                            (site_b_coords, q_b, atom_index),
-                        ]
-                else:
-                    two_site_fit = minimize(
-                        self.two_sites_objective_function,
-                        np.array([0.0, 0.0, 1.0, 1.0]),
-                        args=(atom_index, vec_a, vec_b),
-                        bounds=bounds,
-                    )
-                    if (two_site_fit.fun / n_sample_points) < final_err:
-                        final_err = two_site_fit.fun / n_sample_points
-                        self.site_errors[2] = two_site_fit.fun / n_sample_points
-                        q_a, q_b, lam_a, lam_b = two_site_fit.x
-                        (
-                            site_a_coords,
-                            site_b_coords,
-                        ) = self.sites_coords_from_vecs_and_lams(
-                            atom_index, lam_a, lam_b, vec_a, vec_b
-                        )
-                        self.two_site_coords = [
-                            (site_a_coords, q_a, atom_index),
-                            (site_b_coords, q_b, atom_index),
-                        ]
+        site_errors = {
+            0: no_site_error,
+            1: one_site_error,
+            2: two_site_error,
+        }
 
         max_err = self.molecule.v_site_error_factor
-        if self.site_errors[0] < min(
-            self.site_errors[1] * max_err, self.site_errors[2] * max_err
-        ):
+        if no_site_error < min(one_site_error * max_err, two_site_error * max_err):
             append_to_log(
                 self.molecule.home,
                 "No virtual site placement has reduced the error significantly.",
                 and_print=True,
             )
-        elif self.site_errors[1] < self.site_errors[2] * max_err:
+        elif one_site_error < two_site_error * max_err:
             append_to_log(
                 self.molecule.home,
                 "The addition of one virtual site was found to be best.",
                 and_print=True,
             )
-            self.v_sites_coords.extend(self.one_site_coords)
-            self.molecule.NonbondedForce[atom_index][0] -= self.one_site_coords[0][1]
-            self.molecule.ddec_data[atom_index].charge -= self.one_site_coords[0][1]
+            self.v_sites_coords.extend((*one_site_coords, atom_index))
+            self.molecule.NonbondedForce[atom_index][0] -= one_site_coords[0][1]
+            self.molecule.ddec_data[atom_index].charge -= one_site_coords[0][1]
         else:
             append_to_log(
                 self.molecule.home,
                 "The addition of two virtual sites was found to be best.",
                 and_print=True,
             )
-            self.v_sites_coords.extend(self.two_site_coords)
+            self.v_sites_coords.extend((*two_site_coords, atom_index))
             self.molecule.NonbondedForce[atom_index][0] -= (
-                self.two_site_coords[0][1] + self.two_site_coords[1][1]
+                two_site_coords[0][1] + two_site_coords[1][1]
             )
             self.molecule.ddec_data[atom_index].charge -= (
-                self.two_site_coords[0][1] + self.two_site_coords[1][1]
+                two_site_coords[0][1] + two_site_coords[1][1]
             )
         append_to_log(
             self.molecule.home,
             f"Errors (kcal/mol):\n"
             f"No Site     One Site     Two Sites\n"
-            f"{self.site_errors[0]:.4f}      {self.site_errors[1]:.4f}       {self.site_errors[2]:.4f}",
+            f"{no_site_error:.4f}      {one_site_error:.4f}       {two_site_error:.4f}",
             and_print=True,
         )
-        self.plot(atom_index)
+        self.plot(atom_index, site_errors, one_site_coords, two_site_coords)
 
-    def plot(self, atom_index: int):
+    def plot(
+        self,
+        atom_index: int,
+        errors: Dict,
+        one_site_coords: List[Tuple[np.ndarray, float]],
+        two_site_coords: List[Tuple[np.ndarray, float]],
+    ):
         """
         Figure with three subplots.
         All plots show the atoms and bonds as balls and sticks; virtual sites are x's; sample points are dots.
@@ -817,7 +867,6 @@ class VirtualSites:
         """
 
         fig = plt.figure(figsize=plt.figaspect(0.33), tight_layout=True)
-        # fig.suptitle('Virtual Site Placements', fontsize=20)
 
         norm = plt.Normalize(vmin=-1.0, vmax=1.0)
         cmap = "cool"
@@ -831,7 +880,9 @@ class VirtualSites:
         # List of tuples where each tuple is the xyz atom coords, followed by their partial charge
         atom_points = [
             (coord, atom_data[0])  # [((x, y, z), q), ... ]
-            for coord, atom_data in zip(self.coords, self.molecule.NonbondedForce)
+            for coord, atom_data in zip(
+                self.coords, self.molecule.NonbondedForce.values()
+            )
         ]
 
         # Add atom positions to all subplots
@@ -875,35 +926,33 @@ class VirtualSites:
             marker="o",
             s=5,
         )
-        samp_plt.title.set_text(
-            f"Sample Points Positions\nError: {self.site_errors[0]: .5}"
-        )
+        samp_plt.title.set_text(f"Sample Points Positions\nError: {errors[0]: .5}")
 
         # Centre subplot contains the single v-site
         one_plt.scatter(
-            xs=[i[0][0] for i in self.one_site_coords],
-            ys=[i[0][1] for i in self.one_site_coords],
-            zs=[i[0][2] for i in self.one_site_coords],
-            c=[i[1] for i in self.one_site_coords],
+            xs=[i[0][0] for i in one_site_coords],
+            ys=[i[0][1] for i in one_site_coords],
+            zs=[i[0][2] for i in one_site_coords],
+            c=[i[1] for i in one_site_coords],
             marker="x",
             s=200,
             cmap=cmap,
             norm=norm,
         )
-        one_plt.title.set_text(f"One Site Position\nError: {self.site_errors[1]: .5}")
+        one_plt.title.set_text(f"One Site Position\nError: {errors[1]: .5}")
 
         # Right subplot contains the two v-sites
         two_plt.scatter(
-            xs=[i[0][0] for i in self.two_site_coords],
-            ys=[i[0][1] for i in self.two_site_coords],
-            zs=[i[0][2] for i in self.two_site_coords],
-            c=[i[1] for i in self.two_site_coords],
+            xs=[i[0][0] for i in two_site_coords],
+            ys=[i[0][1] for i in two_site_coords],
+            zs=[i[0][2] for i in two_site_coords],
+            c=[i[1] for i in two_site_coords],
             marker="x",
             s=200,
             cmap=cmap,
             norm=norm,
         )
-        two_plt.title.set_text(f"Two Sites Positions\nError: {self.site_errors[2]: .5}")
+        two_plt.title.set_text(f"Two Sites Positions\nError: {errors[2]: .5}")
 
         sm = ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array([])

@@ -215,35 +215,6 @@ def test_n_atoms(acetone):
     assert acetone.n_atoms == 10
 
 
-def test_rotatable_bonds_filtered(acetone):
-    """
-    For acetone while there are dihedrals we do not class these as rotatable as they are methyl, make sure
-    this is true.
-    """
-    assert acetone.rotatable_bonds is None
-    assert acetone.n_rotatable_bonds == 0
-
-
-def test_no_rotatable_bonds():
-    """
-    If there are no dihedrals in the molecule make sure we return None.
-    """
-    mol = Ligand.from_file(file_name=get_data("water.pdb"))
-    assert mol.rotatable_bonds is None
-    assert mol.n_rotatable_bonds == 0
-
-
-def test_rotatable_bonds():
-    """
-    Make sure we can find true rotatable bonds for a molecule.
-    """
-    mol = Ligand.from_file(file_name=get_data("biphenyl.pdb"))
-    assert mol.rotatable_bonds == [
-        (3, 4),
-    ]
-    assert mol.n_rotatable_bonds == 1
-
-
 def test_atom_types(acetone):
     """
     Make sure we can assign atom types to a molecule based on the CIP rank.
@@ -695,3 +666,63 @@ def test_to_qcschema(acetone):
     ]
     assert len(qcel_mol.symbols) == acetone.n_atoms
     assert qcel_mol.geometry.shape == (acetone.n_atoms, 3)
+
+
+@pytest.mark.parametrize(
+    "molecule, n_rotatables",
+    [
+        pytest.param("bace0.pdb", 2, id="bace0pdb"),
+        pytest.param("butane.pdb", 1, id="butanepdb"),
+        pytest.param("biphenyl.pdb", 1, id="biphenylpdb"),
+    ],
+)
+def test_find_rotatable_bonds_n_rotatables(molecule, n_rotatables):
+    """
+    Ensure the number of rotatable bonds found matches the expected.
+    """
+    mol = Ligand.from_file(get_data(molecule))
+    assert (
+        len(mol.find_rotatable_bonds(["[*:1]-[CH3:2]", "[*:1]-[NH2:2]"]))
+        == n_rotatables
+    )
+
+
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("pyridine.pdb", id="pyridinepdb"),
+        pytest.param("chloromethane.pdb", id="chloromethanepdb"),
+    ],
+)
+def test_find_rotatable_bonds_no_rotatables(molecule):
+    """
+    Ensure rigid molecules, or molecules without any rotatable bonds
+    do not have any rotatable bonds.
+    """
+    mol = Ligand.from_file(get_data(molecule))
+    assert mol.find_rotatable_bonds(["[*:1]-[CH3:2]", "[*:1]-[NH2:2]"]) is None
+
+
+def test_find_rotatable_bonds_smirks_option():
+    """
+    Ensure custom smirks pattern matches the expected rotatables.
+    """
+    mol = Ligand.from_file(get_data("butane.pdb"))
+    # Only remove amine groups via smirks pattern match.
+    rotatables = mol.find_rotatable_bonds(["[*:1]-[NH2:2]"])
+    assert len(rotatables) == 3
+    # Only remove methyl groups via smirks pattern match.
+    rotatables = mol.find_rotatable_bonds(["[*:1]-[CH3:2]"])
+    assert len(rotatables) == 1
+    # Only remove ethyl groups via smirks pattern match.
+    rotatables = mol.find_rotatable_bonds(["[*]-[CH2:1]-[CH3:2]"])
+    assert len(rotatables) == 1
+
+
+def test_find_rotatable_bonds_indices_of_bonds():
+    mol = Ligand.from_file(get_data("bace0.pdb"))
+    rotatables = mol.find_rotatable_bonds(["[*:1]-[CH3:2]", "[*:1]-[NH2:2]"])
+    bonds = [(bond.atom1_index, bond.atom2_index) for bond in rotatables]
+    expected_bonds = [(12, 13), (5, 13)]
+    for bond in bonds:
+        assert bond in expected_bonds or tuple(reversed(bond)) in expected_bonds
