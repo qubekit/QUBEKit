@@ -6,6 +6,7 @@ import shutil
 
 import numpy as np
 import pytest
+import qcengine
 
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.molecules import Ligand
@@ -53,6 +54,9 @@ def test_quick_run_to_seminario(tmpdir):
     Do a quick run through each stage in run up to the modified Seminario stage.
     Run on water with a very small basis.
     """
+    if "psi4" not in qcengine.list_available_programs():
+        pytest.skip("Psi4 missing skipping test")
+
     with tmpdir.as_cwd():
         water = Ligand.from_file(get_data("water.pdb"))
         water.home = os.getcwd()
