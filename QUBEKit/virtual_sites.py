@@ -826,7 +826,9 @@ class VirtualSites:
                 and_print=True,
             )
             self.v_sites_coords.extend((*one_site_coords, atom_index))
-            self.molecule.NonbondedForce[atom_index][0] -= one_site_coords[0][1]
+            self.molecule.NonbondedForce.get_parameter(
+                atoms=(atom_index,)
+            ).charge -= one_site_coords[0][1]
             self.molecule.ddec_data[atom_index].charge -= one_site_coords[0][1]
         else:
             append_to_log(
@@ -835,7 +837,7 @@ class VirtualSites:
                 and_print=True,
             )
             self.v_sites_coords.extend((*two_site_coords, atom_index))
-            self.molecule.NonbondedForce[atom_index][0] -= (
+            self.molecule.NonbondedForce.get_parameter(atoms=(atom_index,)).charge -= (
                 two_site_coords[0][1] + two_site_coords[1][1]
             )
             self.molecule.ddec_data[atom_index].charge -= (
@@ -879,9 +881,9 @@ class VirtualSites:
 
         # List of tuples where each tuple is the xyz atom coords, followed by their partial charge
         atom_points = [
-            (coord, atom_data[0])  # [((x, y, z), q), ... ]
+            (coord, atom_data.charge)  # [((x, y, z), q), ... ]
             for coord, atom_data in zip(
-                self.coords, self.molecule.NonbondedForce.values()
+                self.coords, self.molecule.NonbondedForce.iter_parameters
             )
         ]
 
@@ -983,7 +985,7 @@ class VirtualSites:
             for atom_index, atom in enumerate(self.coords):
                 xyz_file.write(
                     f"{self.molecule.atoms[atom_index].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}"
-                    f"   {self.molecule.NonbondedForce[atom_index][0]: .6f}\n"
+                    f"   {self.molecule.NonbondedForce.get_parameter(atoms=(atom_index,)).charge: .6f}\n"
                 )
 
                 for site in self.v_sites_coords:

@@ -10,12 +10,13 @@ import pickle
 from collections import OrderedDict
 from contextlib import contextmanager
 from importlib import import_module
+from typing import Tuple
 
 import numpy as np
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.constants import COLOURS
-from QUBEKit.utils.exceptions import PickleFileNotFound
+from QUBEKit.utils.exceptions import PickleFileNotFound, TopologyMismatch
 
 # TODO Move csv stuff for bulk runs to file_handling.py
 
@@ -421,3 +422,43 @@ def hide_warnings():
 def string_to_bool(string):
     """Convert a string to a bool for argparse use when casting to bool"""
     return string.casefold() in ["true", "t", "yes", "y"]
+
+
+def check_proper_torsion(
+    torsion: Tuple[int, int, int, int], molecule: "Ligand"
+) -> bool:
+    """
+    Check that the given torsion is valid for the molecule graph.
+    """
+    for i in range(3):
+        try:
+            _ = molecule.get_bond_between(
+                atom1_index=torsion[i], atom2_index=torsion[i + 1]
+            )
+        except TopologyMismatch:
+            return False
+
+    return True
+
+
+def check_improper_torsion(
+    improper: Tuple[int, int, int, int], molecule: "Ligand"
+) -> Tuple[int, int, int, int]:
+    """
+    Check that the given improper is valid for the molecule graph.
+    and always return the central bond as the first atom.
+    """
+    for atom_index in improper:
+        try:
+            atom = molecule.atoms[atom_index]
+            bonded_atoms = set()
+            for bonded in atom.bonds:
+                bonded_atoms.add(bonded)
+            if len(bonded_atoms.intersection(set(improper))) == 3:
+                if improper[0] == atom_index:
+                    return improper
+                else:
+                    return (atom_index, *atom.bonds)
+        except IndexError:
+            continue
+    raise TopologyMismatch(f"The improper {improper} is not a valid for this molecule.")

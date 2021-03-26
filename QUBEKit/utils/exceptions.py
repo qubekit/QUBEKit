@@ -74,3 +74,9 @@ class StereoChemistryError(Exception):
     """
     When the stereochemistry is incorrect in an rdkit instance created from a qubekit molecule.
     """
+
+
+class MissingParameterError(Exception):
+    """
+    When no parameter can be found for the given interacting atoms.
+    """

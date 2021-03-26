@@ -514,6 +514,7 @@ class ReadInputProtein:
                     atom_name=atom_name,
                     formal_charge=0,
                     aromatic=False,
+                    bonds=[],
                 )
 
                 atoms.append(qube_atom)
@@ -539,6 +540,7 @@ class ReadInputProtein:
                             aromatic=False,
                         )
                         bonds.append(bond)
+                        atoms[int(conect_terms[1]) - 1].bonds.append(int(atom) - 1)
 
         coords = np.array(coords)
         residues = [res for res, group in groupby(Residues)]

@@ -26,7 +26,7 @@ from QUBEKit.engines import Chargemol, Gaussian, GeometryOptimiser, QCEngine
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.molecules import Ligand
-from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
+from QUBEKit.parametrisation import XML, AnteChamber, OpenFF
 from QUBEKit.utils.configs import Configure
 from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
@@ -956,11 +956,13 @@ class Execute:
             append_to_log(molecule.home, "Starting parametrisation", major=True)
 
         # Parametrisation options:
-        param_dict = {"antechamber": AnteChamber, "xml": XML, "openff": OpenFF}
+        param_dict = {"antechamber": AnteChamber(), "xml": XML(), "openff": OpenFF()}
 
         # If we are using xml we have to move it to QUBEKit working dir
+        input_files = []
         if molecule.parameter_engine == "xml":
             xml_name = f"{molecule.name}.xml"
+            input_files.append(xml_name)
             if xml_name not in os.listdir("."):
                 try:
                     copy(
@@ -976,11 +978,10 @@ class Execute:
                     )
 
         # Perform the parametrisation
-        # If the method is none the molecule is not parameterised but the parameter holders are initiated
-        if molecule.parameter_engine == "none":
-            Parametrisation(molecule).gather_parameters()
-        else:
-            param_dict[molecule.parameter_engine](molecule)
+        param_method = param_dict[molecule.parameter_engine]
+        param_mol = param_method.parametrsie_molecule(
+            molecule=molecule, input_files=input_files
+        )
 
         if verbose:
             append_to_log(
@@ -989,7 +990,7 @@ class Execute:
                 major=True,
             )
 
-        return molecule
+        return param_mol
 
     @staticmethod
     def pre_optimise(molecule: Ligand) -> Ligand:
@@ -1112,15 +1113,15 @@ class Execute:
 
         append_to_log(molecule.home, "Starting mod_Seminario method", major=True)
 
-        mod_sem = ModSeminario(molecule)
-
-        mod_sem.modified_seminario_method()
-        if molecule.enable_symmetry:
-            mod_sem.symmetrise_bonded_parameters()
+        mod_sem = ModSeminario(
+            vibrational_scaling=molecule.vib_scaling,
+            symmetrise_parameters=molecule.enable_symmetry,
+        )
+        mod_molecule = mod_sem.run(molecule=molecule)
 
         append_to_log(molecule.home, "Finishing Mod_Seminario method", major=True)
 
-        return molecule
+        return mod_molecule
 
     def density(self, molecule):
         """Perform density calculation with the qm engine."""
@@ -1209,7 +1210,7 @@ class Execute:
         return molecule
 
     @staticmethod
-    def torsion_scan(molecule):
+    def torsion_scan(molecule: Ligand) -> Ligand:
         """Perform torsion scan."""
 
         append_to_log(molecule.home, "Starting torsion_scans", major=True)
@@ -1253,7 +1254,7 @@ class Execute:
         """
 
         molecule.to_file(file_name=f"{molecule.name}.pdb")
-        molecule.write_parameters()
+        molecule.write_parameters(file_name=f"{molecule.name}.xml")
 
         if molecule.verbose:
             pretty_print(molecule, to_file=True)

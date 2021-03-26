@@ -1,9 +1,13 @@
-#!/usr/bin/env python3
+from typing import List, Optional
 
+from pydantic import validator
 from simtk import unit
-from simtk.openmm import XmlSerializer
+from simtk.openmm import System
+from typing_extensions import Literal
 
+from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation.base_parametrisation import Parametrisation
+from QUBEKit.utils.exceptions import SpecificationError
 from QUBEKit.utils.helpers import hide_warnings
 
 with hide_warnings():
@@ -13,6 +17,7 @@ with hide_warnings():
         BondHandler,
         ForceField,
         ProperTorsionHandler,
+        get_available_force_fields,
         vdWHandler,
     )
     from openff.toolkit.typing.engines.smirnoff.parameters import (
@@ -30,30 +35,50 @@ class OpenFF(Parametrisation):
     A serialised XML is then stored in the parameter dictionaries.
     """
 
-    def __init__(self, molecule, input_file=None, fftype="frost"):
+    type: Literal["smirnoff"] = "smirnoff"
+    force_field: str = "openff_unconstrained-1.3.0.offxml"
 
-        super().__init__(molecule, input_file, fftype)
+    @classmethod
+    def _improper_torsion_ordering(cls) -> str:
+        return "smirnoff"
 
-        self.serialise_system()
-        self.gather_parameters()
-        self.molecule.parameter_engine = f"OpenFF_{self.fftype}"
+    @validator("force_field")
+    def _check_forcefield(cls, force_field: str) -> str:
+        """
+        Make sure the supplied force field is valid.
+        """
 
-    def serialise_system(self):
+        openff_forcefields = [ff.lower() for ff in get_available_force_fields()]
+        if force_field in openff_forcefields:
+            return force_field.lower()
+        else:
+            raise SpecificationError(
+                f"The force field {force_field} was not found by the openff-toolkit please chosse from {openff_forcefields}."
+            )
+
+    def _build_system(
+        self, molecule: Ligand, input_files: Optional[List[str]] = None
+    ) -> System:
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 
         # Create an openFF molecule from the rdkit molecule
         off_molecule = Molecule.from_rdkit(
-            self.molecule.to_rdkit(), allow_undefined_stereo=True
+            molecule.to_rdkit(), allow_undefined_stereo=True
         )
 
         # Make the OpenMM system
         off_topology = off_molecule.to_topology()
 
-        forcefield = ForceField("openff_unconstrained-1.3.0.offxml")
+        forcefield = ForceField(self.force_field)
+        # we need to remove the constraints
+        if "Constraints" in forcefield._parameter_handlers:
+            del forcefield._parameter_handlers["Constraints"]
 
         try:
             # Parametrise the topology and create an OpenMM System.
-            system = forcefield.create_openmm_system(off_topology)
+            system = forcefield.create_openmm_system(
+                off_topology,
+            )
         except (
             UnassignedValenceParameterException,
             UnassignedBondParameterException,
@@ -111,8 +136,4 @@ class OpenFF(Parametrisation):
             del forcefield._parameter_handlers["Electrostatics"]
             # Parametrize the topology and create an OpenMM System.
             system = forcefield.create_openmm_system(off_topology)
-            # This will tag the molecule so run.py knows that generics have been used.
-            self.fftype = "generics"
-        # Serialise the OpenMM system into the xml file
-        with open("serialised.xml", "w+") as out:
-            out.write(XmlSerializer.serializeSystem(system))
+        return system

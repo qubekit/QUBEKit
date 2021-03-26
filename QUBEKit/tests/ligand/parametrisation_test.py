@@ -1,56 +1,61 @@
-import numpy as np
 import pytest
 
 from QUBEKit.molecules import Ligand
-from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
+from QUBEKit.parametrisation import XML, AnteChamber, OpenFF
 from QUBEKit.utils.file_handling import get_data
 
 
-def test_parameter_prep():
-    """Test that the base parameter class preps a molecule to store prameters."""
-    mol = Ligand.from_file(get_data("acetone.sdf"))
-    assert mol.AtomTypes is None
-    assert mol.HarmonicBondForce is None
-    assert mol.HarmonicAngleForce is None
-    assert mol.PeriodicTorsionForce is None
-    assert mol.NonbondedForce is None
+@pytest.fixture
+def antechamber():
+    return AnteChamber(force_field="gaff2")
 
-    # now use the base class to prep the molecule
-    Parametrisation(mol)
-    assert mol.AtomTypes == {}
-    assert len(mol.HarmonicBondForce) == mol.n_bonds
-    assert len(mol.HarmonicAngleForce) == mol.n_angles
-    assert len(mol.NonbondedForce) == mol.n_atoms
+
+@pytest.fixture
+def openff():
+    return OpenFF(force_field="openff_unconstrained-1.3.0.offxml")
+
+
+@pytest.fixture
+def xml():
+    return XML()
 
 
 @pytest.mark.parametrize(
     "parameter_engine",
     [
-        pytest.param(AnteChamber, id="Antechamber"),
-        pytest.param(OpenFF, id="Openff"),
+        pytest.param("antechamber", id="Antechamber"),
+        pytest.param("openff", id="Openff"),
     ],
 )
-def test_parameter_engines(tmpdir, parameter_engine):
+def test_parameter_engines(tmpdir, parameter_engine, openff, antechamber):
     """
     Make sure we can parametrise a molecule using antechamber
     """
+    if parameter_engine == "openff":
+        engine = openff
+    else:
+        engine = antechamber
+
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("acetone.sdf"))
-        parameter_engine(mol)
 
-        # loop over the parameters and make sure they not defaults
-        for bond in mol.bonds:
-            assert mol.HarmonicBondForce[(bond.atom1_index, bond.atom2_index)] != [0, 0]
-        for angle in mol.angles:
-            assert mol.HarmonicAngleForce[angle] != [0, 0]
-        assert (
-            len(mol.PeriodicTorsionForce) == mol.n_dihedrals + mol.n_improper_torsions
-        )
-        for i in range(mol.n_atoms):
-            assert mol.NonbondedForce[i] != [0, 0, 0]
+        # make sure we have no starting parameters
+        assert mol.BondForce.n_parameters == 0
+        assert mol.AngleForce.n_parameters == 0
+        assert mol.TorsionForce.n_parameters == 0
+        assert mol.ImproperTorsionForce.n_parameters == 0
+        assert mol.NonbondedForce.n_parameters == 0
+
+        engine.parametrsie_molecule(mol)
+        # make sure the parameters have been set
+        assert mol.BondForce.n_parameters != 0
+        assert mol.AngleForce.n_parameters != 0
+        assert mol.TorsionForce.n_parameters != 0
+        assert mol.ImproperTorsionForce.n_parameters != 0
+        assert mol.NonbondedForce.n_parameters != 0
 
 
-def test_openff_skeleton(tmpdir):
+def test_openff_skeleton(tmpdir, openff):
     """
     Make sure the skeleton method in openff works when we have missing coverage in the openff forcefield.
     This will add generic parameters to the forcefield which should match any missing terms, no charges are generated this way.
@@ -58,100 +63,137 @@ def test_openff_skeleton(tmpdir):
     with tmpdir.as_cwd():
         # load a molecule with b
         mol = Ligand.from_file(get_data("132-Benzodioxaborole.pdb"))
-        OpenFF(mol)
+        openff.parametrsie_molecule(molecule=mol)
 
         # no charges should be generated
         for i in range(mol.n_atoms):
-            assert mol.NonbondedForce[i][0] == 0
+            assert mol.NonbondedForce.get_parameter(atoms=(0,)).charge == 0
 
 
 @pytest.mark.parametrize(
     "method",
-    [pytest.param(AnteChamber, id="antechamber"), pytest.param(OpenFF, id="Openff")],
+    [
+        pytest.param("antechamber", id="antechamber"),
+        pytest.param("openff", id="Openff"),
+    ],
 )
-def test_parameter_round_trip(method, tmpdir):
+def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
     """
     Check we can parametrise a molecule then write out the same parameters.
     """
+
+    if method == "openff":
+        param_method = openff
+    else:
+        param_method = antechamber
+
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("acetone.sdf"))
-        method(mol)
+        param_mol = param_method.parametrsie_molecule(mol)
+        with open("serialised.xml") as old:
+            with open("orig.xml", "w") as new:
+                new.write(old.read())
         # write out params
-        mol.write_parameters(name="test")
+        mol.write_parameters(file_name="test.xml")
 
         # make a second mol
         mol2 = Ligand.from_file(get_data("acetone.sdf"))
-        XML(mol2, "test.xml")
+        param_mol2 = xml.parametrsie_molecule(molecule=mol2, input_files=["test.xml"])
 
-        assert mol.AtomTypes == mol2.AtomTypes
-        for bond in mol.HarmonicBondForce.keys():
-            assert mol.HarmonicBondForce[bond] == pytest.approx(
-                mol2.HarmonicBondForce[bond], abs=1e-6
-            )
-        for angle in mol.HarmonicAngleForce.keys():
-            assert mol.HarmonicAngleForce[angle] == pytest.approx(
-                mol2.HarmonicAngleForce[angle], abs=1e-6
-            )
+        for bond in mol.bonds:
+            bond_tuple = (bond.atom1_index, bond.atom2_index)
+            bond1 = param_mol.BondForce.get_parameter(atoms=bond_tuple)
+            bond2 = param_mol2.BondForce.get_parameter(atoms=bond_tuple)
+            assert bond1.k == pytest.approx(bond2.k)
+            assert bond1.length == pytest.approx(bond2.length)
+
+        for angle in mol.angles:
+            angle1 = param_mol.AngleForce.get_parameter(atoms=angle)
+            angle2 = param_mol2.AngleForce.get_parameter(atoms=angle)
+            assert angle1.k == pytest.approx(angle2.k)
+            assert angle2.angle == pytest.approx(angle2.angle)
+
         for atom in range(mol.n_atoms):
-            assert (
-                pytest.approx(mol.NonbondedForce[atom], abs=1e-6)
-                == mol2.NonbondedForce[atom]
-            )
-        for dihedral, terms in mol.PeriodicTorsionForce.items():
-            try:
-                other_dih = mol2.PeriodicTorsionForce[dihedral]
-            except KeyError:
-                other_dih = mol2.PeriodicTorsionForce[tuple(reversed(dihedral))]
-            assert np.allclose(terms[:4], other_dih[:4])
+            atom1 = param_mol.NonbondedForce.get_parameter(atoms=(atom,))
+            atom2 = param_mol2.NonbondedForce.get_parameter(atoms=(atom,))
+            assert atom1.charge == pytest.approx(atom2.charge)
+            assert atom1.sigma == pytest.approx(atom2.sigma)
+            assert atom1.epsilon == pytest.approx(atom2.epsilon)
+
+        # loop over the round trip mol as we lose some parameters which are 0
+        for dihedral, terms in param_mol2.TorsionForce.parameters.items():
+            other_dih = param_mol.TorsionForce.get_parameter(atoms=dihedral)
+            for key in terms.__fields__:
+                if key != "atoms":
+                    assert getattr(terms, key) == pytest.approx(getattr(other_dih, key))
 
 
-def test_xml_with_sites(tmpdir):
+def test_xml_with_sites(tmpdir, xml):
     """
     Make sure that virtual sites are saved into the ligand if they are found in the input file.
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("pyridine.pdb"))
-        XML(mol, input_file=get_data("pyridine.xml"))
+        xml.parametrsie_molecule(
+            mol,
+            input_files=[
+                get_data("pyridine.xml"),
+            ],
+        )
 
-        assert mol.extra_sites is not None
-        assert len(mol.extra_sites) == 1
+        assert mol.extra_sites.n_sites == 1
         # make sure that charge we extracted
-        assert mol.extra_sites[0].charge == -0.180000
+        sites = mol.extra_sites.get_sites(parent_index=3)
+        assert sites[0].charge == -0.180000
 
 
-def test_xml_sites_roundtrip(tmpdir):
+def test_xml_sites_roundtrip(tmpdir, xml):
     """
     If we load in an xml with sites make sure we can write it back out.
     """
 
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("pyridine.pdb"))
-        XML(mol, input_file=get_data("pyridine.xml"))
+        xml.parametrsie_molecule(
+            mol,
+            input_files=[
+                get_data("pyridine.xml"),
+            ],
+        )
 
-        mol.write_parameters(name="test")
+        mol.write_parameters(file_name="test.xml")
 
         mol2 = Ligand.from_file(get_data("pyridine.pdb"))
-        XML(mol2, input_file="test.xml")
+        xml.parametrsie_molecule(
+            mol2,
+            input_files=[
+                "test.xml",
+            ],
+        )
 
-        assert mol.AtomTypes == mol2.AtomTypes
-        for bond in mol.HarmonicBondForce.keys():
-            assert (
-                pytest.approx(mol.HarmonicBondForce[bond], abs=1e-6)
-                == mol2.HarmonicBondForce[bond]
-            )
-        for angle in mol.HarmonicAngleForce.keys():
-            assert (
-                pytest.approx(mol.HarmonicAngleForce[angle], abs=1e-6)
-                == mol2.HarmonicAngleForce[angle]
-            )
+        for bond in mol.bonds:
+            bond_tuple = (bond.atom1_index, bond.atom2_index)
+            bond1 = mol.BondForce.get_parameter(atoms=bond_tuple)
+            bond2 = mol2.BondForce.get_parameter(atoms=bond_tuple)
+            assert bond1.k == pytest.approx(bond2.k)
+            assert bond1.length == pytest.approx(bond2.length)
+
+        for angle in mol.angles:
+            angle1 = mol.AngleForce.get_parameter(atoms=angle)
+            angle2 = mol2.AngleForce.get_parameter(atoms=angle)
+            assert angle1.k == pytest.approx(angle2.k)
+            assert angle2.angle == pytest.approx(angle2.angle)
+
         for atom in range(mol.n_atoms):
-            assert (
-                pytest.approx(mol.NonbondedForce[atom], abs=1e-6)
-                == mol2.NonbondedForce[atom]
-            )
+            atom1 = mol.NonbondedForce.get_parameter(atoms=(atom,))
+            atom2 = mol2.NonbondedForce.get_parameter(atoms=(atom,))
+            assert atom1.charge == pytest.approx(atom2.charge)
+            assert atom1.sigma == pytest.approx(atom2.sigma)
+            assert atom1.epsilon == pytest.approx(atom2.epsilon)
+
         # make sure the virtual site was round tripped
-        mol_site = mol.extra_sites[0]
-        mol2_site = mol2.extra_sites[0]
+        mol_site = mol.extra_sites.get_sites(parent_index=3)[0]
+        mol2_site = mol2.extra_sites.get_sites(parent_index=3)[0]
         assert mol_site.charge == mol2_site.charge
         assert mol_site.parent_index == mol2_site.parent_index
         assert mol_site.closest_a_index == mol2_site.closest_a_index
@@ -160,9 +202,95 @@ def test_xml_sites_roundtrip(tmpdir):
         assert mol_site.p2 == mol2_site.p2
         assert mol_site.p3 == mol2_site.p3
 
-        for dihedral, terms in mol.PeriodicTorsionForce.items():
-            try:
-                other_dih = mol2.PeriodicTorsionForce[dihedral]
-            except KeyError:
-                other_dih = mol2.PeriodicTorsionForce[tuple(reversed(dihedral))]
-            assert np.allclose(terms[:4], other_dih[:4])
+        for dihedral, terms in mol.TorsionForce.parameters.items():
+            other_dih = mol2.TorsionForce.get_parameter(atoms=dihedral)
+            for key in terms.__fields__:
+                assert getattr(terms, key) == pytest.approx(getattr(other_dih, key))
+
+
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("bace0.sdf", id="bace"),
+        pytest.param("benzene.sdf", id="benzene"),
+        pytest.param("acetone.sdf", id="acetone"),
+        pytest.param("pyridine.sdf", id="pyridine"),
+    ],
+)
+@pytest.mark.parametrize(
+    "method",
+    [
+        pytest.param("openff", id="openff"),
+        pytest.param("antechamber", id="antechamber"),
+    ],
+)
+def test_round_trip_energy(tmpdir, molecule, method, openff, antechamber):
+    """
+    Make sure that no terms are missing when storing parameters from source by comparing energies.
+
+    Note we relax the comparison to abs=2e-3 due to differences in nonbonded cutoffs, phase rounding and the ordering
+    improper torsions are applied.
+    """
+    from parmed.openmm import energy_decomposition_system, load_topology
+    from simtk.openmm import XmlSerializer, app
+
+    if method == "openff":
+        engine = openff
+    else:
+        engine = antechamber
+
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data(molecule))
+        # parameterise the system
+        engine.parametrsie_molecule(mol)
+        # this will make a serilised system in the folder so get the reference energy
+        ref_system = XmlSerializer.deserializeSystem(open("serialised.xml").read())
+        parm_top = load_topology(
+            mol.to_openmm_topology(), system=ref_system, xyz=mol.openmm_coordinates()
+        )
+        ref_energy = energy_decomposition_system(
+            parm_top, ref_system, platform="Reference"
+        )
+        # print(ref_energy)
+        # now we need to build the system from our stored parameters
+        mol.write_parameters(file_name="test.xml")
+        ff = app.ForceField("test.xml")
+        qube_system = ff.createSystem(mol.to_openmm_topology())
+        with open("qube.xml", "w") as xml_out:
+            xml_out.write(XmlSerializer.serialize(qube_system))
+        qube_struc = load_topology(
+            mol.to_openmm_topology(), system=qube_system, xyz=mol.openmm_coordinates()
+        )
+        qube_energy = energy_decomposition_system(
+            qube_struc, qube_system, platform="Reference"
+        )
+        # print(qube_energy)
+        # compare the decomposed energies of the groups
+        for force_group, energy in ref_energy:
+            for qube_force, qube_e in qube_energy:
+                if force_group == qube_force:
+                    assert energy == pytest.approx(qube_e, abs=2e-3)
+
+
+def test_openff_impropers(tmpdir, openff):
+    """
+    Make sure we correctly capture smirnoff style trefoil improper torsions.
+    see here <https://open-forcefield-toolkit.readthedocs.io/en/0.5.0/smirnoff.html#impropertorsions>
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("benzene.sdf"))
+        openff.parametrsie_molecule(molecule=mol)
+        assert mol.TorsionForce.ordering == "smirnoff"
+        # 6 impropers applied as trefoil = 18
+        assert mol.ImproperTorsionForce.n_parameters == 18
+
+
+def test_amber_improper(tmpdir, antechamber):
+    """
+    Make sure we correctly capture the normal amber style improper torsions.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("benzene.sdf"))
+        antechamber.parametrsie_molecule(molecule=mol)
+        assert mol.TorsionForce.ordering == "amber"
+        assert mol.ImproperTorsionForce.n_parameters == 6
