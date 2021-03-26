@@ -1,15 +1,23 @@
-#!/usr/bin/env python3
+"""
+QUBEKit
+Quantum mechanical bespoke force field parameter generation.
+"""
 
 from setuptools import find_packages, setup
 
 import versioneer
 
-with open("README.md", "r") as file:
-    long_description = file.read()
+short_description = __doc__.split("\n")
+
+try:
+    with open("README.md", "r") as file:
+        long_description = file.read()
+except IOError:
+    long_description = "\n".join(short_description[2:])
 
 setup(
     name="qubekit",
-    description="Quantum mechanical bespoke force field parameter generation",
+    description=short_description[0],
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/qubekit/QUBEKit",
@@ -21,10 +29,10 @@ setup(
             "QUBEKit = QUBEKit.run:main",
             "qubekit = QUBEKit.run:main",
             "QUBEKit-pro = QUBEKit.proteins.protein_run:main",
-            "QUBEKit-gui = QUBEKit.GUI.gui:main",
         ]
     },
     version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     license="MIT",
     classifiers=[
         "Intended Audience :: Science/Research",
@@ -32,5 +40,5 @@ setup(
         "Topic :: Scientific/Engineering :: Chemistry",
         "Programming Language :: Python :: 3.6",
     ],
-    python_requires="~=3.6",
+    python_requires=">=3.6",
 )
