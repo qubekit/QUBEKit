@@ -150,7 +150,7 @@ class LennardJones:
         # Create new pair list with the atoms
         new_pairs = [
             (self.molecule.atoms[pair[0]], self.molecule.atoms[pair[1]])
-            for pair in self.molecule.topology.edges
+            for pair in self.molecule.to_topology().edges
         ]
 
         # Find all the polar hydrogens and store their positions / atom numbers
@@ -231,4 +231,13 @@ class LennardJones:
         # NB DISABLE FOR FORCEBALANCE
         self.correct_polar_hydrogens()
 
-        self.molecule.NonbondedForce = self.non_bonded_force
+        # update the Nonbonded force using api
+        for atom_index, values in self.non_bonded_force.items():
+            nonbond_data = {
+                "charge": values[0],
+                "sigma": values[1],
+                "epsilon": values[2],
+            }
+            self.molecule.NonbondedForce.set_parameter(
+                atoms=(atom_index,), **nonbond_data
+            )

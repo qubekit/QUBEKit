@@ -26,7 +26,7 @@ from QUBEKit.engines import Chargemol, Gaussian, GeometryOptimiser, QCEngine
 from QUBEKit.lennard_jones import LennardJones
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.molecules import Ligand
-from QUBEKit.parametrisation import XML, AnteChamber, OpenFF, Parametrisation
+from QUBEKit.parametrisation import XML, AnteChamber, OpenFF
 from QUBEKit.utils.configs import Configure
 from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
@@ -1117,11 +1117,11 @@ class Execute:
             vibrational_scaling=molecule.vib_scaling,
             symmetrise_parameters=molecule.enable_symmetry,
         )
-        mod_sem.run(molecule=molecule)
+        mod_molecule = mod_sem.run(molecule=molecule)
 
         append_to_log(molecule.home, "Finishing Mod_Seminario method", major=True)
 
-        return molecule
+        return mod_molecule
 
     def density(self, molecule):
         """Perform density calculation with the qm engine."""
@@ -1210,7 +1210,7 @@ class Execute:
         return molecule
 
     @staticmethod
-    def torsion_scan(molecule):
+    def torsion_scan(molecule: Ligand) -> Ligand:
         """Perform torsion scan."""
 
         append_to_log(molecule.home, "Starting torsion_scans", major=True)

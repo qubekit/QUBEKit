@@ -27,7 +27,7 @@ import os
 import pickle
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Set, Tuple
 from xml.dom.minidom import parseString
 
 import networkx as nx
@@ -41,7 +41,6 @@ from simtk.openmm.app.element import Element
 import QUBEKit
 from QUBEKit.forcefield import (
     BaseForceGroup,
-    BaseParameter,
     HarmonicAngleForce,
     HarmonicBondForce,
     ImproperTorsionForce,
