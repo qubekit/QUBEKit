@@ -71,7 +71,7 @@ class VirtualSites:
 
         self.molecule: Ligand = molecule
         self.debug: bool = debug
-        self.coords = self.molecule.coordinates
+        self.coords: np.ndarray = self.molecule.coordinates
 
         # List of tuples where each tuple is the xyz coords of the v-site(s),
         # followed by their charge and index of the parent atom.
@@ -281,13 +281,13 @@ class VirtualSites:
 
         atom_coords = self.coords[atom_index]
 
-        charge = self.molecule.ddec_data[atom_index].charge
-        dip_data = self.molecule.dipole_moment_data[atom_index]
-        dipole_moment = np.array([*dip_data.values()]) * BOHR_TO_ANGS
+        charge = self.molecule.atoms[atom_index].aim.charge
+        dip_data = self.molecule.atoms[atom_index].dipole
+        dipole_moment = np.array([dip_data.x, dip_data.y, dip_data.z]) * BOHR_TO_ANGS
 
-        quad_data = self.molecule.quadrupole_moment_data[atom_index]
+        quad_data = self.molecule.atoms[atom_index].quadrupole
 
-        cloud_pen_data = self.molecule.cloud_pen_data[atom_index]
+        cloud_pen_data = self.molecule.atoms[atom_index].cloud_pen
         a, b = cloud_pen_data.a, cloud_pen_data.b
         b /= BOHR_TO_ANGS
 
@@ -299,7 +299,13 @@ class VirtualSites:
             mono_esp = VirtualSites.monopole_esp_one_charge(charge, dist)
             dipo_esp = VirtualSites.dipole_esp(dist_vector, dipole_moment, dist)
 
-            m_tensor = VirtualSites.quadrupole_moment_tensor(*quad_data.values())
+            m_tensor = VirtualSites.quadrupole_moment_tensor(
+                quad_data.q_xy,
+                quad_data.q_xz,
+                quad_data.q_yz,
+                quad_data.q_x2_y2,
+                quad_data.q_3z2_r2,
+            )
             quad_esp = VirtualSites.quadrupole_esp(dist_vector, m_tensor, dist)
 
             cloud_pen = VirtualSites.cloud_penetration(a, b, dist)
@@ -326,7 +332,7 @@ class VirtualSites:
 
         atom_coords = self.coords[atom_index]
         # New charge of the atom, having removed the v-site's charge.
-        atom_charge = self.molecule.ddec_data[atom_index].charge - site_charge
+        atom_charge = self.molecule.atoms[atom_index].aim.charge - site_charge
 
         v_site_esps = []
         for point in self.sample_points:
@@ -360,7 +366,7 @@ class VirtualSites:
 
         atom_coords = self.coords[atom_index]
         # New charge of the atom, having removed the v-sites' charges.
-        atom_charge = self.molecule.ddec_data[atom_index].charge - (q_a + q_b)
+        atom_charge = self.molecule.atoms[atom_index].aim.charge - (q_a + q_b)
 
         v_site_esps = []
         for point in self.sample_points:
@@ -654,7 +660,7 @@ class VirtualSites:
         """
         return 1 - x[2] ** 2 - x[3] ** 2
 
-    def fit_one_site(self, atom_index):
+    def fit_one_site(self, atom_index: int):
         """
         Fit method for one site whose parent is <atom_index>
         """
@@ -668,11 +674,11 @@ class VirtualSites:
         )
         error = one_site_fit.fun / len(self.sample_points)
         q, lam = one_site_fit.x
-        one_site_coords = [((vec * lam) + self.coords[atom_index], q)]
+        one_site_coords = [((vec * lam) + self.coords[atom_index], q, atom_index)]
 
         return error, one_site_coords
 
-    def fit_two_sites(self, atom_index):
+    def fit_two_sites(self, atom_index: int):
         """
         Fit method for two sites whose parent is <atom_index>
         """
@@ -683,7 +689,7 @@ class VirtualSites:
 
         return error, site_coords
 
-    def fit_two_sites_one_or_three_bonds(self, atom_index):
+    def fit_two_sites_one_or_three_bonds(self, atom_index: int):
         """
         Fit method for two sites whose parent, <atom_index> has one or three bonds
         e.g. uncharged halogens and nitrogens
@@ -710,18 +716,19 @@ class VirtualSites:
             atom_index, lam_a, lam_b, vec_a, vec_b
         )
         two_site_coords = [
-            (site_a_coords, q_a),
-            (site_b_coords, q_b),
+            (site_a_coords, q_a, atom_index),
+            (site_b_coords, q_b, atom_index),
         ]
         return error, two_site_coords
 
-    def fit_two_sites_two_bonds(self, atom_index):
+    def fit_two_sites_two_bonds(self, atom_index: int):
         """
         Fit method for two sites whose parent, <atom_index> has two bonds
         e.g. uncharged oxygens
         """
         # Dummy error value to be overwritten
         error = 10000
+        two_site_coords = None
         for alt in [True, False]:
             bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
             vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
@@ -748,8 +755,8 @@ class VirtualSites:
                         atom_index, lam_a, lam_b, vec_a, vec_b
                     )
                     two_site_coords = [
-                        (site_a_coords, q_a),
-                        (site_b_coords, q_b),
+                        (site_a_coords, q_a, atom_index),
+                        (site_b_coords, q_b, atom_index),
                     ]
             else:
                 two_site_fit = minimize(
@@ -772,8 +779,8 @@ class VirtualSites:
                         atom_index, lam_a, lam_b, vec_a, vec_b
                     )
                     two_site_coords = [
-                        (site_a_coords, q_a),
-                        (site_b_coords, q_b),
+                        (site_a_coords, q_a, atom_index),
+                        (site_b_coords, q_b, atom_index),
                     ]
         return error, two_site_coords
 
@@ -825,22 +832,22 @@ class VirtualSites:
                 "The addition of one virtual site was found to be best.",
                 and_print=True,
             )
-            self.v_sites_coords.extend((*one_site_coords, atom_index))
+            self.v_sites_coords.extend(one_site_coords)
             self.molecule.NonbondedForce.get_parameter(
                 atoms=(atom_index,)
             ).charge -= one_site_coords[0][1]
-            self.molecule.ddec_data[atom_index].charge -= one_site_coords[0][1]
+            self.molecule.atoms[atom_index].aim.charge -= one_site_coords[0][1]
         else:
             append_to_log(
                 self.molecule.home,
                 "The addition of two virtual sites was found to be best.",
                 and_print=True,
             )
-            self.v_sites_coords.extend((*two_site_coords, atom_index))
+            self.v_sites_coords.extend(two_site_coords)
             self.molecule.NonbondedForce.get_parameter(atoms=(atom_index,)).charge -= (
                 two_site_coords[0][1] + two_site_coords[1][1]
             )
-            self.molecule.ddec_data[atom_index].charge -= (
+            self.molecule.atoms[atom_index].aim.charge -= (
                 two_site_coords[0][1] + two_site_coords[1][1]
             )
         append_to_log(

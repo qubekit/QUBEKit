@@ -23,7 +23,7 @@ import numpy as np
 import QUBEKit
 from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
 from QUBEKit.engines import Chargemol, Gaussian, GeometryOptimiser, QCEngine
-from QUBEKit.lennard_jones import LennardJones
+from QUBEKit.lennard_jones import LennardJones612
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation import XML, AnteChamber, OpenFF
@@ -594,7 +594,7 @@ class ArgsAndConfigs:
 
             else:
                 # Initialise molecule, ready to add configs to it
-                self.molecule = Ligand(f"{name}.pdb")
+                self.molecule = Ligand.from_file(f"{name}.pdb")
 
             # Read each row in bulk data and set it to the molecule object
             for key, val in bulk_data[name].items():
@@ -1169,7 +1169,10 @@ class Execute:
         c_mol = Chargemol(molecule)
         c_mol.generate_input()
 
-        ExtractChargeData(molecule).extract_charge_data()
+        dir_path = os.path.join(molecule.home, "07_charges")
+        ExtractChargeData.read_files_chargemol(
+            molecule, dir_path, molecule.ddec_version
+        )
 
         append_to_log(
             molecule.home,
@@ -1201,7 +1204,7 @@ class Execute:
             molecule.home, "Starting Lennard-Jones parameter calculation", major=True
         )
 
-        LennardJones(molecule).calculate_non_bonded_force()
+        LennardJones612(molecule).calculate_non_bonded_force()
 
         append_to_log(
             molecule.home, "Finishing Lennard-Jones parameter calculation", major=True

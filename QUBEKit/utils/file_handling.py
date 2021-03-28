@@ -7,70 +7,76 @@ Should be very little calculation here, simply file reading and some small valid
 """
 
 import os
+from typing import List
+from typing_extensions import Literal
 
 import numpy as np
 
-from QUBEKit.molecules import ExtraSite
+from QUBEKit.molecules import CloudPen, Dipole, ExtraSite, Ligand, Quadrupole
 from QUBEKit.utils.constants import ANGS_TO_NM
-from QUBEKit.utils.datastructures import CustomNamespace
 
 
 class ExtractChargeData:
     """
     Choose between extracting (the more extensive) data from Chargemol, or from ONETEP.
-    Symmetrise if desired (config option)
-    Store all info back into the molecule object; ensure ddec data and atom partial charges match
+    Store all info back into the molecule object
     """
 
-    def __init__(self, molecule):
-        self.molecule = molecule
+    @classmethod
+    def read_files_chargemol(
+        cls,
+        molecule: Ligand,
+        dir_path: str,
+        ddec_version: Literal[3, 6],
+    ) -> Ligand:
+        updated_mol = cls._extract_charge_data_chargemol(
+            molecule, dir_path, ddec_version
+        )
+        return updated_mol
 
-    def extract_charge_data(self):
-        if self.molecule.charges_engine.casefold() == "chargemol":
-            self._extract_charge_data_chargemol()
-        elif self.molecule.charges_engine.casefold() == "onetep":
-            self._extract_charge_data_onetep()
-        else:
-            raise NotImplementedError(
-                "Currently, the only valid charge engines in QUBEKit are ONETEP and Chargemol."
-            )
+    @classmethod
+    def read_files_onetep(cls, molecule: Ligand, dir_path: str) -> Ligand:
+        updated_mol = cls._extract_charge_data_onetep(molecule, dir_path)
+        return updated_mol
 
-        if self.molecule.enable_symmetry:
-            self._apply_symmetrisation()
-
-        # Ensure the partial charges in the atom container are also changed.
-        for molecule_atom, ddec_atom in zip(
-            self.molecule.atoms, self.molecule.ddec_data.values()
-        ):
-            molecule_atom.partial_charge = ddec_atom.charge
-
-    def _extract_charge_data_chargemol(self):
+    @classmethod
+    def _extract_charge_data_chargemol(
+        cls,
+        molecule: Ligand,
+        dir_path: str,
+        ddec_version: Literal[3, 6],
+    ):
         """
         From Chargemol output files, extract the necessary parameters for calculation of L-J.
-
-        :returns: 3 CustomNamespaces, ddec_data; dipole_moment_data; and quadrupole_moment_data
-        ddec_data used for calculating monopole esp and L-J values (used by both LennardJones and Charges classes)
-        dipole_moment_data used for calculating dipole esp
-        quadrupole_moment_data used for calculating quadrupole esp
+        Args:
+            molecule: Usual molecule object.
+            ddec_version: Which ddec version was used to run chargemol? 3 or 6.
+            dir_path: Directory containing the ddec output files.
+        Return:
+            Updated molecule object.
         """
 
-        if self.molecule.ddec_version == 6:
-            net_charge_file_name = "DDEC6_even_tempered_net_atomic_charges.xyz"
+        if ddec_version == 6:
+            net_charge_file_path = os.path.join(
+                dir_path, "DDEC6_even_tempered_net_atomic_charges.xyz"
+            )
 
-        elif self.molecule.ddec_version == 3:
-            net_charge_file_name = "DDEC3_net_atomic_charges.xyz"
+        elif ddec_version == 3:
+            net_charge_file_path = os.path.join(
+                dir_path, "DDEC3_net_atomic_charges.xyz"
+            )
 
         else:
             raise ValueError("Unsupported DDEC version; please use version 3 or 6.")
 
         try:
-            with open(net_charge_file_name, "r+") as charge_file:
+            with open(net_charge_file_path, "r+") as charge_file:
                 lines = charge_file.readlines()
         except FileNotFoundError:
             raise FileNotFoundError(
                 "Cannot find the DDEC output file.\nThis could be indicative of several issues.\n"
-                "Please check Chargemol is installed in the correct location and that the configs"
-                " point to that location."
+                "Please check Chargemol is installed in the correct location and that the configs "
+                "point to that location."
             )
 
         # Find number of atoms
@@ -90,20 +96,14 @@ class ExtractChargeData:
                 break
         else:
             raise EOFError(
-                f"Cannot find charge or cloud penetration data in {net_charge_file_name}."
+                f"Cannot find charge or cloud penetration data in {net_charge_file_path}."
             )
 
-        ddec_data = {}
-        dipole_moment_data = {}
-        quadrupole_moment_data = {}
-
-        cloud_pen_data = {}
-
         for line in lines[ddec_start_pos : ddec_start_pos + atom_total]:
-            # _'s are the xyz coords, then the quadrupole moment tensor eigenvalues.
+            # _'s are the atomic symbol, xyz coords, then the quadrupole moment tensor eigenvalues.
             (
                 atom_count,
-                atomic_symbol,
+                _,
                 _,
                 _,
                 _,
@@ -119,24 +119,19 @@ class ExtractChargeData:
                 q_3z2_r2,
                 *_,
             ) = line.split()
+
             # File counts from 1 not 0; thereby requiring -1 to get the index.
             atom_index = int(atom_count) - 1
-            ddec_data[atom_index] = CustomNamespace(
-                atomic_symbol=atomic_symbol,
-                charge=float(charge),
-                volume=None,
-                r_aim=None,
-                b_i=None,
-                a_i=None,
+
+            molecule.atoms[atom_index].aim.charge = float(charge)
+
+            molecule.atoms[atom_index].dipole = Dipole(
+                x=float(x_dipole),
+                y=float(y_dipole),
+                z=float(z_dipole),
             )
 
-            dipole_moment_data[atom_index] = CustomNamespace(
-                x_dipole=float(x_dipole),
-                y_dipole=float(y_dipole),
-                z_dipole=float(z_dipole),
-            )
-
-            quadrupole_moment_data[atom_index] = CustomNamespace(
+            molecule.atoms[atom_index].quadrupole = Quadrupole(
                 q_xy=float(q_xy),
                 q_xz=float(q_xz),
                 q_yz=float(q_yz),
@@ -146,52 +141,44 @@ class ExtractChargeData:
 
         for line in lines[cloud_pen_pos : cloud_pen_pos + atom_total]:
             # _'s are the xyz coords and the r_squared.
-            atom_count, atomic_symbol, _, _, _, a, b, _ = line.split()
+            atom_count, _, _, _, _, a, b, _ = line.split()
             atom_index = int(atom_count) - 1
-            cloud_pen_data[atom_index] = CustomNamespace(
-                atomic_symbol=atomic_symbol, a=float(a), b=float(b)
+            molecule.atoms[atom_index].cloud_pen = CloudPen(
+                a=float(a),
+                b=float(b),
             )
 
-        r_cubed_file_name = "DDEC_atomic_Rcubed_moments.xyz"
+        r_cubed_file_name = os.path.join(dir_path, "DDEC_atomic_Rcubed_moments.xyz")
 
         with open(r_cubed_file_name, "r+") as vol_file:
             lines = vol_file.readlines()
 
-        vols = [float(line.split()[-1]) for line in lines[2 : atom_total + 2]]
+        volumes = [float(line.split()[-1]) for line in lines[2 : atom_total + 2]]
 
-        for atom_index in ddec_data:
-            ddec_data[atom_index].volume = vols[atom_index]
+        for atom_index in range(atom_total):
+            molecule.atoms[atom_index].aim.vol = volumes[atom_index]
 
-        self.molecule.ddec_data = ddec_data
-        self.molecule.dipole_moment_data = dipole_moment_data
-        self.molecule.quadrupole_moment_data = quadrupole_moment_data
-        self.molecule.cloud_pen_data = cloud_pen_data
+        return molecule
 
-    def _extract_charge_data_onetep(self):
+    @classmethod
+    def _extract_charge_data_onetep(cls, molecule: Ligand, dir_path: str):
         """
         From ONETEP output files, extract the necessary parameters for calculation of L-J.
-        Insert data into ddec_data in standard format.
-        Used exclusively by LennardJones class.
+        Args:
+            molecule: Usual molecule object.
+            dir_path: Directory containing the ddec output files.
+        Return:
+            Updated molecule object.
         """
-
-        # Just fill in None values until they are known
-        ddec_data = {
-            i: CustomNamespace(
-                atomic_symbol=atom.atomic_symbol,
-                charge=None,
-                volume=None,
-                r_aim=None,
-                b_i=None,
-                a_i=None,
-            )
-            for i, atom in enumerate(self.molecule.atoms)
-        }
 
         # Second file contains the rest (charges, dipoles and volumes):
         ddec_output_file = (
             "ddec.onetep" if os.path.exists("ddec.onetep") else "iter_1/ddec.onetep"
         )
-        with open(ddec_output_file, "r") as file:
+
+        ddec_file_path = os.path.join(dir_path, ddec_output_file)
+
+        with open(ddec_file_path, "r") as file:
             lines = file.readlines()
 
         charge_pos, vol_pos = None, None
@@ -212,26 +199,27 @@ class ExtractChargeData:
 
         charges = [
             float(line.split()[-1])
-            for line in lines[charge_pos : charge_pos + len(self.molecule.atoms)]
+            for line in lines[charge_pos : charge_pos + molecule.n_atoms]
         ]
 
         # Add the AIM-Valence and the AIM-Core to get V^AIM
         volumes = [
             float(line.split()[2]) + float(line.split()[3])
-            for line in lines[vol_pos : vol_pos + len(self.molecule.atoms)]
+            for line in lines[vol_pos : vol_pos + molecule.n_atoms]
         ]
 
-        for atom_index in ddec_data:
-            ddec_data[atom_index].charge = charges[atom_index]
-            ddec_data[atom_index].volume = volumes[atom_index]
+        for atom_index in range(molecule.n_atoms):
+            molecule.atoms[atom_index].aim.vol = volumes[atom_index]
+            molecule.atoms[atom_index].aim.charge = charges[atom_index]
 
-        self.molecule.ddec_data = ddec_data
+        return molecule
 
     def _apply_symmetrisation(self):
         """
+        TODO FIX and move. Don't use to symmetrise the raw params.
         Using the atoms picked out to be symmetrised:
         apply the symmetry to the charge and volume values.
-        Mutates the non_bonded_force dict
+        Mutates the non_bonded_force dict.
         """
 
         atom_types = {}
@@ -254,11 +242,37 @@ class ExtractChargeData:
                 self.molecule.ddec_data[atom].volume = round(volume, 6)
 
 
-def extract_extra_sites_onetep(molecule):
+def extract_c8_params(dir_path: str) -> List[float]:
+    """
+    Extract the C8 dispersion coefficients from the MCLF calculation's output file.
+    Args:
+        dir_path: directory containing the C8 xyz file from Chargemol.
+    returns:
+        ordered list of the c8 params for each atom in molecule.
+    """
+
+    with open(os.path.join(dir_path, "MCLF_C8_dispersion_coefficients.xyz")) as c8_file:
+        lines = c8_file.readlines()
+        for i, line in enumerate(lines):
+            if line.startswith(" The following "):
+                lines = lines[i + 2 : -2]
+                break
+        else:
+            raise EOFError("Cannot locate c8 parameters in file.")
+
+        # c8 params IN ATOMIC UNITS
+        c8_params = [float(line.split()[-1].strip()) for line in lines]
+
+    return c8_params
+
+
+def extract_extra_sites_onetep(molecule: Ligand):
     """
     Gather the extra sites from the xyz file and insert them into the molecule object.
     * Find parent and 2 reference atoms
     * Calculate the local coords site
+    Args:
+        molecule: Usual molecule object.
     """
 
     with open("xyz_with_extra_point_charges.xyz") as xyz_sites:
@@ -361,7 +375,7 @@ def extract_extra_sites_onetep(molecule):
     molecule.extra_sites = extra_sites
 
 
-def make_and_change_into(name):
+def make_and_change_into(name: str):
     """
     - Attempt to make a directory with name <name>, don't fail if it exists.
     - Change into the directory.

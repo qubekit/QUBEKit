@@ -10,7 +10,7 @@ import pickle
 from collections import OrderedDict
 from contextlib import contextmanager
 from importlib import import_module
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -148,7 +148,10 @@ def generate_bulk_csv(csv_name, max_execs=None):
 
 
 def append_to_log(
-    log_file_path: str, message: str, major: bool = False, and_print: bool = False
+    log_file_path: Optional[str],
+    message: str,
+    major: bool = False,
+    and_print: bool = False,
 ):
     """
     Appends a message to the log file in a specific format.
@@ -165,14 +168,15 @@ def append_to_log(
     Returns:
         Only returns when no log file can be found.
     """
-
+    if log_file_path is None:
+        return
     # Check if the message is an empty string to avoid adding blank lines and extra separators
     if message:
         log_file = os.path.join(log_file_path, "QUBEKit_log.txt")
         if major:
             message = message.upper()
         try:
-            with open(log_file, "a+") as file:
+            with open(log_file, "a") as file:
                 file.write(f"\n{message}\n")
         except FileNotFoundError:
             return

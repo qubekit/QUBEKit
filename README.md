@@ -13,6 +13,7 @@
     * [Development](https://github.com/qubekit/QUBEKit#in-development)
 * [Installation](https://github.com/qubekit/QUBEKit#installation)
     * [Requirements](https://github.com/qubekit/QUBEKit#requirements)
+    * [Installing as Dev](https://github.com/qubekit/QUBEKit#installing-as-dev)
 * [Help](https://github.com/qubekit/QUBEKit#help)
     * [Config Files](https://github.com/qubekit/QUBEKit#before-you-start-config-files)
     * [QUBEKit Commands](https://github.com/qubekit/QUBEKit#qubekit-commands-running-jobs)

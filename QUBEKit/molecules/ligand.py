@@ -1201,14 +1201,7 @@ class Ligand(DefaultsMixin, Molecule):
 
         self.parameter_engine = "openmm"
         self.hessian = None
-        self.modes = None
         self.home: Optional[str] = None
-
-        # Charge and LJ data from Chargemol / ONETEP
-        self.ddec_data: Optional[Dict] = None
-        self.dipole_moment_data: Optional[Dict] = None
-        self.quadrupole_moment_data: Optional[Dict] = None
-        self.cloud_pen_data: Optional[Dict] = None
 
         self.constraints_file = None
 
@@ -1269,7 +1262,8 @@ class Ligand(DefaultsMixin, Molecule):
         """
         if ".xyz" in file_name:
             raise FileTypeError(
-                "XYZ files can not be used to build ligands due to ambiguous bonding, please use pdb, mol, mol2 or smiles as input."
+                "XYZ files can not be used to build ligands due to ambiguous bonding, "
+                "please use pdb, mol, mol2 or smiles as input."
             )
 
     @classmethod

@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Optional, Tuple
 
-from pydantic import BaseModel, Field, PositiveInt
+from pydantic import BaseModel, dataclasses, Field, PositiveInt
 from rdkit import Chem
 from rdkit.Chem.rdchem import GetPeriodicTable, PeriodicTable
 
@@ -51,6 +51,36 @@ class BondStereoChemistry(str, Enum):
     U = "Unknown"
 
 
+@dataclasses.dataclass  # Cannot be frozen as params are loaded separately.
+class AIM:
+    vol: Optional[float]
+    charge: Optional[float]
+    c8: Optional[float]
+    # TODO Extend to include other types of potential e.g. Buckingham
+
+
+@dataclasses.dataclass(frozen=True)
+class Dipole:
+    x: float
+    y: float
+    z: float
+
+
+@dataclasses.dataclass(frozen=True)
+class Quadrupole:
+    q_xy: float
+    q_xz: float
+    q_yz: float
+    q_x2_y2: float
+    q_3z2_r2: float
+
+
+@dataclasses.dataclass(frozen=True)
+class CloudPen:
+    a: float
+    b: float
+
+
 class Atom(BaseModel):
     """
     Class to hold all of the "per atom" information.
@@ -86,6 +116,18 @@ class Atom(BaseModel):
     )
     bonds: Optional[List[int]] = Field(
         None, description="The list of atom indices which are bonded to this atom."
+    )
+    aim: Optional[AIM] = Field(
+        AIM(None, None, None),
+    )
+    dipole: Optional[Dipole] = Field(
+        None,
+    )
+    quadrupole: Optional[Quadrupole] = Field(
+        None,
+    )
+    cloud_pen: Optional[CloudPen] = Field(
+        None,
     )
 
     @classmethod
