@@ -5,7 +5,7 @@ import os
 import sys
 from functools import partial
 
-from QUBEKit.lennard_jones import LennardJones
+from QUBEKit.lennard_jones import LennardJones612
 from QUBEKit.molecules import Protein
 from QUBEKit.parametrisation import XMLProtein
 from QUBEKit.proteins.protein_tools import get_water, pdb_reformat, qube_general
@@ -52,8 +52,8 @@ def main():
             pro.charges_engine = "onetep"
             pro.density_engine = "onetep"
 
-            ExtractChargeData(pro).extract_charge_data()
-            LennardJones(pro).calculate_non_bonded_force()
+            ExtractChargeData.read_files_onetep(pro, pro.home)
+            LennardJones612(pro).calculate_non_bonded_force()
 
             # Write out the final parameters
             printf("Writing pdb file with connections...")

@@ -2,13 +2,14 @@
 
 import math
 from collections import namedtuple
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from QUBEKit.molecules import Ligand
 from QUBEKit.utils import constants
+from QUBEKit.utils.datastructures import LJData
 
 
-class LennardJones:
+class LennardJones612:
 
     # Beware weird units, (wrong in the paper too).
     # Units: vfree: Bohr ** 3, bfree: Ha * (Bohr ** 6), rfree: Angs
@@ -54,33 +55,18 @@ class LennardJones:
 
         self.non_bonded_force: Dict[int, List[float, float, float]] = {}
 
-    def extract_c8_params(self):
+    def calculate_lj_data(self) -> Dict[int, LJData]:
         """
-        Extract the C8 dispersion coefficients from the MCLF calculation's output file.
-        :return: c8_params ordered list of the c8 params for each atom in molecule
-        """
-
-        with open("MCLF_C8_dispersion_coefficients.xyz") as c8_file:
-            lines = c8_file.readlines()
-            for i, line in enumerate(lines):
-                if line.startswith(" The following "):
-                    lines = lines[i + 2 : -2]
-                    break
-            else:
-                raise EOFError("Cannot locate c8 parameters in file.")
-
-            # c8 params IN ATOMIC UNITS
-            self.c8_params = [float(line.split()[-1].strip()) for line in lines]
-
-    def append_ais_bis(self):
-        """
-        Use the AIM parameters from extract_params_*() to calculate a_i and b_i according to paper.
+        Use the AIM parameters to calculate a_i and b_i according to paper.
         Calculations from paper have been combined and simplified for faster computation.
+        returns: Dict of the a_i, b_i and r_aim values needed for sigma/epsilon calculation.
         """
 
-        for atom_index, atom in self.molecule.ddec_data.items():
+        lj_data = {}
+
+        for atom_index, atom in enumerate(self.molecule.atoms):
             try:
-                atomic_symbol, atom_vol = atom.atomic_symbol, atom.volume
+                atomic_symbol, atom_vol = atom.atomic_symbol, atom.aim.vol
 
                 # Find polar Hydrogens and allocate their new name: X
                 if atomic_symbol == "H":
@@ -108,42 +94,17 @@ class LennardJones:
             except KeyError:
                 r_aim, b_i, a_i = 0, 0, 0
 
-            self.molecule.ddec_data[atom_index].r_aim = r_aim
-            self.molecule.ddec_data[atom_index].b_i = b_i
-            self.molecule.ddec_data[atom_index].a_i = a_i
+            lj_data[atom_index] = LJData(a_i=a_i, b_i=b_i, r_aim=r_aim)
+        return lj_data
 
-    def calculate_sig_eps(self):
-        """
-        Adds the charge, sigma and epsilon terms to the ligand class object in a dictionary.
-        The ligand class object (NonbondedForce) is stored as an empty dictionary until this method is called.
-        """
-
-        # Creates Nonbondedforce dict for later xml creation.
-        # Format: {atom_index: [partial_charge, sigma, epsilon] ... }
-        # This follows the usual ordering of the atoms such as in molecule.coords.
-        for atom_index, atom in self.molecule.ddec_data.items():
-            if not atom.a_i:
-                sigma = epsilon = 0
-            else:
-                # sigma = (a_i / b_i) ** (1 / 6)
-                sigma = (atom.a_i / atom.b_i) ** (1 / 6)
-                sigma *= constants.SIGMA_CONVERSION
-
-                # epsilon = (b_i ** 2) / (4 * a_i)
-                epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
-                atomic_symbol = self.molecule.atoms[atom_index].atomic_symbol
-                # alpha and beta
-                epsilon *= self.alpha * (
-                    (atom.volume / self.elem_dict[atomic_symbol].vfree) ** self.beta
-                )
-                epsilon *= constants.EPSILON_CONVERSION
-
-            self.non_bonded_force[atom_index] = [atom.charge, sigma, epsilon]
-
-    def correct_polar_hydrogens(self):
+    def correct_polar_hydrogens(self, lj_data: Dict[int, LJData]) -> Dict[int, LJData]:
         """
         Identifies the polar Hydrogens and changes the a_i, b_i values accordingly.
         May be removed / heavily changed if we switch away from atom typing and use SMARTS.
+        Args:
+            lj_data: Dict of the a_i, b_i and r_aim values needed for sigma/epsilon calculation.
+        Returns:
+            same dict, with the values altered to have their polar Hs corrected.
         """
 
         # Loop through pairs in topology
@@ -155,6 +116,7 @@ class LennardJones:
 
         # Find all the polar hydrogens and store their positions / atom numbers
         polars = []
+        # TODO Use smirks
         for pair in new_pairs:
             if (
                 "O" == pair[0].atomic_symbol
@@ -173,8 +135,8 @@ class LennardJones:
                     polars.append(pair)
 
         # Find square root of all b_i values so that they can be added easily according to paper's formula.
-        for atom in self.molecule.ddec_data.values():
-            atom.b_i = math.sqrt(atom.b_i)
+        for atom_index, lj_datum in lj_data.items():
+            lj_data[atom_index].b_i = math.sqrt(lj_datum.b_i)
 
         if polars:
             for pair in polars:
@@ -187,56 +149,76 @@ class LennardJones:
                         polar_son_pos = pair[0].atom_index
 
                     # Calculate the new b_i for the two polar atoms (polar h and polar sulfur, oxygen or nitrogen)
-                    self.molecule.ddec_data[
-                        polar_son_pos
-                    ].b_i += self.molecule.ddec_data[polar_h_pos].b_i
-                    self.molecule.ddec_data[polar_h_pos].b_i = 0
+                    lj_data[polar_son_pos].b_i += lj_data[polar_h_pos].b_i
+                    lj_data[polar_h_pos].b_i = 0
 
-        for atom in self.molecule.ddec_data.values():
+        for atom_index, lj_datum in lj_data.items():
             # Square all the b_i values again
-            atom.b_i *= atom.b_i
+            lj_data[atom_index].b_i *= lj_datum.b_i
             # Recalculate the a_is based on the new b_is
-            atom.a_i = 32 * atom.b_i * (atom.r_aim ** 6)
+            lj_data[atom_index].a_i = 32 * lj_datum.b_i * (lj_datum.r_aim ** 6)
 
-        # Update epsilon (not sigma) according to new a_i and b_i values
-        for atom_index, atom in self.molecule.ddec_data.items():
-            if atom.a_i:
-                # epsilon = (b_i ** 2) / (4 * a_i)
-                epsilon = (atom.b_i ** 2) / (4 * atom.a_i)
-                epsilon *= constants.EPSILON_CONVERSION
+        return lj_data
+
+    def calculate_sig_eps(
+        self, lj_data: Dict[int, LJData]
+    ) -> Dict[int, Tuple[float, float]]:
+        """
+        Use the lj_data to calculate the sigma and epsilon values
+        Args:
+            lj_data: Dict of the a_i, b_i and r_aim values needed for sigma/epsilon calculation.
+        Returns:
+            The calculated sigma and epsilon values ready to be inserted into the molecule object.
+        """
+        non_bonded_forces = {}
+
+        for atom, lj_datum in zip(self.molecule.atoms, lj_data.values()):
+            if not lj_datum.a_i:
+                sigma, epsilon = 0, 0
             else:
-                epsilon, self.non_bonded_force[atom_index][1] = 0, 0
+                # sigma = (a_i / b_i) ** (1 / 6)
+                sigma = (lj_datum.a_i / lj_datum.b_i) ** (1 / 6)
+                sigma *= constants.SIGMA_CONVERSION
 
-            self.non_bonded_force[atom_index] = [
-                atom.charge,
-                self.non_bonded_force[atom_index][1],
-                epsilon,
-            ]
+                # epsilon = (b_i ** 2) / (4 * a_i)
+                epsilon = (lj_datum.b_i * lj_datum.b_i) / (4 * lj_datum.a_i)
+
+                # alpha and beta
+                epsilon *= self.alpha * (
+                    (atom.aim.vol / self.elem_dict[atom.atomic_symbol].vfree)
+                    ** self.beta
+                )
+                epsilon *= constants.EPSILON_CONVERSION
+
+            non_bonded_forces[atom.atom_index] = (sigma, epsilon)
+
+        return non_bonded_forces
 
     def calculate_non_bonded_force(self):
         """
         Main worker method for LennardJones class.
-        Calculates the a_i and b_i values;
-        Calculates the sigma and epsilon values using those a_i and b_i values;
-        Redistributes L-J parameters according to polar Hydrogens, then recalculates epsilon values.
+        * Calculates the a_i, b_i and r_aim values.
+        * Redistributes above values according to polar Hydrogens.
+        * Calculates the sigma and epsilon values using those a_i and b_i values.
+        * Stores the values in the molecule object.
         """
 
         # Calculate initial a_is and b_is
-        self.append_ais_bis()
-
-        # Use the a_is and b_is to calculate the non_bonded_force dict
-        self.calculate_sig_eps()
+        lj_data = self.calculate_lj_data()
 
         # Tweak for polar Hydrogens
         # NB DISABLE FOR FORCEBALANCE
-        self.correct_polar_hydrogens()
+        lj_data = self.correct_polar_hydrogens(lj_data)
+
+        # Use the a_is and b_is to calculate the non_bonded_force dict
+        non_bonded_forces = self.calculate_sig_eps(lj_data)
 
         # update the Nonbonded force using api
-        for atom_index, values in self.non_bonded_force.items():
+        for atom_index, sig_eps in non_bonded_forces.items():
             nonbond_data = {
-                "charge": values[0],
-                "sigma": values[1],
-                "epsilon": values[2],
+                "charge": self.molecule.atoms[atom_index].aim.charge,
+                "sigma": sig_eps[0],
+                "epsilon": sig_eps[1],
             }
             self.molecule.NonbondedForce.set_parameter(
                 atoms=(atom_index,), **nonbond_data

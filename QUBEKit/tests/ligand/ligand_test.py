@@ -1,3 +1,5 @@
+import os
+
 import networkx as nx
 import numpy as np
 import pytest
@@ -12,7 +14,7 @@ from QUBEKit.utils.exceptions import (
     SmartsError,
     TopologyMismatch,
 )
-from QUBEKit.utils.file_handling import get_data
+from QUBEKit.utils.file_handling import ExtractChargeData, get_data
 from QUBEKit.utils.helpers import unpickle
 
 
@@ -726,3 +728,10 @@ def test_find_rotatable_bonds_indices_of_bonds():
     expected_bonds = [(12, 13), (5, 13)]
     for bond in bonds:
         assert bond in expected_bonds or tuple(reversed(bond)) in expected_bonds
+
+
+def test_atom_setup():
+    mol = Ligand.from_file(get_data("chloromethane.pdb"))
+    ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
+    dir_path = os.path.dirname(ddec_file_path)
+    ExtractChargeData.read_files_chargemol(mol, dir_path, 6)
