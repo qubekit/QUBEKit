@@ -21,11 +21,11 @@ from QUBEKit.utils.exceptions import PickleFileNotFound, TopologyMismatch
 # TODO Move csv stuff for bulk runs to file_handling.py
 
 
-def mol_data_from_csv(csv_name):
+def mol_data_from_csv(csv_name: str):
     """
     Scan the csv file to find the row with the desired molecule data.
     Returns a dictionary of dictionaries in the form:
-    {'methane': {'charge': 0, 'multiplicity': 1, ...}, 'ethane': {'charge': 0, ...}, ...}
+    {'methane': {'smiles': 'C', 'multiplicity': 1, ...}, 'ethane': {'smiles': 'C', ...}, ...}
     """
 
     with open(csv_name, "r") as csv_file:
@@ -38,16 +38,12 @@ def mol_data_from_csv(csv_name):
             # Converts to ordinary dict rather than ordered.
             row = dict(row)
             # If there is no config given assume its the default
-            row["charge"] = int(float(row["charge"])) if row["charge"] else 0
+            row["smiles"] = row["smiles"] if row["smiles"] else None
             row["multiplicity"] = (
                 int(float(row["multiplicity"])) if row["multiplicity"] else 1
             )
             row["config_file"] = (
                 row["config_file"] if row["config_file"] else "default_config"
-            )
-            row["smiles"] = row["smiles"] if row["smiles"] else None
-            row["torsion_order"] = (
-                row["torsion_order"] if row["torsion_order"] else None
             )
             row["restart"] = row["restart"] if row["restart"] else None
             row["end"] = row["end"] if row["end"] else "finalise"
@@ -57,8 +53,8 @@ def mol_data_from_csv(csv_name):
     final = {row["name"]: row for row in rows}
 
     # Removes the names from the sub-dictionaries:
-    # e.g. {'methane': {'name': 'methane', 'charge': 0, ...}, ...}
-    # ---> {'methane': {'charge': 0, ...}, ...}
+    # e.g. {'methane': {'name': 'methane', 'smiles': 'C', ...}, ...}
+    # ---> {'methane': {'smiles': 'C', ...}, ...}
     for val in final.values():
         del val["name"]
 
@@ -95,17 +91,15 @@ def generate_bulk_csv(csv_name, max_execs=None):
             file_writer.writerow(
                 [
                     "name",
-                    "charge",
+                    "smiles",
                     "multiplicity",
                     "config_file",
-                    "smiles",
-                    "torsion_order",
                     "restart",
                     "end",
                 ]
             )
             for file in files:
-                file_writer.writerow([file, 0, 1, "", "", "", "", ""])
+                file_writer.writerow([file, "", 1, "", "", ""])
         print(f"{csv_name} generated.", flush=True)
         return
 
@@ -131,18 +125,16 @@ def generate_bulk_csv(csv_name, max_execs=None):
             file_writer.writerow(
                 [
                     "name",
-                    "charge",
+                    "smiles",
                     "multiplicity",
                     "config_file",
-                    "smiles",
-                    "torsion_order",
                     "restart",
                     "end",
                 ]
             )
 
             for file in files[csv_count * max_execs : (csv_count + 1) * max_execs]:
-                file_writer.writerow([file, 0, 1, "", "", "", "", ""])
+                file_writer.writerow([file, "", 1, "", "", ""])
 
         print(f"{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv generated.", flush=True)
 
