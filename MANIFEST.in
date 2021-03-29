@@ -7,5 +7,6 @@ include LICENSE.txt
 include setup.py
 
 recursive-include QUBEKit *.py
-include QUBEKit/GUI/*
-include QUBEKit/tests/files/*
+include QUBEKit/tests/*
+include QUBEKit/data/*
+include QUBEKit/data/templates/*
