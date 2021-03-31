@@ -47,7 +47,7 @@ class Configure:
         "div_index": "0",  # Fitting starting index in the division array
         "parameter_engine": "antechamber",  # Method used for initial parametrisation
         "l_pen": "0.0",  # The regularisation penalty
-        "pre_opt_method": "rdkit_uff",   # The pre-optimisation method
+        "pre_opt_method": "rdkit_uff",  # The pre-optimisation method
         "relative_to_global": "False"  # If we should compute our relative energy surface
         # compared to the global minimum
     }

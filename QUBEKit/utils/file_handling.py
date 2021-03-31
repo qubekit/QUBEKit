@@ -27,10 +27,10 @@ class ExtractChargeData:
 
     @classmethod
     def read_files(
-            cls,
-            molecule: "Ligand",
-            dir_path: str,
-            charges_engine: Literal["chargemol", "onetep"] = "chargemol",
+        cls,
+        molecule: "Ligand",
+        dir_path: str,
+        charges_engine: Literal["chargemol", "onetep"] = "chargemol",
     ) -> "Ligand":
         if charges_engine == "chargemol":
             # TODO Add way of finding ddec version based on files present?
@@ -310,7 +310,9 @@ def extract_extra_sites_onetep(molecule: "Ligand"):
                     if (len(closest_atoms) < 2) or (
                         len(molecule.atoms[parent].bonds) > 3
                     ):
-                        for atom in list(molecule.to_topology().neighbors(closest_atoms[0])):
+                        for atom in list(
+                            molecule.to_topology().neighbors(closest_atoms[0])
+                        ):
                             if atom not in closest_atoms and atom != parent:
                                 closest_atoms.append(atom)
                                 break
@@ -338,7 +340,12 @@ def extract_extra_sites_onetep(molecule: "Ligand"):
                         site_data["p3"] = 0
 
                         site_data["o_weights"] = [1.0, 0.0, 0.0, 0.0]
-                        site_data["x_weights"] = [-1.0, 0.33333333, 0.33333333, 0.33333333]
+                        site_data["x_weights"] = [
+                            -1.0,
+                            0.33333333,
+                            0.33333333,
+                            0.33333333,
+                        ]
                         site_data["y_weights"] = [1.0, -1.0, 0.0, 0.0]
 
                     else:

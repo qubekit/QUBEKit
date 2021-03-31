@@ -80,7 +80,11 @@ def test_quick_run_to_seminario(tmpdir):
         mod_sem = ModSeminario()
         final_water = mod_sem.run(molecule=water_hess)
         # make sure we have symmetry in parameters
-        assert final_water.BondForce[(0, 1)].length == final_water.BondForce[(0, 2)].length
+        assert (
+            final_water.BondForce[(0, 1)].length == final_water.BondForce[(0, 2)].length
+        )
         assert final_water.BondForce[(0, 1)].k == final_water.BondForce[(0, 2)].k
         # make sure they are different from the input
-        assert final_water.BondForce[(0, 1)].k != pytest.approx(water.BondForce[(0, 1)].k)
+        assert final_water.BondForce[(0, 1)].k != pytest.approx(
+            water.BondForce[(0, 1)].k
+        )

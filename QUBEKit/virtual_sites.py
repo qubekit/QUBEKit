@@ -267,7 +267,9 @@ class VirtualSites:
         atom_coords = self.coords[atom_index]
         vdw_radius = self.vdw_radii[atom.atomic_symbol]
 
-        sample_points = VirtualSites.generate_sample_points_relative(vdw_radius) + atom_coords
+        sample_points = (
+            VirtualSites.generate_sample_points_relative(vdw_radius) + atom_coords
+        )
 
         return sample_points
 
@@ -832,7 +834,9 @@ class VirtualSites:
                 and_print=True,
             )
             self.v_sites_coords.extend(two_site_coords)
-            self.molecule.NonbondedForce[(atom_index,)].charge -= (two_site_coords[0][1] + two_site_coords[1][1])
+            self.molecule.NonbondedForce[(atom_index,)].charge -= (
+                two_site_coords[0][1] + two_site_coords[1][1]
+            )
         append_to_log(
             self.molecule.home,
             f"Errors (kcal/mol):\n"

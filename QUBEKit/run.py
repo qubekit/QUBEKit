@@ -1163,9 +1163,7 @@ class Execute:
         c_mol.generate_input()
 
         dir_path = os.path.join(molecule.home, "07_charges")
-        ExtractChargeData.read_files(
-            molecule, dir_path, molecule.charges_engine
-        )
+        ExtractChargeData.read_files(molecule, dir_path, molecule.charges_engine)
 
         append_to_log(
             molecule.home,
@@ -1192,7 +1190,9 @@ class Execute:
         )
 
         if molecule.enable_virtual_sites:
-            append_to_log(molecule.home, "Starting virtual sites calculation", major=True)
+            append_to_log(
+                molecule.home, "Starting virtual sites calculation", major=True
+            )
             vs = VirtualSites(molecule)
             vs.calculate_virtual_sites()
 
@@ -1200,7 +1200,9 @@ class Execute:
             if molecule.charges_engine == "onetep":
                 extract_extra_sites_onetep(molecule)
 
-            append_to_log(molecule.home, "Finishing virtual sites calculation", major=True)
+            append_to_log(
+                molecule.home, "Finishing virtual sites calculation", major=True
+            )
 
         # Ensure the net charge is an integer value and adds up to molecule.charge
         fix_net_charge(molecule)
