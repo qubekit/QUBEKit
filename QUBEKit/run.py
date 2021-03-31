@@ -302,13 +302,6 @@ class ArgsAndConfigs:
             type=int,
             help="Enter the ddec version for charge partitioning, does not effect ONETEP partitioning.",
         )
-        # parser.add_argument(
-        #     "-geo",
-        #     "--geometric",
-        #     choices=[True, False],
-        #     type=string_to_bool,
-        #     help="Turn on geometric to use this during the qm optimisations, recommended.",
-        # )
         parser.add_argument(
             "-bonds",
             "--bonds_engine",
@@ -350,7 +343,7 @@ class ArgsAndConfigs:
             "if xml, make sure the xml file has the same name as the input file or smiles input name.",
         )
         parser.add_argument(
-            "-pre-opt",
+            "-pre_opt",
             "--pre_opt_method",
             choices=[
                 "mmff94",
@@ -422,7 +415,7 @@ class ArgsAndConfigs:
             "--skip",
             nargs="+",
             choices=[
-                "mm_optimise",
+                "pre_optimise",
                 "qm_optimise",
                 "hessian",
                 "mod_sem",
@@ -979,7 +972,7 @@ class Execute:
 
         # Perform the parametrisation
         param_method = param_dict[molecule.parameter_engine]
-        param_mol = param_method.parametrsie_molecule(
+        param_mol = param_method.parametrise_molecule(
             molecule=molecule, input_files=input_files
         )
 
@@ -1045,7 +1038,7 @@ class Execute:
 
         append_to_log(
             molecule.home,
-            f"Finishing mm_optimisation of the molecule with {molecule.pre_opt_method}",
+            f"Finishing pre_optimisation of the molecule with {molecule.pre_opt_method}",
             major=True,
         )
         return result_mol
@@ -1170,8 +1163,8 @@ class Execute:
         c_mol.generate_input()
 
         dir_path = os.path.join(molecule.home, "07_charges")
-        ExtractChargeData.read_files_chargemol(
-            molecule, dir_path, molecule.ddec_version
+        ExtractChargeData.read_files(
+            molecule, dir_path, molecule.charges_engine
         )
 
         append_to_log(
@@ -1179,20 +1172,8 @@ class Execute:
             f"Finishing charge partitioning with Chargemol and DDEC{molecule.ddec_version}",
             major=True,
         )
-        append_to_log(molecule.home, "Starting virtual sites calculation", major=True)
 
-        if molecule.enable_virtual_sites:
-            vs = VirtualSites(molecule)
-            vs.calculate_virtual_sites()
-
-            # Find extra site positions in local coords if present and tweak the charges of the parent
-            if molecule.charges_engine == "onetep":
-                extract_extra_sites_onetep(molecule)
-
-        # Ensure the net charge is an integer value and adds up to molecule.charge
         fix_net_charge(molecule)
-
-        append_to_log(molecule.home, "Finishing virtual sites calculation", major=True)
 
         return molecule
 
@@ -1209,6 +1190,20 @@ class Execute:
         append_to_log(
             molecule.home, "Finishing Lennard-Jones parameter calculation", major=True
         )
+
+        if molecule.enable_virtual_sites:
+            append_to_log(molecule.home, "Starting virtual sites calculation", major=True)
+            vs = VirtualSites(molecule)
+            vs.calculate_virtual_sites()
+
+            # Find extra site positions in local coords if present and tweak the charges of the parent
+            if molecule.charges_engine == "onetep":
+                extract_extra_sites_onetep(molecule)
+
+            append_to_log(molecule.home, "Finishing virtual sites calculation", major=True)
+
+        # Ensure the net charge is an integer value and adds up to molecule.charge
+        fix_net_charge(molecule)
 
         return molecule
 

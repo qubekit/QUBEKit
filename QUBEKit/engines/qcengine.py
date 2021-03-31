@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import qcelemental as qcel
 import qcengine as qcng
 from pydantic import Field

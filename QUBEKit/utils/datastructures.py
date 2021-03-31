@@ -1,6 +1,6 @@
 import abc
 
-from pydantic import BaseModel, dataclasses
+from pydantic import BaseModel
 from typing_extensions import Literal
 
 from QUBEKit.molecules import Ligand
@@ -27,10 +27,3 @@ class StageBase(BaseModel, abc.ABC):
     def run(self, molecule: Ligand, **kwargs) -> Ligand:
         """The main function of the stage which should perform some parametrisation and return the complete molecule."""
         ...
-
-
-@dataclasses.dataclass
-class LJData:
-    a_i: float
-    b_i: float
-    r_aim: float

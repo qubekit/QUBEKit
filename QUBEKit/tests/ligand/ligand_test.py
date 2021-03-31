@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 
 import networkx as nx
@@ -734,4 +736,4 @@ def test_atom_setup():
     mol = Ligand.from_file(get_data("chloromethane.pdb"))
     ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
     dir_path = os.path.dirname(ddec_file_path)
-    ExtractChargeData.read_files_chargemol(mol, dir_path, 6)
+    ExtractChargeData.read_files(mol, dir_path, mol.charges_engine)

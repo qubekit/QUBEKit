@@ -52,7 +52,7 @@ def main():
             pro.charges_engine = "onetep"
             pro.density_engine = "onetep"
 
-            ExtractChargeData.read_files_onetep(pro, pro.home)
+            ExtractChargeData.read_files(pro, pro.home, "onetep")
             LennardJones612(pro).calculate_non_bonded_force()
 
             # Write out the final parameters

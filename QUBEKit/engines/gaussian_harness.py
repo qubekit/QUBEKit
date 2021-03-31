@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 A custom gaussian harness for QCEngine which should be registered with qcengine.
 """

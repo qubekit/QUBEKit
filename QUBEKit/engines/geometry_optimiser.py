@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 A class which handles general geometry optimisation tasks.
 """

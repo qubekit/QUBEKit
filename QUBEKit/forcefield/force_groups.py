@@ -23,6 +23,16 @@ class BaseForceGroup(BaseModel):
     type: Literal["base"] = "base"
     parameters: Optional[Dict[Tuple[int, ...], Type[BaseParameter]]] = None
 
+    def __iter__(self) -> Generator:
+        for parameter in self.parameters.values():
+            yield parameter
+
+    def __getitem__(self, item):
+        try:
+            return self.parameters[item]
+        except KeyError:
+            return self.parameters[tuple(reversed(item))]
+
     @classmethod
     @abc.abstractmethod
     def _parameter_class(cls):
@@ -53,18 +63,6 @@ class BaseForceGroup(BaseModel):
     class Config:
         validate_assignment = True
 
-    @property
-    def iter_parameters(self) -> Generator[Type[BaseParameter], None, None]:
-        """
-        An iterator over the parameters in the force group.
-        """
-        if self.parameters is None:
-            parameters = []
-        else:
-            parameters = self.parameters.values()
-        for parmaeter in parameters:
-            yield parmaeter
-
     def xml_data(self) -> Dict[str, str]:
         """
         Create the required xml data dictionary for this forcegroup which can be converted to OpenMM xml.
@@ -74,42 +72,42 @@ class BaseForceGroup(BaseModel):
             attrib[key] = str(value)
         return attrib
 
-    def set_parameter(self, atoms: Tuple[int, ...], **kwargs) -> Tuple[int, ...]:
+    def create_parameter(self, atoms: Tuple[int, ...], **kwargs):
         """
-        Set a parameter in this force group.
+        Create a parameter in this force group.
+        Must create all params in the force group at once,
+        otherwise use . syntax.
+            e.g. mol.NonbondedForce[(0,)].charge = 0.1
 
-        Check to see if we already have a parameter for this interaction, if we do pull it out and update with the new values, else create
-        a new parameter with the input values.
-
+        GOOD:
+            mol.BondForce.create_parameter(atoms=(1,), k=0.1, length=0.3)
+        ERRORS:
+            mol.BondForce.create_parameter(atoms=(1,), k=0.1)
         Args:
             atoms: The tuple of atom indices the parameter applies to.
-            kwargs: Any parameter specific attributes which should be used to update or construct the parameter object.
-
-        Returns:
-            The tuple of atom indices the parameter is registered under note this might be different to that supplied due to ordering.
+            kwargs: Any parameter specific attributes used to construct the parameter object.
         """
+
         if self.parameters is None:
             self.parameters = {}
+        # Always delete old params (forwards or backwards)
         try:
-            parameter = self.get_parameter(atoms=atoms)
-            parameter.update(**kwargs)
+            self.remove_parameter(atoms)
         except MissingParameterError:
-            parameter_type = self._parameter_class()
-            kwargs["atoms"] = atoms
-            parameter = parameter_type(**kwargs)
-
+            pass
+        parameter_type = self._parameter_class()
+        kwargs["atoms"] = atoms
+        parameter = parameter_type(**kwargs)
         self.parameters[atoms] = parameter
-        return parameter.atoms
 
-    def clear_parameters(self) -> None:
+    def clear_parameters(self):
         """Remove all current parameters."""
         self.parameters = {}
 
-    def remove_parameter(self, atoms: Tuple[int, ...]) -> Type[BaseParameter]:
+    def remove_parameter(self, atoms: Tuple[int, ...]):
         """Remove a parameter in this force group."""
         parameter = self.get_parameter(atoms)
-        parameter = self.parameters.pop(parameter.atoms)
-        return parameter
+        self.parameters.pop(parameter.atoms)
 
     def get_parameter(self, atoms: Tuple[int, ...]) -> Type[BaseParameter]:
         """

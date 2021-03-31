@@ -53,7 +53,7 @@ class BondStereoChemistry(str, Enum):
 
 @dataclasses.dataclass  # Cannot be frozen as params are loaded separately.
 class AIM:
-    vol: Optional[float]
+    volume: Optional[float]
     charge: Optional[float]
     c8: Optional[float]
     # TODO Extend to include other types of potential e.g. Buckingham

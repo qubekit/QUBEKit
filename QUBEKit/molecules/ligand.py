@@ -9,17 +9,11 @@ TODO ligand.py Refactor:
             (what is dih_start, how is it different to di_starts etc)
         Perform checks after reading input (check_names_are_unique(), validate_info(), etc)
     CONSIDER:
-        Add typing; especially for class variables
-            Careful wrt complex variables such as coords, atoms, etc
         Remove / replace DefaultsMixin with inheritance, dict or some other solution
         Remove any repeated or unnecessary variables
             Should state be handled in ligand or run?
-            Should testing be handled in ligand or tests?
         Change the structure and type of some variables for clarity
-            Should coords actually be a class instead of a dict?
             Do we access via index too often; should we use e.g. SimpleNamespaces/NamedTupleS?
-        Split ligand.py into a package with three+ files:
-            base/defaults/configs.py; ligand.py; protein.py (where should Atom() go?)
         Be more strict about public/private class/method/function naming?
 """
 
@@ -125,8 +119,6 @@ class DefaultsMixin:
 
         self.chargemol = "/home/<QUBEKit_user>/chargemol_09_26_2017"
         self.log = 999
-        # Internal for QUBEKit testing; stops decorators from trying to log to a file unnecessarily.
-        self.testing = False
 
 
 class Molecule:
@@ -630,7 +622,7 @@ class Molecule:
 
         # now set back
         for parameter_key in parameter_keys:
-            force_group.set_parameter(atoms=parameter_key, **raw_parameter_values)
+            force_group.create_parameter(atoms=parameter_key, **raw_parameter_values)
 
     def measure_dihedrals(self) -> Optional[Dict[Tuple[int, int, int, int], float]]:
         """
@@ -729,7 +721,7 @@ class Molecule:
             )
 
         # add sites to Atomtypes, topology and nonbonded
-        for i, site in enumerate(self.extra_sites.iter_sites(), start=1):
+        for i, site in enumerate(self.extra_sites, start=1):
             site_name = f"v-site{i}"
             site_class = f"X{i}"
             ET.SubElement(
@@ -745,7 +737,7 @@ class Molecule:
         BondForce = ET.SubElement(
             root, self.BondForce.openmm_group(), attrib=self.BondForce.xml_data()
         )
-        for parameter in self.BondForce.iter_parameters:
+        for parameter in self.BondForce:
             ET.SubElement(
                 BondForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
@@ -757,24 +749,24 @@ class Molecule:
         AngleForce = ET.SubElement(
             root, self.AngleForce.openmm_group(), attrib=self.AngleForce.xml_data()
         )
-        for parameter in self.AngleForce.iter_parameters:
+        for parameter in self.AngleForce:
             ET.SubElement(
                 AngleForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
         TorsionForce = ET.SubElement(
             root, self.TorsionForce.openmm_group(), attrib=self.TorsionForce.xml_data()
         )
-        for parameter in self.TorsionForce.iter_parameters:
+        for parameter in self.TorsionForce:
             ET.SubElement(
                 TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
-        for parameter in self.ImproperTorsionForce.iter_parameters:
+        for parameter in self.ImproperTorsionForce:
             ET.SubElement(
                 TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
 
         # now we add more site info after general bonding
-        for i, site in enumerate(self.extra_sites.iter_sites()):
+        for i, site in enumerate(self.extra_sites):
             site_data = site.xml_data()
             # we have to add its global index
             site_data["index"] = str(i + self.n_atoms)
@@ -785,12 +777,12 @@ class Molecule:
             self.NonbondedForce.openmm_group(),
             attrib=self.NonbondedForce.xml_data(),
         )
-        for parameter in self.NonbondedForce.iter_parameters:
+        for parameter in self.NonbondedForce:
             ET.SubElement(
                 NonbondedForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
 
-        for i, site in enumerate(self.extra_sites.iter_sites(), start=1):
+        for i, site in enumerate(self.extra_sites, start=1):
             site_name = f"v-site{i}"
             ET.SubElement(
                 NonbondedForce,

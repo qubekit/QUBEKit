@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import pytest
 
 from QUBEKit.molecules import Protein
