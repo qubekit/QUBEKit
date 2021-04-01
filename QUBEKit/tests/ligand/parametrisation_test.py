@@ -242,9 +242,9 @@ def test_round_trip_energy(tmpdir, molecule, method, openff, antechamber):
 
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data(molecule))
-        # parameterise the system
+        # parametrise the system
         engine.parametrise_molecule(mol)
-        # this will make a serilised system in the folder so get the reference energy
+        # this will make a serialised system in the folder so get the reference energy
         ref_system = XmlSerializer.deserializeSystem(open("serialised.xml").read())
         parm_top = load_topology(
             mol.to_openmm_topology(), system=ref_system, xyz=mol.openmm_coordinates()
@@ -252,7 +252,6 @@ def test_round_trip_energy(tmpdir, molecule, method, openff, antechamber):
         ref_energy = energy_decomposition_system(
             parm_top, ref_system, platform="Reference"
         )
-        # print(ref_energy)
         # now we need to build the system from our stored parameters
         mol.write_parameters(file_name="test.xml")
         ff = app.ForceField("test.xml")
@@ -265,7 +264,6 @@ def test_round_trip_energy(tmpdir, molecule, method, openff, antechamber):
         qube_energy = energy_decomposition_system(
             qube_struc, qube_system, platform="Reference"
         )
-        # print(qube_energy)
         # compare the decomposed energies of the groups
         for force_group, energy in ref_energy:
             for qube_force, qube_e in qube_energy:

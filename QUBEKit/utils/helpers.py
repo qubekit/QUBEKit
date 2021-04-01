@@ -277,7 +277,7 @@ def fix_net_charge(molecule):
 
     if extra:
         last_atom_index = molecule.n_atoms - 1
-        molecule.NonbondedForce[(last_atom_index,)] += extra
+        molecule.NonbondedForce[(last_atom_index,)].charge += extra
 
     for param in molecule.NonbondedForce:
         param.charge = float(param.charge)

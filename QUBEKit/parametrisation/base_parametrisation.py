@@ -9,7 +9,7 @@ from QUBEKit.forcefield import VirtualSite3Point
 from QUBEKit.molecules.ligand import Ligand
 from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import SchemaBase
-from QUBEKit.utils.exceptions import TopologyMismatch
+from QUBEKit.utils.exceptions import MissingParameterError, TopologyMismatch
 from QUBEKit.utils.helpers import check_improper_torsion, check_proper_torsion
 
 
@@ -152,15 +152,21 @@ class Parametrisation(SchemaBase, abc.ABC):
                 data = {"k" + p: k, "periodicity" + p: int(p), "phase" + p: phase}
                 # check if the torsion is proper or improper
                 if check_proper_torsion(torsion=tor_str, molecule=molecule):
-                    molecule.TorsionForce.create_parameter(atoms=tor_str, **data)
+                    try:
+                        torsion = molecule.TorsionForce[tor_str]
+                        torsion.update(**data)
+                    except MissingParameterError:
+                        molecule.TorsionForce.create_parameter(atoms=tor_str, **data)
                 else:
                     try:
                         improper = check_improper_torsion(
                             improper=tor_str, molecule=molecule
                         )
-                        molecule.ImproperTorsionForce.create_parameter(
-                            atoms=improper, **data
-                        )
+                        try:
+                            torsion = molecule.TorsionForce[improper]
+                            torsion.update(**data)
+                        except MissingParameterError:
+                            molecule.TorsionForce.create_parameter(atoms=tor_str, **data)
                     except TopologyMismatch:
                         raise RuntimeError(
                             f"Found a torsion that is not proper or improper {tor_str}"

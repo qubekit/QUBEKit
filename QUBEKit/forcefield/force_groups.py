@@ -34,8 +34,13 @@ class BaseForceGroup(BaseModel):
     def __getitem__(self, item):
         try:
             return self.parameters[item]
+        except TypeError:
+            raise MissingParameterError
         except KeyError:
-            return self.parameters[tuple(reversed(item))]
+            try:
+                return self.parameters[tuple(reversed(item))]
+            except KeyError:
+                raise MissingParameterError
 
     @classmethod
     @abc.abstractmethod
