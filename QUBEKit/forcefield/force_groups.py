@@ -24,7 +24,11 @@ class BaseForceGroup(BaseModel):
     parameters: Optional[Dict[Tuple[int, ...], Type[BaseParameter]]] = None
 
     def __iter__(self) -> Generator:
-        for parameter in self.parameters.values():
+        if self.parameters is None:
+            parameters = []
+        else:
+            parameters = self.parameters.values()
+        for parameter in parameters:
             yield parameter
 
     def __getitem__(self, item):
