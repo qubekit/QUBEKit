@@ -528,6 +528,41 @@ def test_to_rdkit(molecule):
                 assert bond.GetStereo() == Chem.BondStereo.STEREOZ
 
 
+def test_to_rdkit_no_aromatics():
+    """
+    Make sure aromatic bonds/atoms are correctly tagged.
+    """
+    mol = Ligand.from_file(get_data("12-dichloroethene.sdf"))
+    rd_mol = mol.to_rdkit()
+    for atom in rd_mol.GetAtoms():
+        assert atom.GetIsAromatic() is False
+    for bond in rd_mol.GetBonds():
+        assert bond.GetIsAromatic() is False
+
+
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("Cc1ccc2c(c1)OCO2", id="aromatic 1"),
+        pytest.param("O=C1CCc2ccccc2C1", id="aromatic 2"),
+    ],
+)
+def test_to_rdkit_kekule(molecule):
+    """
+    Make sure we can correctly convert a molecule to rdkit when it has mixed aromatic and non-aromatic rings.
+    This test is due to an kekule error where non aromatic atoms were sometimes given aromatic bonds.
+    """
+    mol = Ligand.from_smiles(molecule, name="test")
+    rd_mol = mol.to_rdkit()
+    for atom in rd_mol.GetAtoms():
+        qb_atom = mol.atoms[atom.GetIdx()]
+        assert atom.GetIsAromatic() is qb_atom.aromatic
+    for bond in rd_mol.GetBonds():
+        qb_bond = mol.bonds[bond.GetIdx()]
+        assert qb_bond.aromatic is bond.GetIsAromatic()
+        assert qb_bond.bond_order == bond.GetBondTypeAsDouble()
+
+
 def test_to_rdkit_complicated_stereo():
     """
     Make sure we can convert a complicated molecule with multiple stereo centres to rdkit.
