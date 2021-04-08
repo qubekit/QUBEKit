@@ -53,7 +53,7 @@ class BaseParameter(BasicParameterModel):
     def _check_atoms(cls, atoms: Tuple[int, ...]) -> Tuple[int, ...]:
         if len(atoms) != cls._n_tags():
             raise ValueError(
-                "The number of target atoms for this potential is incorect."
+                "The number of target atoms for this potential is incorrect."
             )
         return atoms
 
