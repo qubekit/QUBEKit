@@ -159,14 +159,14 @@ class Parametrisation(SchemaBase, abc.ABC):
                         molecule.TorsionForce.create_parameter(atoms=tor_str, **data)
                 else:
                     try:
-                        improper = check_improper_torsion(
+                        improper_str = check_improper_torsion(
                             improper=tor_str, molecule=molecule
                         )
                         try:
-                            torsion = molecule.TorsionForce[improper]
+                            torsion = molecule.ImproperTorsionForce[improper_str]
                             torsion.update(**data)
                         except MissingParameterError:
-                            molecule.TorsionForce.create_parameter(atoms=tor_str, **data)
+                            molecule.ImproperTorsionForce.create_parameter(atoms=tor_str, **data)
                     except TopologyMismatch:
                         raise RuntimeError(
                             f"Found a torsion that is not proper or improper {tor_str}"

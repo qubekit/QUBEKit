@@ -612,7 +612,7 @@ class Molecule:
 
         raw_parameter_values = {}
         for parameter_key in parameter_keys:
-            param = force_group.get_parameter(atoms=parameter_key)
+            param = force_group[parameter_key]
             for attr in symmetry_attrs:
                 raw_parameter_values.setdefault(attr, []).append(getattr(param, attr))
 
