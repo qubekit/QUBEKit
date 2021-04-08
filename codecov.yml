@@ -1,7 +1,7 @@
 # Codecov configuration to make it a bit less noisy
 coverage:
   ignore:
-    -QUBEKit/test/.*
+    -qubekit/test/.*
   status:
     patch: false
     project:

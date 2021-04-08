@@ -10,4 +10,4 @@ VEHICLe
 *.z
 *.csv
 *.dat
-!QUBEKit/tests/files/*
+!qubekit/tests/files/*

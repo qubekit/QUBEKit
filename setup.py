@@ -26,9 +26,9 @@ setup(
     author="Joshua Thomas Horton, Chris Ringrose",
     entry_points={
         "console_scripts": [
-            "QUBEKit = QUBEKit.run:main",
-            "qubekit = QUBEKit.run:main",
-            "QUBEKit-pro = QUBEKit.proteins.protein_run:main",
+            "QUBEKit = qubekit.run:main",
+            "qubekit = qubekit.run:main",
+            "QUBEKit-pro = qubekit.proteins.protein_run:main",
         ]
     },
     version=versioneer.get_version(),

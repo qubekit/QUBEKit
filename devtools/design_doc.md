@@ -10,8 +10,9 @@ Whenever a class or method takes an argument: `molecule`, this is what is meant.
 
 The molecule object is either a ligand or a protein, the code for which is stored in the `ligand.py` file.
 A molecule object is initialised by simply passing a filename, smiles string or json dict like so:
+
 ```python
-from QUBEKit.molecules import Ligand
+from qubekit.molecules import Ligand
 
 methane = Ligand('methane.pdb')
 ethane = Ligand('CC')
@@ -117,8 +118,8 @@ Say, for example, a user would like to apply the modified Seminario method to a 
 All that would be needed is some input file containing the coordinates, and the hessian matrix itself.
 
 ```python
-from QUBEKit.molecules.ligand import Ligand
-from QUBEKit.mod_seminario import ModSeminario
+from qubekit.molecules.ligand import Ligand
+from qubekit.mod_seminario import ModSeminario
 
 import numpy as np
 
