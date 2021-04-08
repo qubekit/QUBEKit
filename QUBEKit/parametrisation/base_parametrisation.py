@@ -167,7 +167,7 @@ class Parametrisation(SchemaBase, abc.ABC):
                             torsion.update(**data)
                         except MissingParameterError:
                             molecule.ImproperTorsionForce.create_parameter(
-                                atoms=tor_str, **data
+                                atoms=improper_str, **data
                             )
                     except TopologyMismatch:
                         raise RuntimeError(

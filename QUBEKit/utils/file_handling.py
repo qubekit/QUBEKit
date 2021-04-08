@@ -8,7 +8,7 @@ Should be very little calculation here, simply file reading and some small valid
 
 import contextlib
 import os
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 from typing_extensions import Literal

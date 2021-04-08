@@ -295,19 +295,26 @@ def test_amber_improper(tmpdir, antechamber):
         assert mol.ImproperTorsionForce.n_parameters == 6
 
 
-def test_param_storage():
-    mol = Ligand.from_file(get_data("chloromethane.pdb"))
-    OpenFF().parametrise_molecule(mol)
-    with pytest.raises(ValidationError):
-        # Try to only set one param at once (create requires all at once)
-        mol.NonbondedForce.create_parameter(atoms=(0,), charge=0.1)
-    mol.NonbondedForce.create_parameter(atoms=(0,), charge=0.1, epsilon=0.2, sigma=0.3)
+def test_param_storage(tmpdir):
+    """
+    Make sure the new parameter storage can be accessed and raises an error when creating parameters
+    with incomplete data.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("chloromethane.pdb"))
+        OpenFF().parametrise_molecule(mol)
+        with pytest.raises(ValidationError):
+            # Try to only set one param at once (create requires all at once)
+            mol.NonbondedForce.create_parameter(atoms=(0,), charge=0.1)
+        mol.NonbondedForce.create_parameter(
+            atoms=(0,), charge=0.1, epsilon=0.2, sigma=0.3
+        )
 
-    assert mol.NonbondedForce[(0,)].charge == 0.1
-    assert mol.NonbondedForce[(0,)].epsilon == 0.2
-    assert mol.NonbondedForce[(0,)].sigma == 0.3
+        assert mol.NonbondedForce[(0,)].charge == 0.1
+        assert mol.NonbondedForce[(0,)].epsilon == 0.2
+        assert mol.NonbondedForce[(0,)].sigma == 0.3
 
-    mol.NonbondedForce[(0,)].charge = 5
-    assert mol.NonbondedForce[(0,)].charge == 5
+        mol.NonbondedForce[(0,)].charge = 5
+        assert mol.NonbondedForce[(0,)].charge == 5
 
-    assert mol.BondForce[(0, 1)].k == mol.BondForce[(1, 0)].k
+        assert mol.BondForce[(0, 1)].k == mol.BondForce[(1, 0)].k

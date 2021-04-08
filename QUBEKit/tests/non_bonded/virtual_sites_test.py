@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import pytest
@@ -18,16 +19,19 @@ def mol():
     """
     Initialise the Ligand molecule object with data for Chloromethane
     """
-    molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
-    molecule.home = None
-    molecule.enable_symmetry = True
-    OpenFF().parametrise_molecule(molecule)
-    ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
-    dir_path = os.path.dirname(ddec_file_path)
-    ExtractChargeData.read_files(molecule, dir_path, "chargemol")
-    fix_net_charge(molecule)
+    # use temp directory to remove parametrisation files
+    with TemporaryDirectory() as temp:
+        os.chdir(temp)
+        molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
+        molecule.home = None
+        molecule.enable_symmetry = True
+        OpenFF().parametrise_molecule(molecule)
+        ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
+        dir_path = os.path.dirname(ddec_file_path)
+        ExtractChargeData.read_files(molecule, dir_path, "chargemol")
+        fix_net_charge(molecule)
 
-    return molecule
+        return molecule
 
 
 def test_extract_charge(mol):

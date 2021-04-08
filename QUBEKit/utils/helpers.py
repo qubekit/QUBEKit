@@ -10,7 +10,7 @@ import pickle
 from collections import OrderedDict
 from contextlib import contextmanager
 from importlib import import_module
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
@@ -434,7 +434,7 @@ def check_improper_torsion(
 ) -> Tuple[int, int, int, int]:
     """
     Check that the given improper is valid for the molecule graph.
-    and always return the central bond as the first atom.
+    and always return the central atom as the first atom.
     """
     for atom_index in improper:
         try:

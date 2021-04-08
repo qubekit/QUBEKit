@@ -8,7 +8,7 @@ If the error is significantly reduced with one or two v-sites, then it is saved 
 See VirtualSites.fit() for fitting details.
 """
 
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
