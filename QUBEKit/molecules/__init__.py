@@ -5,7 +5,6 @@ from QUBEKit.molecules.components import (
     CloudPen,
     Dipole,
     Element,
-    ExtraSite,
     Quadrupole,
     ReferenceData,
     TorsionData,

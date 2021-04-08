@@ -282,29 +282,6 @@ class Bond(BaseModel):
         return self.atom1_index, self.atom2_index
 
 
-class ExtraSite:
-    """
-    Used to store extra sites for xml writer in ligand.
-    This class is used by both internal v-sites fitting and the ONETEP reader.
-    """
-
-    def __init__(self):
-        self.parent_index: Optional[int] = None
-        self.closest_a_index: Optional[int] = None
-        self.closest_b_index: Optional[int] = None
-        # Optional: Used for Nitrogen only.
-        self.closest_c_index: Optional[int] = None
-
-        self.o_weights: Optional[List[float]] = None
-        self.x_weights: Optional[List[float]] = None
-        self.y_weights: Optional[List[float]] = None
-
-        self.p1: Optional[float] = None
-        self.p2: Optional[float] = None
-        self.p3: Optional[float] = None
-        self.charge: Optional[float] = None
-
-
 class ReferenceData(BaseModel):
     """
     A basic reference data class.
