@@ -51,7 +51,7 @@ def test_adding_torsions():
     t_scan = TorsionScan1D()
     t_scan.clear_special_torsions()
     # add a ring range limited scan
-    t_scan.add_special_torsion(smirks="[*:1]@[*:2]", scan_range=(-40, 40))
+    t_scan.add_special_torsion(smirks="[*:1]:[*:2]", scan_range=(-40, 40))
 
 
 def test_adding_torsions_bad():
@@ -68,6 +68,37 @@ def test_adding_avoided_torsion():
     t_scan.clear_avoided_torsions()
     # avoid all double bonds
     t_scan.add_avoided_torsion(smirks="[*:1]=[*:2]")
+
+
+def test_torsion_special_case_double():
+    """
+    Make sure special cases changes the scan range for a bond.
+    """
+    mol = Ligand.from_smiles("CO", "methanol")
+    t_scan = TorsionScan1D()
+    t_scan.clear_avoided_torsions()
+    # add the special case with non-default range
+    t_scan.add_special_torsion(smirks="[*:1]-[OH1:2]", scan_range=(0, 180))
+    # get the one rotatable bond
+    bond = mol.find_rotatable_bonds()[0]
+    scan_range = t_scan._get_scan_range(molecule=mol, bond=bond)
+    assert scan_range == (0, 180)
+
+
+def test_torsion_special_case_quad():
+    """
+    Make sure the special case changes the scan range when a full torsion is described.
+    """
+    mol = Ligand.from_file(get_data("biphenyl.sdf"))
+    t_scan = TorsionScan1D()
+    t_scan.clear_avoided_torsions()
+    # add the special case with non-default range
+    # this will target the bridgehead bond
+    t_scan.add_special_torsion(smirks="[c:1]:[c:2]-[c:3]:[c:4]", scan_range=(0, 180))
+    # get the one rotatable bond
+    bond = mol.find_rotatable_bonds()[0]
+    scan_range = t_scan._get_scan_range(molecule=mol, bond=bond)
+    assert scan_range == (0, 180)
 
 
 def test_no_dihedrals(tmpdir):

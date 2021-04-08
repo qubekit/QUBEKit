@@ -22,16 +22,18 @@ class AvoidedTorsion(SchemaBase):
     def validate_smirks(cls, smirks: str):
         """
         Make sure the smirks is valid by trying to make an environment from it.
+        Also make sure either two or 4 atoms are tagged for the dihedral.
         """
         # validate the smarts with the toolkit
         ChemicalEnvironment.validate_smirks(smirks=smirks)
         # look for tags
-        if re.search(":[0-9]]+", smirks) is not None:
+        tags = re.findall(":[0-9]]", smirks)
+        if len(tags) == 2 or len(tags) == 4:
             return smirks
         else:
             raise SMIRKSParsingError(
-                f"The smirks pattern passed has not tagged atoms, please tag the atom in the "
-                f"substructure you wish to target."
+                "The smirks pattern passed has an incorrect number of tagged atoms, to identify a bond to not rotate"
+                "please tag 2 or 4 atoms."
             )
 
 

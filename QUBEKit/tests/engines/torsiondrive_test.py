@@ -89,23 +89,23 @@ def test_full_tdrive(tmpdir):
     """
     Try and run a full torsiondrive for ethane with a cheap rdkit method.
     """
-    # with tmpdir.as_cwd():
+    with tmpdir.as_cwd():
 
-    ethane = Ligand.from_file(get_data("ethane.sdf"))
-    # make the scan data
-    bond = ethane.find_rotatable_bonds()[0]
-    dihedral = ethane.dihedrals[bond.indices][0]
-    dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
-    tdriver = TorsionDriver(
-        program="rdkit",
-        method="uff",
-        basis=None,
-        memory=2,
-        cores=1,
-        n_workers=1,
-        grid_spacing=60,
-    )
-    _ = tdriver.run_torsiondrive(molecule=ethane, dihedral_data=dihedral_data)
+        ethane = Ligand.from_file(get_data("ethane.sdf"))
+        # make the scan data
+        bond = ethane.find_rotatable_bonds()[0]
+        dihedral = ethane.dihedrals[bond.indices][0]
+        dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
+        tdriver = TorsionDriver(
+            program="rdkit",
+            method="uff",
+            basis=None,
+            memory=2,
+            cores=1,
+            n_workers=1,
+            grid_spacing=60,
+        )
+        _ = tdriver.run_torsiondrive(molecule=ethane, dihedral_data=dihedral_data)
 
 
 def test_get_new_jobs(ethane_state):

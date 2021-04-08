@@ -178,9 +178,6 @@ class Molecule:
             routine:
                 The set of strings which encode the routine information used to create the molecule.
 
-        # Structure
-        symm_hs
-        qm_energy
 
         # XML Info
         extra_sites
@@ -195,11 +192,6 @@ class Molecule:
                                 dihedral tuple with an improper tag only for improper torsions
                                 e.g. {(3, 1, 2, 6): [[1, 0.6, 0], [2, 0, 3.141592653589793], ... Improper]}
         NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
-
-
-        dih_start
-        dih_end
-        increments
 
         combination             str; Combination rules e.g. 'opls'
 
@@ -221,8 +213,7 @@ class Molecule:
         )
         self.provenance: Dict[str, Any] = provenance
 
-        self.symm_hs: Optional[Dict] = None
-        self.symm_hs: Optional[Dict] = None
+        # self.symm_hs: Optional[Dict] = None
         self.qm_scans: Optional[List[TorsionDriveData]] = None
         # self.scan_order = None
         self.descriptors = None
@@ -234,13 +225,6 @@ class Molecule:
         self.TorsionForce: BaseForceGroup = PeriodicTorsionForce()
         self.ImproperTorsionForce: BaseForceGroup = ImproperTorsionForce()
         self.NonbondedForce: BaseForceGroup = LennardJones126Force()
-
-        # Dihedral settings
-        # self.dih_starts: Dict = {}
-        # self.dih_ends: Dict = {}
-        # self.increments: Dict = {}
-        # # this holds the groups which should not be considered rotatable
-        # self.methyl_amine_nitride_cores: Optional[Dict] = None
 
         self.combination: str = "amber"
 
@@ -1065,47 +1049,6 @@ class Molecule:
                 self.qm_scans = []
             self.qm_scans.append(scan_data)
 
-    # def symmetrise_from_topology(self) -> None:
-    #     """
-    #     First, if rdkit_mol has been generated, get the bond and angle symmetry dicts.
-    #     These will be used by L-J and the Harmonic Bond/Angle params
-    #
-    #     Then, based on the molecule topology, symmetrise the methyl / amine hydrogens.
-    #     If there's a carbon, does it have 3/2 hydrogens? -> symmetrise
-    #     If there's a nitrogen, does it have 2 hydrogens? -> symmetrise
-    #     Also keep a list of the methyl carbons and amine / nitrile nitrogens
-    #     then exclude these bonds from the rotatable torsions list.
-    #
-    #     TODO This needs to be more applicable to proteins (e.g. if no rdkit_mol is created).
-    #     """
-    #
-    #     methyl_hs, amine_hs, other_hs = [], [], []
-    #     methyl_amine_nitride_cores = []
-    #     topology = self.to_topology()
-    #     for atom in self.atoms:
-    #         if atom.atomic_symbol == "C" or atom.atomic_symbol == "N":
-    #
-    #             hs = []
-    #             for bonded in topology.neighbors(atom.atom_index):
-    #                 if len(list(topology.neighbors(bonded))) == 1:
-    #                     # now make sure it is a hydrogen (as halogens could be caught here)
-    #                     if self.atoms[bonded].atomic_symbol == "H":
-    #                         hs.append(bonded)
-    #
-    #             if (
-    #                 atom.atomic_symbol == "C" and len(hs) == 2
-    #             ):  # This is part of a carbon hydrogen chain
-    #                 other_hs.append(hs)
-    #             elif atom.atomic_symbol == "C" and len(hs) == 3:
-    #                 methyl_hs.append(hs)
-    #                 methyl_amine_nitride_cores.append(atom.atom_index)
-    #             elif atom.atomic_symbol == "N" and len(hs) == 2:
-    #                 amine_hs.append(hs)
-    #                 methyl_amine_nitride_cores.append(atom.atom_index)
-    #
-    #     self.symm_hs = {"methyl": methyl_hs, "amine": amine_hs, "other": other_hs}
-    #     self.methyl_amine_nitride_cores = methyl_amine_nitride_cores
-
     def openmm_coordinates(self) -> unit.Quantity:
         """
         Convert the coordinates to an openMM quantity.
@@ -1117,72 +1060,6 @@ class Molecule:
             A openMM quantity wrapped array of the coordinates in angstrom.
         """
         return unit.Quantity(self.coordinates, unit.angstroms)
-
-    # def read_tdrive(self, bond_scan):
-    #     """
-    #     Read a tdrive qdata file and get the coordinates and scan energies and store in the molecule.
-    #     :type bond_scan: the tuple of the scanned central bond
-    #     :return: None, store the coords in the traj holder and the energies in the qm scan holder
-    #     TODO Move elsewhere
-    #     """
-    #
-    #     scan_coords = []
-    #     energy = []
-    #     qm_scans = {}
-    #     with open("qdata.txt", "r") as data:
-    #         for line in data.readlines():
-    #             if "COORDS" in line:
-    #                 coords = [float(x) for x in line.split()[1:]]
-    #                 coords = np.array(coords).reshape((len(self.atoms), 3))
-    #                 scan_coords.append(coords)
-    #             elif "ENERGY" in line:
-    #                 energy.append(float(line.split()[1]))
-    #
-    #     qm_scans[bond_scan] = [np.array(energy), scan_coords]
-    #     if self.qm_scans is not None:
-    #         self.qm_scans = {**self.qm_scans, **qm_scans}
-    #     else:
-    #         self.qm_scans = qm_scans or None
-    #
-    # def read_scan_order(self, file):
-    #     """
-    #     Read a QUBEKit or tdrive dihedrals file and store the scan order into the ligand class
-    #     :param file: The dihedrals input file.
-    #     :return: The molecule with the scan_order saved
-    #     TODO Move elsewhere
-    #     """
-    #
-    #     # If we have a QUBE.dihedrals file get the scan order from there
-    #     scan_order = []
-    #     torsions = open(file).readlines()
-    #     for line in torsions:
-    #         if "#" not in line:
-    #             torsion = line.split()
-    #             if len(torsion) == 6:
-    #                 print("Torsion and dihedral range found, updating scan range:")
-    #                 # TODO Why are these class attributes?
-    #                 self.dih_start = int(torsion[-2])
-    #                 self.dih_end = int(torsion[-1])
-    #                 print(
-    #                     f"Dihedral will be scanned in the range: {self.dih_start},  {self.dih_end}"
-    #                 )
-    #             core = (int(torsion[1]), int(torsion[2]))
-    #             if core in self.dihedrals.keys():
-    #                 scan_order.append(core)
-    #             elif reversed(tuple(core)) in self.dihedrals.keys():
-    #                 scan_order.append(reversed(tuple(core)))
-    #             else:
-    #                 # This might be an improper scan so check
-    #                 improper = (
-    #                     int(torsion[0]),
-    #                     int(torsion[1]),
-    #                     int(torsion[2]),
-    #                     int(torsion[3]),
-    #                 )
-    #                 if improper in self.improper_torsions:
-    #                     print("Improper torsion found.")
-    #                     scan_order.append(improper)
-    #     self.scan_order = scan_order
 
 
 class Ligand(DefaultsMixin, Molecule):
