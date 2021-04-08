@@ -200,21 +200,6 @@ class Atom(BaseModel):
 
         return rd_atom
 
-    # def __repr__(self):
-    #     return f"{self.__class__.__name__}({self.__dict__!r})"
-    #
-    # def __str__(self):
-    #     """
-    #     Prints the Atom class objects' names and values one after another with new lines between each.
-    #     """
-    #
-    #     return_str = ""
-    #     for key, val in self.__dict__.items():
-    #         # Return all objects as {atom object name} = {atom object value(s)}.
-    #         return_str += f"\n{key} = {val}\n"
-    #
-    #     return return_str
-
 
 class Bond(BaseModel):
     """
@@ -520,15 +505,3 @@ class TorsionDriveData(BaseModel):
             The central bond tuple of the scanned torsion.
         """
         return tuple(self.dihedral[1:3])
-
-    # def create_qdata(self, file_name: str = "qdata.txt") -> None:
-    #     """
-    #     Create a qdata file from the reference data stored in the class.
-    #     """
-    #     with open(file_name, "w") as qdata:
-    #         for i, result in enumerate(self.reference_data.values()):
-    #             qdata.write(f"JOB {i}\n")
-    #             qdata.write(
-    #                 f"COORDS  {'  '.join(str(i) for i in  result.geometry.flatten().tolist())}\n"
-    #             )
-    #             qdata.write(f"ENERGY {result.energy}\n\n")
