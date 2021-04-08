@@ -9,7 +9,7 @@ from QUBEKit.forcefield import VirtualSite3Point
 from QUBEKit.molecules.ligand import Ligand
 from QUBEKit.utils import constants
 from QUBEKit.utils.datastructures import SchemaBase
-from QUBEKit.utils.exceptions import TopologyMismatch
+from QUBEKit.utils.exceptions import MissingParameterError, TopologyMismatch
 from QUBEKit.utils.helpers import check_improper_torsion, check_proper_torsion
 
 
@@ -37,7 +37,7 @@ class Parametrisation(SchemaBase, abc.ABC):
         """Return the improper torsion ordering this parametrisation method uses."""
         ...
 
-    def parametrsie_molecule(
+    def parametrise_molecule(
         self, molecule: Ligand, input_files: Optional[List[str]] = None
     ) -> Ligand:
         """
@@ -94,9 +94,9 @@ class Parametrisation(SchemaBase, abc.ABC):
                     closest_a_index=int(virtual_site.get("p2")),
                     closest_b_index=int(virtual_site.get("p3")),
                     # TODO add support for four coord sites
-                    o_weights=[float(virtual_site.get(f"wo{i}")) for i in range(1, 4)],
-                    x_weights=[float(virtual_site.get(f"wx{i}")) for i in range(1, 4)],
-                    y_weights=[float(virtual_site.get(f"wy{i}")) for i in range(1, 4)],
+                    o_weights=[float(virtual_site.get(f"wo{j}")) for j in range(1, 4)],
+                    x_weights=[float(virtual_site.get(f"wx{j}")) for j in range(1, 4)],
+                    y_weights=[float(virtual_site.get(f"wy{j}")) for j in range(1, 4)],
                     # fake the charge this will be set later
                     charge=0,
                 )
@@ -106,14 +106,14 @@ class Parametrisation(SchemaBase, abc.ABC):
             # Extract all bond data
             for Bond in in_root.iter("Bond"):
                 bond = (int(Bond.get("p1")), int(Bond.get("p2")))
-                molecule.BondForce.set_parameter(
+                molecule.BondForce.create_parameter(
                     atoms=bond, length=float(Bond.get("d")), k=float(Bond.get("k"))
                 )
 
             # Extract all angle data
             for Angle in in_root.iter("Angle"):
                 angle = int(Angle.get("p1")), int(Angle.get("p2")), int(Angle.get("p3"))
-                molecule.AngleForce.set_parameter(
+                molecule.AngleForce.create_parameter(
                     atoms=angle, angle=float(Angle.get("a")), k=float(Angle.get("k"))
                 )
 
@@ -125,7 +125,7 @@ class Parametrisation(SchemaBase, abc.ABC):
                         sites[site_num].charge = float(Atom.get("q"))
                         site_num += 1
                     else:
-                        molecule.NonbondedForce.set_parameter(
+                        molecule.NonbondedForce.create_parameter(
                             atoms=(atom_num,),
                             charge=float(Atom.get("q")),
                             sigma=float(Atom.get("sig")),
@@ -152,15 +152,23 @@ class Parametrisation(SchemaBase, abc.ABC):
                 data = {"k" + p: k, "periodicity" + p: int(p), "phase" + p: phase}
                 # check if the torsion is proper or improper
                 if check_proper_torsion(torsion=tor_str, molecule=molecule):
-                    molecule.TorsionForce.set_parameter(atoms=tor_str, **data)
+                    try:
+                        torsion = molecule.TorsionForce[tor_str]
+                        torsion.update(**data)
+                    except MissingParameterError:
+                        molecule.TorsionForce.create_parameter(atoms=tor_str, **data)
                 else:
                     try:
-                        improper = check_improper_torsion(
+                        improper_str = check_improper_torsion(
                             improper=tor_str, molecule=molecule
                         )
-                        molecule.ImproperTorsionForce.set_parameter(
-                            atoms=improper, **data
-                        )
+                        try:
+                            torsion = molecule.ImproperTorsionForce[improper_str]
+                            torsion.update(**data)
+                        except MissingParameterError:
+                            molecule.ImproperTorsionForce.create_parameter(
+                                atoms=improper_str, **data
+                            )
                     except TopologyMismatch:
                         raise RuntimeError(
                             f"Found a torsion that is not proper or improper {tor_str}"

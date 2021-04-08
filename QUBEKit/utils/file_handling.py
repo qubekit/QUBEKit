@@ -8,13 +8,16 @@ Should be very little calculation here, simply file reading and some small valid
 
 import contextlib
 import os
-from typing import List
+from typing import TYPE_CHECKING
 
 import numpy as np
 from typing_extensions import Literal
 
-from QUBEKit.molecules import CloudPen, Dipole, ExtraSite, Ligand, Quadrupole
+from QUBEKit.molecules import CloudPen, Dipole, Quadrupole
 from QUBEKit.utils.constants import ANGS_TO_NM
+
+if TYPE_CHECKING:
+    from QUBEKit.molecules import Ligand
 
 
 class ExtractChargeData:
@@ -24,26 +27,33 @@ class ExtractChargeData:
     """
 
     @classmethod
-    def read_files_chargemol(
+    def read_files(
         cls,
-        molecule: Ligand,
+        molecule: "Ligand",
         dir_path: str,
-        ddec_version: Literal[3, 6],
-    ) -> Ligand:
-        updated_mol = cls._extract_charge_data_chargemol(
-            molecule, dir_path, ddec_version
-        )
-        return updated_mol
+        charges_engine: Literal["chargemol", "onetep"] = "chargemol",
+    ) -> "Ligand":
+        if charges_engine == "chargemol":
+            # TODO Add way of finding ddec version based on files present?
+            updated_mol = cls._extract_charge_data_chargemol(
+                molecule, dir_path, molecule.ddec_version
+            )
+        elif charges_engine == "onetep":
+            updated_mol = cls._extract_charge_data_onetep(molecule, dir_path)
+        else:
+            raise ModuleNotFoundError(
+                "Only chargemol or onetep are currently usable engines in QUBEKit."
+            )
 
-    @classmethod
-    def read_files_onetep(cls, molecule: Ligand, dir_path: str) -> Ligand:
-        updated_mol = cls._extract_charge_data_onetep(molecule, dir_path)
+        if molecule.enable_symmetry:
+            updated_mol = cls._apply_symmetrisation(updated_mol)
+
         return updated_mol
 
     @classmethod
     def _extract_charge_data_chargemol(
         cls,
-        molecule: Ligand,
+        molecule: "Ligand",
         dir_path: str,
         ddec_version: Literal[3, 6],
     ):
@@ -157,12 +167,12 @@ class ExtractChargeData:
         volumes = [float(line.split()[-1]) for line in lines[2 : atom_total + 2]]
 
         for atom_index in range(atom_total):
-            molecule.atoms[atom_index].aim.vol = volumes[atom_index]
+            molecule.atoms[atom_index].aim.volume = volumes[atom_index]
 
         return molecule
 
     @classmethod
-    def _extract_charge_data_onetep(cls, molecule: Ligand, dir_path: str):
+    def _extract_charge_data_onetep(cls, molecule: "Ligand", dir_path: str) -> "Ligand":
         """
         From ONETEP output files, extract the necessary parameters for calculation of L-J.
         Args:
@@ -210,46 +220,44 @@ class ExtractChargeData:
         ]
 
         for atom_index in range(molecule.n_atoms):
-            molecule.atoms[atom_index].aim.vol = volumes[atom_index]
+            molecule.atoms[atom_index].aim.volume = volumes[atom_index]
             molecule.atoms[atom_index].aim.charge = charges[atom_index]
 
         return molecule
 
-    def _apply_symmetrisation(self):
+    @classmethod
+    def _apply_symmetrisation(cls, molecule: "Ligand") -> "Ligand":
         """
-        TODO FIX and move. Don't use to symmetrise the raw params.
-        Using the atoms picked out to be symmetrised:
-        apply the symmetry to the charge and volume values.
-        Mutates the non_bonded_force dict.
+        Apply symmetry to the charge and volume values using cip types.
         """
 
         atom_types = {}
-        for key, val in self.molecule.atom_types.items():
-            atom_types.setdefault(val, []).append(key)
+        for atom_index, cip_type in molecule.atom_types.items():
+            atom_types.setdefault(cip_type, []).append(atom_index)
 
-        # Find the average charge / volume values for each sym_set.
-        # A sym_set is atoms which should have the same charge / volume values (e.g. methyl H's).
         for sym_set in atom_types.values():
-            charge = sum(
-                self.molecule.ddec_data[atom].charge for atom in sym_set
-            ) / len(sym_set)
-            volume = sum(
-                self.molecule.ddec_data[atom].volume for atom in sym_set
-            ) / len(sym_set)
+            mean_charge = np.array(
+                [molecule.atoms[ind].aim.charge for ind in sym_set]
+            ).mean()
 
-            # Store the new values.
-            for atom in sym_set:
-                self.molecule.ddec_data[atom].charge = round(charge, 6)
-                self.molecule.ddec_data[atom].volume = round(volume, 6)
+            mean_volume = np.array(
+                [molecule.atoms[ind].aim.volume for ind in sym_set]
+            ).mean()
+
+            for atom_index in sym_set:
+                molecule.atoms[atom_index].aim.charge = mean_charge
+                molecule.atoms[atom_index].aim.volume = mean_volume
+
+        return molecule
 
 
-def extract_c8_params(dir_path: str) -> List[float]:
+def extract_c8_params(molecule: "Ligand", dir_path: str) -> "Ligand":
     """
     Extract the C8 dispersion coefficients from the MCLF calculation's output file.
     Args:
-        dir_path: directory containing the C8 xyz file from Chargemol.
-    returns:
-        ordered list of the c8 params for each atom in molecule.
+        molecule: Usual molecule object.
+        dir_path: Directory containing the C8 xyz file from Chargemol.
+    returns: Updated molecule object.
     """
 
     with open(os.path.join(dir_path, "MCLF_C8_dispersion_coefficients.xyz")) as c8_file:
@@ -263,11 +271,13 @@ def extract_c8_params(dir_path: str) -> List[float]:
 
         # c8 params IN ATOMIC UNITS
         c8_params = [float(line.split()[-1].strip()) for line in lines]
+        for atom_index in range(molecule.n_atoms):
+            molecule.atoms[atom_index].aim.c8 = c8_params[atom_index]
 
-    return c8_params
+    return molecule
 
 
-def extract_extra_sites_onetep(molecule: Ligand):
+def extract_extra_sites_onetep(molecule: "Ligand"):
     """
     Gather the extra sites from the xyz file and insert them into the molecule object.
     * Find parent and 2 reference atoms
@@ -279,7 +289,6 @@ def extract_extra_sites_onetep(molecule: Ligand):
     with open("xyz_with_extra_point_charges.xyz") as xyz_sites:
         lines = xyz_sites.readlines()
 
-    extra_sites = dict()
     parent = 0
     site_number = 0
 
@@ -288,53 +297,57 @@ def extract_extra_sites_onetep(molecule: Ligand):
             parent += 1
             # Search the following entries for sites connected to this atom
             for virtual_site in lines[i + 3 :]:
-                site_data = ExtraSite()
+                site_data = {}
                 element, *site_coords, site_charge = virtual_site.split()
                 # Not a virtual site:
                 if element != "X":
                     break
                 else:
+                    site_data["charge"] = site_charge
+                    site_data["parent_index"] = parent
                     site_coords = np.array([float(coord) for coord in site_coords])
 
-                    closest_atoms = list(molecule.topology.neighbors(parent))
+                    closest_atoms = list(molecule.to_topology().neighbors(parent))
                     if (len(closest_atoms) < 2) or (
                         len(molecule.atoms[parent].bonds) > 3
                     ):
-                        for atom in list(molecule.topology.neighbors(closest_atoms[0])):
+                        for atom in list(
+                            molecule.to_topology().neighbors(closest_atoms[0])
+                        ):
                             if atom not in closest_atoms and atom != parent:
                                 closest_atoms.append(atom)
                                 break
 
                     # Get the xyz coordinates of the reference atoms
-                    coords = (
-                        molecule.coords["qm"]
-                        if molecule.coords["qm"] is not []
-                        else molecule.coords["input"]
-                    )
+                    coords = molecule.coordinates
                     parent_coords = coords[parent]
                     close_a_coords = coords[closest_atoms[0]]
                     close_b_coords = coords[closest_atoms[1]]
 
-                    site_data.parent_index = parent
-                    site_data.closest_a_index = closest_atoms[0]
-                    site_data.closest_b_index = closest_atoms[1]
+                    site_data["closest_a_index"] = closest_atoms[0]
+                    site_data["closest_b_index"] = closest_atoms[1]
 
                     parent_atom = molecule.atoms[parent]
                     if parent_atom.atomic_symbol == "N" and len(parent_atom.bonds) == 3:
                         close_c_coords = coords[closest_atoms[2]]
-                        site_data.closest_c_index = closest_atoms[2]
+                        site_data["closest_c_index"] = closest_atoms[2]
 
                         x_dir = (
                             (close_a_coords + close_b_coords + close_c_coords) / 3
                         ) - parent_coords
                         x_dir /= np.linalg.norm(x_dir)
 
-                        site_data.p2 = 0
-                        site_data.p3 = 0
+                        site_data["p2"] = 0
+                        site_data["p3"] = 0
 
-                        site_data.o_weights = [1.0, 0.0, 0.0, 0.0]
-                        site_data.x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
-                        site_data.y_weights = [1.0, -1.0, 0.0, 0.0]
+                        site_data["o_weights"] = [1.0, 0.0, 0.0, 0.0]
+                        site_data["x_weights"] = [
+                            -1.0,
+                            0.33333333,
+                            0.33333333,
+                            0.33333333,
+                        ]
+                        site_data["y_weights"] = [1.0, -1.0, 0.0, 0.0]
 
                     else:
                         x_dir = close_a_coords - parent_coords
@@ -352,28 +365,26 @@ def extract_extra_sites_onetep(molecule: Ligand):
                             np.dot((site_coords - parent_coords), y_dir.reshape(3, 1))
                             * ANGS_TO_NM
                         )
-                        site_data.p2 = round(p2, 4)
+                        site_data["p2"] = round(p2, 4)
                         p3 = float(
                             np.dot((site_coords - parent_coords), z_dir.reshape(3, 1))
                             * ANGS_TO_NM
                         )
-                        site_data.p3 = round(p3, 4)
+                        site_data["p3"] = round(p3, 4)
 
-                        site_data.o_weights = [1.0, 0.0, 0.0]
-                        site_data.x_weights = [-1.0, 1.0, 0.0]
-                        site_data.y_weights = [-1.0, 0.0, 1.0]
+                        site_data["o_weights"] = [1.0, 0.0, 0.0]
+                        site_data["x_weights"] = [-1.0, 1.0, 0.0]
+                        site_data["y_weights"] = [-1.0, 0.0, 1.0]
 
                     p1 = float(
                         np.dot((site_coords - parent_coords), x_dir.reshape(3, 1))
                         * ANGS_TO_NM
                     )
-                    site_data.p1 = round(p1, 4)
+                    site_data["p1"] = round(p1, 4)
 
-                    extra_sites[site_number] = site_data
+                    molecule.extra_sites.create_site(**site_data)
 
                     site_number += 1
-
-    molecule.extra_sites = extra_sites
 
 
 def make_and_change_into(name: str):

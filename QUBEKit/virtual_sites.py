@@ -8,7 +8,7 @@ If the error is significantly reduced with one or two v-sites, then it is saved 
 See VirtualSites.fit() for fitting details.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -18,7 +18,6 @@ from matplotlib.cm import ScalarMappable
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import minimize
 
-from QUBEKit.molecules import ExtraSite, Ligand
 from QUBEKit.utils.constants import (
     ANGS_TO_NM,
     BOHR_TO_ANGS,
@@ -29,6 +28,9 @@ from QUBEKit.utils.constants import (
     VACUUM_PERMITTIVITY,
 )
 from QUBEKit.utils.helpers import append_to_log
+
+if TYPE_CHECKING:
+    from QUBEKit.molecules import Ligand
 
 
 class VirtualSites:
@@ -62,14 +64,14 @@ class VirtualSites:
         "I": 2.25,
     }
 
-    def __init__(self, molecule: Ligand, debug: bool = False):
+    def __init__(self, molecule: "Ligand", debug: bool = False):
         """
         :param molecule: The usual Ligand molecule object.
         :param debug: Running interactively or not. This will either show an interactive plot of the v-sites,
             or save an image with their final locations.
         """
 
-        self.molecule: Ligand = molecule
+        self.molecule: "Ligand" = molecule
         self.debug: bool = debug
         self.coords: np.ndarray = self.molecule.coordinates
 
@@ -79,8 +81,8 @@ class VirtualSites:
         # [((x, y, z), q, atom_index), ... ]
         self.v_sites_coords: List[Tuple[np.ndarray, float, int]] = []
 
-        self.sample_points: Optional[List[np.ndarray]] = None
-        self.no_site_esps: Optional[List[np.ndarray]] = None
+        self.sample_points: Optional[np.ndarray] = None
+        self.no_site_esps: Optional[np.ndarray] = None
 
     @staticmethod
     def spherical_to_cartesian(spherical_coords: np.ndarray) -> np.ndarray:
@@ -219,7 +221,7 @@ class VirtualSites:
         )
 
     @staticmethod
-    def generate_sample_points_relative(vdw_radius: float) -> List[np.ndarray]:
+    def generate_sample_points_relative(vdw_radius: float) -> np.ndarray:
         """
         Generate evenly distributed points in a series of shells around the point (0, 0, 0)
         This uses fibonacci spirals to produce an even spacing of points on a sphere.
@@ -233,8 +235,7 @@ class VirtualSites:
         phi = PI * (3.0 - np.sqrt(5.0))
 
         relative_sample_points = []
-        for shell in range(shells):
-            shell += 1
+        for shell in range(1, shells + 1):
             points_in_shell = min_points_per_shell * shell * shell
             # 1.4-2.0x the vdw_radius
             shell_radius = (1.4 + ((2.0 - 1.4) / shells) * shell) * vdw_radius
@@ -251,9 +252,9 @@ class VirtualSites:
 
                 relative_sample_points.append(np.array([x, y, z]))
 
-        return relative_sample_points
+        return np.array(relative_sample_points)
 
-    def generate_sample_points_atom(self, atom_index: int) -> List[np.ndarray]:
+    def generate_sample_points_atom(self, atom_index: int) -> np.ndarray:
         """
         * Get the vdw radius of the atom which is being analysed
         * Using the relative sample points generated from generate_sample_points_relative():
@@ -266,13 +267,13 @@ class VirtualSites:
         atom_coords = self.coords[atom_index]
         vdw_radius = self.vdw_radii[atom.atomic_symbol]
 
-        sample_points = VirtualSites.generate_sample_points_relative(vdw_radius)
-        for point in sample_points:
-            point += atom_coords
+        sample_points = (
+            VirtualSites.generate_sample_points_relative(vdw_radius) + atom_coords
+        )
 
         return sample_points
 
-    def generate_esp_atom(self, atom_index: int) -> List[float]:
+    def generate_esp_atom(self, atom_index: int) -> np.ndarray:
         """
         Using the multipole expansion, calculate the esp at each sample point around an atom.
         :param atom_index: The index of the atom being analysed.
@@ -317,11 +318,11 @@ class VirtualSites:
             )
             no_site_esps.append(v_total)
 
-        return no_site_esps
+        return np.array(no_site_esps)
 
     def generate_atom_mono_esp_two_charges(
         self, atom_index: int, site_charge: float, site_coords: np.ndarray
-    ) -> List[float]:
+    ) -> np.ndarray:
         """
         With a virtual site, calculate the monopole esp at each sample point around an atom.
         :param atom_index: The index of the atom being analysed.
@@ -344,7 +345,7 @@ class VirtualSites:
             )
             v_site_esps.append(mono_esp * M_TO_ANGS * J_TO_KCAL_P_MOL)
 
-        return v_site_esps
+        return np.array(v_site_esps)
 
     def generate_atom_mono_esp_three_charges(
         self,
@@ -353,7 +354,7 @@ class VirtualSites:
         q_b: float,
         site_a_coords: np.ndarray,
         site_b_coords: np.ndarray,
-    ) -> List[float]:
+    ) -> np.ndarray:
         """
         Calculate the esp at each sample point when two virtual sites are placed around an atom.
         :param atom_index: The index of the atom being analysed.
@@ -379,7 +380,7 @@ class VirtualSites:
             )
             v_site_esps.append(mono_esp * M_TO_ANGS * J_TO_KCAL_P_MOL)
 
-        return v_site_esps
+        return np.array(v_site_esps)
 
     def get_vector_from_coords(
         self, atom_index: int, n_sites: int = 1, alt: bool = False
@@ -478,7 +479,7 @@ class VirtualSites:
 
     def esp_from_lambda_and_charge(
         self, atom_index: int, q: float, lam: float, vec: np.ndarray
-    ) -> List[float]:
+    ) -> np.ndarray:
         """
         Place a v-site at the correct position along the vector by scaling according to the lambda
         calculate the esp from the atom and the v-site.
@@ -529,7 +530,7 @@ class VirtualSites:
         lam_b: float,
         vec_a: np.ndarray,
         vec_b: np.ndarray,
-    ) -> List[float]:
+    ) -> np.ndarray:
         """
         Place v-sites at the correct positions along the vectors by scaling according to the lambdas
         calculate the esp from the atom and the v-sites.
@@ -558,7 +559,7 @@ class VirtualSites:
         lam: float,
         vec_a: np.ndarray,
         vec_b: np.ndarray,
-    ) -> List[float]:
+    ) -> np.ndarray:
         """
         Symmetric version of the above. Charges and scale factors are the same for both virtual sites.
         Place v-sites at the correct positions along the vectors by scaling according to the lambdas
@@ -587,10 +588,7 @@ class VirtualSites:
         return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
         """
         site_esps = self.esp_from_lambda_and_charge(atom_index, *q_lam, vec)
-        return sum(
-            abs(no_site_esp - site_esp)
-            for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
-        )
+        return sum(abs(self.no_site_esps - site_esps))
 
     def two_sites_objective_function(
         self,
@@ -606,10 +604,7 @@ class VirtualSites:
         site_esps = self.esp_from_lambdas_and_charges(
             atom_index, *qa_qb_lama_lamb, vec_a, vec_b
         )
-        return sum(
-            abs(no_site_esp - site_esp)
-            for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
-        )
+        return sum(abs(self.no_site_esps - site_esps))
 
     def symm_two_sites_objective_function(
         self,
@@ -626,10 +621,7 @@ class VirtualSites:
         site_esps = self.symm_esp_from_lambdas_and_charges(
             atom_index, *q_lam, vec_a, vec_b
         )
-        return sum(
-            abs(no_site_esp - site_esp)
-            for no_site_esp, site_esp in zip(self.no_site_esps, site_esps)
-        )
+        return sum(abs(self.no_site_esps - site_esps))
 
     @staticmethod
     def two_site_one_bond_constraint_charge(x):
@@ -833,10 +825,8 @@ class VirtualSites:
                 and_print=True,
             )
             self.v_sites_coords.extend(one_site_coords)
-            self.molecule.NonbondedForce.get_parameter(
-                atoms=(atom_index,)
-            ).charge -= one_site_coords[0][1]
-            self.molecule.atoms[atom_index].aim.charge -= one_site_coords[0][1]
+            self.molecule.NonbondedForce[(atom_index,)].charge -= one_site_coords[0][1]
+
         else:
             append_to_log(
                 self.molecule.home,
@@ -844,10 +834,7 @@ class VirtualSites:
                 and_print=True,
             )
             self.v_sites_coords.extend(two_site_coords)
-            self.molecule.NonbondedForce.get_parameter(atoms=(atom_index,)).charge -= (
-                two_site_coords[0][1] + two_site_coords[1][1]
-            )
-            self.molecule.atoms[atom_index].aim.charge -= (
+            self.molecule.NonbondedForce[(atom_index,)].charge -= (
                 two_site_coords[0][1] + two_site_coords[1][1]
             )
         append_to_log(
@@ -863,8 +850,8 @@ class VirtualSites:
         self,
         atom_index: int,
         errors: Dict,
-        one_site_coords: List[Tuple[np.ndarray, float]],
-        two_site_coords: List[Tuple[np.ndarray, float]],
+        one_site_coords: List[Tuple[np.ndarray, float, float]],
+        two_site_coords: List[Tuple[np.ndarray, float, float]],
     ):
         """
         Figure with three subplots.
@@ -888,10 +875,8 @@ class VirtualSites:
 
         # List of tuples where each tuple is the xyz atom coords, followed by their partial charge
         atom_points = [
-            (coord, atom_data.charge)  # [((x, y, z), q), ... ]
-            for coord, atom_data in zip(
-                self.coords, self.molecule.NonbondedForce.iter_parameters
-            )
+            (coord, nb_data.charge)  # [((x, y, z), q), ... ]
+            for coord, nb_data in zip(self.coords, self.molecule.NonbondedForce)
         ]
 
         # Add atom positions to all subplots
@@ -964,7 +949,7 @@ class VirtualSites:
         two_plt.title.set_text(f"Two Sites Positions\nError: {errors[2]: .5}")
 
         sm = ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array([])
+        sm.set_array(np.array([]))
         cbar = fig.colorbar(sm)
         cbar.ax.set_title("charge")
 
@@ -992,7 +977,7 @@ class VirtualSites:
             for atom_index, atom in enumerate(self.coords):
                 xyz_file.write(
                     f"{self.molecule.atoms[atom_index].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}"
-                    f"   {self.molecule.NonbondedForce.get_parameter(atoms=(atom_index,)).charge: .6f}\n"
+                    f"   {self.molecule.NonbondedForce[(atom_index,)].charge: .6f}\n"
                 )
 
                 for site in self.v_sites_coords:
@@ -1008,14 +993,14 @@ class VirtualSites:
         Uses the coordinates to generate the necessary position vectors to be used in the xml.
         """
 
-        extra_sites = dict()
         topology = self.molecule.to_topology()
         for site_number, site in enumerate(self.v_sites_coords):
 
-            site_data = ExtraSite()
+            site_data = {}
 
             site_coords, site_charge, parent = site
-            site_data.charge = site_charge
+            site_data["parent_index"] = parent
+            site_data["charge"] = site_charge
 
             closest_atoms = list(topology.neighbors(parent))
             if (len(closest_atoms) < 2) or (len(self.molecule.atoms[parent].bonds) > 3):
@@ -1029,26 +1014,25 @@ class VirtualSites:
             close_a_coords = self.coords[closest_atoms[0]]
             close_b_coords = self.coords[closest_atoms[1]]
 
-            site_data.parent_index = parent
-            site_data.closest_a_index = closest_atoms[0]
-            site_data.closest_b_index = closest_atoms[1]
+            site_data["closest_a_index"] = closest_atoms[0]
+            site_data["closest_b_index"] = closest_atoms[1]
 
             parent_atom = self.molecule.atoms[parent]
             if parent_atom.atomic_symbol == "N" and len(parent_atom.bonds) == 3:
                 close_c_coords = self.coords[closest_atoms[2]]
-                site_data.closest_c_index = closest_atoms[2]
+                site_data["closest_c_index"] = closest_atoms[2]
 
                 x_dir = (
                     (close_a_coords + close_b_coords + close_c_coords) / 3
                 ) - parent_coords
                 x_dir /= np.linalg.norm(x_dir)
 
-                site_data.p2 = 0
-                site_data.p3 = 0
+                site_data["p2"] = 0
+                site_data["p3"] = 0
 
-                site_data.o_weights = [1.0, 0.0, 0.0, 0.0]  # SUM MUST BE 1.0
-                site_data.x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
-                site_data.y_weights = [1.0, -1.0, 0.0, 0.0]
+                site_data["o_weights"] = [1.0, 0.0, 0.0, 0.0]  # SUM MUST BE 1.0
+                site_data["x_weights"] = [-1.0, 0.33333333, 0.33333333, 0.33333333]
+                site_data["y_weights"] = [1.0, -1.0, 0.0, 0.0]
 
             else:
                 x_dir = close_a_coords - parent_coords
@@ -1065,26 +1049,24 @@ class VirtualSites:
                     np.dot((site_coords - parent_coords), y_dir.reshape(3, 1))
                     * ANGS_TO_NM
                 )
-                site_data.p2 = round(p2, 4)
+                site_data["p2"] = round(p2, 4)
                 p3 = float(
                     np.dot((site_coords - parent_coords), z_dir.reshape(3, 1))
                     * ANGS_TO_NM
                 )
-                site_data.p3 = round(p3, 4)
+                site_data["p3"] = round(p3, 4)
 
-                site_data.o_weights = [1.0, 0.0, 0.0]  # SUM MUST BE 1.0
-                site_data.x_weights = [-1.0, 1.0, 0.0]
-                site_data.y_weights = [-1.0, 0.0, 1.0]
+                site_data["o_weights"] = [1.0, 0.0, 0.0]  # SUM MUST BE 1.0
+                site_data["x_weights"] = [-1.0, 1.0, 0.0]
+                site_data["y_weights"] = [-1.0, 0.0, 1.0]
 
             # Get the local coordinate positions
             p1 = float(
                 np.dot((site_coords - parent_coords), x_dir.reshape(3, 1)) * ANGS_TO_NM
             )
-            site_data.p1 = round(p1, 4)
+            site_data["p1"] = round(p1, 4)
 
-            extra_sites[site_number] = site_data
-
-        self.molecule.extra_sites = extra_sites
+            self.molecule.extra_sites.create_site(**site_data)
 
     def calculate_virtual_sites(self):
         """

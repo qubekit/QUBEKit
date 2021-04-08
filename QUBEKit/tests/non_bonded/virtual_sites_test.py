@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
 import os
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import pytest
 
 from QUBEKit.molecules import Ligand
+from QUBEKit.parametrisation import OpenFF
 from QUBEKit.utils.constants import BOHR_TO_ANGS
 from QUBEKit.utils.file_handling import ExtractChargeData, get_data
+from QUBEKit.utils.helpers import fix_net_charge
 from QUBEKit.virtual_sites import VirtualSites
 
 
@@ -16,13 +19,32 @@ def mol():
     """
     Initialise the Ligand molecule object with data for Chloromethane
     """
-    molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
-    ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
-    dir_path = os.path.dirname(ddec_file_path)
-    ExtractChargeData.read_files_chargemol(molecule, dir_path, 6)
-    molecule.home = None
+    # use temp directory to remove parametrisation files
+    with TemporaryDirectory() as temp:
+        os.chdir(temp)
+        molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
+        molecule.home = None
+        molecule.enable_symmetry = True
+        OpenFF().parametrise_molecule(molecule)
+        ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
+        dir_path = os.path.dirname(ddec_file_path)
+        ExtractChargeData.read_files(molecule, dir_path, "chargemol")
+        fix_net_charge(molecule)
 
-    return molecule
+        return molecule
+
+
+def test_extract_charge(mol):
+
+    assert mol.atoms[0].aim.charge == -0.220571
+    assert mol.atoms[0].dipole.x == 0.109103
+    assert mol.atoms[0].aim.volume == 30.289335
+
+
+def test_apply_symmetrisation(mol):
+
+    assert mol.atoms[2].aim.charge == mol.atoms[3].aim.charge
+    assert mol.atoms[2].aim.volume == mol.atoms[3].aim.volume
 
 
 @pytest.fixture(scope="module")
@@ -166,29 +188,9 @@ def test_get_vector_from_coords(vs):
     assert np.linalg.norm(vector) == pytest.approx(1.5)
 
 
-# def test_fit_one_site(mol, vs):
-#     atom_index = 1
-#     error, one_site_coords = vs.fit_one_site(atom_index)
-#     assert vs.xyz_distance(one_site_coords[0][0], mol.coordinates[atom_index]) <= 1.5
-#
-#
-# def test_fit_two_sites(mol, vs):
-#     atom_index = 1
-#     error, two_site_coords = vs.fit_two_sites(atom_index)
-#     assert vs.xyz_distance(two_site_coords[0][0], mol.coordinates[atom_index]) <= 1.5
-#     assert vs.xyz_distance(two_site_coords[1][0], mol.coordinates[atom_index]) <= 1.5
-#
-#
-# def test_fit(vs):
-#     vs.sample_points = vs.generate_sample_points_atom(1)
-#     vs.no_site_esps = vs.generate_esp_atom(1)
-#     vs.fit(1)
-#
-#     assert len(vs.v_sites_coords) != 0
+def test_fit(mol, vs, tmpdir):
+    with tmpdir.as_cwd():
+        vs.calculate_virtual_sites()
 
-
-def test_fit(mol, vs):
-    from QUBEKit.lennard_jones import LennardJones612
-
-    LennardJones612(mol).calculate_non_bonded_force()
-    vs.calculate_virtual_sites()
+        assert mol.extra_sites is not None
+        fix_net_charge(mol)

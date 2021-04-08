@@ -56,7 +56,7 @@ def pretty_progress():
         header_string.format(
             "Name",
             "Param",
-            "MM Opt",
+            "Pre Opt",
             "QM Opt",
             "Hessian",
             "Mod-Sem",
@@ -109,7 +109,7 @@ def _populate_progress_dict(file_name):
     # Indicators in the log file which describe a stage
     search_terms = (
         "PARAMETRISATION",
-        "MM_OPT",
+        "PRE_OPT",
         "QM_OPT",
         "HESSIAN",
         "MOD_SEM",

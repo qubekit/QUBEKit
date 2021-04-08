@@ -163,10 +163,12 @@ def append_to_log(
     Returns:
         Only returns when no log file can be found.
     """
-    if log_file_path is None:
-        return
     # Check if the message is an empty string to avoid adding blank lines and extra separators
     if message:
+        if and_print:
+            print(message)
+        if log_file_path is None:
+            return
         log_file = os.path.join(log_file_path, "QUBEKit_log.txt")
         if major:
             message = message.upper()
@@ -175,8 +177,6 @@ def append_to_log(
                 file.write(f"\n{message}\n")
         except FileNotFoundError:
             return
-        if and_print:
-            print(message)
 
 
 def unpickle(location=None):
@@ -264,38 +264,27 @@ def fix_net_charge(molecule):
     decimal.setcontext(decimal.Context(prec=7))
     round_to = decimal.Decimal(10) ** -6
 
-    # Convert all values to Decimal types with 6 decimal places
-    for atom_index, atom in molecule.ddec_data.items():
-        molecule.ddec_data[atom_index].charge = decimal.Decimal(atom.charge).quantize(
-            round_to
-        )
-    if molecule.extra_sites is not None:
-        for site_key, site in molecule.extra_sites.items():
-            molecule.extra_sites[site_key].charge = decimal.Decimal(
-                site.charge
-            ).quantize(round_to)
-    atom_charges = sum(atom.charge for atom in molecule.ddec_data.values())
+    for param in molecule.NonbondedForce:
+        param.charge = decimal.Decimal(param.charge).quantize(round_to)
 
-    # This is just the difference in what the net charge should be, and what it currently is.
+    atom_charges = sum(param.charge for param in molecule.NonbondedForce)
     extra = molecule.charge - atom_charges
 
     if molecule.extra_sites is not None:
-        virtual_site_charges = sum(
-            site.charge for site in molecule.extra_sites.values()
-        )
-        extra -= virtual_site_charges
+        for site in molecule.extra_sites:
+            site.charge = decimal.Decimal(site.charge).quantize(round_to)
+            extra -= site.charge
 
     if extra:
-        # Smear charge onto final atom
-        last_atom_index = len(molecule.atoms) - 1
-        molecule.ddec_data[last_atom_index].charge += extra
+        last_atom_index = molecule.n_atoms - 1
+        molecule.NonbondedForce[(last_atom_index,)].charge += extra
 
-    # Convert all values back to floats, now with 6 decimal places and the correct sum
-    for atom_index, atom in molecule.ddec_data.items():
-        molecule.ddec_data[atom_index].charge = float(atom.charge)
+    for param in molecule.NonbondedForce:
+        param.charge = float(param.charge)
+
     if molecule.extra_sites is not None:
-        for site_key, site in molecule.extra_sites.items():
-            molecule.extra_sites[site_key].charge = float(site.charge)
+        for site in molecule.extra_sites:
+            site.charge = float(site.charge)
 
 
 def collect_archive_tdrive(tdrive_record, client):
@@ -445,7 +434,7 @@ def check_improper_torsion(
 ) -> Tuple[int, int, int, int]:
     """
     Check that the given improper is valid for the molecule graph.
-    and always return the central bond as the first atom.
+    and always return the central atom as the first atom.
     """
     for atom_index in improper:
         try:

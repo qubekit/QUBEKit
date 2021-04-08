@@ -4,9 +4,17 @@ import math
 from collections import namedtuple
 from typing import Dict, List, Optional, Tuple
 
+from pydantic import dataclasses
+
 from QUBEKit.molecules import Ligand
 from QUBEKit.utils import constants
-from QUBEKit.utils.datastructures import LJData
+
+
+@dataclasses.dataclass
+class LJData:
+    a_i: float
+    b_i: float
+    r_aim: float
 
 
 class LennardJones612:
@@ -66,7 +74,7 @@ class LennardJones612:
 
         for atom_index, atom in enumerate(self.molecule.atoms):
             try:
-                atomic_symbol, atom_vol = atom.atomic_symbol, atom.aim.vol
+                atomic_symbol, atom_vol = atom.atomic_symbol, atom.aim.volume
 
                 # Find polar Hydrogens and allocate their new name: X
                 if atomic_symbol == "H":
@@ -185,7 +193,7 @@ class LennardJones612:
 
                 # alpha and beta
                 epsilon *= self.alpha * (
-                    (atom.aim.vol / self.elem_dict[atom.atomic_symbol].vfree)
+                    (atom.aim.volume / self.elem_dict[atom.atomic_symbol].vfree)
                     ** self.beta
                 )
                 epsilon *= constants.EPSILON_CONVERSION
@@ -220,6 +228,6 @@ class LennardJones612:
                 "sigma": sig_eps[0],
                 "epsilon": sig_eps[1],
             }
-            self.molecule.NonbondedForce.set_parameter(
+            self.molecule.NonbondedForce.create_parameter(
                 atoms=(atom_index,), **nonbond_data
             )

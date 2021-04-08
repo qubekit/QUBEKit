@@ -3,7 +3,8 @@
 """
 All conversions are multiplicative, e.g.
 NM_TO_ANGS; 6 nm * NM_TO_ANGS = 60 Angs
-Division will give the wrong conversion.
+
+Division will give the inverse conversion but is slower and can add floating point errors.
 """
 
 from collections import namedtuple
