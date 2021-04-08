@@ -23,7 +23,7 @@ class BaseForceGroup(BaseModel):
     type: Literal["base"] = "base"
     parameters: Optional[Dict[Tuple[int, ...], Type[BaseParameter]]] = None
 
-    def __iter__(self) -> Generator:
+    def __iter__(self) -> Generator[Type[BaseParameter], None, None]:
         if self.parameters is None:
             parameters = []
         else:
@@ -115,35 +115,7 @@ class BaseForceGroup(BaseModel):
 
     def remove_parameter(self, atoms: Tuple[int, ...]):
         """Remove a parameter in this force group."""
-        parameter = self.get_parameter(atoms)
-        self.parameters.pop(parameter.atoms)
-
-    def get_parameter(self, atoms: Tuple[int, ...]) -> Type[BaseParameter]:
-        """
-        Find a parameter in this force group and return it.
-
-        Args:
-            atoms: The tuple of atom indices that we want to try and find a parameter for.
-
-        Important:
-            This is not a copy of the parameter so any changes will update the forcefield.
-
-        Returns:
-            A parameter of type self._parameter_class for the requested atoms.
-
-        Raises:
-            MissingParameter: When there is no parameter covering the requested atoms.
-        """
-        try:
-            parameter = self.parameters[atoms]
-        except KeyError:
-            try:
-                parameter = self.parameters[tuple(reversed(atoms))]
-            except KeyError:
-                raise MissingParameterError(
-                    f"No parameter was found for a potential between atoms {atoms}."
-                )
-        return parameter
+        self.parameters.pop(self[atoms].atoms)
 
 
 class HarmonicBondForce(BaseForceGroup):
