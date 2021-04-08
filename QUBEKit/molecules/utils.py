@@ -122,9 +122,8 @@ class RDKit:
             name = input("Please enter a name for the molecule:\n>")
         mol.SetProp("_Name", name)
         mol_hydrogens = AllChem.AddHs(mol)
-        AllChem.EmbedMolecule(mol_hydrogens, AllChem.ETKDG())
+        AllChem.EmbedMolecule(mol_hydrogens, randomSeed=1)
         AllChem.SanitizeMol(mol_hydrogens)
-
         return mol_hydrogens
 
     @staticmethod
