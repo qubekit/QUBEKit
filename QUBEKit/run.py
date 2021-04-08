@@ -21,12 +21,18 @@ from shutil import copy, move
 import numpy as np
 
 import QUBEKit
-from QUBEKit.dihedrals import TorsionOptimiser, TorsionScan
-from QUBEKit.engines import Chargemol, Gaussian, GeometryOptimiser, QCEngine
+from QUBEKit.engines import (
+    Chargemol,
+    Gaussian,
+    GeometryOptimiser,
+    QCEngine,
+    TorsionDriver,
+)
 from QUBEKit.lennard_jones import LennardJones612
 from QUBEKit.mod_seminario import ModSeminario
 from QUBEKit.molecules import Ligand
 from QUBEKit.parametrisation import XML, AnteChamber, OpenFF
+from QUBEKit.torsions import TorsionOptimiser, TorsionScan1D
 from QUBEKit.utils.configs import Configure
 from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.decorators import exception_logger
@@ -104,7 +110,7 @@ class ArgsAndConfigs:
             if self.args.smiles:
                 self.molecule = Ligand.from_smiles(*self.args.smiles)
             else:
-                self.molecule = Ligand(self.args.input)
+                self.molecule = Ligand.from_file(file_name=self.args.input)
 
         # Find which config file is being used
         self.molecule.config_file = self.args.config_file
@@ -214,30 +220,30 @@ class ArgsAndConfigs:
                 display_molecule_objects(*values)
                 sys.exit()
 
-        class TorsionMakerAction(argparse.Action):
-            """Help the user make a torsion scan file."""
-
-            def __call__(self, pars, namespace, values, option_string=None):
-                # load in the ligand
-                mol = Ligand(values)
-
-                # Prompt the user for the scan order
-                scanner = TorsionScan(mol)
-                scanner.find_scan_order()
-
-                # Write out the scan file
-                with open(f"{mol.name}.dihedrals", "w+") as qube:
-                    qube.write(
-                        "# dihedral definition by atom indices starting from 0\n#  i      j      k      l\n"
-                    )
-                    for scan in mol.scan_order:
-                        scan_di = mol.dihedrals[scan][0]
-                        qube.write(
-                            f"  {scan_di[0]:2}     {scan_di[1]:2}     {scan_di[2]:2}     {scan_di[3]:2}\n"
-                        )
-                printf(f"{mol.name}.dihedrals made.")
-
-                sys.exit()
+        # class TorsionMakerAction(argparse.Action):
+        #     """Help the user make a torsion scan file."""
+        #
+        #     def __call__(self, pars, namespace, values, option_string=None):
+        #         # load in the ligand
+        #         mol = Ligand(values)
+        #
+        #         # Prompt the user for the scan order
+        #         scanner = TorsionScan(mol)
+        #         scanner.find_scan_order()
+        #
+        #         # Write out the scan file
+        #         with open(f"{mol.name}.dihedrals", "w+") as qube:
+        #             qube.write(
+        #                 "# dihedral definition by atom indices starting from 0\n#  i      j      k      l\n"
+        #             )
+        #             for scan in mol.scan_order:
+        #                 scan_di = mol.dihedrals[scan][0]
+        #                 qube.write(
+        #                     f"  {scan_di[0]:2}     {scan_di[1]:2}     {scan_di[2]:2}     {scan_di[3]:2}\n"
+        #                 )
+        #         printf(f"{mol.name}.dihedrals made.")
+        #
+        #         sys.exit()
 
         class TorsionTestAction(argparse.Action):
             """
@@ -285,15 +291,23 @@ class ArgsAndConfigs:
             "-threads",
             "--threads",
             type=int,
-            help="Number of threads used in various stages of analysis, especially for engines like "
-            "PSI4, Gaussian09, etc. Value is given as an int.",
+            help="Number of total threads used in various stages of analysis, especially for engines like "
+            "PSI4, Gaussian09, etc. Value is given as an int. Value must be even.",
         )
         parser.add_argument(
             "-memory",
             "--memory",
             type=int,
-            help="Amount of memory used in various stages of analysis, especially for engines like "
-            "PSI4, Gaussian09, etc. Value is given as an int, e.g. 6GB is simply 6.",
+            help="Amount of total memory used in various stages of analysis, especially for engines like "
+            "PSI4, Gaussian09, etc. Value is given as an int, e.g. 6GB is simply 6. Value must be even.",
+        )
+        parser.add_argument(
+            "-n_workers",
+            "--n_workers",
+            type=int,
+            default=1,
+            help="The total number of workers which can be used to run QM torsiondrives. Here the total available cores and"
+            "memory will be divided between them. Available options are 1,2,4 to prevent waste.",
         )
         parser.add_argument(
             "-ddec",
@@ -428,12 +442,12 @@ class ArgsAndConfigs:
             ],
             help="Option to skip certain stages of the execution.",
         )
-        parser.add_argument(
-            "-tor_make",
-            "--torsion_maker",
-            action=TorsionMakerAction,
-            help="Allow QUBEKit to help you make a torsion input file for the given molecule",
-        )
+        # parser.add_argument(
+        #     "-tor_make",
+        #     "--torsion_maker",
+        #     action=TorsionMakerAction,
+        #     help="Allow QUBEKit to help you make a torsion input file for the given molecule",
+        # )
         parser.add_argument(
             "-tor_test",
             "--torsion_test",
@@ -632,7 +646,7 @@ class Execute:
         * Return results, both in individual stage directories and at the end
     """
 
-    def __init__(self, molecule):
+    def __init__(self, molecule: Ligand):
 
         # At this point, molecule should contain all of the config options from
         # the defaults, config file and terminal commands. These all come from the ArgsAndConfigs class.
@@ -671,7 +685,8 @@ class Execute:
         self.create_log() if self.molecule.restart is None else self.continue_log()
 
         self.redefine_order()
-
+        # write the molecule file if not already done
+        self.molecule.to_file(file_name=f"{molecule.name}.pdb")
         self.run()
 
     def __repr__(self):
@@ -1034,7 +1049,9 @@ class Execute:
             maxiter=molecule.iterations,
         )
         # errors are auto raised from the class so catch the result, and write to file
-        result_mol = g_opt.optimise(molecule=molecule, allow_fail=True)
+        result_mol, _ = g_opt.optimise(
+            molecule=molecule, allow_fail=True, return_result=False
+        )
 
         append_to_log(
             molecule.home,
@@ -1062,7 +1079,9 @@ class Execute:
             maxiter=molecule.iterations,
         )
         # errors are auto raised from the class output is always dumped to file
-        qm_result = g_opt.optimise(molecule=molecule, allow_fail=False)
+        qm_result, _ = g_opt.optimise(
+            molecule=molecule, allow_fail=False, return_result=False
+        )
         append_to_log(molecule.home, f"QM optimisation finished", major=True)
 
         return qm_result
@@ -1215,30 +1234,27 @@ class Execute:
 
         append_to_log(molecule.home, "Starting torsion_scans", major=True)
 
-        tor_scan = TorsionScan(molecule)
-
-        # Check that we have a scan order for the molecule this should of been captured from the dihedral file
-        tor_scan.find_scan_order()
-        tor_scan.scan()
+        # build the torsiondriver engine
+        tdriver = TorsionDriver(
+            program=molecule.bonds_engine,
+            basis=molecule.basis,
+            method=molecule.theory,
+            cores=molecule.threads,
+            memory=molecule.memory,
+            n_workers=molecule.n_workers,
+        )
+        tor_scan = TorsionScan1D(torsion_driver=tdriver)
+        result_mol = tor_scan.run(molecule=molecule)
 
         append_to_log(molecule.home, "Finishing torsion_scans", major=True)
 
-        return molecule
+        return result_mol
 
     @staticmethod
     def torsion_optimise(molecule):
         """Perform torsion optimisation."""
 
         append_to_log(molecule.home, "Starting torsion_optimisations", major=True)
-
-        # First we should make sure we have collected the results of the scans
-        if molecule.qm_scans is None:
-            os.chdir(os.path.join(molecule.home, "09_torsion_scan"))
-            scan = TorsionScan(molecule)
-            if molecule.scan_order is None:
-                scan.find_scan_order()
-            scan.collect_scan()
-            os.chdir(os.path.join(molecule.home, "10_torsion_optimise"))
 
         TorsionOptimiser(molecule).run()
 

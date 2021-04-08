@@ -6,11 +6,12 @@ Purpose of this file is to read various inputs and produce the info required for
 Should be very little calculation here, simply file reading and some small validations / checks
 """
 
+import contextlib
 import os
-from typing import TYPE_CHECKING
-from typing_extensions import Literal
+from typing import List, TYPE_CHECKING
 
 import numpy as np
+from typing_extensions import Literal
 
 from QUBEKit.molecules import CloudPen, Dipole, Quadrupole
 from QUBEKit.utils.constants import ANGS_TO_NM
@@ -398,6 +399,23 @@ def make_and_change_into(name: str):
         pass
     finally:
         os.chdir(name)
+
+
+@contextlib.contextmanager
+def folder_setup(folder_name: str):
+    """
+    A helper function to make a directory with name and move into it and move back to the starting location when
+    finished.
+    """
+    cwd = os.getcwd()
+    try:
+        os.mkdir(folder_name)
+    except FileExistsError:
+        pass
+
+    os.chdir(folder_name)
+    yield
+    os.chdir(cwd)
 
 
 def get_data(relative_path: str) -> str:

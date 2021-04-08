@@ -55,6 +55,47 @@ class Protein(DefaultsMixin, Molecule):
         if ".pdb" not in file_name:
             raise FileTypeError("Proteins can only be read from pdb.")
 
+    def symmetrise_from_topology(self) -> None:
+        """
+        First, if rdkit_mol has been generated, get the bond and angle symmetry dicts.
+        These will be used by L-J and the Harmonic Bond/Angle params
+
+        Then, based on the molecule topology, symmetrise the methyl / amine hydrogens.
+        If there's a carbon, does it have 3/2 hydrogens? -> symmetrise
+        If there's a nitrogen, does it have 2 hydrogens? -> symmetrise
+        Also keep a list of the methyl carbons and amine / nitrile nitrogens
+        then exclude these bonds from the rotatable torsions list.
+
+        TODO This needs to be more applicable to proteins (e.g. if no rdkit_mol is created).
+        """
+
+        methyl_hs, amine_hs, other_hs = [], [], []
+        methyl_amine_nitride_cores = []
+        topology = self.to_topology()
+        for atom in self.atoms:
+            if atom.atomic_symbol == "C" or atom.atomic_symbol == "N":
+
+                hs = []
+                for bonded in topology.neighbors(atom.atom_index):
+                    if len(list(topology.neighbors(bonded))) == 1:
+                        # now make sure it is a hydrogen (as halogens could be caught here)
+                        if self.atoms[bonded].atomic_symbol == "H":
+                            hs.append(bonded)
+
+                if (
+                    atom.atomic_symbol == "C" and len(hs) == 2
+                ):  # This is part of a carbon hydrogen chain
+                    other_hs.append(hs)
+                elif atom.atomic_symbol == "C" and len(hs) == 3:
+                    methyl_hs.append(hs)
+                    methyl_amine_nitride_cores.append(atom.atom_index)
+                elif atom.atomic_symbol == "N" and len(hs) == 2:
+                    amine_hs.append(hs)
+                    methyl_amine_nitride_cores.append(atom.atom_index)
+
+        self.symm_hs = {"methyl": methyl_hs, "amine": amine_hs, "other": other_hs}
+        self.methyl_amine_nitride_cores = methyl_amine_nitride_cores
+
     def _save_to_protein(self, mol_input: ReadInputProtein):
         """
         Public access to private file_handlers.py file.

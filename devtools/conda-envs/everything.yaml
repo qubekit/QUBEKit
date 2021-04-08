@@ -10,6 +10,7 @@ dependencies:
     # Testing
   - openff-toolkit
   - rdkit
+  - tqdm
   - torsiondrive
   - optking
   - numpy >=1.18.1
