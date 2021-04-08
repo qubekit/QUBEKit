@@ -7,6 +7,9 @@ from QUBEKit.molecules.components import (
     Element,
     ExtraSite,
     Quadrupole,
+    ReferenceData,
+    TorsionData,
+    TorsionDriveData,
 )
 from QUBEKit.molecules.ligand import Ligand
 from QUBEKit.molecules.protein import Protein

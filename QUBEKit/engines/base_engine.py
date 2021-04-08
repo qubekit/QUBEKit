@@ -16,7 +16,7 @@ class BaseEngine(BaseModel):
     basis: Optional[str] = "6-311++G(d,p)"
     method: str = "wB97X-D"
     cores: PositiveInt = 4
-    memory: PositiveInt = 4
+    memory: PositiveInt = 10
 
     class Config:
         validate_assignment = True
@@ -38,6 +38,17 @@ class BaseEngine(BaseModel):
                 "description": "The amount of memory that should be allocated to the computation in GB."
             },
         }
+
+    @validator("cores", "memory")
+    def validate_resource(cls, resource: int) -> int:
+        """
+        Make sure that the resource is even to make distribution easier.
+        """
+        if resource % 2 != 0 and resource != 1:
+            raise ValueError(
+                f"The resource must be even to make distribution between parallel workers easier."
+            )
+        return resource
 
     @validator("program")
     def validate_program(cls, program: str) -> str:

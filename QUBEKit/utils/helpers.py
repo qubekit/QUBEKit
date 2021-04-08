@@ -10,13 +10,16 @@ import pickle
 from collections import OrderedDict
 from contextlib import contextmanager
 from importlib import import_module
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
 from QUBEKit.utils import constants
 from QUBEKit.utils.constants import COLOURS
 from QUBEKit.utils.exceptions import PickleFileNotFound, TopologyMismatch
+
+if TYPE_CHECKING:
+    from QUBEKit.molecules import Ligand, TorsionDriveData
 
 # TODO Move csv stuff for bulk runs to file_handling.py
 
@@ -458,3 +461,28 @@ def check_improper_torsion(
         except IndexError:
             continue
     raise TopologyMismatch(f"The improper {improper} is not a valid for this molecule.")
+
+
+def export_torsiondrive_data(
+    molecule: "Ligand", tdrive_data: "TorsionDriveData"
+) -> None:
+    """
+    Export the stored torsiondrive data object to a scan.xyz file and qdata.txt file required for ForceBalance.
+
+    Method taken from <https://github.com/lpwgroup/torsiondrive/blob/ac33066edf447e25e4beaf21c098e52ca0fc6649/torsiondrive/dihedral_scanner.py#L655>
+
+    Args:
+        molecule: The molecule object which contains the topology.
+        tdrive_data: The results of a torsiondrive on the input molecule.
+    """
+    from geometric.molecule import Molecule as GEOMol
+
+    mol = GEOMol()
+    mol.elem = [atom.atomic_symbol for atom in molecule.atoms]
+    mol.qm_energies, mol.xyzs, mol.comms = [], [], []
+    for angle, grid_data in sorted(tdrive_data.reference_data.items()):
+        mol.qm_energies.append(grid_data.energy)
+        mol.xyzs.append(grid_data.geometry)
+        mol.comms.append(f"Dihedral ({angle},) Energy {grid_data.energy}")
+    mol.write("qdata.txt")
+    mol.write("scan.xyz")

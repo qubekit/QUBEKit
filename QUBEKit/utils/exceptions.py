@@ -80,3 +80,15 @@ class MissingParameterError(Exception):
     """
     When no parameter can be found for the given interacting atoms.
     """
+
+
+class MissingReferenceData(Exception):
+    """
+    Some reference data needed for an operation is missing.
+    """
+
+
+class TorsionDriveDataError(Exception):
+    """
+    Raised when a torsiondrivedata object has an inconsistency.
+    """

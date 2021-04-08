@@ -134,7 +134,7 @@ def test_optimise(program, basis, method, tmpdir):
             optimiser="geometric",
             convergence="GAU",
         )
-        result_mol = g.optimise(molecule=mol)
+        result_mol, _ = g.optimise(molecule=mol, return_result=False)
         assert result_mol.coordinates.tolist() != mol.coordinates.tolist()
 
 

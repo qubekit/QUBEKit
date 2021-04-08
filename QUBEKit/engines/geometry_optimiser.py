@@ -2,7 +2,7 @@
 A class which handles general geometry optimisation tasks.
 """
 import copy
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import qcelemental as qcel
 import qcengine as qcng
@@ -142,7 +142,13 @@ class GeometryOptimiser(BaseEngine):
         _ = qcng.get_procedure(name=optimiser)
         return True
 
-    def optimise(self, molecule: Ligand, allow_fail: bool = False) -> Ligand:
+    def optimise(
+        self,
+        molecule: Ligand,
+        allow_fail: bool = False,
+        return_result: bool = False,
+        extras: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[Ligand, Optional[qcel.models.OptimizationResult]]:
         """
         For the given specification in the class run an optimisation on the ligand.
 
@@ -155,6 +161,10 @@ class GeometryOptimiser(BaseEngine):
             allow_fail:
                 If we should not raise an error if the molecule fails to be optimised, this will extract the last geometry
                 from the trajectory and return it.
+            return_result:
+                If the full result json should also be returned useful for extracting the trajectory.
+            extras:
+                A dictionary of extras that should be used to update the optimiser keywords.
 
         Returns:
             A new copy of the molecule at the optimised coordinates.
@@ -168,10 +178,13 @@ class GeometryOptimiser(BaseEngine):
         model = self.qc_model
         specification = qcel.models.procedures.QCInputSpecification(model=model)
         initial_mol = molecule.to_qcschema()
+        optimiser_keywords = self.build_optimiser_keywords()
+        if extras is not None:
+            optimiser_keywords.update(extras)
         opt_task = qcel.models.OptimizationInput(
             initial_molecule=initial_mol,
             input_specification=specification,
-            keywords=self.build_optimiser_keywords(),
+            keywords=optimiser_keywords,
         )
         opt_result = qcng.compute_procedure(
             input_data=opt_task,
@@ -187,7 +200,8 @@ class GeometryOptimiser(BaseEngine):
                 f"{opt_result.error.error_type}: {opt_result.error.error_message}"
             )
 
-        return result_mol
+        full_result = opt_result if return_result else None
+        return result_mol, full_result
 
     def handle_output(
         self,
@@ -231,7 +245,7 @@ class GeometryOptimiser(BaseEngine):
                 return result_mol
 
         # TODO how do we get this in the log
-        print(f"Optimisation finished in {len(trajectory)} steps.")
+        # print(f"Optimisation finished in {len(trajectory)} steps.")
         traj = [mol.geometry * constants.BOHR_TO_ANGS for mol in trajectory]
         result_mol.coordinates = traj[-1]
         # write to file
