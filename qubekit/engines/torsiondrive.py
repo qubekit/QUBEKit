@@ -20,9 +20,11 @@ from qubekit.utils.helpers import export_torsiondrive_data
 class TorsionDriver(BaseEngine):
 
     type: Literal["torsiondriver"] = "torsiondriver"
-    n_workers: Literal[1, 2, 4] = Field(
+    n_workers: int = Field(
         1,
         description="The number of workers that should be used to run parallel optimisations. Note the threads and memory will be divided between workers.",
+        ge=1,
+        le=4,
     )
     grid_spacing: int = Field(
         15, description="The grid spacing in degrees between each optimisation."
@@ -239,8 +241,9 @@ class TorsionDriver(BaseEngine):
             cores = self.cores
             memory = self.memory
         else:
-            cores = self.cores / self.n_workers
-            memory = self.memory / self.n_workers
+            # always round down to get an even distribution of cores and memory
+            cores = int(self.cores / self.n_workers)
+            memory = int(self.memory / self.n_workers)
 
         geom = GeometryOptimiser(
             program=self.program,
