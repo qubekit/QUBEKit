@@ -321,51 +321,55 @@ def test_param_storage(tmpdir):
 
 
 @pytest.mark.parametrize(
-    "force_group, key, terms",
+    "force_group, key, ff_group, terms",
     [
         pytest.param(
-            "HarmonicBondForce",
+            "BondForce",
             "Bond",
+            "HarmonicBondForce",
             [(0, 2), (2, 6), (4, 16), (6, 18)],
             id="HarmonicBondForce",
         ),
         pytest.param(
-            "HarmonicAngleForce",
+            "AngleForce",
             "Angle",
+            "HarmonicAngleForce",
             [(2, 0, 3), (0, 3, 7), (1, 4, 8), (4, 8, 20)],
             id="HarmonicAngleForce",
         ),
         pytest.param(
+            "TorsionForce",
+            "Proper",
             "PeriodicTorsionForce",
-            "Torsion",
             [(15, 3, 7, 10), (1, 4, 8, 20), (19, 7, 10, 11)],
             id="PeriodicTorsionForce",
         ),
     ],
 )
-def test_parameter_tags(tmpdir, force_group, key, terms):
+def test_parameter_tags(tmpdir, force_group, ff_group, key, terms):
     """
     Make sure that the parameter tagger tags correct terms.
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("biphenyl.sdf"))
-        OpenFF(mol)
+        OpenFF().parametrise_molecule(molecule=mol)
         # set the parameter tags
-        tags = ParameterTags()
-        setattr(tags, force_group + "_groups", terms)
-        setattr(tags, force_group + "_tags", {"tags": "test tag"})
+        for term in terms:
+            f_group = getattr(mol, force_group)
+            parameter = f_group[term]
+            parameter.attributes = {"test tag"}
         # make the force field
-        ff = mol.create_forcefield(parameter_tags=tags)
+        ff = mol._build_forcefield()
         classes = [
             [f"{mol.atoms[i].atomic_symbol}{mol.atoms[i].atom_index}" for i in term]
             for term in terms
         ]
         term_length = len(terms[0])
         # now search through and make sure the force groups were tagged
-        for group in ff.iter(tag=force_group):
+        for group in ff.iter(tag=ff_group):
             for ff_term in group.iter(tag=key):
                 ff_class = [ff_term.get(f"class{i}") for i in range(1, 1 + term_length)]
                 if ff_class in classes:
-                    assert ff_term.get("tags") == "test tag"
+                    assert ff_term.get("parametrize") == "test tag"
                 else:
-                    assert ff_term.get("tags", None) is None
+                    assert ff_term.get("parametrize", None) is None
