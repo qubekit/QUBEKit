@@ -128,15 +128,15 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
                 if key != "atoms":
                     assert getattr(terms, key) == pytest.approx(getattr(other_dih, key))
 
-                    
-def test_improper_round_trip_openff(tmpdir):
+
+def test_improper_round_trip_openff(tmpdir, openff):
     """
     Make sure that improper torsions are correctly round tripped.
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("benzene.sdf"))
         # assign new parameters
-        OpenFF().parametrise_molecule(molecule=mol)
+        openff.parametrise_molecule(molecule=mol)
         # make sure we have some 18 impropers
         assert mol.ImproperTorsionForce.n_parameters == 18
         # now write out the parameters
@@ -149,14 +149,14 @@ def test_improper_round_trip_openff(tmpdir):
         assert mol2.ImproperTorsionForce.n_parameters == 18
 
 
-def test_improper_round_trip_antechamber(tmpdir):
+def test_improper_round_trip_antechamber(tmpdir, antechamber):
     """
     Make sure that improper torsions are correctly round tripped.
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("benzene.sdf"))
         # assign new parameters
-        AnteChamber().parametrise_molecule(molecule=mol)
+        antechamber.parametrise_molecule(molecule=mol)
         # make sure we have some 6 impropers
         assert mol.ImproperTorsionForce.n_parameters == 6
         # now write out the parameters
