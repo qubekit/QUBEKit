@@ -46,7 +46,7 @@ class BaseEngine(BaseModel):
         """
         Make sure that the resource is even to make distribution easier.
         """
-        if resource % 2 != 0 and resource != 1:
+        if resource % 2 != 0 or resource != 1:
             raise ValueError(
                 f"The resource must be even to make distribution between parallel workers easier."
             )
