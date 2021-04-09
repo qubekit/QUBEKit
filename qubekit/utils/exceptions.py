@@ -73,3 +73,9 @@ class TorsionDriveDataError(Exception):
     """
     Raised when a torsiondrivedata object has an inconsistency.
     """
+
+
+class ForceBalanceError(Exception):
+    """
+    This indicates there was an error while using forcebalance to optimise some parameters.
+    """

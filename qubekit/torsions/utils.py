@@ -1,3 +1,5 @@
+import contextlib
+import os
 import re
 from typing import Tuple
 
@@ -84,3 +86,22 @@ def find_heavy_torsion(molecule: Ligand, bond: Bond) -> Tuple[int, int, int, int
         torsion.insert(i, atom.atom_index)
 
     return tuple(torsion)
+
+
+@contextlib.contextmanager
+def forcebalance_setup(folder_name: str, keep_files: bool = True):
+    """
+    A helper function to create a forcebalance fitting folder complete with target and forcefield sub folders.
+    This method was originally implemented in openff-bespokefit.
+    """
+    cwd = os.getcwd()
+    os.mkdir(folder_name)
+    os.chdir(folder_name)
+    os.mkdir("forcefield")
+    os.mkdir("targets")
+    yield
+    os.chdir(cwd)
+    if not keep_files:
+        import shutil
+
+        shutil.rmtree(folder_name, ignore_errors=True)

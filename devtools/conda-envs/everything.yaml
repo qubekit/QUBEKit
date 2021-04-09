@@ -9,6 +9,7 @@ dependencies:
 
     # Testing
   - openff-toolkit
+  - forcebalance
   - rdkit
   - tqdm
   - torsiondrive
