@@ -128,6 +128,46 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
                 if key != "atoms":
                     assert getattr(terms, key) == pytest.approx(getattr(other_dih, key))
 
+                    
+def test_improper_round_trip_openff(tmpdir):
+    """
+    Make sure that improper torsions are correctly round tripped.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("benzene.sdf"))
+        # assign new parameters
+        OpenFF().parametrise_molecule(molecule=mol)
+        # make sure we have some 18 impropers
+        assert mol.ImproperTorsionForce.n_parameters == 18
+        # now write out the parameters
+        mol.write_parameters(file_name="test.xml")
+        # now load a new molecule
+        mol2 = Ligand.from_file(get_data("benzene.sdf"))
+        assert mol2.TorsionForce.n_parameters == 0
+        XML().parametrise_molecule(molecule=mol2, input_files=["test.xml"])
+        # make sure we have the same 18 impropers
+        assert mol2.ImproperTorsionForce.n_parameters == 18
+
+
+def test_improper_round_trip_antechamber(tmpdir):
+    """
+    Make sure that improper torsions are correctly round tripped.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("benzene.sdf"))
+        # assign new parameters
+        AnteChamber().parametrise_molecule(molecule=mol)
+        # make sure we have some 6 impropers
+        assert mol.ImproperTorsionForce.n_parameters == 6
+        # now write out the parameters
+        mol.write_parameters(file_name="test.xml")
+        # now load a new molecule
+        mol2 = Ligand.from_file(get_data("benzene.sdf"))
+        assert mol2.TorsionForce.n_parameters == 0
+        XML().parametrise_molecule(molecule=mol2, input_files=["test.xml"])
+        # make sure we have the same 18 impropers
+        assert mol2.ImproperTorsionForce.n_parameters == 6
+
 
 def test_xml_with_sites(tmpdir, xml):
     """
