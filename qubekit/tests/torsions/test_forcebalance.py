@@ -167,21 +167,21 @@ def test_full_optimise(tmpdir, biphenyl):
     """
     Test the forcebalance wrapper by doing a full optimise run for a simple molecule. Also check that the optimised results are saved.
     """
-    # with tmpdir.as_cwd():
-    OpenFF().parametrise_molecule(biphenyl)
-    # use default values
-    fb = ForceBalanceFitting()
-    fitted_molecule = fb.run(molecule=biphenyl)
-    # now compare the fitted results
-    for old_values in biphenyl.TorsionForce:
-        central_bond = old_values.atoms[1:3]
-        if central_bond == [10, 11] or central_bond == [11, 10]:
-            # compare the k values, making sure they have been changed
-            fitted_values = fitted_molecule.TorsionForce[old_values.atoms]
-            assert fitted_values.k1 != old_values.k1
-            assert fitted_values.k2 != old_values.k2
-            assert fitted_values.k3 != old_values.k3
-            assert fitted_values.k4 != old_values.k4
+    with tmpdir.as_cwd():
+        OpenFF().parametrise_molecule(biphenyl)
+        # use default values
+        fb = ForceBalanceFitting()
+        fitted_molecule = fb.run(molecule=biphenyl)
+        # now compare the fitted results
+        for old_values in biphenyl.TorsionForce:
+            central_bond = old_values.atoms[1:3]
+            if central_bond == [10, 11] or central_bond == [11, 10]:
+                # compare the k values, making sure they have been changed
+                fitted_values = fitted_molecule.TorsionForce[old_values.atoms]
+                assert fitted_values.k1 != old_values.k1
+                assert fitted_values.k2 != old_values.k2
+                assert fitted_values.k3 != old_values.k3
+                assert fitted_values.k4 != old_values.k4
 
 
 def test_optimise_no_target(tmpdir, biphenyl):

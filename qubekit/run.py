@@ -1273,7 +1273,7 @@ class Execute:
 
                 # TODO expose any extra configs?
                 fb_fit = ForceBalanceFitting()
-                fit_molecule = fb_fit.optimise(molecule=molecule)
+                fit_molecule = fb_fit.run(molecule=molecule)
                 append_to_log(
                     molecule.home, "Finishing torsion_optimisations", major=True
                 )

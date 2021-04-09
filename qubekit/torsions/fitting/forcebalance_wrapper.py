@@ -2,6 +2,7 @@
 Classes that help with parameter fitting using ForceBalance.
 """
 import abc
+import copy
 import os
 import subprocess
 from typing import Any, Dict, List
@@ -31,9 +32,7 @@ class Priors:
 
     def dict(self) -> Dict[str, Any]:
         """
-        Returns
-        -------
-        Dict
+        Returns:
             A formatted dict version of the prior that can be consumed by forcebalance.
         """
         data = {}
@@ -112,7 +111,7 @@ class TorsionProfile(TargetBase):
         description="If the weights should be attenuated as a function of the energy above the minimum.",
     )
     restrain_k: float = Field(
-        0.0,
+        1.0,
         description="The strength of the harmonic restraint in kcal/mol used in the mm relaxation on all non-torsion atoms.",
     )
     keywords: Dict[str, Any] = {"pdb": "molecule.pdb", "coords": "scan.xyz"}
@@ -121,24 +120,17 @@ class TorsionProfile(TargetBase):
         """
         For the given ligand prep the input files ready for torsion profile fitting.
 
-        Parameters
-        ----------
-        molecule
-            The molecule object that we need to prep for fitting, this should have qm reference data stored in molecule.qm_scans.
+        Args:
+            molecule: The molecule object that we need to prep for fitting, this should have qm reference data stored in molecule.qm_scans.
 
-        Note
-        ----
+        Note:
             We assume we are already in the targets folder.
 
-        Returns
-        -------
-        list
+        Returns:
             A list of target folder names made by this target.
 
-        Raises
-        ------
-        MissingReferenceData
-            If the molecule does not have any torsion drive reference data saved in molecule.qm_scans.
+        Raises:
+            MissingReferenceData: If the molecule does not have any torsion drive reference data saved in molecule.qm_scans.
         """
         # make sure we have data
         if not molecule.qm_scans:
@@ -173,6 +165,9 @@ class TorsionProfile(TargetBase):
     def make_metadata(torsiondrive_data: TorsionDriveData) -> None:
         """
         Create the metadata.json required to run a torsion profile target, this details the constrained optimisations to be done.
+
+        Args:
+            torsiondrive_data: Create the torsion metadata file which describes the angle to be scanned and the dihedral grid points.
         """
         import json
 
@@ -221,7 +216,7 @@ class ForceBalanceFitting(StageBase):
     n_criteria: PositiveInt = 2
     eig_lowerbound: PositiveFloat = 0.01
     finite_difference_h: PositiveFloat = 0.01
-    penalty_additive: PositiveFloat = 1.0
+    penalty_additive: PositiveFloat = 0.1
     constrain_charge: bool = False
     initial_trust_radius: float = -0.25
     minimum_trust_radius: float = 0.05
@@ -253,7 +248,10 @@ class ForceBalanceFitting(StageBase):
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
-        The main run method of the fb torsion optimisation stage.
+        The main run method of the ForceBalance torsion optimisation stage.
+
+        Args:
+            molecule: The molecule that should be optimised with its QM reference data.
 
         Important:
             We work on a copy of the molecule as we have to change some parameters.
@@ -270,6 +268,9 @@ class ForceBalanceFitting(StageBase):
     def add_target(self, target: TargetBase) -> None:
         """
         Try and add the given target class to the forcebalance optimiser to be executed when optimise is called.
+
+        Args:
+            target: The ForceBalance optimisation target that should be added.
         """
         if issubclass(type(target), TargetBase):
             self.targets[target.target_name] = target
@@ -313,47 +314,46 @@ class ForceBalanceFitting(StageBase):
         """
         For the given molecule generate the fitting forcefield with the target torsion terms tagged with the parameterize keyword.
 
-        Parameters
-        ----------
-        molecule
-            The molecule whose torsion parameters should be optimised.
+        Args:
+            molecule: The molecule whose torsion parameters should be optimised.
 
-        Note
-        ----
+        Note:
             We currently hard code to only fit dihedrals that pass through the targeted rotatable bond.
+
+        Important:
+            We work with a copy of the molecule here as we add attributes to the forcefield and change default values.
         """
 
-        # set the dihedral tags
-        tags = {"k1", "k2", "k3", "k4"}
+        copy_mol = copy.deepcopy(molecule)
         # now we need to find all of the dihedrals for a central bond which should be optimised
-        for torsiondrive_data in molecule.qm_scans:
+        for torsiondrive_data in copy_mol.qm_scans:
             central_bond = torsiondrive_data.central_bond
             # now we can get all dihedrals for this bond
             try:
-                dihedrals = molecule.dihedrals[central_bond]
+                dihedrals = copy_mol.dihedrals[central_bond]
             except KeyError:
-                dihedrals = molecule.dihedrals[tuple(reversed(central_bond))]
+                dihedrals = copy_mol.dihedrals[tuple(reversed(central_bond))]
 
             for dihedral in dihedrals:
-                parameter = molecule.TorsionForce[dihedral]
-                parameter.attributes = tags
+                # add parametrise flags for forcebalance
+                parameter = copy_mol.TorsionForce[dihedral]
+                # we need to make sure all parameters are bigger than 0 to be loaded into an OpenMM system
+                parameter_data = {"attributes": {"k1", "k2", "k3", "k4"}}
+                for k in ["k1", "k2", "k3", "k4"]:
+                    if getattr(parameter, k) == 0:
+                        parameter_data[k] = 1e-6
+                parameter.update(**parameter_data)
 
         # now we have all of the dihedrals build the force field
-        molecule.write_parameters(file_name=os.path.join("forcefield", "bespoke.xml"))
+        copy_mol.write_parameters(file_name=os.path.join("forcefield", "bespoke.xml"))
 
     def generate_optimise_in(self, target_data: Dict[str, List[str]]) -> None:
         """
         For the given list of targets and entries produce an optimize.in file which contains all of the run time settings to be used in the optimization.
         this uses jinja templates to generate the required file from the template distributed with qubekit.
 
-        Parameters
-        ----------
-        target_data
-            A dictionary mapping the target name to the target folders that have been created.
-
-        Returns
-        -------
-        None
+        Args:
+            target_data: A dictionary mapping the target name to the target folders that have been created.
         """
         from jinja2 import Template
 
@@ -379,9 +379,7 @@ class ForceBalanceFitting(StageBase):
         """
         Read the output from a forcebalance run to determine the exit status of the optimisation.
 
-        Returns
-        -------
-        bool
+        Returns:
             `True` if the optimisation has converged else `False`
         """
         converged = False
@@ -401,20 +399,14 @@ class ForceBalanceFitting(StageBase):
         Collect the results of an optimisation by checking the exit status and then transferring the optimised parameters from the final
         xml forcefield back into the ligand.
 
-        Parameters
-        ----------
-        molecule
-            The molecule that was optimised and where the parameters should be stored.
+        Args:
+            molecule: The molecule that was optimised and where the parameters should be stored.
 
-        Returns
-        -------
-        Ligand
-            A copy of the input molecule with the optimised parameters saved.
+        Returns:
+            The input molecule with the optimised parameters saved.
 
-        Raises
-        ------
-        ForceBalanceError
-            If the optimisation did not converge or exit properly.
+        Raises:
+            ForceBalanceError: If the optimisation did not converge or exit properly.
         """
         # first check the exit status
         status = self.check_converged()
@@ -424,16 +416,14 @@ class ForceBalanceFitting(StageBase):
             )
 
         else:
-            import copy
 
             from qubekit.parametrisation import XML
 
             # load the new parameters into the ligand
-            molecule_copy = copy.deepcopy(molecule)
             # xml needs a pdb file
             xml = XML()
             xml.parametrise_molecule(
-                molecule=molecule_copy,
+                molecule=molecule,
                 input_files=[os.path.join("result", self.job_type, "bespoke.xml")],
             )
-            return molecule_copy
+            return molecule
