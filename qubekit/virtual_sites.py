@@ -652,6 +652,17 @@ class VirtualSites:
         """
         return 1 - x[2] ** 2 - x[3] ** 2
 
+    @staticmethod
+    def symm_two_site_two_bond_constraint(x):
+        """
+        In the case of two sites and two bonds, the vectors are added or subtracted together,
+        rather than one vector per site.
+        This constraint ensures the max scaling factor of the vectors combined is less than 1.
+        NB They can then be scaled to be up to 1.5 by the scale factor.
+        When the sites are symmetric, they are stored under the same parameters, x[1]
+        """
+        return 1 - 2 * x[1] ** 2
+
     def fit_one_site(self, atom_index: int):
         """
         Fit method for one site whose parent is <atom_index>
@@ -722,6 +733,7 @@ class VirtualSites:
         error = 10000
         two_site_coords = None
         for alt in [True, False]:
+            # charge, charge, lambda, lambda
             bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
             vec_a, vec_b = self.get_vector_from_coords(atom_index, n_sites=2, alt=alt)
             if self.molecule.enable_symmetry:
@@ -732,7 +744,7 @@ class VirtualSites:
                     bounds=bounds[1:3],
                     constraints={
                         "type": "ineq",
-                        "fun": VirtualSites.two_site_two_bond_constraint,
+                        "fun": VirtualSites.symm_two_site_two_bond_constraint,
                     },
                 )
                 if (two_site_fit.fun / len(self.sample_points)) < error:
