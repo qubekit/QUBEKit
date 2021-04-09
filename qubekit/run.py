@@ -442,12 +442,13 @@ class ArgsAndConfigs:
             ],
             help="Option to skip certain stages of the execution.",
         )
-        # parser.add_argument(
-        #     "-tor_make",
-        #     "--torsion_maker",
-        #     action=TorsionMakerAction,
-        #     help="Allow QUBEKit to help you make a torsion input file for the given molecule",
-        # )
+        parser.add_argument(
+            "-tor_method",
+            "--torsion_method",
+            choices=["forcebalance", "internal"],
+            default="forcebalance",
+            help="The method used to optimise the rotatable torsion parameters.",
+        )
         parser.add_argument(
             "-tor_test",
             "--torsion_test",
@@ -1251,16 +1252,38 @@ class Execute:
         return result_mol
 
     @staticmethod
-    def torsion_optimise(molecule):
-        """Perform torsion optimisation."""
+    def torsion_optimise(molecule: Ligand) -> Ligand:
+        """Perform torsion optimisation if there is QM reference data else skip."""
 
-        append_to_log(molecule.home, "Starting torsion_optimisations", major=True)
+        if molecule.qm_scans is None or molecule.qm_scans == []:
+            append_to_log(
+                molecule.home,
+                "No QM reference data found skipping optimisation.",
+                major=True,
+            )
+            return molecule
 
-        TorsionOptimiser(molecule).run()
+        else:
+            append_to_log(molecule.home, "Starting torsion_optimisations", major=True)
+            if molecule.torsion_method == "internal":
+                fit_molecule = molecule
+                TorsionOptimiser(molecule).run()
+            elif molecule.torsion_method == "forcebalance":
+                from qubekit.torsions import ForceBalanceFitting
 
-        append_to_log(molecule.home, "Finishing torsion_optimisations", major=True)
+                # TODO expose any extra configs?
+                fb_fit = ForceBalanceFitting()
+                fit_molecule = fb_fit.optimise(molecule=molecule)
+                append_to_log(
+                    molecule.home, "Finishing torsion_optimisations", major=True
+                )
 
-        return molecule
+            else:
+                raise RuntimeError(
+                    f"The method {molecule.torsion_method} is not supported please chose from internal or forcebalance."
+                )
+
+            return fit_molecule
 
     @staticmethod
     def finalise(molecule: Ligand) -> Ligand:
