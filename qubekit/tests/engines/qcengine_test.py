@@ -40,13 +40,3 @@ def test_single_point_energy(program, basis, method, tmpdir):
         assert result.model.basis == basis
         assert result.model.method == method
         assert result.provenance.creator.lower() == program
-
-
-def test_odd_resource():
-    """
-    Make sure an error is raised if we pass an odd amount of resource as this
-    makes it harder to divide between workers.
-    """
-
-    with pytest.raises(ValueError):
-        _ = QCEngine(cores=3)

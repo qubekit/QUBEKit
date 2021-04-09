@@ -41,17 +41,6 @@ class BaseEngine(BaseModel):
             },
         }
 
-    @validator("cores", "memory")
-    def validate_resource(cls, resource: int) -> int:
-        """
-        Make sure that the resource is even to make distribution easier.
-        """
-        if resource % 2 != 0 and resource != 1:
-            raise ValueError(
-                f"The resource must be even to make distribution between parallel workers easier."
-            )
-        return resource
-
     @validator("program")
     def validate_program(cls, program: str) -> str:
         """
