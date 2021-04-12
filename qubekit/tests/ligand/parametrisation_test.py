@@ -350,12 +350,12 @@ def test_param_storage(tmpdir):
             atoms=(0,), charge=0.1, epsilon=0.2, sigma=0.3
         )
 
-        assert mol.NonbondedForce[(0,)].charge == 0.1
+        assert float(mol.NonbondedForce[(0,)].charge) == 0.1
         assert mol.NonbondedForce[(0,)].epsilon == 0.2
         assert mol.NonbondedForce[(0,)].sigma == 0.3
 
         mol.NonbondedForce[(0,)].charge = 5
-        assert mol.NonbondedForce[(0,)].charge == 5
+        assert float(mol.NonbondedForce[(0,)].charge) == 5
 
         assert mol.BondForce[(0, 1)].k == mol.BondForce[(1, 0)].k
 
