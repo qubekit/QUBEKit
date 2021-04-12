@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import csv
-import decimal
 import logging
 import math
 import operator
@@ -9,7 +8,6 @@ import os
 import pickle
 from collections import OrderedDict
 from contextlib import contextmanager
-from importlib import import_module
 from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
@@ -255,38 +253,6 @@ def check_symmetry(matrix, error=1e-5):
     )
 
 
-def fix_net_charge(molecule):
-    """
-    Ensure the total is exactly equal to the ideal net charge of the molecule.
-    If net charge is not an integer value, MM simulations can (ex/im)plode.
-    """
-
-    decimal.setcontext(decimal.Context(prec=7))
-    round_to = decimal.Decimal(10) ** -6
-
-    for param in molecule.NonbondedForce:
-        param.charge = decimal.Decimal(param.charge).quantize(round_to)
-
-    atom_charges = sum(param.charge for param in molecule.NonbondedForce)
-    extra = molecule.charge - atom_charges
-
-    if molecule.extra_sites is not None:
-        for site in molecule.extra_sites:
-            site.charge = decimal.Decimal(site.charge).quantize(round_to)
-            extra -= site.charge
-
-    if extra:
-        last_atom_index = molecule.n_atoms - 1
-        molecule.NonbondedForce[(last_atom_index,)].charge += extra
-
-    for param in molecule.NonbondedForce:
-        param.charge = float(param.charge)
-
-    if molecule.extra_sites is not None:
-        for site in molecule.extra_sites:
-            site.charge = float(site.charge)
-
-
 def collect_archive_tdrive(tdrive_record, client):
     """
     This function takes in a QCArchive tdrive record and collects all of the final geometries and energies to be used in
@@ -321,44 +287,6 @@ def collect_archive_tdrive(tdrive_record, client):
         ), "The energies collected do not match the QCArchive minima."
 
     return energies, geometry
-
-
-def missing_import(name, fail_msg=""):
-    """
-    Generates a class which raises an import error when initialised.
-    e.g. SomeClass = missing_import('SomeClass') will make SomeClass() raise ImportError
-    """
-
-    def init(self, *args, **kwargs):
-        raise ImportError(
-            f"The class {name} you tried to call is not importable; "
-            f"this is likely due to it not doing installed.\n\n"
-            f'{f"Fail Message: {fail_msg}" if fail_msg else ""}'
-        )
-
-    return type(name, (), {"__init__": init})
-
-
-def try_load(engine, module):
-    """
-    Try to load a particular engine from a module.
-    If this fails, a dummy class is imported in its place with an import error raised on initialisation.
-
-    :param engine: Name of the engine (PSI4, OpenFF, ONETEP, etc).
-    :param module: Name of the QUBEKit module (.psi4, .openff, .onetep, etc).
-    :return: Either the engine is imported as normal, or it is replaced with dummy class which
-    just raises an import error with a message.
-    """
-
-    try:
-        module = import_module(module, __name__)
-        return getattr(module, engine)
-
-    except (ModuleNotFoundError, AttributeError) as exc:
-        print(
-            f"{COLOURS.orange}Warning, failed to load: {engine}; continuing for now.\nReason: {exc}{COLOURS.end}\n"
-        )
-        return missing_import(engine, fail_msg=str(exc))
 
 
 def update_ligand(restart_key, cls):

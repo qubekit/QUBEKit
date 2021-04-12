@@ -2,6 +2,7 @@
 Build up a list of forcefield objects to be stored in the main forcefield model
 """
 import abc
+import decimal
 from typing import Dict, Set, Tuple
 
 from pydantic import BaseModel, Field, validator
@@ -163,7 +164,7 @@ class ImproperTorsionParameter(PeriodicTorsionParameter):
 class BasicNonBondedParameter(BaseParameter):
 
     type: Literal["basic_non_bonded"] = "basic_non_bonded"
-    charge: float = Field(
+    charge: decimal.Decimal = Field(
         ..., description="The atomic partial charge in elementary charge units."
     )
 
@@ -231,7 +232,7 @@ class VirtualSite3Point(BasicParameterModel):
         ...,
         description="The position of the site in z defined by the local unit vectors.",
     )
-    charge: float = Field(..., description="The charge of the site.")
+    charge: decimal.Decimal = Field(..., description="The charge of the site.")
 
     @classmethod
     def _n_tags(cls) -> int:

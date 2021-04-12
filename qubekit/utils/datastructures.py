@@ -32,13 +32,6 @@ class StageBase(SchemaBase, abc.ABC):
 
 
 @dataclasses.dataclass
-class LJData:
-    a_i: float
-    b_i: float
-    r_aim: float
-
-
-@dataclasses.dataclass
 class TorsionScan:
     torsion: Tuple[int, int, int, int]
     scan_range: Tuple[int, int]

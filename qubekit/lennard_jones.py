@@ -222,11 +222,11 @@ class LennardJones612:
         non_bonded_forces = self.calculate_sig_eps(lj_data)
 
         # update the Nonbonded force using api
-        for atom_index, sig_eps in non_bonded_forces.items():
+        for atom_index, (sigma, epsilon) in non_bonded_forces.items():
             nonbond_data = {
                 "charge": self.molecule.atoms[atom_index].aim.charge,
-                "sigma": sig_eps[0],
-                "epsilon": sig_eps[1],
+                "sigma": sigma,
+                "epsilon": epsilon,
             }
             self.molecule.NonbondedForce.create_parameter(
                 atoms=(atom_index,), **nonbond_data
