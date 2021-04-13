@@ -1252,7 +1252,7 @@ class Execute:
         if molecule.qm_scans is None or molecule.qm_scans == []:
             append_to_log(
                 molecule.home,
-                "No QM reference data found skipping optimisation.",
+                "No QM reference data found skipping torsion_optimisation.",
                 major=True,
             )
             return molecule
