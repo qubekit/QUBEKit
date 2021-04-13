@@ -138,7 +138,7 @@ def _populate_progress_dict(file_name):
                     elif "STARTING" in line:
                         progress[term] = "R"
                     # If its finishing tag is present it is done (u2713 == tick)
-                    elif "FINISHING" in line:
+                    elif "FINISH" in line:
                         progress[term] = "\u2713"
 
             # If an error is found, then the stage after the last successful stage has errored (E)

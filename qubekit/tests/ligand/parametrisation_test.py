@@ -185,7 +185,7 @@ def test_xml_with_sites(tmpdir, xml):
         assert mol.extra_sites.n_sites == 1
         # make sure that charge we extracted
         sites = mol.extra_sites.get_sites(parent_index=3)
-        assert sites[0].charge == -0.180000
+        assert float(sites[0].charge) == -0.180000
 
 
 def test_xml_sites_roundtrip(tmpdir, xml):
