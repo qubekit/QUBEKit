@@ -17,6 +17,7 @@ TODO ligand.py Refactor:
         Be more strict about public/private class/method/function naming?
 """
 
+import decimal
 import os
 import pickle
 import xml.etree.ElementTree as ET
@@ -1051,6 +1052,30 @@ class Molecule:
             A openMM quantity wrapped array of the coordinates in angstrom.
         """
         return unit.Quantity(self.coordinates, unit.angstroms)
+
+    def fix_net_charge(self):
+        """
+        Ensure the total is exactly equal to the ideal net charge of the molecule.
+        If net charge is not an integer value, MM simulations can (ex/im)plode.
+        """
+
+        decimal.setcontext(decimal.Context(prec=7))
+        round_to = decimal.Decimal(10) ** -6
+
+        for param in self.NonbondedForce:
+            param.charge = param.charge.quantize(round_to)
+
+        atom_charges = sum(param.charge for param in self.NonbondedForce)
+        extra = self.charge - atom_charges
+
+        if self.extra_sites is not None:
+            for site in self.extra_sites:
+                site.charge = site.charge.quantize(round_to)
+                extra -= site.charge
+
+        if extra:
+            last_atom_index = self.n_atoms - 1
+            self.NonbondedForce[(last_atom_index,)].charge += extra
 
 
 class Ligand(DefaultsMixin, Molecule):

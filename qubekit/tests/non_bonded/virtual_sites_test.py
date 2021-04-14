@@ -6,12 +6,12 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import pytest
 
+from qubekit.lennard_jones import LennardJones612
 from qubekit.charges import DDECCharges, ExtractChargeData
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import OpenFF
 from qubekit.utils.constants import BOHR_TO_ANGS
 from qubekit.utils.file_handling import get_data
-from qubekit.utils.helpers import fix_net_charge
 from qubekit.virtual_sites import VirtualSites
 
 
@@ -31,7 +31,6 @@ def mol():
         ExtractChargeData.read_files(molecule, dir_path, "chargemol")
         # apply symmetry to the reference data
         DDECCharges.apply_symmetrisation(molecule=molecule)
-        fix_net_charge(molecule)
 
         return molecule
 
@@ -196,4 +195,12 @@ def test_fit(mol, vs, tmpdir):
         vs.calculate_virtual_sites()
 
         assert mol.extra_sites is not None
-        fix_net_charge(mol)
+
+        LennardJones612(mol).calculate_non_bonded_force()
+        mol.fix_net_charge()
+
+        assert (
+            sum(param.charge for param in mol.NonbondedForce)
+            + sum(site.charge for site in mol.extra_sites)
+            == 0
+        )

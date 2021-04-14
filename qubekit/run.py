@@ -8,6 +8,7 @@ TODO
     BULK
         Add .sdf as possible bulk_run, not just .csv
         Bulk torsion options need to be made easier to use
+    Move skip/restart/end/(home?) to Execute rather than ligand.py
 """
 
 import argparse
@@ -46,7 +47,6 @@ from qubekit.utils.exceptions import HessianCalculationFailed, SpecificationErro
 from qubekit.utils.file_handling import make_and_change_into
 from qubekit.utils.helpers import (
     append_to_log,
-    fix_net_charge,
     generate_bulk_csv,
     mol_data_from_csv,
     string_to_bool,
@@ -1203,8 +1203,20 @@ class Execute:
             f"Finishing charge partitioning with {molecule.charges_engine}",
             major=True,
         )
+        if molecule.enable_virtual_sites:
+            append_to_log(
+                molecule.home, "Starting virtual sites calculation", major=True
+            )
 
-        fix_net_charge(molecule)
+            if molecule.charges_engine == "onetep":
+                extract_extra_sites_onetep(molecule)
+            else:
+                vs = VirtualSites(molecule)
+                vs.calculate_virtual_sites()
+
+            append_to_log(
+                molecule.home, "Finishing virtual sites calculation", major=True
+            )
 
         return molecule
 
@@ -1221,24 +1233,6 @@ class Execute:
         append_to_log(
             molecule.home, "Finishing Lennard-Jones parameter calculation", major=True
         )
-
-        if molecule.enable_virtual_sites:
-            append_to_log(
-                molecule.home, "Starting virtual sites calculation", major=True
-            )
-            vs = VirtualSites(molecule)
-            vs.calculate_virtual_sites()
-
-            # Find extra site positions in local coords if present and tweak the charges of the parent
-            if molecule.charges_engine == "onetep":
-                extract_extra_sites_onetep(molecule)
-
-            append_to_log(
-                molecule.home, "Finishing virtual sites calculation", major=True
-            )
-
-        # Ensure the net charge is an integer value and adds up to molecule.charge
-        fix_net_charge(molecule)
 
         return molecule
 
@@ -1271,7 +1265,7 @@ class Execute:
         if molecule.qm_scans is None or molecule.qm_scans == []:
             append_to_log(
                 molecule.home,
-                "No QM reference data found skipping optimisation.",
+                "No QM reference data found skipping torsion_optimisation.",
                 major=True,
             )
             return molecule
@@ -1304,6 +1298,8 @@ class Execute:
         Make the xml and pdb file;
         print the ligand object to terminal (in abbreviated form) and to the log file (unabbreviated).
         """
+        # Ensure the net charge is an integer value and adds up to molecule.charge
+        molecule.fix_net_charge()
 
         molecule.to_file(file_name=f"{molecule.name}.pdb")
         molecule.write_parameters(file_name=f"{molecule.name}.xml")
