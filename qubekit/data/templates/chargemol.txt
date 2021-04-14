@@ -1,0 +1,29 @@
+<input filename>
+{{ density_file }}
+</input filename>
+
+<net charge>
+{{ charge }}
+</net charge>
+
+<periodicity along A, B and C vectors>
+.false.
+.false.
+.false.
+</periodicity along A, B and C vectors>
+
+<atomic densities directory complete path>
+{{ chargemol_dir }}/atomic_densities/
+</atomic densities directory complete path>
+
+<charge type>
+DDEC{{ ddec_version }}
+</charge type>
+
+<compute BOs>
+.true.
+</compute BOs>
+
+<print atomic densities>
+.true.
+</print atomic densities>

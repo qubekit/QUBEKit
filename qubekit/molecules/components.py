@@ -57,30 +57,51 @@ class BondStereoChemistry(str, Enum):
 
 @dataclasses.dataclass  # Cannot be frozen as params are loaded separately.
 class AIM:
-    volume: Optional[float]
-    charge: Optional[float]
-    c8: Optional[float]
+    """Data in atomic units."""
+
+    volume: Optional[float] = None
+    charge: Optional[float] = None
+    c8: Optional[float] = None
     # TODO Extend to include other types of potential e.g. Buckingham
 
 
 @dataclasses.dataclass(frozen=True)
 class Dipole:
+    """Data in atomic units."""
+
     x: float
     y: float
     z: float
 
+    def to_array(self) -> np.ndarray:
+        return np.array([self.x, self.y, self.z])
+
 
 @dataclasses.dataclass(frozen=True)
 class Quadrupole:
+    """Data in atomic units."""
+
+    q_xx: float
     q_xy: float
     q_xz: float
     q_yz: float
-    q_x2_y2: float
-    q_3z2_r2: float
+    q_yy: float
+    q_zz: float
+
+    def to_array(self) -> np.ndarray:
+        return np.array(
+            [
+                [self.q_xx, self.q_xy, self.q_xz],
+                [self.q_xy, self.q_yy, self.q_yz],
+                [self.q_xz, self.q_yz, self.q_zz],
+            ]
+        )
 
 
 @dataclasses.dataclass(frozen=True)
 class CloudPen:
+    """Data in atomic units."""
+
     a: float
     b: float
 
@@ -125,7 +146,7 @@ class Atom(BaseModel):
         None, description="The list of atom indices which are bonded to this atom."
     )
     aim: Optional[AIM] = Field(
-        AIM(None, None, None),
+        AIM(),
     )
     dipole: Optional[Dipole] = Field(
         None,

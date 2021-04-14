@@ -6,10 +6,11 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import pytest
 
+from qubekit.charges import DDECCharges, ExtractChargeData
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import OpenFF
 from qubekit.utils.constants import BOHR_TO_ANGS
-from qubekit.utils.file_handling import ExtractChargeData, get_data
+from qubekit.utils.file_handling import get_data
 from qubekit.utils.helpers import fix_net_charge
 from qubekit.virtual_sites import VirtualSites
 
@@ -24,11 +25,12 @@ def mol():
         os.chdir(temp)
         molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
         molecule.home = None
-        molecule.enable_symmetry = True
         OpenFF().parametrise_molecule(molecule)
         ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
         dir_path = os.path.dirname(ddec_file_path)
         ExtractChargeData.read_files(molecule, dir_path, "chargemol")
+        # apply symmetry to the reference data
+        DDECCharges.apply_symmetrisation(molecule=molecule)
         fix_net_charge(molecule)
 
         return molecule
@@ -146,8 +148,8 @@ def test_monopole_esp_three_charges_div_zero(vs):
 
 
 def test_dipole_esp(mol, vs):
-    dip_data = mol.atoms[1].dipole
-    dipole_moment = np.array([dip_data.x, dip_data.y, dip_data.z]) * BOHR_TO_ANGS
+    # dip_data = mol.atoms[1].dipole
+    dipole_moment = mol.atoms[1].dipole.to_array() * BOHR_TO_ANGS
 
     assert vs.dipole_esp(np.array([1, 1, 1]), dipole_moment, 1) == pytest.approx(
         -1.76995515193e-29
@@ -155,14 +157,15 @@ def test_dipole_esp(mol, vs):
 
 
 def test_quadrupole_esp(mol, vs):
-    quad_data = mol.atoms[1].quadrupole
-    m_tensor = vs.quadrupole_moment_tensor(
-        quad_data.q_xy,
-        quad_data.q_xz,
-        quad_data.q_yz,
-        quad_data.q_x2_y2,
-        quad_data.q_3z2_r2,
-    )
+    # quad_data = mol.atoms[1].quadrupole
+    m_tensor = mol.atoms[1].quadrupole.to_array() * BOHR_TO_ANGS ** 2
+    # m_tensor = vs.quadrupole_moment_tensor(
+    #     quad_data.q_xy,
+    #     quad_data.q_xz,
+    #     quad_data.q_yz,
+    #     quad_data.q_x2_y2,
+    #     quad_data.q_3z2_r2,
+    # )
     assert vs.quadrupole_esp(np.array([1, 1, 1]), m_tensor, 1) == pytest.approx(
         9.40851165275e-30
     )

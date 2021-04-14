@@ -13,6 +13,7 @@ class SchemaBase(BaseModel):
 
     class Config:
         validate_assigment = True
+        arbitrary_types_allowed = True
 
 
 class StageBase(SchemaBase, abc.ABC):

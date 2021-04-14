@@ -165,21 +165,21 @@ class VirtualSites:
             4 * PI * VACUUM_PERMITTIVITY * dist ** 3
         )
 
-    @staticmethod
-    def quadrupole_moment_tensor(
-        q_xy: float, q_xz: float, q_yz: float, q_x2_y2: float, q_3z2_r2: float
-    ) -> np.ndarray:
-        """
-        :params: quadrupole moment components from Chargemol output
-        :return: quadrupole moment tensor, M
-        """
-        return np.array(
-            [
-                [q_x2_y2 / 2 - q_3z2_r2 / 6, q_xy, q_xz],
-                [q_xy, -q_x2_y2 / 2 - q_3z2_r2 / 6, q_yz],
-                [q_xz, q_yz, q_3z2_r2 / 3],
-            ]
-        )
+    # @staticmethod
+    # def quadrupole_moment_tensor(
+    #     q_xy: float, q_xz: float, q_yz: float, q_x2_y2: float, q_3z2_r2: float
+    # ) -> np.ndarray:
+    #     """
+    #     :params: quadrupole moment components from Chargemol output
+    #     :return: quadrupole moment tensor, M
+    #     """
+    #     return np.array(
+    #         [
+    #             [q_x2_y2 / 2 - q_3z2_r2 / 6, q_xy, q_xz],
+    #             [q_xy, -q_x2_y2 / 2 - q_3z2_r2 / 6, q_yz],
+    #             [q_xz, q_yz, q_3z2_r2 / 3],
+    #         ]
+    #     )
 
     @staticmethod
     def quadrupole_esp(
@@ -197,7 +197,7 @@ class VirtualSites:
             3
             * ELECTRON_CHARGE
             * ELECTRON_CHARGE
-            * dist_vector.dot(m_tensor * (BOHR_TO_ANGS ** 2)).dot(dist_vector)
+            * dist_vector.dot(m_tensor).dot(dist_vector)
         ) / (8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
 
     @staticmethod
@@ -281,16 +281,22 @@ class VirtualSites:
         """
 
         atom_coords = self.coords[atom_index]
-
         charge = self.molecule.atoms[atom_index].aim.charge
-        dip_data = self.molecule.atoms[atom_index].dipole
-        dipole_moment = np.array([dip_data.x, dip_data.y, dip_data.z]) * BOHR_TO_ANGS
 
-        quad_data = self.molecule.atoms[atom_index].quadrupole
+        # get reference values and convert to angs
+        dipole_moment = self.molecule.atoms[atom_index].dipole.to_array() * BOHR_TO_ANGS
 
+        m_tensor = self.molecule.atoms[atom_index].quadrupole.to_array() * (
+            BOHR_TO_ANGS ** 2
+        )
+
+        # this term is not available via MBIS or onetep
         cloud_pen_data = self.molecule.atoms[atom_index].cloud_pen
-        a, b = cloud_pen_data.a, cloud_pen_data.b
-        b /= BOHR_TO_ANGS
+        if cloud_pen_data is not None:
+            a, b = cloud_pen_data.a, cloud_pen_data.b
+            b /= BOHR_TO_ANGS
+        else:
+            a, b = None, None
 
         no_site_esps = []
         for point in self.sample_points:
@@ -298,18 +304,22 @@ class VirtualSites:
             dist_vector = point - atom_coords
 
             mono_esp = VirtualSites.monopole_esp_one_charge(charge, dist)
+
             dipo_esp = VirtualSites.dipole_esp(dist_vector, dipole_moment, dist)
 
-            m_tensor = VirtualSites.quadrupole_moment_tensor(
-                quad_data.q_xy,
-                quad_data.q_xz,
-                quad_data.q_yz,
-                quad_data.q_x2_y2,
-                quad_data.q_3z2_r2,
-            )
+            # m_tensor = VirtualSites.quadrupole_moment_tensor(
+            #     quad_data.q_xy,
+            #     quad_data.q_xz,
+            #     quad_data.q_yz,
+            #     quad_data.q_x2_y2,
+            #     quad_data.q_3z2_r2,
+            # )
             quad_esp = VirtualSites.quadrupole_esp(dist_vector, m_tensor, dist)
 
-            cloud_pen = VirtualSites.cloud_penetration(a, b, dist)
+            if a is not None:
+                cloud_pen = VirtualSites.cloud_penetration(a, b, dist)
+            else:
+                cloud_pen = 0
 
             v_total = (
                 (mono_esp + dipo_esp + quad_esp + cloud_pen)

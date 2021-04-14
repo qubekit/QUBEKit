@@ -24,13 +24,13 @@ class Configure:
         "memory": "2",  # Amount of memory (in GB); specified in the Gaussian09 scripts
         "convergence": "GAU_TIGHT",  # Criterion used during optimisations; works using PSI4, GeomeTRIC and G09
         "iterations": "350",  # Max number of optimisation iterations
-        "bonds_engine": "g09",  # Engine used for bonds calculations
-        "density_engine": "g09",  # Engine used to calculate the electron density
+        "bonds_engine": "gaussian",  # Engine used for bonds calculations
+        # "density_engine": "g09",  # Engine used to calculate the electron density
         "charges_engine": "chargemol",  # Engine used for charge partitioning
         "ddec_version": "6",  # DDEC version used by Chargemol, 6 recommended but 3 is also available
         "dielectric": "4.0",  # During density stage, which dielectric constant should be used
-        "geometric": "True",  # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
-        "solvent": "True",  # Use a solvent in the PSI4/Gaussian09 input
+        # "geometric": "True",  # Use GeomeTRIC for optimised structure (if False, will just use PSI4)
+        # "solvent": "True",  # Use a solvent in the PSI4/Gaussian09 input
         "enable_symmetry": "True",  # Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters
         "enable_virtual_sites": "False",  # Enable or disable the use of virtual sites in the charge step
         "v_site_error_factor": "1.005",  # Maximum error factor from adding a site that means the site will be kept
@@ -47,7 +47,7 @@ class Configure:
         "div_index": "0",  # Fitting starting index in the division array
         "parameter_engine": "antechamber",  # Method used for initial parametrisation
         "l_pen": "0.0",  # The regularisation penalty
-        "pre_opt_method": "rdkit_uff",  # The pre-optimisation method
+        "pre_opt_method": "uff",  # The pre-optimisation method
         "relative_to_global": "False"  # If we should compute our relative energy surface
         # compared to the global minimum
     }
@@ -75,12 +75,12 @@ class Configure:
         "convergence": ";Criterion used during optimisations; GAU, GAU_TIGHT, GAU_VERYTIGHT",
         "iterations": ";Max number of optimisation iterations",
         "bonds_engine": ";Engine used for bonds calculations",
-        "density_engine": ";Engine used to calculate the electron density",
+        # "density_engine": ";Engine used to calculate the electron density",
         "charges_engine": ";Engine used for charge partitioning",
         "ddec_version": ";DDEC version used by Chargemol, 6 recommended but 3 is also available",
         "dielectric": ";During density stage, which dielectric constant should be used",
-        "geometric": ";Use geometric for optimised structure (if False, will just use PSI4)",
-        "solvent": ";Use a solvent in the psi4/gaussian09 input",
+        # "geometric": ";Use geometric for optimised structure (if False, will just use PSI4)",
+        # "solvent": ";Use a solvent in the psi4/gaussian09 input",
         "enable_symmetry": ";Enable or disable the use of symmetrisation for bond, angle, charge, and Lennard-Jones parameters",
         "enable_virtual_sites": ";Enable or disable the use of virtual sites in the charge step",
         "v_site_error_factor": ";Maximum error factor from adding a site that means the site will be kept",
@@ -165,7 +165,7 @@ class Configure:
 
         # Cast the floats
         qm["vib_scaling"] = float(qm["vib_scaling"])
-        qm["dielectric"] = float(qm["dielectric"])
+        # qm["dielectric"] = float(qm["dielectric"])
         qm["v_site_error_factor"] = float(qm["v_site_error_factor"])
         fitting["l_pen"] = float(fitting["l_pen"])
         if fitting["t_weight"] != "infinity":
@@ -173,8 +173,8 @@ class Configure:
 
         # List of keys whose values should be cast to bools
         for key in [
-            "geometric",
-            "solvent",
+            # "geometric",
+            # "solvent",
             "enable_symmetry",
             "enable_virtual_sites",
             "excited_state",
