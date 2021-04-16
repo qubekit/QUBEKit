@@ -5,8 +5,8 @@ import os
 import sys
 from functools import partial
 
-from qubekit.lennard_jones import LennardJones612
 from qubekit.molecules import Protein
+from qubekit.nonbonded.lennard_jones import LennardJones612
 from qubekit.parametrisation import XMLProtein
 from qubekit.proteins.protein_tools import get_water, pdb_reformat, qube_general
 from qubekit.utils.file_handling import ExtractChargeData

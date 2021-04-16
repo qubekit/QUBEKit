@@ -23,16 +23,10 @@ import numpy as np
 
 import qubekit
 from qubekit.charges import DDECCharges, MBISCharges, extract_extra_sites_onetep
-from qubekit.engines import (
-    Chargemol,
-    Gaussian,
-    GeometryOptimiser,
-    QCEngine,
-    TorsionDriver,
-)
-from qubekit.lennard_jones import LennardJones612
+from qubekit.engines import Gaussian, GeometryOptimiser, QCEngine, TorsionDriver
 from qubekit.mod_seminario import ModSeminario
 from qubekit.molecules import Ligand
+from qubekit.nonbonded.lennard_jones import LennardJones612
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.torsions import TorsionOptimiser, TorsionScan1D
 from qubekit.utils.configs import Configure
@@ -1231,7 +1225,7 @@ class Execute:
             molecule.home, "Starting Lennard-Jones parameter calculation", major=True
         )
 
-        LennardJones612(molecule).calculate_non_bonded_force()
+        LennardJones612().run(molecule=molecule)
 
         append_to_log(
             molecule.home, "Finishing Lennard-Jones parameter calculation", major=True

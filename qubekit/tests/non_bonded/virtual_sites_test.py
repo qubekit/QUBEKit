@@ -6,9 +6,9 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import pytest
 
-from qubekit.lennard_jones import LennardJones612
 from qubekit.charges import DDECCharges, ExtractChargeData
 from qubekit.molecules import Ligand
+from qubekit.nonbonded.lennard_jones import LennardJones612
 from qubekit.parametrisation import OpenFF
 from qubekit.utils.constants import BOHR_TO_ANGS
 from qubekit.utils.file_handling import get_data
@@ -31,6 +31,9 @@ def mol():
         ExtractChargeData.read_files(molecule, dir_path, "chargemol")
         # apply symmetry to the reference data
         DDECCharges.apply_symmetrisation(molecule=molecule)
+        # apply the reference charge to the nonbonded
+        for atom in molecule.atoms:
+            molecule.NonbondedForce[(atom.atom_index,)].charge = atom.aim.charge
 
         return molecule
 
@@ -190,13 +193,28 @@ def test_get_vector_from_coords(vs, mol):
 def test_fit(mol, vs, tmpdir):
     with tmpdir.as_cwd():
         vs.run(molecule=mol)
+        # make sure we have a site
+        assert mol.extra_sites.n_sites == 2
+        # make sure only the parent site has its charge changed
+        assert mol.atoms[1].aim.charge != pytest.approx(
+            float(mol.NonbondedForce[(1,)].charge)
+        )
+        # make sure the other values are similar to the aim values
+        for atom in mol.atoms:
+            if atom.atom_index != 1:
+                assert atom.aim.charge == float(
+                    mol.NonbondedForce[(atom.atom_index,)].charge
+                )
 
-        assert mol.extra_sites is not None
+        LennardJones612().run(molecule=mol)
+        # make sure lJ did not reset the charge on the parent
+        assert mol.atoms[1].aim.charge != pytest.approx(
+            float(mol.NonbondedForce[(1,)].charge)
+        )
 
-        LennardJones612(mol).calculate_non_bonded_force()
+        # now fix the total charge
         mol.fix_net_charge()
 
-        assert mol.extra_sites.n_sites == 2
         assert (
             sum(param.charge for param in mol.NonbondedForce)
             + sum(site.charge for site in mol.extra_sites)

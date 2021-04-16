@@ -8,7 +8,8 @@ If the error is significantly reduced with one or two v-sites, then it is saved 
 See VirtualSites.fit() for fitting details.
 """
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union, ClassVar
+import decimal
+from typing import TYPE_CHECKING, ClassVar, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -16,7 +17,9 @@ from matplotlib.cm import ScalarMappable
 
 # DO NOT REMOVE THIS IMPORT. ALTHOUGH IT IS NOT EXPLICITLY CALLED, IT IS NEEDED FOR 3D PLOTTING.
 from mpl_toolkits.mplot3d import Axes3D
+from pydantic import Field, PrivateAttr
 from scipy.optimize import minimize
+from typing_extensions import Literal
 
 from qubekit.utils.constants import (
     ANGS_TO_NM,
@@ -27,9 +30,8 @@ from qubekit.utils.constants import (
     PI,
     VACUUM_PERMITTIVITY,
 )
-from qubekit.utils.helpers import append_to_log
 from qubekit.utils.datastructures import StageBase
-from pydantic import Field, PrivateAttr
+from qubekit.utils.helpers import append_to_log
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
@@ -51,6 +53,7 @@ class VirtualSites(StageBase):
     Numpy arrays are used throughout for faster calculation of esp values.
     """
 
+    type: Literal["VirtualSites"] = "VirtualSites"
     enable_symmetry: bool = Field(
         default=True,
         description="If atoms which require multiple virtual sites should be "
@@ -868,7 +871,9 @@ class VirtualSites(StageBase):
                 and_print=True,
             )
             self._v_sites_coords.extend(one_site_coords)
-            self._molecule.atoms[atom_index].aim.charge -= one_site_coords[0][1]
+            self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
+                one_site_coords[0][1]
+            )
 
         else:
             append_to_log(
@@ -877,7 +882,7 @@ class VirtualSites(StageBase):
                 and_print=True,
             )
             self._v_sites_coords.extend(two_site_coords)
-            self._molecule.atoms[atom_index].aim.charge -= (
+            self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
                 two_site_coords[0][1] + two_site_coords[1][1]
             )
         append_to_log(
@@ -918,7 +923,10 @@ class VirtualSites(StageBase):
 
         # List of tuples where each tuple is the xyz atom coords, followed by their partial charge
         atom_points = [
-            (coord, atom.aim.charge)  # [((x, y, z), q), ... ]
+            (
+                coord,
+                self._molecule.NonbondedForce[(atom.atom_index,)].charge,
+            )  # [((x, y, z), q), ... ]
             for coord, atom in zip(self._coords, self._molecule.atoms)
         ]
 
@@ -1019,7 +1027,7 @@ class VirtualSites(StageBase):
             for atom_index, atom in enumerate(self._coords):
                 xyz_file.write(
                     f"{self._molecule.atoms[atom_index].atomic_symbol}       {atom[0]: .10f}   {atom[1]: .10f}   {atom[2]: .10f}"
-                    f"   {self._molecule.atoms[atom_index].aim.charge: .6f}\n"
+                    f"   {self._molecule.NonbondedForce[(atom_index, )].charge: .6f}\n"
                 )
 
                 for site in self._v_sites_coords:

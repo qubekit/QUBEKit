@@ -14,9 +14,9 @@ from qubekit.charges import DDECCharges, MBISCharges, SolventPsi4
 from qubekit.engines import GaussianHarness
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import OpenFF
-from qubekit.utils.file_handling import get_data
-from qubekit.utils.exceptions import SpecificationError
 from qubekit.utils import constants
+from qubekit.utils.exceptions import SpecificationError
+from qubekit.utils.file_handling import get_data
 
 
 def test_mbis_water_no_symm(tmpdir):
