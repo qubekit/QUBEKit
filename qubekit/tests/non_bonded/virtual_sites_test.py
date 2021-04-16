@@ -53,7 +53,7 @@ def vs(mol):
     """
     Initialise the VirtualSites class to be used for the following tests
     """
-    virtual_sites = VirtualSites(mol, debug=True)
+    virtual_sites = VirtualSites()
     return virtual_sites
 
 
@@ -70,7 +70,7 @@ def vs(mol):
 )
 def test_spherical_to_cartesian(input_array, result, vs):
     for i in range(3):
-        assert vs.spherical_to_cartesian(input_array)[i] == pytest.approx(result[i])
+        assert vs._spherical_to_cartesian(input_array)[i] == pytest.approx(result[i])
 
 
 @pytest.mark.parametrize(
@@ -86,7 +86,7 @@ def test_spherical_to_cartesian(input_array, result, vs):
     ],
 )
 def test_xyz_distance(array1, array2, result, vs):
-    assert vs.xyz_distance(array1, array2) == result
+    assert vs._xyz_distance(array1, array2) == result
 
 
 @pytest.mark.parametrize(
@@ -97,12 +97,12 @@ def test_xyz_distance(array1, array2, result, vs):
     ],
 )
 def test_monopole_esp_one_charge(charge, dist, result, vs):
-    assert vs.monopole_esp_one_charge(charge, dist) == result
+    assert vs._monopole_esp_one_charge(charge, dist) == result
 
 
 def test_monopole_esp_one_charge_div_zero(vs):
     with pytest.raises(ZeroDivisionError):
-        vs.monopole_esp_one_charge(1, 0)
+        vs._monopole_esp_one_charge(1, 0)
 
 
 @pytest.mark.parametrize(
@@ -115,12 +115,12 @@ def test_monopole_esp_one_charge_div_zero(vs):
     ],
 )
 def test_monopole_esp_two_charges(charge1, charge2, dist1, dist2, result, vs):
-    assert vs.monopole_esp_two_charges(charge1, charge2, dist1, dist2) == result
+    assert vs._monopole_esp_two_charges(charge1, charge2, dist1, dist2) == result
 
 
 def test_monopole_esp_two_charges_div_zero(vs):
     with pytest.raises(ZeroDivisionError):
-        vs.monopole_esp_two_charges(1, 1, 0, 0)
+        vs._monopole_esp_two_charges(1, 1, 0, 0)
 
 
 @pytest.mark.parametrize(
@@ -136,21 +136,21 @@ def test_monopole_esp_three_charges(
     charge1, charge2, charge3, dist1, dist2, dist3, result, vs
 ):
     assert (
-        vs.monopole_esp_three_charges(charge1, charge2, charge3, dist1, dist2, dist3)
+        vs._monopole_esp_three_charges(charge1, charge2, charge3, dist1, dist2, dist3)
         == result
     )
 
 
 def test_monopole_esp_three_charges_div_zero(vs):
     with pytest.raises(ZeroDivisionError):
-        vs.monopole_esp_three_charges(1, 1, 1, 0, 0, 0)
+        vs._monopole_esp_three_charges(1, 1, 1, 0, 0, 0)
 
 
 def test_dipole_esp(mol, vs):
     # convert from atomic units
     dipole_moment = mol.atoms[1].dipole.to_array() * BOHR_TO_ANGS
 
-    assert vs.dipole_esp(np.array([1, 1, 1]), dipole_moment, 1) == pytest.approx(
+    assert vs._dipole_esp(np.array([1, 1, 1]), dipole_moment, 1) == pytest.approx(
         -1.76995515193e-29
     )
 
@@ -158,7 +158,7 @@ def test_dipole_esp(mol, vs):
 def test_quadrupole_esp(mol, vs):
     # convert from atomic units
     m_tensor = mol.atoms[1].quadrupole.to_array() * BOHR_TO_ANGS ** 2
-    assert vs.quadrupole_esp(np.array([1, 1, 1]), m_tensor, 1) == pytest.approx(
+    assert vs._quadrupole_esp(np.array([1, 1, 1]), m_tensor, 1) == pytest.approx(
         9.40851165275e-30
     )
 
@@ -167,25 +167,29 @@ def test_cloud_penetration(mol, vs):
     cloud_pen_data = mol.atoms[1].cloud_pen
     a, b = cloud_pen_data.a, cloud_pen_data.b
     b /= BOHR_TO_ANGS
-    assert vs.cloud_penetration(a, b, 1) == pytest.approx(2.86224473231e-27)
+    assert vs._cloud_penetration(a, b, 1) == pytest.approx(2.86224473231e-27)
 
 
 def test_generate_sample_points_relative(vs):
-    points = vs.generate_sample_points_relative(vdw_radius=1)
+    points = vs._generate_sample_points_relative(vdw_radius=1)
     for point in points:
         # All points should be 1.4-2.0x the vdw radius (in this instance, 1 Ang)
-        assert 1.39 <= vs.xyz_distance(point, np.array([0, 0, 0])) <= 2.01
+        assert 1.39 <= vs._xyz_distance(point, np.array([0, 0, 0])) <= 2.01
 
 
-def test_get_vector_from_coords(vs):
-    vector = vs.get_vector_from_coords(atom_index=1, n_sites=1, alt=False)
+def test_get_vector_from_coords(vs, mol):
+    # force them in as they are only cached when fitting sites
+    vs._molecule = mol
+    vs._coords = mol.coordinates
+    vector = vs._get_vector_from_coords(atom_index=1, n_sites=1, alt=False)
     # Chlorine scale factor == 1.5
     assert np.linalg.norm(vector) == pytest.approx(1.5)
+    vs._clear_cache()
 
 
 def test_fit(mol, vs, tmpdir):
     with tmpdir.as_cwd():
-        vs.calculate_virtual_sites()
+        vs.run(molecule=mol)
 
         assert mol.extra_sites is not None
 

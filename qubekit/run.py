@@ -1211,8 +1211,11 @@ class Execute:
             if molecule.charges_engine == "onetep":
                 extract_extra_sites_onetep(molecule)
             else:
-                vs = VirtualSites(molecule)
-                vs.calculate_virtual_sites()
+                vs = VirtualSites(
+                    enable_symmetry=molecule.enable_symmetry,
+                    site_error_factor=molecule.v_site_error_factor,
+                )
+                vs.run(molecule=molecule)
 
             append_to_log(
                 molecule.home, "Finishing virtual sites calculation", major=True
