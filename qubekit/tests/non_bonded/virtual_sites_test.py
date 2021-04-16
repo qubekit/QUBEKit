@@ -147,7 +147,7 @@ def test_monopole_esp_three_charges_div_zero(vs):
 
 
 def test_dipole_esp(mol, vs):
-    # dip_data = mol.atoms[1].dipole
+    # convert from atomic units
     dipole_moment = mol.atoms[1].dipole.to_array() * BOHR_TO_ANGS
 
     assert vs.dipole_esp(np.array([1, 1, 1]), dipole_moment, 1) == pytest.approx(
@@ -156,15 +156,8 @@ def test_dipole_esp(mol, vs):
 
 
 def test_quadrupole_esp(mol, vs):
-    # quad_data = mol.atoms[1].quadrupole
+    # convert from atomic units
     m_tensor = mol.atoms[1].quadrupole.to_array() * BOHR_TO_ANGS ** 2
-    # m_tensor = vs.quadrupole_moment_tensor(
-    #     quad_data.q_xy,
-    #     quad_data.q_xz,
-    #     quad_data.q_yz,
-    #     quad_data.q_x2_y2,
-    #     quad_data.q_3z2_r2,
-    # )
     assert vs.quadrupole_esp(np.array([1, 1, 1]), m_tensor, 1) == pytest.approx(
         9.40851165275e-30
     )
@@ -199,6 +192,7 @@ def test_fit(mol, vs, tmpdir):
         LennardJones612(mol).calculate_non_bonded_force()
         mol.fix_net_charge()
 
+        assert mol.extra_sites.n_sites == 2
         assert (
             sum(param.charge for param in mol.NonbondedForce)
             + sum(site.charge for site in mol.extra_sites)

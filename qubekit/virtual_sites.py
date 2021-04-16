@@ -165,22 +165,6 @@ class VirtualSites:
             4 * PI * VACUUM_PERMITTIVITY * dist ** 3
         )
 
-    # @staticmethod
-    # def quadrupole_moment_tensor(
-    #     q_xy: float, q_xz: float, q_yz: float, q_x2_y2: float, q_3z2_r2: float
-    # ) -> np.ndarray:
-    #     """
-    #     :params: quadrupole moment components from Chargemol output
-    #     :return: quadrupole moment tensor, M
-    #     """
-    #     return np.array(
-    #         [
-    #             [q_x2_y2 / 2 - q_3z2_r2 / 6, q_xy, q_xz],
-    #             [q_xy, -q_x2_y2 / 2 - q_3z2_r2 / 6, q_yz],
-    #             [q_xz, q_yz, q_3z2_r2 / 3],
-    #         ]
-    #     )
-
     @staticmethod
     def quadrupole_esp(
         dist_vector: np.ndarray, m_tensor: np.ndarray, dist: float
@@ -285,7 +269,6 @@ class VirtualSites:
 
         # get reference values and convert to angs
         dipole_moment = self.molecule.atoms[atom_index].dipole.to_array() * BOHR_TO_ANGS
-
         m_tensor = self.molecule.atoms[atom_index].quadrupole.to_array() * (
             BOHR_TO_ANGS ** 2
         )
@@ -304,16 +287,7 @@ class VirtualSites:
             dist_vector = point - atom_coords
 
             mono_esp = VirtualSites.monopole_esp_one_charge(charge, dist)
-
             dipo_esp = VirtualSites.dipole_esp(dist_vector, dipole_moment, dist)
-
-            # m_tensor = VirtualSites.quadrupole_moment_tensor(
-            #     quad_data.q_xy,
-            #     quad_data.q_xz,
-            #     quad_data.q_yz,
-            #     quad_data.q_x2_y2,
-            #     quad_data.q_3z2_r2,
-            # )
             quad_esp = VirtualSites.quadrupole_esp(dist_vector, m_tensor, dist)
 
             if a is not None:

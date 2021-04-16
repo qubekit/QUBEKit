@@ -47,7 +47,6 @@ class MBISCharges(ChargeBase):
         result = engine.call_qcengine(molecule=molecule, extras=extras)
         # pick out the MBIS data and store into the molecule.
         qcvars = result.extras["qcvars"]
-        print(qcvars)
         charges = qcvars["MBIS CHARGES"]
         dipoles = qcvars["MBIS DIPOLES"]
         quadrupoles = qcvars["MBIS QUADRUPOLES"]
@@ -61,12 +60,15 @@ class MBISCharges(ChargeBase):
             atom.aim.volume = volumes[i][0]
             dipole = Dipole(x=dipoles[i][0], y=dipoles[i][1], z=dipoles[i][2])
             atom.dipole = dipole
+            trace = quadrupoles[i][0][0] + quadrupoles[i][1][1] + quadrupoles[i][2][2]
+            trace /= 3
+            # make sure we have the traceless quad tensor
             quad = Quadrupole(
-                q_xx=quadrupoles[i][0][0],
+                q_xx=quadrupoles[i][0][0] - trace,
                 q_xy=quadrupoles[i][0][1],
                 q_xz=quadrupoles[i][0][2],
-                q_yy=quadrupoles[i][1][1],
-                q_zz=quadrupoles[i][2][2],
+                q_yy=quadrupoles[i][1][1] - trace,
+                q_zz=quadrupoles[i][2][2] - trace,
                 q_yz=quadrupoles[i][1][2],
             )
             atom.quadrupole = quad
