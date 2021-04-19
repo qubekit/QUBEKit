@@ -23,6 +23,8 @@ def test_mbis_water_no_symm(tmpdir):
     """
     Make sure we can generate some mbis values for a molecule in a water solvent.
     """
+    if not which_import("psi4", raise_error=False, return_bool=True):
+        pytest.skip("Skipping as PSI4 not installed.")
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("water.pdb"))
         OpenFF().parametrise_molecule(molecule=mol)
@@ -71,6 +73,8 @@ def test_mbis_water_symm(tmpdir):
     """
     Make sure symmetry is correctly applied when requested to the reference charge values.
     """
+    if not which_import("psi4", raise_error=False, return_bool=True):
+        pytest.skip("Skipping as PSI4 not installed.")
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("water.pdb"))
         OpenFF().parametrise_molecule(molecule=mol)
