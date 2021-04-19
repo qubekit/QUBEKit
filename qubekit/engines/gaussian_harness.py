@@ -60,7 +60,7 @@ class GaussianHarness(ProgramHarness):
         # we always use an internal template
         job_inputs = self.build_input(input_model=input_data, config=config)
         # check for extra output files
-        if "gaussian.wfx" in input_data.keywords.get("cmdline_extra", []):
+        if "gaussian.wfx" in input_data.keywords.get("add_input", []):
             extra_outfiles = ["gaussian.wfx"]
         else:
             extra_outfiles = None
@@ -87,6 +87,7 @@ class GaussianHarness(ProgramHarness):
         outfiles = ["gaussian.log", "lig.chk"]
         if extra_outfiles is not None:
             outfiles.extend(extra_outfiles)
+        print(outfiles)
         gaussian_version = self.get_version()
         commands = [gaussian_version, "gaussian.com"]
         scratch_directory = inputs["scratch_directory"]
@@ -99,6 +100,7 @@ class GaussianHarness(ProgramHarness):
             scratch_directory=scratch_directory,
             as_binary=["lig.chk"],
         )
+        print(proc["outfiles"])
         if exe_success:
             # now we need to run the conversion of the chk file
             commands = ["formchk", "lig.chk", "lig.fchk"]
