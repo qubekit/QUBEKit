@@ -1162,9 +1162,8 @@ class Execute:
     #
     #     return molecule
 
-    @staticmethod
-    def charges(molecule: Ligand) -> Ligand:
-        """Perform DDEC calculation with Chargemol."""
+    def charges(self, molecule: Ligand) -> Ligand:
+        """Perform an AIM analysis using MBIS/Chargemol or ONETEP."""
 
         append_to_log(
             molecule.home,
@@ -1186,7 +1185,44 @@ class Execute:
             density_engine = MBISCharges(**common_settings)
 
         elif molecule.charges_engine == "onetep":
-            raise NotImplementedError
+            # check for results files first
+            if os.path.exists("iter_1/ddec.onetep") or os.path.exists("ddec.onetep"):
+                from qubekit.charges import ExtractChargeData
+
+                # load the charge info
+                append_to_log(
+                    molecule.home,
+                    "Extracting Charge information from ONETEP result",
+                    major=True,
+                )
+                ExtractChargeData.extract_charge_data_onetep(
+                    molecule=molecule, dir_path=""
+                )
+                if molecule.enable_virtual_sites:
+                    append_to_log(
+                        molecule.home, "Starting virtual sites calculation", major=True
+                    )
+                    # grab onetep v-sites
+                    extract_extra_sites_onetep(molecule)
+            else:
+                molecule.to_file(file_name=f"{molecule.name}.xyz")
+                # If using ONETEP, stop after this step
+                # TODO add better ONETEP support via ASE
+                append_to_log(
+                    molecule.home, "Density analysis file made for ONETEP", major=True
+                )
+
+                # Edit the order to end here
+                self.order = OrderedDict(
+                    [
+                        ("charges", self.charges),
+                        ("lennard_jones", self.skip),
+                        ("torsion_scan", self.skip),
+                        ("pause", self.pause),
+                        ("finalise", self.finalise),
+                    ]
+                )
+                return molecule
         else:
             raise NotImplementedError
 
@@ -1201,15 +1237,11 @@ class Execute:
             append_to_log(
                 molecule.home, "Starting virtual sites calculation", major=True
             )
-
-            if molecule.charges_engine == "onetep":
-                extract_extra_sites_onetep(molecule)
-            else:
-                vs = VirtualSites(
-                    enable_symmetry=molecule.enable_symmetry,
-                    site_error_factor=molecule.v_site_error_factor,
-                )
-                vs.run(molecule=molecule)
+            vs = VirtualSites(
+                enable_symmetry=molecule.enable_symmetry,
+                site_error_factor=molecule.v_site_error_factor,
+            )
+            vs.run(molecule=molecule)
 
             append_to_log(
                 molecule.home, "Finishing virtual sites calculation", major=True
@@ -1324,7 +1356,7 @@ class Execute:
 
         printf(
             "QUBEKit stopping at ONETEP step!\n To continue please move the ddec.onetep file and xyz file to the "
-            "density folder and use QUBEKit -restart lennard_jones."
+            "density folder and use QUBEKit -restart charges."
         )
 
         return
