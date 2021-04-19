@@ -29,3 +29,4 @@ dependencies:
   - torchani
   - psi4 = 1.4rc1+2d37164
   - dftd3
+  - libxc =5.1.2
