@@ -34,7 +34,7 @@ class BaseEngine(SchemaBase):
     )
 
     @validator("program")
-    def validate_program(cls, program: str) -> str:
+    def _validate_program(cls, program: str) -> str:
         """
         Validate the choice of program against those supported by QCEngine and QUBEKit.
         """

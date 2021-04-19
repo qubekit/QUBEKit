@@ -12,7 +12,7 @@ class SchemaBase(BaseModel):
     """A basic pydantic starting class which uses assigment validation."""
 
     class Config:
-        validate_assigment = True
+        validate_assignment = True
         arbitrary_types_allowed = True
 
 
