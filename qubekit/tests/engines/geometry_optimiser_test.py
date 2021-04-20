@@ -139,7 +139,7 @@ def test_optimise_fail_output(tmpdir):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("water.pdb"))
-        g = GeometryOptimiser(program="rdkit", method="uff", basis=None, maxiter=2)
+        g = GeometryOptimiser(program="rdkit", method="uff", basis=None, maxiter=1)
         with pytest.raises(RuntimeError):
             g.optimise(molecule=mol, allow_fail=False)
         files = os.listdir()

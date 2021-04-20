@@ -25,5 +25,5 @@ dependencies:
   - pytest
   - pytest-cov
   # compute engines
-  - psi4 = 1.4rc1+2d37164
+  - psi4 = 1.4a3.dev274+4440517
   - dftd3
