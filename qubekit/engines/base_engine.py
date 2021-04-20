@@ -4,45 +4,37 @@ from typing import Dict, Optional
 
 import qcelemental as qcel
 import qcengine as qcng
-from pydantic import BaseModel, PositiveInt, validator
+from pydantic import Field, PositiveInt, validator
 
+from qubekit.utils.datastructures import SchemaBase
 from qubekit.utils.exceptions import SpecificationError
 
 
-class BaseEngine(BaseModel):
+class BaseEngine(SchemaBase):
     """
     A common base model for engines to run computations via external programs.
     """
 
-    program: str = "psi4"
-    basis: Optional[str] = "6-311++G(d,p)"
-    method: str = "wB97X-D"
-    cores: PositiveInt = 4
-    memory: PositiveInt = 10
-
-    class Config:
-        validate_assignment = True
-        arbitrary_types_allowed = True
-        fields = {
-            "program": {
-                "description": "The name of the program which should be used to carry out the computation, such as psi4"
-            },
-            "basis": {
-                "description": "The basis that should be used in the computation."
-            },
-            "method": {
-                "description": "The method that should be used for the computation."
-            },
-            "cores": {
-                "description": "The number of cores to be allocated to the computation."
-            },
-            "memory": {
-                "description": "The amount of memory that should be allocated to the computation in GB."
-            },
-        }
+    program: str = Field(
+        "psi4",
+        description="The name of the program which should be used to carry out the computation, such as psi4",
+    )
+    basis: Optional[str] = Field(
+        "6-311++G(d,p)", description="The basis that should be used in the computation."
+    )
+    method: str = Field(
+        "wB97X-D", description="The method that should be used for the computation."
+    )
+    cores: PositiveInt = Field(
+        4, description="The number of cores to be allocated to the computation."
+    )
+    memory: PositiveInt = Field(
+        10,
+        description="The amount of memory that should be allocated to the computation in GB.",
+    )
 
     @validator("program")
-    def validate_program(cls, program: str) -> str:
+    def _validate_program(cls, program: str) -> str:
         """
         Validate the choice of program against those supported by QCEngine and QUBEKit.
         """

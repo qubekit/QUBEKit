@@ -22,16 +22,11 @@ from shutil import copy, move
 import numpy as np
 
 import qubekit
-from qubekit.engines import (
-    Chargemol,
-    Gaussian,
-    GeometryOptimiser,
-    QCEngine,
-    TorsionDriver,
-)
-from qubekit.lennard_jones import LennardJones612
+from qubekit.charges import DDECCharges, MBISCharges, extract_extra_sites_onetep
+from qubekit.engines import Gaussian, GeometryOptimiser, QCEngine, TorsionDriver
 from qubekit.mod_seminario import ModSeminario
 from qubekit.molecules import Ligand
+from qubekit.nonbonded.lennard_jones import LennardJones612
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.torsions import TorsionOptimiser, TorsionScan1D
 from qubekit.utils.configs import Configure
@@ -43,11 +38,7 @@ from qubekit.utils.display import (
     pretty_progress,
 )
 from qubekit.utils.exceptions import HessianCalculationFailed, SpecificationError
-from qubekit.utils.file_handling import (
-    ExtractChargeData,
-    extract_extra_sites_onetep,
-    make_and_change_into,
-)
+from qubekit.utils.file_handling import make_and_change_into
 from qubekit.utils.helpers import (
     append_to_log,
     generate_bulk_csv,
@@ -325,23 +316,24 @@ class ArgsAndConfigs:
         parser.add_argument(
             "-charges",
             "--charges_engine",
-            choices=["onetep", "chargemol"],
-            help="Choose the method to do the charge partitioning.",
+            choices=["onetep", "chargemol", "mbis"],
+            default="chargemol",
+            help="Choose the method to do the charge partitioning this is tied to the method used to compute the density.",
         )
-        parser.add_argument(
-            "-density",
-            "--density_engine",
-            choices=["onetep", "g09", "g16", "psi4"],
-            help="Enter the name of the QM code to calculate the electron density of the molecule.",
-        )
+        # parser.add_argument(
+        #     "-density",
+        #     "--density_engine",
+        #     choices=["onetep", "g09", "g16", "psi4"],
+        #     help="Enter the name of the QM code to calculate the electron density of the molecule.",
+        # )
         # TODO Maybe separate into known solvents and IPCM constants?
-        parser.add_argument(
-            "-solvent",
-            "--solvent",
-            choices=[True, False],
-            type=string_to_bool,
-            help="Enter whether or not you would like to use a solvent.",
-        )
+        # parser.add_argument(
+        #     "-solvent",
+        #     "--solvent",
+        #     choices=[True, False],
+        #     type=string_to_bool,
+        #     help="Enter whether or not you would like to use a solvent.",
+        # )
         parser.add_argument(
             "-convergence",
             "--convergence",
@@ -666,7 +658,7 @@ class Execute:
                 ("qm_optimise", self.qm_optimise),
                 ("hessian", self.hessian),
                 ("mod_sem", self.mod_sem),
-                ("density", self.density),
+                # ("density", self.density),
                 ("charges", self.charges),
                 ("lennard_jones", self.lennard_jones),
                 ("torsion_scan", self.torsion_scan),
@@ -861,13 +853,13 @@ class Execute:
                 "Calculating bonds and angles with modified Seminario method",
                 "Bond and angle parameters calculated",
             ],
-            "density": [
-                f"Performing density calculation with {self.molecule.density_engine} using dielectric of "
-                f"{self.molecule.dielectric}",
-                "Density calculation complete",
-            ],
+            # "density": [
+            #     f"Performing density calculation with {self.molecule.density_engine} using dielectric of "
+            #     f"{self.molecule.dielectric}",
+            #     "Density calculation complete",
+            # ],
             "charges": [
-                f"Chargemol calculating charges using DDEC{self.molecule.ddec_version}",
+                f"{self.molecule.charges_engine} calculating charges",
                 "Charges calculated",
             ],
             "lennard_jones": [
@@ -1136,70 +1128,120 @@ class Execute:
 
         return mod_molecule
 
-    def density(self, molecule):
-        """Perform density calculation with the qm engine."""
+    # def density(self, molecule):
+    #     """Perform density calculation with the qm engine."""
+    #
+    #     append_to_log(molecule.home, "Starting density calculation", major=True)
+    #
+    #     if molecule.density_engine == "onetep":
+    #         molecule.write_xyz(input_type="qm")
+    #         # If using ONETEP, stop after this step
+    #         append_to_log(
+    #             molecule.home, "Density analysis file made for ONETEP", major=True
+    #         )
+    #
+    #         # Edit the order to end here
+    #         self.order = OrderedDict(
+    #             [
+    #                 ("density", self.density),
+    #                 ("charges", self.skip),
+    #                 ("lennard_jones", self.skip),
+    #                 ("torsion_scan", self.skip),
+    #                 ("pause", self.pause),
+    #                 ("finalise", self.finalise),
+    #             ]
+    #         )
+    #
+    #     else:
+    #         qm_engine = self.engine_dict[molecule.density_engine](molecule)
+    #         qm_engine.generate_input(
+    #             density=True,
+    #             execute=molecule.density_engine,
+    #         )
+    #         append_to_log(molecule.home, "Finishing Density calculation", major=True)
+    #
+    #     return molecule
 
-        append_to_log(molecule.home, "Starting density calculation", major=True)
-
-        if molecule.density_engine == "onetep":
-            molecule.write_xyz(input_type="qm")
-            # If using ONETEP, stop after this step
-            append_to_log(
-                molecule.home, "Density analysis file made for ONETEP", major=True
-            )
-
-            # Edit the order to end here
-            self.order = OrderedDict(
-                [
-                    ("density", self.density),
-                    ("charges", self.skip),
-                    ("lennard_jones", self.skip),
-                    ("torsion_scan", self.skip),
-                    ("pause", self.pause),
-                    ("finalise", self.finalise),
-                ]
-            )
-
-        else:
-            qm_engine = self.engine_dict[molecule.density_engine](molecule)
-            qm_engine.generate_input(
-                density=True,
-                execute=molecule.density_engine,
-            )
-            append_to_log(molecule.home, "Finishing Density calculation", major=True)
-
-        return molecule
-
-    @staticmethod
-    def charges(molecule):
-        """Perform DDEC calculation with Chargemol."""
-
-        append_to_log(molecule.home, "Starting charge partitioning", major=True)
-        copy(
-            os.path.join(molecule.home, "06_density", f"{molecule.name}.wfx"),
-            f"{molecule.name}.wfx",
-        )
-        c_mol = Chargemol(molecule)
-        c_mol.generate_input()
-
-        dir_path = os.path.join(molecule.home, "07_charges")
-        ExtractChargeData.read_files(molecule, dir_path, molecule.charges_engine)
+    def charges(self, molecule: Ligand) -> Ligand:
+        """Perform an AIM analysis using MBIS/Chargemol or ONETEP."""
 
         append_to_log(
             molecule.home,
-            f"Finishing charge partitioning with Chargemol and DDEC{molecule.ddec_version}",
+            f"Starting charge partitioning using {molecule.charges_engine}",
+            major=True,
+        )
+        common_settings = dict(
+            basis=molecule.basis,
+            method=molecule.theory,
+            memory=molecule.memory,
+            cores=molecule.threads,
+            apply_symmetry=molecule.enable_symmetry,
+        )
+        if molecule.charges_engine == "chargemol":
+            density_engine = DDECCharges(**common_settings)
+            density_engine.ddec_version = molecule.ddec_version
+
+        elif molecule.charges_engine == "mbis":
+            density_engine = MBISCharges(**common_settings)
+
+        elif molecule.charges_engine == "onetep":
+            # check for results files first
+            if os.path.exists("iter_1/ddec.onetep") or os.path.exists("ddec.onetep"):
+                from qubekit.charges import ExtractChargeData
+
+                # load the charge info
+                append_to_log(
+                    molecule.home,
+                    "Extracting Charge information from ONETEP result",
+                    major=True,
+                )
+                ExtractChargeData.extract_charge_data_onetep(
+                    molecule=molecule, dir_path=""
+                )
+                if molecule.enable_virtual_sites:
+                    append_to_log(
+                        molecule.home, "Starting virtual sites calculation", major=True
+                    )
+                    # grab onetep v-sites
+                    extract_extra_sites_onetep(molecule)
+            else:
+                molecule.to_file(file_name=f"{molecule.name}.xyz")
+                # If using ONETEP, stop after this step
+                # TODO add better ONETEP support via ASE
+                append_to_log(
+                    molecule.home, "Density analysis file made for ONETEP", major=True
+                )
+
+                # Edit the order to end here
+                self.order = OrderedDict(
+                    [
+                        ("charges", self.charges),
+                        ("lennard_jones", self.skip),
+                        ("torsion_scan", self.skip),
+                        ("pause", self.pause),
+                        ("finalise", self.finalise),
+                    ]
+                )
+                return molecule
+        else:
+            raise NotImplementedError
+
+        molecule = density_engine.run(molecule=molecule)
+
+        append_to_log(
+            molecule.home,
+            f"Finishing charge partitioning with {molecule.charges_engine}",
             major=True,
         )
         if molecule.enable_virtual_sites:
             append_to_log(
                 molecule.home, "Starting virtual sites calculation", major=True
             )
-
-            if molecule.charges_engine == "onetep":
-                extract_extra_sites_onetep(molecule)
-            else:
-                vs = VirtualSites(molecule)
-                vs.calculate_virtual_sites()
+            vs = VirtualSites(
+                enable_symmetry=molecule.enable_symmetry,
+                site_error_factor=molecule.v_site_error_factor,
+            )
+            vs.run(molecule=molecule)
 
             append_to_log(
                 molecule.home, "Finishing virtual sites calculation", major=True
@@ -1215,7 +1257,7 @@ class Execute:
             molecule.home, "Starting Lennard-Jones parameter calculation", major=True
         )
 
-        LennardJones612(molecule).calculate_non_bonded_force()
+        LennardJones612().run(molecule=molecule)
 
         append_to_log(
             molecule.home, "Finishing Lennard-Jones parameter calculation", major=True
@@ -1314,7 +1356,7 @@ class Execute:
 
         printf(
             "QUBEKit stopping at ONETEP step!\n To continue please move the ddec.onetep file and xyz file to the "
-            "density folder and use QUBEKit -restart lennard_jones."
+            "density folder and use QUBEKit -restart charges."
         )
 
         return

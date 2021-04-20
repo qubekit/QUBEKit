@@ -1,7 +1,7 @@
 %Mem={{ memory }}GB
 %NProcShared={{ threads }}
 %Chk=lig
-# {{ theory }}/{{ basis }}  SCF=(XQC, MaxConventionalCycles={{ scf_maxiter }}) nosymm {{ driver }}
+# {{ theory }}/{{ basis }}  SCF=(XQC, MaxConventionalCycles={{ scf_maxiter }}) nosymm {{ driver }} {%- for cmd in cmdline_extra %} {{ cmd }} {%- endfor %}
 
 {{ title }}
 
@@ -9,5 +9,11 @@
 {%- for element, coords in data %}
 {{ element }}  {{ '{: .10f}'.format(coords[0]) }} {{ '{: .10f}'.format(coords[1]) }} {{ '{: .10f}'.format(coords[2]) }}
 {%- endfor %}
+
+
+{%- for cmd in add_input %}
+{{ cmd }}
+{%- endfor %}
+
 
 

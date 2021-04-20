@@ -9,6 +9,7 @@ from openff.toolkit.topology import Molecule as OFFMolecule
 from rdkit.Chem import rdMolTransforms
 from simtk import unit
 
+from qubekit.charges import ExtractChargeData
 from qubekit.molecules import Ligand
 from qubekit.utils.exceptions import (
     ConformerError,
@@ -16,7 +17,7 @@ from qubekit.utils.exceptions import (
     SmartsError,
     TopologyMismatch,
 )
-from qubekit.utils.file_handling import ExtractChargeData, get_data
+from qubekit.utils.file_handling import get_data
 from qubekit.utils.helpers import unpickle
 
 

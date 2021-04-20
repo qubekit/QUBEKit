@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from typing import Dict, Optional
+
 import qcelemental as qcel
 import qcengine as qcng
 from pydantic import Field
@@ -23,28 +25,28 @@ class QCEngine(BaseEngine):
     def call_qcengine(
         self,
         molecule: Ligand,
+        extras: Optional[Dict[str, str]] = None,
     ) -> qcel.models.AtomicResult:
         """
         Calculate the requested property using qcengine for the given molecule.
 
-        Parameters
-        ----------
-        molecule:
-            The QUBEKit ligand that the calculation should be ran on.
-        input_type:
-            The coords the calculation should be ran on.
+        Args:
+            molecule: The QUBEKit ligand that the calculation should be ran on.
+            extras: Any extra calculation keywords that are program specific.
 
-        Returns
-        -------
-        qcel.models.AtomicResult
+        Returns:
             The full qcelemental atomic result so any required information can be extracted.
         """
         qc_mol = molecule.to_qcschema()
+        # default keywords
+        keywords = {"scf_type": "df"}
+        if extras is not None:
+            keywords.update(extras)
         task = qcel.models.AtomicInput(
             molecule=qc_mol,
             driver=self.driver,
             model=self.qc_model,
-            keywords={"scf_type": "df"},
+            keywords=keywords,
         )
 
         result = qcng.compute(task, self.program, local_options=self.local_options)

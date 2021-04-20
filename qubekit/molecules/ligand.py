@@ -89,7 +89,6 @@ class DefaultsMixin:
         self.convergence = "GAU_TIGHT"
         self.iterations = 350
         self.bonds_engine = "g09"
-        self.density_engine = "g09"
         self.charges_engine = "chargemol"
         self.ddec_version = 6
         self.dielectric = 4.0
@@ -1346,6 +1345,9 @@ class Ligand(DefaultsMixin, Molecule):
             "molecular_charge": self.charge,
             "molecular_multiplicity": self.multiplicity,
             "extras": extras,
+            "fix_com": True,
+            "fix_orientation": True,
+            "fix_symmetry": "c1",
         }
         return qcel.models.Molecule.from_data(schema_info, validate=True)
 
