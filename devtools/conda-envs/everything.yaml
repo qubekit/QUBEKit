@@ -27,7 +27,5 @@ dependencies:
   # compute engines
   - xtb-python
   - torchani
-  - psi4 =1.4a2.dev1058+670a850
-  - gau2grid =2.0.3
+  - psi4 = 1.4rc1+2d37164
   - dftd3
-  - gcp
