@@ -25,7 +25,5 @@ dependencies:
   - pytest
   - pytest-cov
   # compute engines
-  - xtb-python
-  - torchani
   - psi4 = 1.4rc1+2d37164
   - dftd3

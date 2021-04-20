@@ -69,7 +69,6 @@ def test_missing_optimiser():
     "program, basis, method",
     [
         pytest.param("rdkit", None, "UFF", id="rdkit uff"),
-        pytest.param("torchani", None, "ani2x", id="ani2x"),
         pytest.param("psi4", "6-311G", "b3lyp", id="psi4 b3lyp"),
         pytest.param("openmm", "smirnoff", "openff_unconstrained-1.3.0", id="openff"),
         pytest.param("openmm", "antechamber", "gaff-2.11", id="gaff"),
@@ -89,8 +88,6 @@ def test_spec_validation_pass(program, basis, method):
     [
         pytest.param("rdkit", "uff", "uff", id="rdkit wrong basis"),
         pytest.param("openmm", "gaff", "gaff-2.11", id="openmm wrong basis"),
-        pytest.param("xtb", "gfn", "gfn2xtb", id="xtb wrong basis"),
-        pytest.param("torchani", None, "ani3y", id="torchani wrong method"),
         pytest.param("openmm", "smirnoff", "openff-sage", id="openff wrong method."),
     ],
 )
@@ -112,8 +109,6 @@ def test_spec_validation_fail(program, basis, method):
         pytest.param(
             "openmm", "smirnoff", "openff_unconstrained-1.3.0", id="openff 1.3.0"
         ),
-        pytest.param("xtb", None, "gfn2xtb", id="xtb gfn2xtb"),
-        pytest.param("torchani", None, "ani1ccx", id="torchani ccx"),
         pytest.param("psi4", "3-21g", "hf", id="psi4 hf"),
         pytest.param("gaussian", "3-21g", "hf", id="gaussian hf"),
     ],
@@ -144,9 +139,7 @@ def test_optimise_fail_output(tmpdir):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("water.pdb"))
-        g = GeometryOptimiser(
-            program="torchani", method="ani1ccx", basis=None, maxiter=5
-        )
+        g = GeometryOptimiser(program="rdkit", method="uff", basis=None, maxiter=2)
         with pytest.raises(RuntimeError):
             g.optimise(molecule=mol, allow_fail=False)
         files = os.listdir()

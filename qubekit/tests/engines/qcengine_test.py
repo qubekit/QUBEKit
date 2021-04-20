@@ -10,10 +10,8 @@ from qubekit.utils.file_handling import get_data
     "program, basis, method",
     [
         pytest.param("rdkit", None, "mmff94", id="rdkit mmff"),
-        pytest.param("xtb", None, "gfn2xtb", id="gfn2xtb"),
         pytest.param("openmm", "smirnoff", "openff-1.0.0.offxml", id="parsley"),
         pytest.param("openmm", "antechamber", "gaff-2.11", id="gaff-2.11"),
-        pytest.param("torchani", None, "ani2x", id="ani2x"),
         pytest.param("psi4", "3-21g", "hf", id="psi4 hf"),
         pytest.param("gaussian", "3-21g", "hf", id="gaussian hf"),
     ],
