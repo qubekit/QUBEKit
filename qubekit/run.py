@@ -1182,8 +1182,9 @@ class Execute:
         append_to_log(
             molecule.home, "Starting Lennard-Jones parameter calculation", major=True
         )
-
-        LennardJones612().run(molecule=molecule)
+        lj = LennardJones612()
+        lj.extract_rfrees()
+        lj.run(molecule=molecule)
 
         append_to_log(
             molecule.home, "Finishing Lennard-Jones parameter calculation", major=True
