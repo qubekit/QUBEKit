@@ -159,7 +159,7 @@ class Protein(DefaultsMixin, Molecule):
         if not self.bonds:
             self.bonds = []
             # using the new harmonic bond force dict we can add the bond edges to the topology graph
-            for bond in self.HarmonicBondForce:
+            for bond in self.BondForce:
                 self.bonds.append(
                     Bond(
                         atom1_indx=bond[0],

@@ -12,7 +12,7 @@ from qubekit.nonbonded.lennard_jones import LennardJones612
 from qubekit.parametrisation import OpenFF
 from qubekit.utils.constants import BOHR_TO_ANGS
 from qubekit.utils.file_handling import get_data
-from qubekit.virtual_sites import VirtualSites
+from qubekit.nonbonded.virtual_sites import VirtualSites
 
 
 @pytest.fixture(scope="module")

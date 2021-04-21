@@ -6,9 +6,13 @@ TODO
         Better handling (or removal?) of torsion_options
     Option to use numbers to skip e.g. -skip 4 5 : skips hessian and mod_seminario steps
     BULK
-        Add .sdf as possible bulk_run, not just .csv
-        Bulk torsion options need to be made easier to use
+        Add .sdf as possible bulk_run
+        Ideally, input will be a field which takes multiple smiles/pdbs etc.
     Move skip/restart/end/(home?) to Execute rather than ligand.py
+        Also needs to be fixed for -bulk
+    solvent commands removed:
+        Maybe separate solvents into known solvents and IPCM constants?
+
 """
 
 import argparse
@@ -27,6 +31,7 @@ from qubekit.engines import Gaussian, GeometryOptimiser, QCEngine, TorsionDriver
 from qubekit.mod_seminario import ModSeminario
 from qubekit.molecules import Ligand
 from qubekit.nonbonded.lennard_jones import LennardJones612
+from qubekit.nonbonded.virtual_sites import VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.torsions import TorsionOptimiser, TorsionScan1D
 from qubekit.utils.configs import Configure
@@ -47,7 +52,6 @@ from qubekit.utils.helpers import (
     unpickle,
     update_ligand,
 )
-from qubekit.virtual_sites import VirtualSites
 
 # To avoid calling flush=True in every print statement.
 printf = partial(print, flush=True)
@@ -211,31 +215,6 @@ class ArgsAndConfigs:
                 display_molecule_objects(*values)
                 sys.exit()
 
-        # class TorsionMakerAction(argparse.Action):
-        #     """Help the user make a torsion scan file."""
-        #
-        #     def __call__(self, pars, namespace, values, option_string=None):
-        #         # load in the ligand
-        #         mol = Ligand(values)
-        #
-        #         # Prompt the user for the scan order
-        #         scanner = TorsionScan(mol)
-        #         scanner.find_scan_order()
-        #
-        #         # Write out the scan file
-        #         with open(f"{mol.name}.dihedrals", "w+") as qube:
-        #             qube.write(
-        #                 "# dihedral definition by atom indices starting from 0\n#  i      j      k      l\n"
-        #             )
-        #             for scan in mol.scan_order:
-        #                 scan_di = mol.dihedrals[scan][0]
-        #                 qube.write(
-        #                     f"  {scan_di[0]:2}     {scan_di[1]:2}     {scan_di[2]:2}     {scan_di[3]:2}\n"
-        #                 )
-        #         printf(f"{mol.name}.dihedrals made.")
-        #
-        #         sys.exit()
-
         class TorsionTestAction(argparse.Action):
             """
             Using the molecule, test the agreement with QM by doing a torsiondrive and checking the single
@@ -320,20 +299,6 @@ class ArgsAndConfigs:
             default="chargemol",
             help="Choose the method to do the charge partitioning this is tied to the method used to compute the density.",
         )
-        # parser.add_argument(
-        #     "-density",
-        #     "--density_engine",
-        #     choices=["onetep", "g09", "g16", "psi4"],
-        #     help="Enter the name of the QM code to calculate the electron density of the molecule.",
-        # )
-        # TODO Maybe separate into known solvents and IPCM constants?
-        # parser.add_argument(
-        #     "-solvent",
-        #     "--solvent",
-        #     choices=[True, False],
-        #     type=string_to_bool,
-        #     help="Enter whether or not you would like to use a solvent.",
-        # )
         parser.add_argument(
             "-convergence",
             "--convergence",
@@ -658,7 +623,6 @@ class Execute:
                 ("qm_optimise", self.qm_optimise),
                 ("hessian", self.hessian),
                 ("mod_sem", self.mod_sem),
-                # ("density", self.density),
                 ("charges", self.charges),
                 ("lennard_jones", self.lennard_jones),
                 ("torsion_scan", self.torsion_scan),
@@ -853,11 +817,6 @@ class Execute:
                 "Calculating bonds and angles with modified Seminario method",
                 "Bond and angle parameters calculated",
             ],
-            # "density": [
-            #     f"Performing density calculation with {self.molecule.density_engine} using dielectric of "
-            #     f"{self.molecule.dielectric}",
-            #     "Density calculation complete",
-            # ],
             "charges": [
                 f"{self.molecule.charges_engine} calculating charges",
                 "Charges calculated",
@@ -1128,40 +1087,6 @@ class Execute:
 
         return mod_molecule
 
-    # def density(self, molecule):
-    #     """Perform density calculation with the qm engine."""
-    #
-    #     append_to_log(molecule.home, "Starting density calculation", major=True)
-    #
-    #     if molecule.density_engine == "onetep":
-    #         molecule.write_xyz(input_type="qm")
-    #         # If using ONETEP, stop after this step
-    #         append_to_log(
-    #             molecule.home, "Density analysis file made for ONETEP", major=True
-    #         )
-    #
-    #         # Edit the order to end here
-    #         self.order = OrderedDict(
-    #             [
-    #                 ("density", self.density),
-    #                 ("charges", self.skip),
-    #                 ("lennard_jones", self.skip),
-    #                 ("torsion_scan", self.skip),
-    #                 ("pause", self.pause),
-    #                 ("finalise", self.finalise),
-    #             ]
-    #         )
-    #
-    #     else:
-    #         qm_engine = self.engine_dict[molecule.density_engine](molecule)
-    #         qm_engine.generate_input(
-    #             density=True,
-    #             execute=molecule.density_engine,
-    #         )
-    #         append_to_log(molecule.home, "Finishing Density calculation", major=True)
-    #
-    #     return molecule
-
     def charges(self, molecule: Ligand) -> Ligand:
         """Perform an AIM analysis using MBIS/Chargemol or ONETEP."""
 
@@ -1180,6 +1105,7 @@ class Execute:
         if molecule.charges_engine == "chargemol":
             density_engine = DDECCharges(**common_settings)
             density_engine.ddec_version = molecule.ddec_version
+            density_engine.solvent_settings.epsilon = molecule.dielectric
 
         elif molecule.charges_engine == "mbis":
             density_engine = MBISCharges(**common_settings)
@@ -1294,7 +1220,7 @@ class Execute:
         if molecule.qm_scans is None or molecule.qm_scans == []:
             append_to_log(
                 molecule.home,
-                "No QM reference data found skipping torsion_optimisation.",
+                "No QM reference data found, no need for torsion_optimisation stage.",
                 major=True,
             )
             return molecule

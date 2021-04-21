@@ -48,7 +48,6 @@ class Gaussian(Engines):
     ):
         """
         Generates the relevant job file for Gaussian, then executes this job file.
-        :param input_type: The set of coordinates in the molecule that should be used in the job
         :param optimise: Optimise the geometry of the molecule
         :param hessian: Calculate the hessian matrix
         :param energy: Calculate the single point energy
