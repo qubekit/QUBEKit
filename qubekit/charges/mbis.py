@@ -25,13 +25,12 @@ class MBISCharges(ChargeBase):
         """
         The MBIS option is only available via new psi4 so make sure it is installed.
         """
-        p4 = which_import(
+        return which_import(
             "psi4",
             return_bool=True,
             raise_error=True,
             raise_msg="Please install via `conda install psi4 -c psi4/label/dev`.",
         )
-        return p4
 
     def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """

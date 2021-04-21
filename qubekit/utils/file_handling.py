@@ -30,12 +30,7 @@ def folder_setup(folder_name: str):
     finished.
     """
     cwd = os.getcwd()
-    try:
-        os.mkdir(folder_name)
-    except FileExistsError:
-        pass
-
-    os.chdir(folder_name)
+    make_and_change_into(folder_name)
     yield
     os.chdir(cwd)
 
