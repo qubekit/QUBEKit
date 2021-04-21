@@ -37,36 +37,37 @@ class LennardJones612(StageBase):
     _alpha: float = PrivateAttr(default=1)
     _beta: float = PrivateAttr(default=0)
 
-    if "optimise.out" in os.listdir("."):
-        with open("optimise.out") as opt_file:
-            lines = opt_file.readlines()
-            for i, line in enumerate(lines):
-                if "Final physical parameters:" in line:
-                    free_parameters["C"] = FreeParams(
-                        34.4, 46.6, float(lines[i + 2].split(" ")[6])
-                    )
-                    free_parameters["N"] = FreeParams(
-                        25.9, 24.2, float(lines[i + 3].split(" ")[6])
-                    )
-                    free_parameters["O"] = FreeParams(
-                        22.1, 15.6, float(lines[i + 4].split(" ")[6])
-                    )
-                    free_parameters["H"] = FreeParams(
-                        7.6, 6.5, float(lines[i + 5].split(" ")[6])
-                    )
-                    free_parameters["X"] = FreeParams(
-                        7.6, 6.5, float(lines[i + 6].split(" ")[6])
-                    )
-                    try:
-                        _alpha = float(lines[i + 7].split(" ")[2])
-                        _beta = float(lines[i + 8].split(" ")[2])
-                    except (IndexError, ValueError):
-                        pass
-
     @classmethod
     def is_available(cls) -> bool:
         """This class should always be available."""
         return True
+
+    def extract_rfrees(self):
+        if "optimise.out" in os.listdir("../../"):
+            with open("../../optimise.out") as opt_file:
+                lines = opt_file.readlines()
+                for i, line in enumerate(lines):
+                    if "Final physical parameters:" in line:
+                        self.free_parameters["C"] = FreeParams(
+                            34.4, 46.6, float(lines[i + 2].split(" ")[6])
+                        )
+                        self.free_parameters["N"] = FreeParams(
+                            25.9, 24.2, float(lines[i + 3].split(" ")[6])
+                        )
+                        self.free_parameters["O"] = FreeParams(
+                            22.1, 15.6, float(lines[i + 4].split(" ")[6])
+                        )
+                        self.free_parameters["H"] = FreeParams(
+                            7.6, 6.5, float(lines[i + 5].split(" ")[6])
+                        )
+                        self.free_parameters["X"] = FreeParams(
+                            7.6, 6.5, float(lines[i + 6].split(" ")[6])
+                        )
+                        try:
+                            _alpha = float(lines[i + 7].split(" ")[2])
+                            _beta = float(lines[i + 8].split(" ")[2])
+                        except (IndexError, ValueError):
+                            pass
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """

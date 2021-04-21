@@ -62,7 +62,7 @@ def test_openff_skeleton(tmpdir, openff):
     This will add generic parameters to the forcefield which should match any missing terms, no charges are generated this way.
     """
     with tmpdir.as_cwd():
-        # load a molecule with b
+        # load a molecule with boron
         mol = Ligand.from_file(get_data("132-Benzodioxaborole.pdb"))
         openff.parametrise_molecule(molecule=mol)
 
