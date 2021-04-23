@@ -79,3 +79,9 @@ class ForceBalanceError(Exception):
     """
     This indicates there was an error while using forcebalance to optimise some parameters.
     """
+
+
+class GeometryOptimisationError(Exception):
+    """
+    The molecule conformer could not be optimised.
+    """

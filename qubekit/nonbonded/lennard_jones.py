@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-import os
-
 import math
+import os
 from typing import TYPE_CHECKING, ClassVar, Dict, Tuple
 
 from pydantic import PrivateAttr

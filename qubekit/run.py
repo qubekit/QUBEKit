@@ -22,8 +22,10 @@ from collections import OrderedDict
 from datetime import datetime
 from functools import partial
 from shutil import copy, move
+from typing import List
 
 import numpy as np
+from tqdm import tqdm
 
 import qubekit
 from qubekit.charges import DDECCharges, MBISCharges, extract_extra_sites_onetep
@@ -42,8 +44,12 @@ from qubekit.utils.display import (
     pretty_print,
     pretty_progress,
 )
-from qubekit.utils.exceptions import HessianCalculationFailed, SpecificationError
-from qubekit.utils.file_handling import make_and_change_into
+from qubekit.utils.exceptions import (
+    GeometryOptimisationError,
+    HessianCalculationFailed,
+    SpecificationError,
+)
+from qubekit.utils.file_handling import folder_setup, make_and_change_into
 from qubekit.utils.helpers import (
     append_to_log,
     generate_bulk_csv,
@@ -962,7 +968,6 @@ class Execute:
         "mmff94", "uff", "mmff94s", "gfn1xtb", "gfn2xtb", "fgn0xtb", "gaff-2.11", "ani1x", "ani1ccx", "ani2x", "openff-1.3.0
 
         """
-        from tqdm import tqdm
 
         # TODO drop all of this once we change configs
 
@@ -1011,7 +1016,10 @@ class Execute:
         )
         results = []
         for conformer in tqdm(
-            geometries, desc="Optimising conformer", total=len(geometries)
+            geometries,
+            desc=f"Optimising conformer with {molecule.pre_opt_method}",
+            total=len(geometries),
+            ncols=80,
         ):
             # set the coords
             molecule.coordinates = conformer
@@ -1056,13 +1064,30 @@ class Execute:
             program=molecule.bonds_engine,
             method=molecule.theory,
             basis=molecule.basis,
-            convergence=molecule.convergence,
-            maxiter=molecule.iterations,
+            convergence="GAU_TIGHT",
+            # lower the maxiter but try multiple coords
+            maxiter=50,
         )
-        # errors are auto raised from the class output is always dumped to file
-        qm_result, _ = g_opt.optimise(
-            molecule=molecule, allow_fail=False, return_result=False
-        )
+        geometries: List[np.ndarray] = molecule.conformers
+
+        for i, conformer in enumerate(
+            tqdm(geometries, desc="Optimising conformer", total=len(geometries))
+        ):
+            with folder_setup(folder_name=f"conformer_{i}"):
+                # set the coords
+                molecule.coordinates = conformer
+                # errors are auto raised from the class so catch the result, and write to file
+                qm_result, result = g_opt.optimise(
+                    molecule=molecule, allow_fail=True, return_result=True
+                )
+                if result.success:
+                    print("Conformer optimised to GAU TIGHT.")
+                    break
+        else:
+            raise GeometryOptimisationError(
+                "No molecule conformer could be optimised to GAU TIGHT"
+            )
+
         append_to_log(molecule.home, f"QM optimisation finished", major=True)
 
         return qm_result

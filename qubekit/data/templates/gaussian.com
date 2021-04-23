@@ -7,7 +7,7 @@
 
 {{ charge }} {{ multiplicity }}
 {%- for element, coords in data %}
-{{ element }}  {{ '{: .10f}'.format(coords[0]) }} {{ '{: .10f}'.format(coords[1]) }} {{ '{: .10f}'.format(coords[2]) }}
+{{ element }}  {{ '{: .7f}'.format(coords[0]) }} {{ '{: .7f}'.format(coords[1]) }} {{ '{: .7f}'.format(coords[2]) }}
 {%- endfor %}
 
 
