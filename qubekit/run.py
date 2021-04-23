@@ -962,6 +962,8 @@ class Execute:
         "mmff94", "uff", "mmff94s", "gfn1xtb", "gfn2xtb", "fgn0xtb", "gaff-2.11", "ani1x", "ani1ccx", "ani2x", "openff-1.3.0
 
         """
+        from tqdm import tqdm
+
         # TODO drop all of this once we change configs
 
         # now we want to build the optimiser from the inputs
@@ -1000,17 +1002,44 @@ class Execute:
             convergence="GAU",
             maxiter=molecule.iterations,
         )
-        # errors are auto raised from the class so catch the result, and write to file
-        result_mol, _ = g_opt.optimise(
-            molecule=molecule, allow_fail=True, return_result=False
+
+        # get some extra conformations
+        # total of 10 including input, so 9 new ones
+        geometries = molecule.generate_conformers(n_conformers=10)
+        molecule.to_multiconformer_file(
+            file_name="starting_coords.xyz", positions=geometries
         )
+        results = []
+        for conformer in tqdm(
+            geometries, desc="Optimising conformer", total=len(geometries)
+        ):
+            # set the coords
+            molecule.coordinates = conformer
+            # errors are auto raised from the class so catch the result, and write to file
+            result_mol, result = g_opt.optimise(
+                molecule=molecule, allow_fail=True, return_result=True
+            )
+            if result.success:
+                # save the final energy and molecule
+                results.append((result_mol, result.energies[-1]))
+
+        # sort the results
+        results.sort(key=lambda x: x[1])
+        final_geometries = [re[0].coordinates for re in results]
+        # write all conformers out
+        molecule.to_multiconformer_file(
+            file_name="mutli_opt.xyz", positions=final_geometries
+        )
+        # save the lowest energy conformer
+        molecule.coordinates = final_geometries[0]
+        molecule.conformers = final_geometries
 
         append_to_log(
             molecule.home,
             f"Finishing pre_optimisation of the molecule with {molecule.pre_opt_method}",
             major=True,
         )
-        return result_mol
+        return molecule
 
     @staticmethod
     def qm_optimise(molecule: Ligand) -> Ligand:
