@@ -109,6 +109,12 @@ class VirtualSites(StageBase):
         """This class should always be available with qubekit"""
         return True
 
+    def start_message(self, **kwargs) -> str:
+        return "Fitting virtual site positions and charges."
+
+    def finish_message(self, **kwargs) -> str:
+        return "Virtual sites optimised and saved."
+
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         Using the aim reference data stored in the ligand calculate virtual sites and add them to the ligand.

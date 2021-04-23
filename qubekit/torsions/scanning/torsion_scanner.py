@@ -1,5 +1,5 @@
 import copy
-from typing import TYPE_CHECKING, List, Set, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 from pydantic import Field
 from qcelemental.util import which_import
@@ -7,7 +7,12 @@ from typing_extensions import Literal
 
 from qubekit.engines import TorsionDriver
 from qubekit.torsions.utils import AvoidedTorsion, TargetTorsion, find_heavy_torsion
-from qubekit.utils.datastructures import StageBase, TorsionScan
+from qubekit.utils.datastructures import (
+    LocalResource,
+    QCOptions,
+    StageBase,
+    TorsionScan,
+)
 from qubekit.utils.file_handling import folder_setup
 
 if TYPE_CHECKING:
@@ -30,11 +35,11 @@ class TorsionScan1D(StageBase):
         (-165, 180),
         description="The default scan range for any torsions not covered by a special rule.",
     )
-    avoided_torsions: Set[AvoidedTorsion] = Field(
-        {
+    avoided_torsions: List[AvoidedTorsion] = Field(
+        [
             AvoidedTorsion(smirks="[*:1]-[CH3:2]"),
             AvoidedTorsion(smirks="[*:1]-[NH2:2]"),
-        },
+        ],
         description="The list of torsion patterns that should be avoided.",
     )
     torsion_driver: TorsionDriver = Field(
@@ -42,6 +47,12 @@ class TorsionScan1D(StageBase):
         description="The torsion drive engine used to compute the reference data.",
     )
     type: Literal["TorsionScan1D"] = "TorsionScan1D"
+
+    def start_message(self, **kwargs) -> str:
+        return f"Performing QM-constrained optimisation with Torsiondrive and {kwargs['qc_spec'].program}"
+
+    def finish_message(self, **kwargs) -> str:
+        return "Torsiondrive finished and QM results saved."
 
     @classmethod
     def is_available(cls) -> bool:
@@ -95,7 +106,10 @@ class TorsionScan1D(StageBase):
             torsion_scans.append(TorsionScan(torsion=torsion, scan_range=scan_range))
 
         result_mol = self._run_torsion_drives(
-            molecule=drive_mol, torsion_scans=torsion_scans
+            molecule=drive_mol,
+            torsion_scans=torsion_scans,
+            qc_spec=kwargs["qc_spec"],
+            local_options=kwargs["local_options"],
         )
         # make sure we preserve the input coords
         result_mol.coordinates = copy.deepcopy(molecule.coordinates)
@@ -126,7 +140,11 @@ class TorsionScan1D(StageBase):
         return scan_range
 
     def _run_torsion_drives(
-        self, molecule: "Ligand", torsion_scans: List[TorsionScan]
+        self,
+        molecule: "Ligand",
+        torsion_scans: List[TorsionScan],
+        qc_spec: QCOptions,
+        local_options: LocalResource,
     ) -> "Ligand":
         """
         Run the list of validated torsion drives.
@@ -150,7 +168,10 @@ class TorsionScan1D(StageBase):
                     f"Running scan for dihedral: {torsion_scan.torsion} with range: {torsion_scan.scan_range}"
                 )
                 result_mol = self.torsion_driver.run_torsiondrive(
-                    molecule=molecule, dihedral_data=torsion_scan
+                    molecule=molecule,
+                    dihedral_data=torsion_scan,
+                    qc_spec=qc_spec,
+                    local_options=local_options,
                 )
 
         return result_mol
@@ -180,8 +201,8 @@ class TorsionScan1D(StageBase):
             smirks: The valid smirks pattern which describes a torsion not to be scanned.
         """
         torsion = AvoidedTorsion(smirks=smirks)
-        self.avoided_torsions.add(torsion)
+        self.avoided_torsions.append(torsion)
 
     def clear_avoided_torsions(self) -> None:
         """Remove all avoided torsions."""
-        self.avoided_torsions = set()
+        self.avoided_torsions = []

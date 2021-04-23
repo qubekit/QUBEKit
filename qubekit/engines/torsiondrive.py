@@ -1,6 +1,6 @@
 import copy
 from multiprocessing import Pool
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import tqdm
@@ -8,16 +8,19 @@ from pydantic import Field
 from torsiondrive import td_api
 from typing_extensions import Literal
 
-from qubekit.engines.base_engine import BaseEngine
 from qubekit.engines.geometry_optimiser import GeometryOptimiser
-from qubekit.molecules import Ligand, TorsionData, TorsionDriveData
+from qubekit.molecules import TorsionData, TorsionDriveData
 from qubekit.utils import constants
-from qubekit.utils.datastructures import GridPointResult, TorsionScan
+from qubekit.utils.datastructures import GridPointResult, SchemaBase, TorsionScan
 from qubekit.utils.file_handling import folder_setup
 from qubekit.utils.helpers import export_torsiondrive_data
 
+if TYPE_CHECKING:
+    from qubekit.molecules import Ligand
+    from qubekit.utils.datastructures import LocalResource, QCOptions
 
-class TorsionDriver(BaseEngine):
+
+class TorsionDriver(SchemaBase):
 
     type: Literal["torsiondriver"] = "torsiondriver"
     n_workers: int = Field(
@@ -43,7 +46,11 @@ class TorsionDriver(BaseEngine):
     )
 
     def run_torsiondrive(
-        self, molecule: "Ligand", dihedral_data: TorsionScan
+        self,
+        molecule: "Ligand",
+        dihedral_data: TorsionScan,
+        qc_spec: "QCOptions",
+        local_options: "LocalResource",
     ) -> "Ligand":
         """
         Run a torsion drive for the given molecule and the targeted dihedral. The results of the scan are packed into the
@@ -57,14 +64,21 @@ class TorsionDriver(BaseEngine):
             The molecule with the results of the scan saved in it.
         """
         td_state = self._create_initial_state(
-            molecule=molecule, dihedral_data=dihedral_data
+            molecule=molecule, dihedral_data=dihedral_data, qc_spec=qc_spec
         )
-        return self._run_torsiondrive(td_state=td_state, molecule=molecule)
+        return self._run_torsiondrive(
+            td_state=td_state,
+            molecule=molecule,
+            qc_spec=qc_spec,
+            local_options=local_options,
+        )
 
     def _run_torsiondrive(
         self,
         td_state: Dict[str, Any],
         molecule: "Ligand",
+        qc_spec: "QCOptions",
+        local_options: "LocalResource",
     ) -> "Ligand":
         """
         The main torsiondrive control function.
@@ -78,6 +92,8 @@ class TorsionDriver(BaseEngine):
 
         # build the geometry optimiser
         geometry_optimiser = self._build_geometry_optimiser()
+        # create a new local resource object by dividing the current one by n workers
+        resource_settings = local_options.divide_resource(n_tasks=self.n_workers)
         complete = False
         target_dihedral = td_state["dihedrals"][0]
         while not complete:
@@ -102,6 +118,8 @@ class TorsionDriver(BaseEngine):
                                     args=(
                                         geometry_optimiser,
                                         molecule,
+                                        qc_spec,
+                                        resource_settings,
                                         geo_job,
                                         target_dihedral,
                                         grid_id_str,
@@ -126,6 +144,9 @@ class TorsionDriver(BaseEngine):
                             (
                                 geometry_optimiser,
                                 molecule,
+                                qc_spec,
+                                # use the full local options
+                                local_options,
                                 geo_job,
                                 target_dihedral,
                                 grid_id_str,
@@ -191,7 +212,10 @@ class TorsionDriver(BaseEngine):
         return molecule
 
     def _create_initial_state(
-        self, molecule: "Ligand", dihedral_data: TorsionScan
+        self,
+        molecule: "Ligand",
+        dihedral_data: TorsionScan,
+        qc_spec: "QCOptions",
     ) -> Dict[str, Any]:
         """
         Create the initial state for the torsion drive using the input settings.
@@ -224,34 +248,21 @@ class TorsionDriver(BaseEngine):
             energy_upper_limit=self.energy_upper_limit,
         )
         td_state["spec"] = {
-            "program": self.program.lower(),
-            "method": self.method.lower(),
-            "basis": self.basis.lower() if self.basis is not None else self.basis,
+            "program": qc_spec.program.lower(),
+            "method": qc_spec.method.lower(),
+            "basis": qc_spec.basis.lower()
+            if qc_spec.basis is not None
+            else qc_spec.basis,
         }
         return td_state
 
     def _build_geometry_optimiser(self) -> GeometryOptimiser:
         """
         Build a geometry optimiser using the specified options.
-
-        Important:
-            The memory and cores are divided between the number of workers.
         """
-        if self.n_workers == 1:
-            cores = self.cores
-            memory = self.memory
-        else:
-            # always round down to get an even distribution of cores and memory
-            cores = int(self.cores / self.n_workers)
-            memory = int(self.memory / self.n_workers)
 
         geom = GeometryOptimiser(
-            program=self.program,
-            method=self.method,
-            basis=self.basis,
-            memory=memory,
-            cores=cores,
-            # set to be gau as this is default
+            # set to be gau as this is default for torsiondrives
             convergence="GAU",
         )
         return geom
@@ -325,6 +336,8 @@ def _build_optimiser_settings(
 def optimise_grid_point(
     geometry_optimiser: GeometryOptimiser,
     molecule: "Ligand",
+    qc_spec: "QCOptions",
+    local_options: "LocalResource",
     # coordinates in bohr
     coordinates: List[float],
     dihedral: Tuple[int, int, int, int],
@@ -358,6 +371,8 @@ def optimise_grid_point(
         )
         result_mol, full_result = geometry_optimiser.optimise(
             molecule=opt_mol,
+            qc_spec=qc_spec,
+            local_options=local_options,
             allow_fail=False,
             return_result=True,
             extras=optimiser_settings,

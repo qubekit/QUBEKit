@@ -23,7 +23,7 @@ import numpy as np
 
 import qubekit
 from qubekit.charges import DDECCharges, MBISCharges, extract_extra_sites_onetep
-from qubekit.engines import Gaussian, GeometryOptimiser, QCEngine, TorsionDriver
+from qubekit.engines import Gaussian, GeometryOptimiser, TorsionDriver, call_qcengine
 from qubekit.mod_seminario import ModSeminario
 from qubekit.molecules import Ligand
 from qubekit.nonbonded.lennard_jones import LennardJones612
@@ -31,6 +31,7 @@ from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.torsions import TorsionOptimiser, TorsionScan1D
 from qubekit.utils.configs import Configure
 from qubekit.utils.constants import COLOURS
+from qubekit.utils.datastructures import LocalResource, QCOptions
 from qubekit.utils.decorators import exception_logger
 from qubekit.utils.display import (
     display_molecule_objects,
@@ -980,9 +981,7 @@ class Execute:
 
         # Perform the parametrisation
         param_method = param_dict[molecule.parameter_engine]
-        param_mol = param_method.parametrise_molecule(
-            molecule=molecule, input_files=input_files
-        )
+        param_mol = param_method.run(molecule=molecule, input_files=input_files)
 
         if verbose:
             append_to_log(
@@ -1033,17 +1032,19 @@ class Execute:
             f"Starting pre_optimisation with program: {program} basis: {basis} method: {method}",
             major=True,
         )
-
+        qc_spec = QCOptions(program=program, method=method, basis=basis)
+        local_ops = LocalResource(cores=1, memory=1)
         g_opt = GeometryOptimiser(
-            program=program,
-            method=method,
-            basis=basis,
             convergence="GAU",
             maxiter=molecule.iterations,
         )
         # errors are auto raised from the class so catch the result, and write to file
         result_mol, _ = g_opt.optimise(
-            molecule=molecule, allow_fail=True, return_result=False
+            molecule=molecule,
+            allow_fail=True,
+            return_result=False,
+            qc_spec=qc_spec,
+            local_options=local_ops,
         )
 
         append_to_log(
@@ -1064,16 +1065,21 @@ class Execute:
             major=True,
         )
         # TODO do we want the geometry optimiser to handle restarts?
+        qc_spec = QCOptions(
+            program=molecule.bonds_engine, method=molecule.theory, basis=molecule.basis
+        )
+        local_ops = LocalResource(cores=1, memory=1)
         g_opt = GeometryOptimiser(
-            program=molecule.bonds_engine,
-            method=molecule.theory,
-            basis=molecule.basis,
             convergence=molecule.convergence,
             maxiter=molecule.iterations,
         )
         # errors are auto raised from the class output is always dumped to file
         qm_result, _ = g_opt.optimise(
-            molecule=molecule, allow_fail=False, return_result=False
+            molecule=molecule,
+            allow_fail=False,
+            return_result=False,
+            qc_spec=qc_spec,
+            local_options=local_ops,
         )
         append_to_log(molecule.home, f"QM optimisation finished", major=True)
 
@@ -1086,29 +1092,29 @@ class Execute:
 
         append_to_log(molecule.home, "Starting hessian calculation", major=True)
         # build the QM engine
-        qm_engine = QCEngine(
-            program=molecule.bonds_engine,
-            method=molecule.theory,
-            basis=molecule.basis,
-            driver="hessian",
-        )
-        result = qm_engine.call_qcengine(molecule=molecule)
-
-        if not result.success:
-            raise HessianCalculationFailed(
-                "The hessian was not calculated check the log file."
-            )
-
-        np.savetxt("hessian.txt", result.return_result)
-
-        molecule.hessian = result.return_result
-        check_symmetry(molecule.hessian)
-
-        append_to_log(
-            molecule.home,
-            f"Finishing Hessian calculation using {molecule.bonds_engine}",
-            major=True,
-        )
+        # qm_engine = QCEngine(
+        #     program=molecule.bonds_engine,
+        #     method=molecule.theory,
+        #     basis=molecule.basis,
+        #     driver="hessian",
+        # )
+        # result = qm_engine.call_qcengine(molecule=molecule)
+        #
+        # if not result.success:
+        #     raise HessianCalculationFailed(
+        #         "The hessian was not calculated check the log file."
+        #     )
+        #
+        # np.savetxt("hessian.txt", result.return_result)
+        #
+        # molecule.hessian = result.return_result
+        # check_symmetry(molecule.hessian)
+        #
+        # append_to_log(
+        #     molecule.home,
+        #     f"Finishing Hessian calculation using {molecule.bonds_engine}",
+        #     major=True,
+        # )
 
         return molecule
 

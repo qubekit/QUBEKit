@@ -8,35 +8,27 @@ import numpy as np
 from pydantic import Field
 from typing_extensions import Literal
 
-from qubekit.engines import QCEngine
-from qubekit.engines.base_engine import BaseEngine
-from qubekit.utils.datastructures import StageBase
+from qubekit.charges.solvent_settings.base import SolventBase
+from qubekit.utils.datastructures import LocalResource, QCOptions, StageBase
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
 
 
-class ChargeBase(StageBase, BaseEngine):
+class ChargeBase(StageBase):
 
     type: Literal["ChargeBase"] = "ChargeBase"
     apply_symmetry: bool = Field(
         True,
         description="Apply symmetry to the raw charge and volume values before assigning them.",
     )
+    solvent_settings: SolventBase = Field(
+        ...,
+        description="The settings used to calculate the electron density in implicit solvent.",
+    )
 
-    def build_engine(self) -> QCEngine:
-        """
-        Build a QCEngine instance with the settings we want to use.
-        """
-        engine = QCEngine(
-            program=self.program,
-            memory=self.memory,
-            method=self.method,
-            basis=self.basis,
-            cores=self.cores,
-            driver="energy",
-        )
-        return engine
+    def finish_message(self, **kwargs) -> str:
+        return "Charges calculated and AIM reference data stored."
 
     @classmethod
     def apply_symmetrisation(cls, molecule: "Ligand") -> "Ligand":
@@ -62,11 +54,22 @@ class ChargeBase(StageBase, BaseEngine):
 
         return molecule
 
+    def _get_qc_options(self) -> QCOptions:
+        """
+        Extract a QCOptions model from the solvent settings.
+        """
+        return QCOptions(
+            program=self.solvent_settings.program,
+            method=self.solvent_settings.method,
+            basis=self.solvent_settings.basis,
+        )
+
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         A template run method which makes sure symmetry is applied when requested.
         """
-        molecule = self._run(molecule, **kwargs)
+        local_options = kwargs.get("local_options")
+        molecule = self._run(molecule, local_options=local_options)
         if self.apply_symmetry:
             molecule = self.apply_symmetrisation(molecule=molecule)
         # now store the reference values into the nonbonded force as a parameter
@@ -76,7 +79,7 @@ class ChargeBase(StageBase, BaseEngine):
         return molecule
 
     @abc.abstractmethod
-    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", local_options: LocalResource) -> "Ligand":
         """
         The main method of the ChargeClass which should generate the charge and aim reference data and store it in the ligand.
         """

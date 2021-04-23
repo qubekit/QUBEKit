@@ -25,7 +25,7 @@ def mol():
         os.chdir(temp)
         molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
         molecule.home = None
-        OpenFF().parametrise_molecule(molecule)
+        OpenFF().run(molecule)
         ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
         dir_path = os.path.dirname(ddec_file_path)
         ExtractChargeData.read_files(molecule, dir_path, "chargemol")

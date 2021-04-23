@@ -3,13 +3,14 @@ from typing import ClassVar, Dict
 from pydantic import Field, validator
 from typing_extensions import Literal
 
+from qubekit.charges.solvent_settings.base import SolventBase
 from qubekit.utils import constants
-from qubekit.utils.datastructures import SchemaBase
 from qubekit.utils.exceptions import SpecificationError
 
 
-class SolventPsi4(SchemaBase):
+class SolventPsi4(SolventBase):
 
+    program: Literal["psi4"] = "psi4"
     units: Literal["au", "angstrom"] = Field(
         ...,
         description="The units used in the input options atomic units are used by default.",

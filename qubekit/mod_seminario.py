@@ -10,6 +10,7 @@ from operator import itemgetter
 
 import numpy as np
 from pydantic import Field
+from typing_extensions import Literal
 
 from qubekit.molecules import Ligand
 from qubekit.utils import constants
@@ -191,6 +192,7 @@ class ModSemMaths:
 
 class ModSeminario(StageBase):
 
+    type: Literal["ModSeminario"] = "ModSeminario"
     vibrational_scaling: float = Field(
         1,
         description="The vibration scaling that should be used to correct the reference DFT frequencies.",
@@ -204,6 +206,14 @@ class ModSeminario(StageBase):
     def is_available(cls) -> bool:
         """This class is part of qubekit and always available."""
         return True
+
+    def start_message(self, **kwargs) -> str:
+        return (
+            "Calculating new bonds and angle parameters with modified Seminario method."
+        )
+
+    def finish_message(self, **kwargs) -> str:
+        return "Bond and angle parameters calculated."
 
     def run(self, molecule: Ligand, **kwargs) -> Ligand:
         """

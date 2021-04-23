@@ -9,6 +9,7 @@ from openff.toolkit.typing.chemistry import SMIRKSParsingError
 from qubekit.engines import TorsionDriver
 from qubekit.molecules import Ligand
 from qubekit.torsions import TorsionScan1D, find_heavy_torsion
+from qubekit.utils.datastructures import LocalResource, QCOptions
 from qubekit.utils.file_handling import get_data
 from qubekit.utils.helpers import check_proper_torsion
 
@@ -118,18 +119,15 @@ def test_single_dihedral(tmpdir):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("ethane.sdf"))
         # build a scanner with grid spacing 60 and clear out avoided methyl
+        qc_spec = QCOptions(program="rdkit", method="uff", basis=None)
+        local_ops = LocalResource(cores=1, memory=1)
         tdrive = TorsionDriver(
-            program="rdkit",
-            method="uff",
-            basis=None,
-            cores=1,
-            memory=1,
             n_workers=1,
             grid_spacing=60,
         )
         t_scan = TorsionScan1D(torsion_driver=tdrive)
         t_scan.clear_avoided_torsions()
-        result_mol = t_scan.run(molecule=mol)
+        result_mol = t_scan.run(molecule=mol, qc_spec=qc_spec, local_options=local_ops)
         assert len(result_mol.qm_scans) == 1
         # make sure input molecule coords were not changed
         assert np.allclose(mol.coordinates, result_mol.coordinates)
@@ -140,18 +138,15 @@ def test_double_dihedral(tmpdir):
     with tmpdir.as_cwd():
         mol = Ligand.from_smiles("CCO", "ethanol")
         # build a scanner with grid spacing 60 and clear out avoided methyl
+        qc_spec = QCOptions(program="rdkit", method="uff", basis=None)
+        local_ops = LocalResource(cores=1, memory=1)
         tdrive = TorsionDriver(
-            program="rdkit",
-            method="uff",
-            basis=None,
-            cores=1,
-            memory=1,
             n_workers=1,
             grid_spacing=60,
         )
         t_scan = TorsionScan1D(torsion_driver=tdrive)
         t_scan.clear_avoided_torsions()
-        result_mol = t_scan.run(molecule=mol)
+        result_mol = t_scan.run(molecule=mol, qc_spec=qc_spec, local_options=local_ops)
         assert len(result_mol.qm_scans) == 2
         # make sure input molecule coords were not changed
         assert np.allclose(mol.coordinates, result_mol.coordinates)

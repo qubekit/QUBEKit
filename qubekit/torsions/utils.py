@@ -20,6 +20,9 @@ class AvoidedTorsion(SchemaBase):
     def __hash__(self):
         return hash(self.smirks)
 
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
     @validator("smirks")
     def validate_smirks(cls, smirks: str):
         """

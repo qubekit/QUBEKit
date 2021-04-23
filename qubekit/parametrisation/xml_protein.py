@@ -11,7 +11,11 @@ from qubekit.proteins.protein_tools import qube_general
 class XMLProtein(Parametrisation):
     """Read in the parameters for a proteins from the QUBEKit_general XML file and store them into the proteins."""
 
-    type: Literal["xml_protein"] = "xml_protein"
+    type: Literal["XMLProtein"] = "XMLProtein"
+
+    @classmethod
+    def is_available(cls) -> bool:
+        return True
 
     @classmethod
     def _improper_torsion_ordering(cls) -> str:

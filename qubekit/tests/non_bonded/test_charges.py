@@ -15,9 +15,9 @@ from qubekit.engines import GaussianHarness
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import OpenFF
 from qubekit.utils import constants
+from qubekit.utils.datastructures import LocalResource, QCOptions
 from qubekit.utils.exceptions import SpecificationError
 from qubekit.utils.file_handling import get_data
-
 
 # def test_mbis_water_no_symm(tmpdir):
 #     """
@@ -138,13 +138,9 @@ def test_chargemol_template(tmpdir, version):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("water.pdb"))
-        OpenFF().parametrise_molecule(molecule=mol)
+        OpenFF().run(molecule=mol)
         charge_method = DDECCharges(
             apply_symmetry=True,
-            basis="sto-3g",
-            method="hf",
-            cores=1,
-            memory=1,
             ddec_version=version,
         )
         # fake the chargemol dir

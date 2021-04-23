@@ -8,7 +8,9 @@ from typing_extensions import Literal
 
 from qubekit.charges.base import ChargeBase
 from qubekit.charges.solvent_settings import SolventPsi4
+from qubekit.engines import call_qcengine
 from qubekit.molecules import Dipole, Ligand, Quadrupole
+from qubekit.utils.datastructures import LocalResource
 
 
 class MBISCharges(ChargeBase):
@@ -19,6 +21,9 @@ class MBISCharges(ChargeBase):
         description="The engine that should be used to generate the reference density to perform the AIM analysis on.",
     )
     program: Literal["psi4"] = "psi4"
+
+    def start_message(self, **kwargs) -> str:
+        return "Calculating charges using MBIS via psi4."
 
     @classmethod
     def is_available(cls) -> bool:
@@ -33,18 +38,23 @@ class MBISCharges(ChargeBase):
         )
         return p4
 
-    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", local_options: LocalResource) -> "Ligand":
         """
         The main run method which generates a density using psi4 and stores the partitioned MBIS AIM reference values.
         """
-        engine = self.build_engine()
         # now we need to build the keywords for the solvent
         extras = dict(
             pcm=True,
             pcm__input=self.solvent_settings.format_keywords(),
             scf_properties=["MBIS_CHARGES"],
         )
-        result = engine.call_qcengine(molecule=molecule, extras=extras)
+        result = call_qcengine(
+            molecule=molecule,
+            driver="energy",
+            qc_spec=self._get_qc_options(),
+            local_options=local_options,
+            extras=extras,
+        )
         # pick out the MBIS data and store into the molecule.
         qcvars = result.extras["qcvars"]
         charges = qcvars["MBIS CHARGES"]

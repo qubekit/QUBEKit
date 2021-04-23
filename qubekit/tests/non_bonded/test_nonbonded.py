@@ -12,7 +12,7 @@ def test_lennard_jones612(tmpdir):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("chloromethane.pdb"))
         # get some initial Nonbonded values
-        OpenFF().parametrise_molecule(molecule=mol)
+        OpenFF().run(molecule=mol)
         # get some aim reference data
         ExtractChargeData.read_files(
             molecule=mol, dir_path=get_data(""), charges_engine="chargemol"

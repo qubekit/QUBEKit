@@ -41,8 +41,8 @@ def test_prior_dict():
     """
     Make sure the prior is correctly formated for forcebalance.
     """
-    priors = Priors(torsions_k=4)
-    data = priors.dict()
+    priors = Priors(Proper_k=4)
+    data = priors.format_priors()
     assert data["Proper/k"] == 4
 
 
@@ -114,7 +114,7 @@ def test_generate_forcefield(tmpdir, biphenyl):
     with tmpdir.as_cwd():
         os.mkdir("forcefield")
         # get some openff params for the ligand
-        OpenFF().parametrise_molecule(molecule=biphenyl)
+        OpenFF().run(molecule=biphenyl)
         ForceBalanceFitting.generate_forcefield(molecule=biphenyl)
         # load the forcefield and check for cosmetic tags
         root = ET.parse(os.path.join("forcefield", "bespoke.xml")).getroot()
@@ -142,7 +142,7 @@ def test_generate_optimise_in(tmpdir, biphenyl):
     """
     with tmpdir.as_cwd():
         # parametrise the molecule
-        OpenFF().parametrise_molecule(biphenyl)
+        OpenFF().run(biphenyl)
         # set some non-default values
         fb = ForceBalanceFitting(
             penalty_type="L2", max_iterations=100, minimum_trust_radius=10
@@ -168,7 +168,7 @@ def test_full_optimise(tmpdir, biphenyl):
     Test the forcebalance wrapper by doing a full optimise run for a simple molecule. Also check that the optimised results are saved.
     """
     with tmpdir.as_cwd():
-        OpenFF().parametrise_molecule(biphenyl)
+        OpenFF().run(biphenyl)
         # use default values
         fb = ForceBalanceFitting()
         fitted_molecule = fb.run(molecule=biphenyl)

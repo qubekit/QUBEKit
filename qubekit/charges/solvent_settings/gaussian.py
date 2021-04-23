@@ -3,16 +3,17 @@ from typing import Dict, List
 from pydantic import Field
 from typing_extensions import Literal
 
-from qubekit.utils.datastructures import SchemaBase
+from qubekit.charges.solvent_settings.base import SolventBase
 
 
-class SolventGaussian(SchemaBase):
+class SolventGaussian(SolventBase):
     """A simple schema to encode the Gaussian implicit solvent settings.
 
     Important:
         We currently only support the IPCM with an epsilon value of 4
     """
 
+    program: Literal["gaussian"] = "gaussian"
     solver_type: Literal["IPCM"] = Field(
         "IPCM",
         description="The solver type to be used when calculating the polarised density.",

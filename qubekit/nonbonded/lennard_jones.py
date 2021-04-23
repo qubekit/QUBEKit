@@ -36,6 +36,12 @@ class LennardJones612(StageBase):
     _alpha: float = PrivateAttr(default=1)
     _beta: float = PrivateAttr(default=0)
 
+    def start_message(self, **kwargs) -> str:
+        return "Calculating Lennard-Jones parameters for a 12-6 potential."
+
+    def finish_message(self, **kwargs) -> str:
+        return "Lennard-Jones 12-6 parameters calculated."
+
     @classmethod
     def is_available(cls) -> bool:
         """This method should always be available."""
