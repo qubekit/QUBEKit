@@ -410,7 +410,7 @@ class Molecule:
 
     @property
     def n_angles(self) -> int:
-        """The number of angles in the molecule. """
+        """The number of angles in the molecule."""
         angles = self.angles
         if angles is None:
             return 0
