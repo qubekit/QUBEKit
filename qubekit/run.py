@@ -968,6 +968,8 @@ class Execute:
         "mmff94", "uff", "mmff94s", "gfn1xtb", "gfn2xtb", "fgn0xtb", "gaff-2.11", "ani1x", "ani1ccx", "ani2x", "openff-1.3.0
 
         """
+        from multiprocessing import Pool
+        from copy import deepcopy
 
         # TODO drop all of this once we change configs
 
@@ -1014,22 +1016,25 @@ class Execute:
         molecule.to_multiconformer_file(
             file_name="starting_coords.xyz", positions=geometries
         )
-        results = []
-        for conformer in tqdm(
-            geometries,
-            desc=f"Optimising conformer with {molecule.pre_opt_method}",
-            total=len(geometries),
-            ncols=80,
-        ):
-            # set the coords
-            molecule.coordinates = conformer
-            # errors are auto raised from the class so catch the result, and write to file
-            result_mol, result = g_opt.optimise(
-                molecule=molecule, allow_fail=True, return_result=True
-            )
-            if result.success:
-                # save the final energy and molecule
-                results.append((result_mol, result.energies[-1]))
+        opt_list = []
+        with Pool(processes=molecule.threads) as pool:
+            for confomer in geometries:
+                opt_mol = deepcopy(molecule)
+                opt_mol.coordinates = confomer
+                opt_list.append(pool.apply_async(g_opt.optimise, (opt_mol, True, True)))
+
+            results = []
+            for result in tqdm(
+                opt_list,
+                desc=f"Optimising conformers with {molecule.pre_opt_method}",
+                total=len(opt_list),
+                ncols=80,
+            ):
+                # errors are auto raised from the class so catch the result, and write to file
+                result_mol, opt_result = result.get()
+                if opt_result.success:
+                    # save the final energy and molecule
+                    results.append((result_mol, opt_result.energies[-1]))
 
         # sort the results
         results.sort(key=lambda x: x[1])
@@ -1039,15 +1044,15 @@ class Execute:
             file_name="mutli_opt.xyz", positions=final_geometries
         )
         # save the lowest energy conformer
-        molecule.coordinates = final_geometries[0]
-        molecule.conformers = final_geometries
+        final_mol = results[0][0]
+        final_mol.conformers = final_geometries
 
         append_to_log(
             molecule.home,
             f"Finishing pre_optimisation of the molecule with {molecule.pre_opt_method}",
             major=True,
         )
-        return molecule
+        return final_mol
 
     @staticmethod
     def qm_optimise(molecule: Ligand) -> Ligand:
