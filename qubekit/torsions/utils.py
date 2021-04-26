@@ -34,8 +34,8 @@ class AvoidedTorsion(SchemaBase):
             return smirks
         else:
             raise SMIRKSParsingError(
-                "The smirks pattern passed has an incorrect number of tagged atoms, to identify a bond to not rotate"
-                "please tag 2 or 4 atoms."
+                "The smirks pattern provided has the wrong number of tagged atoms; "
+                "to identify a bond to not rotate please tag 2 or 4 atoms."
             )
 
 

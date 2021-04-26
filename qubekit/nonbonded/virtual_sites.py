@@ -845,6 +845,10 @@ class VirtualSites(StageBase):
 
         # Error in esp is sufficiently low to not require virtual sites.
         if no_site_error <= self.site_error_threshold:
+            append_to_log(
+                self._molecule.home,
+                f"No virtual site needed for atom {self._molecule.atoms[atom_index].atom_name}.",
+            )
             return
 
         one_site_error, one_site_coords = self._fit_one_site(atom_index)
