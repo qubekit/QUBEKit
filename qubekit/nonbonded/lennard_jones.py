@@ -44,6 +44,7 @@ class LennardJones612(StageBase):
 
     def extract_rfrees(self):
         if "optimise.out" in os.listdir("../../"):
+            print('Rfree parameters extracted from ForceBalance output.')
             with open("../../optimise.out") as opt_file:
                 lines = opt_file.readlines()
                 for i, line in enumerate(lines):
@@ -64,8 +65,8 @@ class LennardJones612(StageBase):
                             7.6, 6.5, float(lines[i + 6].split(" ")[6])
                         )
                         try:
-                            _alpha = float(lines[i + 7].split(" ")[2])
-                            _beta = float(lines[i + 8].split(" ")[2])
+                            self._alpha = float(lines[i + 7].split(" ")[2])
+                            self._beta = float(lines[i + 8].split(" ")[2])
                         except (IndexError, ValueError):
                             pass
 
