@@ -1084,7 +1084,7 @@ class Execute:
         opt_mol = deepcopy(molecule)
 
         for i, conformer in enumerate(
-            tqdm(geometries, desc="Optimising conformer", total=len(geometries))
+            tqdm(geometries, desc="Optimising conformer", total=len(geometries), ncols=80)
         ):
             with folder_setup(folder_name=f"conformer_{i}"):
                 # set the coords
