@@ -280,6 +280,16 @@ class Molecule:
         """
         return RDKit.mol_to_file(rdkit_mol=self.to_rdkit(), file_name=file_name)
 
+    def generate_conformers(self, n_conformers: int) -> List[np.ndarray]:
+        """
+        Generate a list of conformers and return them this includes the input conformer
+
+        Args:
+            n_conformers: The number of conformers which should be generated.
+        """
+        rd_mol = self.to_rdkit()
+        return RDKit.generate_conformers(rdkit_mol=rd_mol, conformer_no=n_conformers)
+
     def to_multiconformer_file(
         self, file_name: str, positions: List[np.ndarray]
     ) -> None:

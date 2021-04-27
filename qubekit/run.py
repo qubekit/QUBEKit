@@ -22,8 +22,10 @@ from collections import OrderedDict
 from datetime import datetime
 from functools import partial
 from shutil import copy, move
+from typing import List
 
 import numpy as np
+from tqdm import tqdm
 
 import qubekit
 from qubekit.charges import DDECCharges, MBISCharges, extract_extra_sites_onetep
@@ -42,8 +44,12 @@ from qubekit.utils.display import (
     pretty_print,
     pretty_progress,
 )
-from qubekit.utils.exceptions import HessianCalculationFailed, SpecificationError
-from qubekit.utils.file_handling import make_and_change_into
+from qubekit.utils.exceptions import (
+    GeometryOptimisationError,
+    HessianCalculationFailed,
+    SpecificationError,
+)
+from qubekit.utils.file_handling import folder_setup, make_and_change_into
 from qubekit.utils.helpers import (
     append_to_log,
     generate_bulk_csv,
@@ -962,8 +968,10 @@ class Execute:
         "mmff94", "uff", "mmff94s", "gfn1xtb", "gfn2xtb", "fgn0xtb", "gaff-2.11", "ani1x", "ani1ccx", "ani2x", "openff-1.3.0
 
         """
-        # TODO drop all of this once we change configs
+        from copy import deepcopy
+        from multiprocessing import Pool
 
+        # TODO drop all of this once we change configs
         # now we want to build the optimiser from the inputs
         method = molecule.pre_opt_method.lower()
         if method in ["mmff94", "mmff94s", "uff"]:
@@ -1000,40 +1008,116 @@ class Execute:
             convergence="GAU",
             maxiter=molecule.iterations,
         )
-        # errors are auto raised from the class so catch the result, and write to file
-        result_mol, _ = g_opt.optimise(
-            molecule=molecule, allow_fail=True, return_result=False
+
+        # get some extra conformations
+        # total of 10 including input, so 9 new ones
+        geometries = molecule.generate_conformers(n_conformers=10)
+        molecule.to_multiconformer_file(
+            file_name="starting_coords.xyz", positions=geometries
         )
+        opt_list = []
+        with Pool(processes=molecule.threads) as pool:
+            for confomer in geometries:
+                opt_mol = deepcopy(molecule)
+                opt_mol.coordinates = confomer
+                opt_list.append(pool.apply_async(g_opt.optimise, (opt_mol, True, True)))
+
+            results = []
+            for result in tqdm(
+                opt_list,
+                desc=f"Optimising conformers with {molecule.pre_opt_method}",
+                total=len(opt_list),
+                ncols=80,
+            ):
+                # errors are auto raised from the class so catch the result, and write to file
+                result_mol, opt_result = result.get()
+                if opt_result.success:
+                    # save the final energy and molecule
+                    results.append((result_mol, opt_result.energies[-1]))
+
+        # sort the results
+        results.sort(key=lambda x: x[1])
+        final_geometries = [re[0].coordinates for re in results]
+        # write all conformers out
+        molecule.to_multiconformer_file(
+            file_name="mutli_opt.xyz", positions=final_geometries
+        )
+        # save the lowest energy conformer
+        final_mol = results[0][0]
+        final_mol.conformers = final_geometries
 
         append_to_log(
             molecule.home,
             f"Finishing pre_optimisation of the molecule with {molecule.pre_opt_method}",
             major=True,
         )
-        return result_mol
+        return final_mol
 
     @staticmethod
     def qm_optimise(molecule: Ligand) -> Ligand:
         """
         Optimise the molecule using qm via qcengine.
+
+        Note:
+            This method will work through each conformer provided trying to optimise each one to gau_tight, if it fails
+            in 50 steps the coords are randomly bumped and we try for another 50 steps, if this still fails we move to
+            the next set of starting coords and repeat.
         """
+        from copy import deepcopy
+
         append_to_log(
             molecule.home,
             f"Starting qm_optimisation with program: {molecule.bonds_engine} basis: {molecule.basis} method: {molecule.theory}",
             major=True,
         )
-        # TODO do we want the geometry optimiser to handle restarts?
+        # TODO get this logic contained in one stage class with the pre_opt stage as well
         g_opt = GeometryOptimiser(
             program=molecule.bonds_engine,
             method=molecule.theory,
             basis=molecule.basis,
-            convergence=molecule.convergence,
-            maxiter=molecule.iterations,
+            convergence="GAU_TIGHT",
+            # lower the maxiter but try multiple coords
+            maxiter=50,
         )
-        # errors are auto raised from the class output is always dumped to file
-        qm_result, _ = g_opt.optimise(
-            molecule=molecule, allow_fail=False, return_result=False
-        )
+        geometries: List[np.ndarray] = molecule.conformers
+
+        opt_mol = deepcopy(molecule)
+
+        for i, conformer in enumerate(
+            tqdm(
+                geometries, desc="Optimising conformer", total=len(geometries), ncols=80
+            )
+        ):
+            with folder_setup(folder_name=f"conformer_{i}"):
+                # set the coords
+                opt_mol.coordinates = conformer
+                # errors are auto raised from the class so catch the result, and write to file
+                qm_result, result = g_opt.optimise(
+                    molecule=opt_mol, allow_fail=True, return_result=True
+                )
+                if result.success:
+                    append_to_log(molecule.home, "Conformer optimised to GAU TIGHT")
+                    break
+                else:
+                    append_to_log(molecule.home, "Bumping coordinates and restarting")
+                    # grab last coords and bump
+                    coords = qm_result.coordinates + np.random.choice(
+                        a=[0, 0.01], size=(qm_result.n_atoms, 3)
+                    )
+                    opt_mol.coordinates = coords
+                    bump_mol, bump_result = g_opt.optimise(
+                        molecule=opt_mol, allow_fail=True, return_result=True
+                    )
+                    if bump_result.success:
+                        qm_result = bump_mol
+                        append_to_log(molecule.home, "Conformer optimised to GAU TIGHT")
+                        break
+
+        else:
+            raise GeometryOptimisationError(
+                "No molecule conformer could be optimised to GAU TIGHT"
+            )
+
         append_to_log(molecule.home, f"QM optimisation finished", major=True)
 
         return qm_result

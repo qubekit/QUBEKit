@@ -9,10 +9,10 @@ import pytest
 from qubekit.charges import DDECCharges, ExtractChargeData
 from qubekit.molecules import Ligand
 from qubekit.nonbonded.lennard_jones import LennardJones612
+from qubekit.nonbonded.virtual_sites import VirtualSites
 from qubekit.parametrisation import OpenFF
 from qubekit.utils.constants import BOHR_TO_ANGS
 from qubekit.utils.file_handling import get_data
-from qubekit.nonbonded.virtual_sites import VirtualSites
 
 
 @pytest.fixture(scope="module")

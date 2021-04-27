@@ -236,9 +236,9 @@ class RDKit:
         return Chem.MolToSmarts(rdkit_mol)
 
     @staticmethod
-    def generate_conformers(rdkit_mol: Chem.Mol, conformer_no=10) -> List[np.ndarray]:
+    def generate_conformers(rdkit_mol: Chem.Mol, conformer_no: int) -> List[np.ndarray]:
         """
-        Generate a set of conformers for the molecule.
+        Generate a set of conformers for the molecule including the input conformer.
         Args:
             rdkit_mol:
                 A complete Chem.Mol instance of a molecule.
@@ -248,7 +248,15 @@ class RDKit:
             A list of conformer position arrays
         """
 
-        AllChem.EmbedMultipleConfs(rdkit_mol, numConfs=conformer_no)
+        AllChem.EmbedMultipleConfs(
+            rdkit_mol,
+            numConfs=conformer_no,
+            randomSeed=1,
+            clearConfs=False,
+            useBasicKnowledge=True,
+            pruneRmsThresh=1,
+            enforceChirality=True,
+        )
         positions = rdkit_mol.GetConformers()
 
         return [conformer.GetPositions() for conformer in positions]
