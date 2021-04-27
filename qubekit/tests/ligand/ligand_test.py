@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+from copy import deepcopy
 
 import networkx as nx
 import numpy as np
@@ -34,6 +35,16 @@ def test_has_unique_names(acetone):
     Make sure the method can correctly identify if a molecule has unique names.
     """
     assert acetone.has_unique_atom_names is True
+
+
+def test_generate_conformers(acetone):
+    """
+    Generate new conformers but do not delete the input conformer
+    """
+    input_coords = deepcopy(acetone.coordinates)
+    conformers = acetone.generate_conformers(n_conformers=4)
+    # make sure we do not lose the input conformer
+    assert np.allclose(input_coords, conformers[0])
 
 
 def test_make_unique_names():

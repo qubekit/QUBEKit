@@ -60,6 +60,8 @@ def test_quick_run_to_seminario(tmpdir):
     with tmpdir.as_cwd():
         water = Ligand.from_file(get_data("water.pdb"))
         water.home = os.getcwd()
+        # make sure coverage picks up pool code
+        water.threads = 1
         water.parameter_engine = "openff"
         # parmetrise
         water = Execute.parametrise(molecule=water, verbose=False)

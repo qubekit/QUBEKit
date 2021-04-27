@@ -1094,10 +1094,10 @@ class Execute:
                     molecule=opt_mol, allow_fail=True, return_result=True
                 )
                 if result.success:
-                    print("Conformer optimised to GAU TIGHT.")
+                    append_to_log(molecule.home, "Conformer optimised to GAU TIGHT")
                     break
                 else:
-                    print("bumping coordinates and restarting")
+                    append_to_log(molecule.home, "Bumping coordinates and restarting")
                     # grab last coords and bump
                     coords = qm_result.coordinates + np.random.choice(
                         a=[0, 0.01], size=(qm_result.n_atoms, 3)
@@ -1108,7 +1108,7 @@ class Execute:
                     )
                     if bump_result.success:
                         qm_result = bump_mol
-                        print("Conformer optimised to GAU TIGHT.")
+                        append_to_log(molecule.home, "Conformer optimised to GAU TIGHT")
                         break
 
         else:
