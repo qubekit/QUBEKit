@@ -968,11 +968,10 @@ class Execute:
         "mmff94", "uff", "mmff94s", "gfn1xtb", "gfn2xtb", "fgn0xtb", "gaff-2.11", "ani1x", "ani1ccx", "ani2x", "openff-1.3.0
 
         """
-        from multiprocessing import Pool
         from copy import deepcopy
+        from multiprocessing import Pool
 
         # TODO drop all of this once we change configs
-
         # now we want to build the optimiser from the inputs
         method = molecule.pre_opt_method.lower()
         if method in ["mmff94", "mmff94s", "uff"]:
@@ -1058,13 +1057,20 @@ class Execute:
     def qm_optimise(molecule: Ligand) -> Ligand:
         """
         Optimise the molecule using qm via qcengine.
+
+        Note:
+            This method will work through each conformer provided trying to optimise each one to gau_tight, if it fails
+            in 50 steps the coords are randomly bumped and we try for another 50 steps, if this still fails we move to
+            the next set of starting coords and repeat.
         """
+        from copy import deepcopy
+
         append_to_log(
             molecule.home,
             f"Starting qm_optimisation with program: {molecule.bonds_engine} basis: {molecule.basis} method: {molecule.theory}",
             major=True,
         )
-        # TODO do we want the geometry optimiser to handle restarts?
+        # TODO get this logic contained in one stage class with the pre_opt stage as well
         g_opt = GeometryOptimiser(
             program=molecule.bonds_engine,
             method=molecule.theory,
@@ -1075,19 +1081,36 @@ class Execute:
         )
         geometries: List[np.ndarray] = molecule.conformers
 
+        opt_mol = deepcopy(molecule)
+
         for i, conformer in enumerate(
             tqdm(geometries, desc="Optimising conformer", total=len(geometries))
         ):
             with folder_setup(folder_name=f"conformer_{i}"):
                 # set the coords
-                molecule.coordinates = conformer
+                opt_mol.coordinates = conformer
                 # errors are auto raised from the class so catch the result, and write to file
                 qm_result, result = g_opt.optimise(
-                    molecule=molecule, allow_fail=True, return_result=True
+                    molecule=opt_mol, allow_fail=True, return_result=True
                 )
                 if result.success:
                     print("Conformer optimised to GAU TIGHT.")
                     break
+                else:
+                    print("bumping coordinates and restarting")
+                    # grab last coords and bump
+                    coords = qm_result.coordinates + np.random.choice(
+                        a=[0, 0.01], size=(qm_result.n_atoms, 3)
+                    )
+                    opt_mol.coordinates = coords
+                    bump_mol, bump_result = g_opt.optimise(
+                        molecule=opt_mol, allow_fail=True, return_result=True
+                    )
+                    if bump_result.success:
+                        qm_result = bump_mol
+                        print("Conformer optimised to GAU TIGHT.")
+                        break
+
         else:
             raise GeometryOptimisationError(
                 "No molecule conformer could be optimised to GAU TIGHT"

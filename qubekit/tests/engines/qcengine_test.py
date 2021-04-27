@@ -38,3 +38,7 @@ def test_single_point_energy(program, basis, method, tmpdir):
         assert result.model.basis == basis
         assert result.model.method == method
         assert result.provenance.creator.lower() == program
+        # make sure the grid was set to ultrafine for psi4
+        if program == "psi4":
+            assert result.keywords["dft_spherical_points"] == 590
+            assert result.keywords["dft_radial_points"] == 99
