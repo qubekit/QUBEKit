@@ -122,6 +122,7 @@ class GaussianHarness(ProgramHarness):
         """
         Convert the given function to the correct format for gaussian.
         """
+        method = method.lower()
         functionals = {"pbe": "PBEPBE", "wb97x-d": "wB97XD"}
 
         # check for dispersion
