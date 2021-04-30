@@ -3,15 +3,19 @@ channels:
   - conda-forge
   - psi4/label/dev
 dependencies:
-    # Core
+    # Base deps
   - python
   - pip
 
     # Testing
-  - openff-toolkit >=0.9.2
+  - pytest
+  - pytest-cov
+
+  # Core deps
+  - openff-toolkit-base >=0.9.2
+  - pydantic
   - rdkit
   - torsiondrive
-  - optking
   - numpy >=1.18.1
   - scipy
   - networkx >=2.4
@@ -21,7 +25,9 @@ dependencies:
   - forcebalance
   - jinja2
   - typing-extensions
-  - pytest
-  - pytest-cov
-  - torchani
   - tqdm
+
+  # Optional
+  - torchani
+  - ambertools
+  - optking

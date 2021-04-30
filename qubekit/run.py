@@ -1034,6 +1034,9 @@ class Execute:
                 if opt_result.success:
                     # save the final energy and molecule
                     results.append((result_mol, opt_result.energies[-1]))
+                else:
+                    # save the molecule and final energy from the last step if it fails
+                    results.append((result_mol, opt_result.input_data["energies"][-1]))
 
         # sort the results
         results.sort(key=lambda x: x[1])
