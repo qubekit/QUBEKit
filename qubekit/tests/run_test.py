@@ -90,3 +90,19 @@ def test_quick_run_to_seminario(tmpdir):
         assert final_water.BondForce[(0, 1)].k != pytest.approx(
             water.BondForce[(0, 1)].k
         )
+
+
+def test_pre_optimise_fails(tmpdir):
+    """
+    If all of the molecule geometries fail to optimise make sure the stage still passes on the final conformers
+    in the trajectory.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_smiles("CCCC", "butane")
+        mol.home = os.getcwd()
+        mol.threads = 1
+        mol.pre_opt_method = "uff"
+        # set very low so they fail to converge
+        mol.iterations = 1
+        new_mol = Execute.pre_optimise(mol)
+        assert len(new_mol.conformers) > 1
