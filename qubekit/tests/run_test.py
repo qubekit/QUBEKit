@@ -105,4 +105,4 @@ def test_pre_optimise_fails(tmpdir):
         # set very low so they fail to converge
         mol.iterations = 1
         new_mol = Execute.pre_optimise(mol)
-        assert len(new_mol.conformers) > 1
+        assert len(new_mol.conformers) >= 1
