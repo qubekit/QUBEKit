@@ -87,7 +87,6 @@ class GaussianHarness(ProgramHarness):
         outfiles = ["gaussian.log", "lig.chk"]
         if extra_outfiles is not None:
             outfiles.extend(extra_outfiles)
-        print(outfiles)
         gaussian_version = self.get_version()
         commands = [gaussian_version, "gaussian.com"]
         scratch_directory = inputs["scratch_directory"]
@@ -100,7 +99,6 @@ class GaussianHarness(ProgramHarness):
             scratch_directory=scratch_directory,
             as_binary=["lig.chk"],
         )
-        print(proc["outfiles"])
         if exe_success:
             # now we need to run the conversion of the chk file
             commands = ["formchk", "lig.chk", "lig.fchk"]
@@ -124,6 +122,7 @@ class GaussianHarness(ProgramHarness):
         """
         Convert the given function to the correct format for gaussian.
         """
+        method = method.lower()
         functionals = {"pbe": "PBEPBE", "wb97x-d": "wB97XD"}
 
         # check for dispersion
@@ -252,7 +251,7 @@ class GaussianHarness(ProgramHarness):
     @staticmethod
     def parse_version(logfile: str) -> str:
         """
-        Try and parse the gaussian version from the logfile.
+        Parse the gaussian version from the logfile.
         """
         # the version is printed after the first ***** line
         lines = logfile.split("\n")

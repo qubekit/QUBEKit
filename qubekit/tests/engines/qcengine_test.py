@@ -48,3 +48,7 @@ def test_single_point_energy(qc_options: QCOptions, tmpdir):
         assert result.model.basis == qc_options.basis
         assert result.model.method == qc_options.method
         assert result.provenance.creator.lower() == qc_options.program
+        # make sure the grid was set to ultrafine for psi4
+        if qc_options.program == "psi4":
+            assert result.keywords["dft_spherical_points"] == 590
+            assert result.keywords["dft_radial_points"] == 99

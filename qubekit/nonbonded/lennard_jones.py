@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-
 import math
+import os
 from typing import TYPE_CHECKING, ClassVar, Dict, Tuple
 
 from pydantic import PrivateAttr
@@ -44,13 +44,41 @@ class LennardJones612(StageBase):
 
     @classmethod
     def is_available(cls) -> bool:
-        """This method should always be available."""
+        """This class should always be available."""
         return True
+
+    def extract_rfrees(self):
+        if "optimise.out" in os.listdir("../../"):
+            print("Rfree parameters extracted from ForceBalance output.")
+            with open("../../optimise.out") as opt_file:
+                lines = opt_file.readlines()
+                for i, line in enumerate(lines):
+                    if "Final physical parameters:" in line:
+                        self.free_parameters["C"] = FreeParams(
+                            34.4, 46.6, float(lines[i + 2].split(" ")[6])
+                        )
+                        self.free_parameters["N"] = FreeParams(
+                            25.9, 24.2, float(lines[i + 3].split(" ")[6])
+                        )
+                        self.free_parameters["O"] = FreeParams(
+                            22.1, 15.6, float(lines[i + 4].split(" ")[6])
+                        )
+                        self.free_parameters["H"] = FreeParams(
+                            7.6, 6.5, float(lines[i + 5].split(" ")[6])
+                        )
+                        self.free_parameters["X"] = FreeParams(
+                            7.6, 6.5, float(lines[i + 6].split(" ")[6])
+                        )
+                        try:
+                            self._alpha = float(lines[i + 7].split(" ")[2])
+                            self._beta = float(lines[i + 8].split(" ")[2])
+                        except (IndexError, ValueError):
+                            pass
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         Use the reference AIM data in the molecule to calculate the Non-bonded (non-electrostatic) terms for the forcefield.
-         * Calculates the a_i, b_i and r_aim values.
+        * Calculates the a_i, b_i and r_aim values.
         * Redistributes above values according to polar Hydrogens.
         * Calculates the sigma and epsilon values using those a_i and b_i values.
         * Stores the values in the molecule object.

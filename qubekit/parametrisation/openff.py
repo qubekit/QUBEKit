@@ -75,9 +75,11 @@ class OpenFF(Parametrisation):
     ) -> System:
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 
-        # Create an openFF molecule from the rdkit molecule
+        # Create an openFF molecule from the rdkit molecule, we always have hydrogen by this point
         off_molecule = Molecule.from_rdkit(
-            molecule.to_rdkit(), allow_undefined_stereo=True
+            molecule.to_rdkit(),
+            allow_undefined_stereo=True,
+            hydrogens_are_explicit=True,
         )
 
         # Make the OpenMM system

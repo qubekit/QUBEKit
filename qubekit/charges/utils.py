@@ -36,9 +36,6 @@ class ExtractChargeData:
                 "Only chargemol or onetep are currently usable engines in QUBEKit."
             )
 
-        # if molecule.enable_symmetry:
-        #     updated_mol = cls._apply_symmetrisation(updated_mol)
-
         return updated_mol
 
     @classmethod
@@ -216,31 +213,6 @@ class ExtractChargeData:
             molecule.atoms[atom_index].aim.charge = charges[atom_index]
 
         return molecule
-
-    # @classmethod
-    # def _apply_symmetrisation(cls, molecule: "Ligand") -> "Ligand":
-    #     """
-    #     Apply symmetry to the charge and volume values using cip types.
-    #     """
-    #
-    #     atom_types = {}
-    #     for atom_index, cip_type in molecule.atom_types.items():
-    #         atom_types.setdefault(cip_type, []).append(atom_index)
-    #
-    #     for sym_set in atom_types.values():
-    #         mean_charge = np.array(
-    #             [molecule.atoms[ind].aim.charge for ind in sym_set]
-    #         ).mean()
-    #
-    #         mean_volume = np.array(
-    #             [molecule.atoms[ind].aim.volume for ind in sym_set]
-    #         ).mean()
-    #
-    #         for atom_index in sym_set:
-    #             molecule.atoms[atom_index].aim.charge = mean_charge
-    #             molecule.atoms[atom_index].aim.volume = mean_volume
-    #
-    #     return molecule
 
 
 def extract_c8_params(molecule: "Ligand", dir_path: str) -> "Ligand":

@@ -51,7 +51,7 @@ def pretty_progress():
     print(f"{COLOURS.orange}R{COLOURS.end} = Running;", end=" ")
     print(f"{COLOURS.purple}~{COLOURS.end} = Queued")
 
-    header_string = "{:15}" + "{:>10}" * 10
+    header_string = "{:15}" + "{:>10}" * 9
     print(
         header_string.format(
             "Name",
@@ -60,7 +60,6 @@ def pretty_progress():
             "QM Opt",
             "Hessian",
             "Mod-Sem",
-            "Density",
             "Charges",
             "L-J",
             "Tor Scan",
@@ -113,7 +112,6 @@ def _populate_progress_dict(file_name):
         "QM_OPT",
         "HESSIAN",
         "MOD_SEM",
-        "DENSITY",
         "CHARGE",
         "LENNARD",
         "TORSION_S",

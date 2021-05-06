@@ -28,7 +28,7 @@ def test_gaussian_version():
     "function, result",
     [
         pytest.param("pbe", "PBEPBE", id="pbe"),
-        pytest.param("wb97x-d", "wB97XD", id="wb97xd"),
+        pytest.param("WB97X-D", "wB97XD", id="wb97xd"),
         pytest.param("b3lyp", "b3lyp", id="b3lyp"),
     ],
 )

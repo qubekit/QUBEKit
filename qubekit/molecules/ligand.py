@@ -127,21 +127,6 @@ class Molecule:
 
     The class is a simple representation of the molecule as a list of atom and bond objects, many attributes are then
     inferred from these core objects.
-
-    Attributes:
-        atoms:
-            A list of QUBEKit atom objects in the molecule.
-        bonds:
-            A list of QUBEKit bond objects in the molecule.
-        coordinates:
-            A numpy array of the current cartesian positions of each atom, this must be of size (n_atoms, 3)
-        multiplicity:
-            The integer multiplicity of the molecule which is used in QM calculations.
-        name:
-            An optional name string which will be used in all file IO calls by default.
-        provenance:
-            The way the molecule was created, this captures the classmethod used and any arguments and the version of
-            QUBEKit which built the molecule.
     """
 
     def __init__(
@@ -205,9 +190,7 @@ class Molecule:
         )
         self.provenance: Dict[str, Any] = provenance
 
-        # self.symm_hs: Optional[Dict] = None
         self.qm_scans: Optional[List[TorsionDriveData]] = None
-        # self.scan_order = None
         self.descriptors = None
 
         # Forcefield Info
@@ -223,9 +206,11 @@ class Molecule:
         # QUBEKit internals
         self.state: Optional[str] = None
         self.config_file: str = "master_config.ini"
-        self.restart: bool = False
-        # self.atom_types = None
+        self.restart: Optional[str] = None
+        self.end: Optional[str] = None
+        self.skip: Optional[str] = None
         self.verbose: bool = True
+        self.n_workers: int = 1
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__!r})"
@@ -243,6 +228,7 @@ class Molecule:
             Just print everything (all key: value pairs) as is with a little extra spacing.
         """
 
+        # TODO Replace with default __str__, this logic should be in print_print().
         return_str = ""
 
         if trunc:
@@ -293,6 +279,16 @@ class Molecule:
         Works with PDB, MOL, SDF, XYZ any other we want?
         """
         return RDKit.mol_to_file(rdkit_mol=self.to_rdkit(), file_name=file_name)
+
+    def generate_conformers(self, n_conformers: int) -> List[np.ndarray]:
+        """
+        Generate a list of conformers and return them this includes the input conformer
+
+        Args:
+            n_conformers: The number of conformers which should be generated.
+        """
+        rd_mol = self.to_rdkit()
+        return RDKit.generate_conformers(rdkit_mol=rd_mol, conformer_no=n_conformers)
 
     def to_multiconformer_file(
         self, file_name: str, positions: List[np.ndarray]
@@ -424,7 +420,7 @@ class Molecule:
 
     @property
     def n_angles(self) -> int:
-        """The number of angles in the molecule. """
+        """The number of angles in the molecule."""
         angles = self.angles
         if angles is None:
             return 0
@@ -545,12 +541,12 @@ class Molecule:
 
     def symmetrise_nonbonded_parameters(self) -> bool:
         """
-        Symmetrise all nonbonded force group parameters.
+        Symmetrise all non-bonded force group parameters.
 
-        Using the CIP rankings from RDKit apply symmetry to the nonbonded force group.
+        Using the CIP rankings from RDKit apply symmetry to the non-bonded force group.
 
         Important:
-            We respect the predefined parameters in the nonbonded force group which can be symmetrised.
+            We respect the predefined parameters in the non-bonded force group which can be symmetrised.
         """
         # group atom types as they are in a different format to other types
         atom_types = {}
@@ -564,7 +560,8 @@ class Molecule:
         return True
 
     def symmetrise_bonded_parameters(self) -> bool:
-        """Symmetrise all bond and angle force group parameters.
+        """
+        Symmetrise all bond and angle force group parameters.
 
         Using the CIP rankings from RDKit apply symmetry to the bond and angle force groups.
 
@@ -676,7 +673,7 @@ class Molecule:
         """
         Separates the parameters and builds an xml tree ready to be used.
 
-        #TODO how do we support OPLS combination rules.
+        TODO how do we support OPLS combination rules.
         Important:
             The ordering here should not be changed due to the way sites have to be added.
         """
