@@ -85,3 +85,9 @@ class GeometryOptimisationError(Exception):
     """
     The molecule conformer could not be optimised.
     """
+
+
+class WorkFlowExecutionError(Exception):
+    """
+    Raised whenever we hit an error executing the workflow.
+    """

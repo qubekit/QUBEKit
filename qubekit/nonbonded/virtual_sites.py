@@ -54,11 +54,6 @@ class VirtualSites(StageBase):
     """
 
     type: Literal["VirtualSites"] = "VirtualSites"
-    enable_symmetry: bool = Field(
-        default=True,
-        description="If atoms which require multiple virtual sites should be "
-        "constrained to be symmetric.",
-    )
     site_error_factor: float = Field(
         1.005,
         description="The factor by which a site must reduce the error before being accepted.",
@@ -67,6 +62,9 @@ class VirtualSites(StageBase):
     site_error_threshold: float = Field(
         1, description="The ESP error threshold to start fitting virtual sites.", gt=0
     )
+
+    # only for debugging so not exposed
+    _enable_symmetry: bool = PrivateAttr(default=True)
 
     _vdw_radii: ClassVar[Dict[str, float]] = {
         "H": 1.44,
@@ -776,7 +774,7 @@ class VirtualSites(StageBase):
             # charge, charge, lambda, lambda
             bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
             vec_a, vec_b = self._get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-            if self._molecule.enable_symmetry:
+            if self._enable_symmetry:
                 two_site_fit = minimize(
                     self._symm_two_sites_objective_function,
                     np.array([0.0, 1.0]),

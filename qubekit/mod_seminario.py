@@ -197,10 +197,6 @@ class ModSeminario(StageBase):
         1,
         description="The vibration scaling that should be used to correct the reference DFT frequencies.",
     )
-    symmetrise_parameters: bool = Field(
-        True,
-        description="If the final parameters should be symmetrised after they are derived.",
-    )
 
     @classmethod
     def is_available(cls) -> bool:
@@ -235,8 +231,8 @@ class ModSeminario(StageBase):
         hessian = copy.deepcopy(molecule.hessian)
         hessian *= conversion
         self._modified_seminario_method(molecule=molecule, hessian=hessian)
-        if self.symmetrise_parameters:
-            molecule.symmetrise_bonded_parameters()
+        # apply symmetry to the bond and angle parameters
+        molecule.symmetrise_bonded_parameters()
 
         return molecule
 

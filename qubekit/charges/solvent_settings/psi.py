@@ -32,7 +32,7 @@ class SolventPsi4(SolventBase):
         description="If true, the radii for the spheres will be scaled by 1.2. For finer control on the scaling factor for each sphere, select explicit creation mode.",
     )
     cavity_RadiiSet: Literal["bondi", "uff", "allinger"] = Field(
-        "Bondi",
+        "bondi",
         description="Select set of atomic radii to be used. Currently Bondi-Mantina Bondi, UFF  and Allinger’s MM3 sets available. Radii in Allinger’s MM3 set are obtained by dividing the value in the original paper by 1.2, as done in the ADF COSMO implementation We advise to turn off scaling of the radii by 1.2 when using this set.",
     )
     cavity_MinRadius: float = Field(

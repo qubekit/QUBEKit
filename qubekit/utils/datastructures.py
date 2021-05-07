@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 import qcelemental as qcel
 import qcengine as qcng
 from openff.toolkit.typing.engines.smirnoff import get_available_force_fields
-from pydantic import BaseModel, Field, PositiveInt, dataclasses
+from pydantic import BaseModel, Field, PositiveInt, dataclasses, validator
 from typing_extensions import Literal
 
 from qubekit.utils.exceptions import SpecificationError
@@ -67,6 +67,11 @@ class QCOptions(SchemaBase):
     method: str = Field(
         "wB97X-D", description="The method that should be used for the computation."
     )
+
+    @validator("program", "method")
+    def _cast_lower(cls, parameter: str) -> str:
+        """Lower the parameter to avoid validation issues."""
+        return parameter.lower()
 
     def validate_program(self):
         """

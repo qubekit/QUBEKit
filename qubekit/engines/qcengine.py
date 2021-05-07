@@ -34,11 +34,11 @@ def call_qcengine(
     qc_mol = molecule.to_qcschema()
     # default keywords
     keywords = {
-            "scf_type": "df",
-            # make sure we always use an ultrafine grid
-            "dft_spherical_points": 590,
-            "dft_radial_points": 99,
-        }
+        "scf_type": "df",
+        # make sure we always use an ultrafine grid
+        "dft_spherical_points": 590,
+        "dft_radial_points": 99,
+    }
     if extras is not None:
         keywords.update(extras)
     task = qcel.models.AtomicInput(

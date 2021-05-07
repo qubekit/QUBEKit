@@ -18,10 +18,6 @@ if TYPE_CHECKING:
 class ChargeBase(StageBase):
 
     type: Literal["ChargeBase"] = "ChargeBase"
-    apply_symmetry: bool = Field(
-        True,
-        description="Apply symmetry to the raw charge and volume values before assigning them.",
-    )
     solvent_settings: SolventBase = Field(
         ...,
         description="The settings used to calculate the electron density in implicit solvent.",
@@ -70,8 +66,8 @@ class ChargeBase(StageBase):
         """
         local_options = kwargs.get("local_options")
         molecule = self._run(molecule, local_options=local_options)
-        if self.apply_symmetry:
-            molecule = self.apply_symmetrisation(molecule=molecule)
+        # apply symmetry to the charge parameters
+        molecule = self.apply_symmetrisation(molecule=molecule)
         # now store the reference values into the nonbonded force as a parameter
         for i in range(molecule.n_atoms):
             atom = molecule.atoms[i]
