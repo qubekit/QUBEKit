@@ -207,7 +207,7 @@ def restart(
     # try and load the results file
     results = WorkFlowResult.parse_file(results)
 
-    if config is not None:
+    if config is None:
         # if we have no new config load from results
         workflow = prep_config(results=results, cores=cores, memory=memory)
     else:
@@ -268,7 +268,7 @@ def run(
                 folder = glob.glob(f"QUBEKit_{fname}_*")[0]
                 with folder_setup(folder):
                     results = WorkFlowResult.parse_file("workflow_result.json")
-                    if config is not None:
+                    if config is None:
                         # if we have no new config load from results
                         workflow = prep_config(
                             results=results, cores=cores, memory=memory
