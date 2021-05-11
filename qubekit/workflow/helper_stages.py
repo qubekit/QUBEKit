@@ -241,7 +241,7 @@ class Optimiser(StageBase):
             results = []
             for result in tqdm(
                 opt_list,
-                desc=f"Optimising conformers with {molecule.pre_opt_method}",
+                desc=f"Optimising conformers with {self.pre_optimisation_method}",
                 total=len(opt_list),
                 ncols=80,
             ):

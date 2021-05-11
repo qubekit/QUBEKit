@@ -12,12 +12,13 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
+from qubekit.molecules import Ligand
 from qubekit.utils import constants
 from qubekit.utils.constants import COLOURS
-from qubekit.utils.exceptions import PickleFileNotFound, TopologyMismatch
+from qubekit.utils.exceptions import FileTypeError, PickleFileNotFound, TopologyMismatch
 
 if TYPE_CHECKING:
-    from qubekit.molecules import Ligand, TorsionDriveData
+    from qubekit.molecules import TorsionDriveData
 
 # TODO Move csv stuff for bulk runs to file_handling.py
 
@@ -43,11 +44,9 @@ def mol_data_from_csv(csv_name: str):
             row["multiplicity"] = (
                 int(float(row["multiplicity"])) if row["multiplicity"] else 1
             )
-            row["config_file"] = (
-                row["config_file"] if row["config_file"] else "default_config"
-            )
+            row["config_file"] = row["config_file"] if row["config_file"] else None
             row["restart"] = row["restart"] if row["restart"] else None
-            row["end"] = row["end"] if row["end"] else "finalise"
+            row["end"] = row["end"] if row["end"] else None
             rows.append(row)
 
     # Creates the nested dictionaries with the names as the keys
@@ -79,8 +78,11 @@ def generate_bulk_csv(csv_name, max_execs=None):
     # Find any local pdb files to write sample configs
     files = []
     for file in os.listdir("."):
-        if file.endswith(".pdb"):
-            files.append(file[:-4])
+        try:
+            _ = Ligand.from_file(file_name=file)
+            files.append(file)
+        except FileTypeError:
+            continue
 
     # If max number of pdbs per file is unspecified, just put them all in one file.
     if max_execs is None:

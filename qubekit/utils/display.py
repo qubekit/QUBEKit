@@ -56,12 +56,12 @@ def pretty_progress():
         header_string.format(
             "Name",
             "Param",
-            "Pre Opt",
-            "QM Opt",
+            "Opt",
             "Hessian",
-            "Mod-Sem",
+            "Bonded",
             "Charges",
-            "L-J",
+            "VSites",
+            "Non-Bond",
             "Tor Scan",
             "Tor Opt",
         )

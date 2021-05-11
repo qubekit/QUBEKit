@@ -3,12 +3,12 @@ from datetime import datetime
 from typing import Optional
 
 from qubekit.molecules.components import Bond
-from qubekit.molecules.ligand import DefaultsMixin, Molecule
+from qubekit.molecules.ligand import Molecule
 from qubekit.molecules.utils import ReadInputProtein
 from qubekit.utils.exceptions import FileTypeError
 
 
-class Protein(DefaultsMixin, Molecule):
+class Protein(Molecule):
     """
     This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it.
     """

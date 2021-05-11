@@ -1,5 +1,6 @@
+import os
 from datetime import datetime
-from typing import ClassVar, List, Optional, Union
+from typing import ClassVar, List, Optional, Type, Union
 
 from pydantic import Field, PrivateAttr
 from typing_extensions import Literal
@@ -12,8 +13,8 @@ from qubekit.nonbonded import LennardJones612, VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.torsions import ForceBalanceFitting, TorsionScan1D
 from qubekit.utils.datastructures import LocalResource, QCOptions, SchemaBase, StageBase
-from qubekit.utils.exceptions import WorkFlowExecutionError
-from qubekit.utils.file_handling import folder_setup
+from qubekit.utils.exceptions import MissingReferenceData, WorkFlowExecutionError
+from qubekit.utils.file_handling import folder_setup, make_and_change_into
 from qubekit.workflow.helper_stages import Hessian, Optimiser
 from qubekit.workflow.results import StageResult, Status, WorkFlowResult
 
@@ -64,6 +65,19 @@ class WorkFlow(SchemaBase):
     hessian: ClassVar[Hessian] = Hessian()
 
     _results_fname: str = PrivateAttr("workflow_result.json")
+
+    @classmethod
+    def from_results(cls, results: WorkFlowResult):
+        """Build a workflow from the provenance info in the results object."""
+        model_data = {
+            "qc_options": results.qc_spec.dict(),
+            "local_resources": results.local_resources.dict(),
+        }
+        # now loop over the stages and update the options
+        for stage_name, result in results.results.items():
+            if stage_name != "Hessian":  # this stage had no settings
+                model_data[stage_name] = result.stage_settings
+        return cls(**model_data)
 
     def validate_workflow(self, workflow: List[str]) -> None:
         """
@@ -138,7 +152,7 @@ class WorkFlow(SchemaBase):
         else:
             start_id = None
         if end is not None:
-            end_id = normal_workflow.index(end)
+            end_id = normal_workflow.index(end) + 1
         else:
             end_id = None
 
@@ -149,9 +163,10 @@ class WorkFlow(SchemaBase):
         workflow = self.get_running_order()
         result = WorkFlowResult(
             version=qubekit.__version__,
-            input_molecule=molecule,
+            input_molecule=molecule.copy(deep=True),
             qc_spec=self.qc_options,
             current_molecule=molecule,
+            local_resources=self.local_resources,
         )
         # for each stage set if they are to be ran
         for stage_name in workflow:
@@ -182,6 +197,9 @@ class WorkFlow(SchemaBase):
         run_order = self.get_running_order(
             start=start, skip_stages=skip_stages, end=end
         )
+        # update local and qc options
+        result.qc_spec = self.qc_options
+        result.local_resources = self.local_resources
         return self._run_workflow(molecule=molecule, results=result, workflow=run_order)
 
     def new_workflow(
@@ -227,17 +245,16 @@ class WorkFlow(SchemaBase):
         Returns:
             A fully parametrised molecule.
         """
-        import copy
-
         # try and find missing dependencies
         self.validate_workflow(workflow=workflow)
-
+        # start message
+        print(
+            "If QUBEKit ever breaks or you would like to view timings and loads of other info, "
+            "view the log file.\nOur documentation (README.md) "
+            "also contains help on handling the various commands for QUBEKit.\n"
+        )
         # write out the results object to track the status at the start
         results.to_file(filename=self._results_fname)
-
-        print(workflow)
-        # track the input molecule
-        input_mol = copy.deepcopy(molecule)
 
         # loop over stages and run
         for field in workflow:
@@ -248,8 +265,6 @@ class WorkFlow(SchemaBase):
                 stage_name=field, stage=stage, molecule=molecule, results=results
             )
             print(stage.finish_message())
-        print(input_mol)
-        print(molecule)
 
         # now the workflow has finished
         # write final results
@@ -269,8 +284,9 @@ class WorkFlow(SchemaBase):
         results: WorkFlowResult,
     ) -> Ligand:
         """
-        A stage wrapper to run the stage and update the results workflow.
+        A stage wrapper to run the stage and update the results workflow in place.
         """
+        home = os.getcwd()
         # update settings and set to running and save
         stage_result = StageResult(
             stage=stage.type, stage_settings=stage.dict(), status=Status.Running
@@ -278,23 +294,36 @@ class WorkFlow(SchemaBase):
         results.results[stage_name] = stage_result
         results.modified_date = datetime.now().strftime("%Y_%m_%d")
         results.to_file(filename=self._results_fname)
-        with folder_setup(stage_name):
-            try:
-                # run the stage and save the result
-                result_mol = stage.run(
-                    molecule=molecule,
-                    qc_spec=self.qc_options,
-                    local_options=self.local_resources,
-                )
-                stage_result.status = Status.Done
-                results.current_molecule = result_mol
-                results.to_file(self._results_fname)
-                return result_mol
-            except Exception as e:
-                # save the error do not update the current molecule
-                stage_result.status = Status.Error
-                stage_result.error = e
-                results.to_file(self._results_fname)
-                raise WorkFlowExecutionError(
-                    f"The workflow stopped unexpectedly due to the following error at stage, {stage_name}"
-                ) from e
+        make_and_change_into(name=stage_name)
+        try:
+            # run the stage and save the result
+            result_mol = stage.run(
+                molecule=molecule,
+                qc_spec=self.qc_options,
+                local_options=self.local_resources,
+            )
+            stage_result.status = Status.Done
+            results.current_molecule = result_mol
+        except MissingReferenceData:
+            # this means there are no torsions to scan so simulate it working
+            stage_result.status = Status.Done
+            results.current_molecule = molecule
+        except Exception as e:
+            import traceback
+
+            # save the error do not update the current molecule
+            stage_result.status = Status.Error
+            stage_result.error = traceback.extract_tb(e.__traceback__).format()
+            os.chdir(home)
+            results.results[stage_name] = stage_result
+            results.to_file(self._results_fname)
+            raise WorkFlowExecutionError(
+                f"The workflow stopped unexpectedly due to the following error at stage: {stage_name}"
+            ) from e
+
+        # move back
+        os.chdir(home)
+        # update the results
+        results.results[stage_name] = stage_result
+        results.to_file(self._results_fname)
+        return results.current_molecule

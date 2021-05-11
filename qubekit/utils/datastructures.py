@@ -1,6 +1,7 @@
 import abc
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
+import numpy as np
 import qcelemental as qcel
 import qcengine as qcng
 from openff.toolkit.typing.engines.smirnoff import get_available_force_fields
@@ -19,6 +20,7 @@ class SchemaBase(BaseModel):
     class Config:
         validate_assignment = True
         arbitrary_types_allowed = True
+        json_encoders = {np.ndarray: lambda v: v.flatten().tolist()}
 
 
 class LocalResource(SchemaBase):

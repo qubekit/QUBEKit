@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from pydantic import Field
 
 from qubekit.molecules import Ligand
-from qubekit.utils.datastructures import QCOptions, SchemaBase
+from qubekit.utils.datastructures import LocalResource, QCOptions, SchemaBase
 
 
 class Status(str, Enum):
@@ -31,7 +31,7 @@ class StageResult(SchemaBase):
     status: Status = Field(
         ..., description="If the stage successfully completed `True` or not `False`."
     )
-    error: Optional[str] = Field(
+    error: Optional[Any] = Field(
         None,
         description="If the stage was not successful the error message should be stored here.",
     )
@@ -61,6 +61,9 @@ class WorkFlowResult(SchemaBase):
         ...,
         description="The main QC specification used to calculate the bonded parameters.",
     )
+    local_resources: LocalResource = Field(
+        ..., description="The local resource used to run the workflow."
+    )
     current_molecule: Ligand = Field(
         ...,
         description="The checkpoint molecule with the latest result of the workflow. When restarting this molecule will be used as input.",
@@ -76,3 +79,11 @@ class WorkFlowResult(SchemaBase):
         """
         with open(filename, "w") as output:
             output.write(self.json(indent=2))
+
+    def status(self) -> Dict[str, Status]:
+        """
+        Get the current status of the workflow.
+        """
+        return dict(
+            (stage_name, stage.status) for stage_name, stage in self.results.items()
+        )
