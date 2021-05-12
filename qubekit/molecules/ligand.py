@@ -19,9 +19,7 @@ TODO ligand.py Refactor:
 
 import decimal
 import os
-import pickle
 import xml.etree.ElementTree as ET
-from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from xml.dom.minidom import parseString
 
@@ -56,71 +54,6 @@ from qubekit.utils.exceptions import (
     StereoChemistryError,
     TopologyMismatch,
 )
-
-# class DefaultsMixin:
-#     """
-#     This class holds all of the default configs from the config file.
-#     It's effectively a placeholder for all of the attributes which may
-#     be changed by editing the config file(s).
-#
-#     See the config class for details of all these params.
-#
-#     It's a mixin because:
-#         * Normal multiple inheritance doesn't make sense in this context
-#         * Composition would be a bit messier and may require stuff like:
-#             mol = Ligand('methane.pdb', 'methane')
-#             mol.defaults.threads
-#             >> 2
-#
-#             rather than the nice clean:
-#             mol.threads
-#             >> 2
-#         * Mixin is cleaner and clearer with respect to super() calls.
-#     """
-#
-#     def __init__(self, *args, **kwargs):
-#
-#         super().__init__(*args, **kwargs)
-#
-#         self.theory = "wB97XD"
-#         self.basis = "6-311++G(d,p)"
-#         self.vib_scaling = 1
-#         self.threads = 4
-#         self.memory = 4
-#         self.convergence = "GAU_TIGHT"
-#         self.iterations = 350
-#         self.bonds_engine = "g09"
-#         self.charges_engine = "chargemol"
-#         self.ddec_version = 6
-#         self.dielectric = 4.0
-#         self.geometric = True
-#         self.solvent = True
-#         self.enable_symmetry = True
-#         self.enable_virtual_sites = True
-#         self.v_site_error_factor = 1.005
-#
-#         self.dih_start = -165
-#         self.increment = 15
-#         self.dih_end = 180
-#         self.t_weight = "infinity"
-#         self.opt_method = "BFGS"
-#         self.refinement_method = "SP"
-#         self.tor_limit = 20
-#         self.div_index = 0
-#         self.parameter_engine = "antechamber"
-#         self.l_pen = 0.0
-#         self.pre_opt_method: str = "rdkit_uff"
-#         self.relative_to_global = False
-#
-#         self.excited_state = False
-#         self.excited_theory = "TDA"
-#         self.n_states = 3
-#         self.excited_root = 1
-#         self.use_pseudo = False
-#         self.pseudo_potential_block = ""
-#
-#         self.chargemol = "/home/<QUBEKit_user>/chargemol_09_26_2017"
-#         self.log = 999
 
 
 class Molecule(SchemaBase):
@@ -179,8 +112,11 @@ class Molecule(SchemaBase):
     )
 
     @validator("coordinates")
-    def _reshape_coords(cls, coordinates: np.ndarray) -> np.ndarray:
-        return coordinates.reshape((-1, 3))
+    def _reshape_coords(cls, coordinates: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        if coordinates is not None:
+            return coordinates.reshape((-1, 3))
+        else:
+            return coordinates
 
     def __init__(
         self,
@@ -297,9 +233,13 @@ class Molecule(SchemaBase):
     def to_file(self, file_name: str) -> None:
         """
         Write the molecule object to file working out the file type from the extension.
-        Works with PDB, MOL, SDF, XYZ any other we want?
+        Works with PDB, MOL, SDF, XYZ, Json any other we want?
         """
-        return RDKit.mol_to_file(rdkit_mol=self.to_rdkit(), file_name=file_name)
+        if ".json" in file_name:
+            with open(file_name, "w") as output:
+                output.write(self.json(indent=2))
+        else:
+            return RDKit.mol_to_file(rdkit_mol=self.to_rdkit(), file_name=file_name)
 
     def generate_conformers(self, n_conformers: int) -> List[np.ndarray]:
         """
@@ -801,38 +741,6 @@ class Molecule(SchemaBase):
             )
 
         return ET.ElementTree(root)
-
-    def pickle(self, state=None):
-        """
-        Pickles the Molecule object in its current state to the (hidden) pickle file.
-        If other pickle objects already exist for the particular object:
-            the latest object is put to the top.
-        """
-
-        mols = OrderedDict()
-        # First check if the pickle file exists
-        try:
-            # Try to load a hidden pickle file; make sure to get all objects
-            with open(".QUBEKit_states", "rb") as pickle_jar:
-                while True:
-                    try:
-                        mol = pickle.load(pickle_jar)
-                        mols[mol.state] = mol
-                    except EOFError:
-                        break
-        except FileNotFoundError:
-            pass
-
-        # Now we can save the items; first assign the location
-        self.state = state
-        mols[self.state] = self
-
-        # Open the pickle jar which will always be the ligand object's name
-        with open(".QUBEKit_states", "wb") as pickle_jar:
-
-            # If there were other molecules of the same state in the jar: overwrite them
-            for val in mols.values():
-                pickle.dump(val, pickle_jar)
 
     @property
     def bond_types(self) -> Dict[str, List[Tuple[int, int]]]:

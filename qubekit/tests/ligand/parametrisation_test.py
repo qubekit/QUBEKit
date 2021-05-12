@@ -122,11 +122,13 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
             assert atom1.epsilon == pytest.approx(atom2.epsilon)
 
         # loop over the round trip mol as we lose some parameters which are 0
-        for dihedral, terms in param_mol2.TorsionForce.parameters.items():
-            other_dih = param_mol.TorsionForce[dihedral]
-            for key in terms.__fields__:
+        for dihedral in param_mol2.TorsionForce.parameters:
+            other_dih = param_mol.TorsionForce[dihedral.atoms]
+            for key in dihedral.__fields__:
                 if key != "atoms":
-                    assert getattr(terms, key) == pytest.approx(getattr(other_dih, key))
+                    assert getattr(dihedral, key) == pytest.approx(
+                        getattr(other_dih, key)
+                    )
 
 
 def test_improper_round_trip_openff(tmpdir, openff):
@@ -243,10 +245,10 @@ def test_xml_sites_roundtrip(tmpdir, xml):
         assert mol_site.p2 == mol2_site.p2
         assert mol_site.p3 == mol2_site.p3
 
-        for dihedral, terms in mol.TorsionForce.parameters.items():
-            other_dih = mol2.TorsionForce[dihedral]
-            for key in terms.__fields__:
-                assert getattr(terms, key) == pytest.approx(getattr(other_dih, key))
+        for dihedral in mol.TorsionForce.parameters:
+            other_dih = mol2.TorsionForce[dihedral.atoms]
+            for key in dihedral.__fields__:
+                assert getattr(dihedral, key) == pytest.approx(getattr(other_dih, key))
 
 
 @pytest.mark.parametrize(

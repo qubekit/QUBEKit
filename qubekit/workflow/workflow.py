@@ -317,6 +317,10 @@ class WorkFlow(SchemaBase):
             os.chdir(home)
             results.results[stage_name] = stage_result
             results.to_file(self._results_fname)
+            # write the exception to file
+            with open("QUBEKit.err", "w") as output:
+                traceback.print_exc(file=output)
+
             raise WorkFlowExecutionError(
                 f"The workflow stopped unexpectedly due to the following error at stage: {stage_name}"
             ) from e

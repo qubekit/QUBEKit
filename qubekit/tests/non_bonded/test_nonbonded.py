@@ -14,8 +14,8 @@ def test_lennard_jones612(tmpdir):
         # get some initial Nonbonded values
         OpenFF().run(molecule=mol)
         # get some aim reference data
-        ExtractChargeData.read_files(
-            molecule=mol, dir_path=get_data(""), charges_engine="chargemol"
+        ExtractChargeData.extract_charge_data_chargemol(
+            molecule=mol, dir_path=get_data(""), ddec_version=6
         )
         # apply symmetry to the reference data
         DDECCharges.apply_symmetrisation(molecule=mol)

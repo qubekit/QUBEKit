@@ -24,11 +24,10 @@ def mol():
     with TemporaryDirectory() as temp:
         os.chdir(temp)
         molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
-        molecule.home = None
         OpenFF().run(molecule)
         ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
         dir_path = os.path.dirname(ddec_file_path)
-        ExtractChargeData.read_files(molecule, dir_path, "chargemol")
+        ExtractChargeData.extract_charge_data_chargemol(molecule, dir_path, 6)
         # apply symmetry to the reference data
         DDECCharges.apply_symmetrisation(molecule=molecule)
         # apply the reference charge to the nonbonded

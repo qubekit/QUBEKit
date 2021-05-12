@@ -313,6 +313,9 @@ def run(
                     )
         except WorkFlowExecutionError:
             os.chdir(home)
+            print(
+                f"An error was encountered while running {name} see folder for more info."
+            )
             continue
 
 

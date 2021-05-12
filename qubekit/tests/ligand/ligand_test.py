@@ -306,38 +306,6 @@ def test_to_openmm_coords(acetone):
     assert np.allclose(coords.in_units_of(unit.angstrom), acetone.coordinates)
 
 
-def test_pickle_round_trip(tmpdir, acetone):
-    """
-    test dumping a molecule to pickle and loading it back in.
-    """
-    with tmpdir.as_cwd():
-        acetone.pickle(state="test")
-        mols = unpickle()
-        pickle_mol = mols["test"]
-        for atom in acetone.atoms:
-            pickle_atom = pickle_mol.get_atom_with_name(atom.atom_name)
-            assert pickle_atom.__dict__ == atom.__dict__
-        assert acetone.bonds == pickle_mol.bonds
-        assert acetone.angles == pickle_mol.angles
-        assert acetone.dihedrals == pickle_mol.dihedrals
-
-
-def test_double_pickle(tmpdir, acetone):
-    """
-    Make sure we can add multiple pickled objects to the same file.
-    """
-    with tmpdir.as_cwd():
-        acetone.pickle(state="input")
-        # remove all coords
-        acetone.coordinates = None
-        acetone.pickle(state="after")
-
-        # now check we have both states
-        mols = unpickle()
-        assert "after" in mols
-        assert "input" in mols
-
-
 @pytest.mark.parametrize(
     "file_name",
     [
@@ -345,6 +313,7 @@ def test_double_pickle(tmpdir, acetone):
         pytest.param("acetone.pdb", id="pdb"),
         pytest.param("acetone.sdf", id="sdf"),
         pytest.param("acetone.mol", id="mol"),
+        pytest.param("acetone.json", id="json"),
     ],
 )
 def test_to_file(tmpdir, file_name, acetone):
@@ -783,4 +752,4 @@ def test_atom_setup():
     mol = Ligand.from_file(get_data("chloromethane.pdb"))
     ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
     dir_path = os.path.dirname(ddec_file_path)
-    ExtractChargeData.read_files(mol, dir_path, mol.charges_engine)
+    ExtractChargeData.extract_charge_data_chargemol(mol, dir_path, 6)
