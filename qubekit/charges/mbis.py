@@ -2,6 +2,8 @@
 An interface to MBIS via psi4.
 """
 
+from typing import Optional
+
 from pydantic import Field
 from qcelemental.util import which_import
 from typing_extensions import Literal
@@ -10,13 +12,13 @@ from qubekit.charges.base import ChargeBase
 from qubekit.charges.solvent_settings import SolventPsi4
 from qubekit.engines import call_qcengine
 from qubekit.molecules import Dipole, Ligand, Quadrupole
-from qubekit.utils.datastructures import LocalResource
+from qubekit.utils.datastructures import LocalResource, QCOptions
 
 
 class MBISCharges(ChargeBase):
 
     type: Literal["MBISCharges"] = "MBISCharges"
-    solvent_settings: SolventPsi4 = Field(
+    solvent_settings: Optional[SolventPsi4] = Field(
         SolventPsi4(units="au", medium_Solvent="chloroform"),
         description="The engine that should be used to generate the reference density to perform the AIM analysis on.",
     )
@@ -37,20 +39,23 @@ class MBISCharges(ChargeBase):
             raise_msg="Please install via `conda install psi4 -c psi4/label/dev`.",
         )
 
-    def _run(self, molecule: "Ligand", local_options: LocalResource) -> "Ligand":
+    def _run(
+        self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
+    ) -> "Ligand":
         """
         The main run method which generates a density using psi4 and stores the partitioned MBIS AIM reference values.
         """
         # now we need to build the keywords for the solvent
         extras = dict(
-            pcm=True,
-            pcm__input=self.solvent_settings.format_keywords(),
             scf_properties=["MBIS_CHARGES"],
         )
+        if self.solvent_settings is not None:
+            extras["pcm"] = True
+            extras["pcm__input"] = self.solvent_settings.format_keywords()
         result = call_qcengine(
             molecule=molecule,
             driver="energy",
-            qc_spec=self._get_qc_options(),
+            qc_spec=qc_spec,
             local_options=local_options,
             extras=extras,
         )

@@ -4,6 +4,7 @@ An interface to charge mol via gaussian.
 
 import os
 import subprocess as sp
+from typing import Optional
 
 from jinja2 import Template
 from pydantic import Field
@@ -14,7 +15,7 @@ from qubekit.charges.solvent_settings import SolventGaussian
 from qubekit.charges.utils import ExtractChargeData
 from qubekit.engines import GaussianHarness, call_qcengine
 from qubekit.molecules import Ligand
-from qubekit.utils.datastructures import LocalResource
+from qubekit.utils.datastructures import LocalResource, QCOptions
 from qubekit.utils.exceptions import ChargemolError
 from qubekit.utils.file_handling import folder_setup, get_data
 
@@ -26,7 +27,7 @@ class DDECCharges(ChargeBase):
     ddec_version: Literal[3, 6] = Field(
         6, description="The version of DDEC partitioning that should be used."
     )
-    solvent_settings: SolventGaussian = Field(
+    solvent_settings: Optional[SolventGaussian] = Field(
         SolventGaussian(),
         description="The engine that should be used to generate the reference density to perform the AIM analysis on.",
     )
@@ -128,7 +129,9 @@ class DDECCharges(ChargeBase):
                 finally:
                     del os.environ["OMP_NUM_THREADS"]
 
-    def _run(self, molecule: "Ligand", local_options: LocalResource) -> "Ligand":
+    def _run(
+        self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
+    ) -> "Ligand":
         """
         Generate a electron density using gaussian and partion using DDEC before storing back into the molecule.
 
@@ -142,8 +145,18 @@ class DDECCharges(ChargeBase):
             The molecule updated with the raw partitioned reference data.
         """
         # get the solvent keywords
-        extras = self.solvent_settings.format_keywords()
-        qc_spec = self._get_qc_options()
+        if self.solvent_settings is not None:
+            extras = self.solvent_settings.format_keywords()
+        else:
+            # do a gas phase calculation
+            extras = dict(
+                cmdline_extra=[
+                    "density=current",
+                    "OUTPUT=WFX",
+                ],
+                add_input=["gaussian.wfx"],
+            )
+
         result = call_qcengine(
             molecule=molecule,
             driver="energy",

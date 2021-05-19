@@ -1,13 +1,13 @@
 import abc
 from typing import Dict, List
 
-from qubekit.utils.datastructures import QCOptions
+from qubekit.utils.datastructures import SchemaBase
 
 
-class SolventBase(QCOptions, abc.ABC):
+class SolventBase(SchemaBase, abc.ABC):
     @abc.abstractmethod
     def format_keywords(self) -> Dict[str, List[str]]:
         """
-        Format the options into a dict that can be consumed by the gaussian harness.
+        Format the options into a dict that can be consumed by the program harness.
         """
         ...
