@@ -121,7 +121,8 @@ class VirtualSites(StageBase):
         Fit the ESP accordingly and store v-sites if they improve error.
         If any v-sites are found to be useful, write them to an xyz and store them in the Ligand object
         """
-
+        # remove any old sites
+        molecule.extra_sites.clear_sites()
         self._coords = molecule.coordinates
         self._molecule = molecule
         for atom_index, atom in enumerate(molecule.atoms):

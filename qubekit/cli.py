@@ -135,6 +135,7 @@ def validate(filename: str) -> None:
     "--multiplicity",
     type=click.INT,
     help="The multiplicity of the molecule used in QM calculations.",
+    default=1,
 )
 @click.option(
     "-n",
@@ -182,7 +183,7 @@ def run(
         workflow.new_workflow(molecule=molecule, skip_stages=skip_stages, end=end)
 
 
-@cli.group()
+@cli.command()
 @click.argument("start", type=stages)
 @click.option(
     "-r",

@@ -16,14 +16,6 @@ def test_from_pdb():
     assert pro.coordinates.shape == (pro.n_atoms, 3)
 
 
-def test_normal_init():
-    """
-    Make sure a pdb file is directed to the from pdb path.
-    """
-    pro = Protein(get_data("capped_leu.pdb"))
-    assert pro.n_atoms == 31
-
-
 def test_not_pdb():
     """
     Make sure an error is raised if we try and make a protein from a non pdb file.

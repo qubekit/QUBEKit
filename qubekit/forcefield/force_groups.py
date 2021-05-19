@@ -197,7 +197,7 @@ class LennardJones126Force(BaseForceGroup):
     parameters: Optional[List[LennardJones612Parameter]] = None
     coulomb14scale: float = Field(0.8333333333, description="The 1-4 coulomb scaling.")
     lj14scale: float = Field(0.5, description="The 1-4 lj scaling.")
-    combination: Literal["amber"] = Field(
+    combination: Literal["amber", "geometric"] = Field(
         "amber", description="The combination rule that should be used."
     )
 

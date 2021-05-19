@@ -19,7 +19,6 @@ from qubekit.utils.exceptions import (
     TopologyMismatch,
 )
 from qubekit.utils.file_handling import get_data
-from qubekit.utils.helpers import unpickle
 
 
 @pytest.fixture
