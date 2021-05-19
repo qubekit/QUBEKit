@@ -219,3 +219,20 @@ def test_fit(mol, vs, tmpdir):
             + sum(site.charge for site in mol.extra_sites)
             == 0
         )
+
+
+def test_refit(mol, vs, tmpdir):
+    """Make sure restarting a vsite fit produces the same result and removes old sites."""
+    with tmpdir.as_cwd():
+        vs.run(molecule=mol)
+        assert mol.extra_sites.n_sites == 2
+        # the new ref value
+        ref = mol.copy(deep=True)
+        vs.run(molecule=mol)
+        # make sure old sites are removed
+        assert mol.extra_sites.n_sites == 2
+        # check the sites are the same
+        assert ref.extra_sites[1][0].charge == mol.extra_sites[1][0].charge
+        assert ref.extra_sites[1][1].charge == mol.extra_sites[1][1].charge
+        # make sure the aim data was not changed
+        assert ref.atoms[1].aim.charge == mol.atoms[1].aim.charge
