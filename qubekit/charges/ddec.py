@@ -4,7 +4,7 @@ An interface to charge mol via gaussian.
 
 import os
 import subprocess as sp
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from jinja2 import Template
 from pydantic import Field
@@ -129,6 +129,16 @@ class DDECCharges(ChargeBase):
                 finally:
                     del os.environ["OMP_NUM_THREADS"]
 
+    def _gas_calculation_settings(self) -> Dict[str, Any]:
+        extras = dict(
+            cmdline_extra=[
+                "density=current",
+                "OUTPUT=WFX",
+            ],
+            add_input=["\ngaussian.wfx"],
+        )
+        return extras
+
     def _run(
         self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
     ) -> "Ligand":
@@ -145,17 +155,7 @@ class DDECCharges(ChargeBase):
             The molecule updated with the raw partitioned reference data.
         """
         # get the solvent keywords
-        if self.solvent_settings is not None:
-            extras = self.solvent_settings.format_keywords()
-        else:
-            # do a gas phase calculation
-            extras = dict(
-                cmdline_extra=[
-                    "density=current",
-                    "OUTPUT=WFX",
-                ],
-                add_input=["gaussian.wfx"],
-            )
+        extras = self._get_calculation_settings()
 
         result = call_qcengine(
             molecule=molecule,

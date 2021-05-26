@@ -2,7 +2,7 @@
 An interface to MBIS via psi4.
 """
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import Field
 from qcelemental.util import which_import
@@ -39,6 +39,9 @@ class MBISCharges(ChargeBase):
             raise_msg="Please install via `conda install psi4 -c psi4/label/dev`.",
         )
 
+    def _gas_calculation_settings(self) -> Dict[str, Any]:
+        return {"scf_properties": ["MBIS_CHARGES"]}
+
     def _run(
         self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
     ) -> "Ligand":
@@ -46,12 +49,7 @@ class MBISCharges(ChargeBase):
         The main run method which generates a density using psi4 and stores the partitioned MBIS AIM reference values.
         """
         # now we need to build the keywords for the solvent
-        extras = dict(
-            scf_properties=["MBIS_CHARGES"],
-        )
-        if self.solvent_settings is not None:
-            extras["pcm"] = True
-            extras["pcm__input"] = self.solvent_settings.format_keywords()
+        extras = self._get_calculation_settings()
         result = call_qcengine(
             molecule=molecule,
             driver="energy",

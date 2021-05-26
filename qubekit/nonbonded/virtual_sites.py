@@ -31,7 +31,6 @@ from qubekit.utils.constants import (
     VACUUM_PERMITTIVITY,
 )
 from qubekit.utils.datastructures import StageBase
-from qubekit.utils.helpers import append_to_log
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand

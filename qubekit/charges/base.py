@@ -2,7 +2,7 @@
 A Charge derivation base class.
 """
 import abc
-from typing import TYPE_CHECKING, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Optional, TypeVar
 
 import numpy as np
 from pydantic import Field
@@ -92,6 +92,22 @@ class ChargeBase(StageBase):
             atom = molecule.atoms[i]
             molecule.NonbondedForce[(i,)].charge = atom.aim.charge
         return molecule
+
+    @abc.abstractmethod
+    def _gas_calculation_settings(self) -> Dict[str, Any]:
+        """Build the gas phase settings dict for the calculation."""
+        ...
+
+    def _get_calculation_settings(self) -> Dict[str, Any]:
+        """
+        Build the calculation settings dict for the qcengine job.
+
+        First we check for solvent keywords else we use the gas phase keywords.
+        """
+        if self.solvent_settings is not None:
+            return self.solvent_settings.format_keywords()
+        else:
+            return self._gas_calculation_settings()
 
     @abc.abstractmethod
     def _run(

@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from typing import ClassVar, List, Optional, Type, Union
+from typing import ClassVar, List, Optional, Union
 
 from pydantic import Field, PrivateAttr
 from typing_extensions import Literal

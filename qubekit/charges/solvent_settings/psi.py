@@ -1,4 +1,4 @@
-from typing import ClassVar, Dict
+from typing import Any, ClassVar, Dict
 
 from pydantic import Field, validator
 from typing_extensions import Literal
@@ -132,7 +132,7 @@ class SolventPsi4(SolventBase):
                 kwargs["cavity_Area"] = cavity_Area
         super(SolventPsi4, self).__init__(**kwargs)
 
-    def format_keywords(self) -> str:
+    def format_keywords(self) -> Dict[str, Any]:
         """
         Generate the formatted PCM settings string which can be ingested by psi4 via the qcschema interface.
         """
@@ -150,4 +150,4 @@ class SolventPsi4(SolventBase):
         Medium {{{medium_str
         }}}
         Cavity {{{cavity_str}}}"""
-        return pcm_string
+        return {"pcm": True, "pcm__input": pcm_string}

@@ -49,7 +49,6 @@ class Hessian(StageBase):
         """
         Run a hessian calculation on the ligand at the current geometry and store the result into the molecule.
         """
-        print("molecule hessian coordinates", molecule.coordinates)
         qc_spec = kwargs["qc_spec"]
         local_options = kwargs["local_options"]
         result = call_qcengine(
@@ -204,7 +203,6 @@ class Optimiser(StageBase):
             raise GeometryOptimisationError(
                 "No molecule conformer could be optimised to GAU TIGHT"
             )
-        print("qm optimised coordinates", qm_result.coordinates)
         return qm_result
 
     def _pre_opt(
