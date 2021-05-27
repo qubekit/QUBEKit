@@ -3,7 +3,7 @@ import math
 import os
 from typing import TYPE_CHECKING, ClassVar, Dict, Tuple
 
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, Field
 from typing_extensions import Literal
 
 from qubekit.nonbonded.utils import FreeParams, LJData
@@ -17,6 +17,10 @@ if TYPE_CHECKING:
 class LennardJones612(StageBase):
 
     type: Literal["LennardJones612"] = "LennardJones612"
+    lj_on_polar_h: bool = Field(
+        False,
+        description="If polar hydrogen should keep their LJ values `True`, rather than transfer them to the parent atom `False`.",
+    )
     free_parameters: ClassVar[Dict[str, FreeParams]] = {
         "H": FreeParams(7.6, 6.5, 1.64),
         "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
@@ -89,7 +93,10 @@ class LennardJones612(StageBase):
 
         # Tweak for polar Hydrogens
         # NB DISABLE FOR FORCEBALANCE
-        lj_data = LennardJones612._correct_polar_hydrogens(lj_data, molecule=molecule)
+        if not self.lj_on_polar_h:
+            lj_data = LennardJones612._correct_polar_hydrogens(
+                lj_data, molecule=molecule
+            )
 
         # Use the a_is and b_is to calculate the non_bonded_force dict
         non_bonded_forces = self._calculate_sig_eps(lj_data, molecule=molecule)

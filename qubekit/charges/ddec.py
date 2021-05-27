@@ -135,7 +135,7 @@ class DDECCharges(ChargeBase):
                 "density=current",
                 "OUTPUT=WFX",
             ],
-            add_input=["\ngaussian.wfx"],
+            add_input=["", "gaussian.wfx"],
         )
         return extras
 
@@ -143,7 +143,7 @@ class DDECCharges(ChargeBase):
         self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
     ) -> "Ligand":
         """
-        Generate a electron density using gaussian and partion using DDEC before storing back into the molecule.
+        Generate a electron density using gaussian and partition using DDEC before storing back into the molecule.
 
         Note:
             The current coordinates are used for the calculation.
