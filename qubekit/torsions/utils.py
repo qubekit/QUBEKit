@@ -89,9 +89,17 @@ def find_heavy_torsion(molecule: Ligand, bond: Bond) -> Tuple[int, int, int, int
 def forcebalance_setup(folder_name: str, keep_files: bool = True):
     """
     A helper function to create a forcebalance fitting folder complete with target and forcefield sub folders.
+
+    Important:
+        Restarting a FB run remove all old files.
+
     This method was originally implemented in openff-bespokefit.
     """
+    import shutil
+
     cwd = os.getcwd()
+    # try and remove the old run
+    shutil.rmtree(folder_name, ignore_errors=True)
     os.mkdir(folder_name)
     os.chdir(folder_name)
     os.mkdir("forcefield")
@@ -99,6 +107,4 @@ def forcebalance_setup(folder_name: str, keep_files: bool = True):
     yield
     os.chdir(cwd)
     if not keep_files:
-        import shutil
-
         shutil.rmtree(folder_name, ignore_errors=True)
