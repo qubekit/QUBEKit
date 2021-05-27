@@ -55,7 +55,7 @@ def runtime_options(function: Callable) -> Callable:
     function = click.option(
         "-c",
         "--config",
-        type=click.Path(exists=True),
+        type=click.Path(exists=True, dir_okay=False, resolve_path=True, readable=True),
         help="The name of the config file which contains the workflow.",
     )(function)
     return function
@@ -122,7 +122,7 @@ def validate(filename: str) -> None:
     "-i",
     "--input-file",
     help="The name of the input file containing a molecule to be parameterised.",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, dir_okay=False, resolve_path=True, readable=True),
 )
 @click.option(
     "-sm",
@@ -188,7 +188,7 @@ def run(
 @click.option(
     "-r",
     "--results",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True),
     help="The results file that the workflow should be restarted from.",
     default="workflow_result.json",
 )
@@ -228,7 +228,10 @@ def bulk():
 
 
 @bulk.command()
-@click.argument("bulk_file", type=click.Path(exists=True))
+@click.argument(
+    "bulk_file",
+    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True),
+)
 @click.option(
     "-restart",
     "--restart",

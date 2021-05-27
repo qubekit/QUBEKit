@@ -3,7 +3,7 @@ import math
 import os
 from typing import TYPE_CHECKING, ClassVar, Dict, Tuple
 
-from pydantic import PrivateAttr, Field
+from pydantic import Field, PrivateAttr
 from typing_extensions import Literal
 
 from qubekit.nonbonded.utils import FreeParams, LJData
