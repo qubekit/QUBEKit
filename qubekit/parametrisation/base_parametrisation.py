@@ -1,16 +1,18 @@
 import abc
 import xml.etree.ElementTree as ET
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from simtk.openmm import System, XmlSerializer
 from typing_extensions import Literal
 
 from qubekit.forcefield import VirtualSite3Point
-from qubekit.molecules.ligand import Ligand
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
 from qubekit.utils.exceptions import MissingParameterError, TopologyMismatch
 from qubekit.utils.helpers import check_improper_torsion, check_proper_torsion
+
+if TYPE_CHECKING:
+    from qubekit.molecules.ligand import Ligand
 
 
 class Parametrisation(StageBase, abc.ABC):
@@ -32,7 +34,7 @@ class Parametrisation(StageBase, abc.ABC):
 
     @abc.abstractmethod
     def _build_system(
-        self, molecule: Ligand, input_files: Optional[List[str]] = None
+        self, molecule: "Ligand", input_files: Optional[List[str]] = None
     ) -> System:
         """Build a parameterised OpenMM system using the molecule."""
         ...
@@ -44,8 +46,8 @@ class Parametrisation(StageBase, abc.ABC):
         ...
 
     def run(
-        self, molecule: Ligand, input_files: Optional[List[str]] = None, **kwargs
-    ) -> Ligand:
+        self, molecule: "Ligand", input_files: Optional[List[str]] = None, **kwargs
+    ) -> "Ligand":
         """
         Parametrise the ligand using the current engine.
 
@@ -73,7 +75,7 @@ class Parametrisation(StageBase, abc.ABC):
         with open("serialised.xml", "w+") as out:
             out.write(xml)
 
-    def _gather_parameters(self, molecule: Ligand) -> Ligand:
+    def _gather_parameters(self, molecule: "Ligand") -> "Ligand":
         """
         This method parses the serialised xml file and collects the parameters and
         stores them back into the correct force group in the ligand.

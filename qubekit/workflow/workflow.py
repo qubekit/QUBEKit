@@ -6,8 +6,8 @@ from pydantic import Field, PrivateAttr
 from typing_extensions import Literal
 
 import qubekit
+from qubekit.bonded import ModSeminario
 from qubekit.charges import DDECCharges, MBISCharges
-from qubekit.mod_seminario import ModSeminario
 from qubekit.molecules import Ligand
 from qubekit.nonbonded import LennardJones612, VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF

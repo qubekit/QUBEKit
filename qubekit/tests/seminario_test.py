@@ -3,9 +3,8 @@ All tests are ran on ethane optimised with psi4 at b3lyp-d3bj/dzvp.
 """
 
 import numpy as np
-import pytest
 
-from qubekit.mod_seminario import ModSeminario
+from qubekit.bonded import ModSeminario
 from qubekit.molecules import Ligand
 from qubekit.utils import constants
 from qubekit.utils.file_handling import get_data

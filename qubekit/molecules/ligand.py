@@ -1019,6 +1019,9 @@ class Ligand(Molecule):
         None,
         description="The list of reference torsiondrive results which we can fit against.",
     )
+    wbo: Optional[Array[float]] = Field(
+        None, description="The WBO matrix calculated at the QM optimised geometry."
+    )
 
     def __init__(
         self,
@@ -1043,6 +1046,16 @@ class Ligand(Molecule):
         )
         # make sure we have unique atom names
         self._validate_atom_names()
+
+    @validator("hessian", "wbo", allow_reuse=True)
+    def _reshape_matrix(cls, matrix: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        if matrix is not None:
+            if len(matrix.shape) == 1:
+                # the matrix is a flat list
+                # so we need to make the matrix to be square
+                length = int(np.sqrt(matrix.shape[0]))
+                return matrix.reshape((length, length))
+        return matrix
 
     @classmethod
     def from_rdkit(

@@ -232,9 +232,13 @@ class TorsionDriver(SchemaBase):
         """
 
         if self.starting_conformations > 1:
-            coords = molecule.generate_conformers(n_conformers=self.starting_conformations)
+            coords = molecule.generate_conformers(
+                n_conformers=self.starting_conformations
+            )
         else:
-            coords = [copy.deepcopy(molecule.coordinates), ]
+            coords = [
+                copy.deepcopy(molecule.coordinates),
+            ]
 
         td_state = td_api.create_initial_state(
             dihedrals=[
