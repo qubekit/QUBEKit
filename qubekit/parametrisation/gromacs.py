@@ -38,6 +38,8 @@ class Gromacs(Parametrisation):
         # if it was not given try and guess it
         top_file = top_file or f"{molecule.name}.top"
 
-        top = app.GromacsTopFile(top_file)
+        top = app.GromacsTopFile(
+            top_file,
+        )
         system = top.createSystem()
         return system

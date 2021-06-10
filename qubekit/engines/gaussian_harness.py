@@ -5,6 +5,7 @@ A custom gaussian harness for QCEngine which should be registered with qcengine.
 """
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 from qcelemental.models import AtomicInput, AtomicResult
 from qcelemental.util import which
 from qcengine import register_program
@@ -117,8 +118,8 @@ class GaussianHarness(ProgramHarness):
 
         return exe_success, proc
 
-    @staticmethod
-    def functional_converter(method: str) -> str:
+    @classmethod
+    def functional_converter(cls, method: str) -> str:
         """
         Convert the given function to the correct format for gaussian.
         """
@@ -140,8 +141,8 @@ class GaussianHarness(ProgramHarness):
             return f"EmpiricalDispersion={dispersion.upper()} {theory}"
         return theory
 
-    @staticmethod
-    def driver_conversion(driver: str) -> str:
+    @classmethod
+    def driver_conversion(cls, driver: str) -> str:
         """
         Convert the qcengine driver enum to the specific keyword for gaussian.
         """
@@ -183,6 +184,12 @@ class GaussianHarness(ProgramHarness):
         template_data["cmdline_extra"] = input_model.keywords.get("cmdline_extra", [])
         # work around for extra trailing input
         template_data["add_input"] = input_model.keywords.get("add_input", [])
+        # check for extra scf property settings
+        cmdline_extra, add_input = self.scf_property_conversion(
+            input_model.keywords.get("scf_properties", [])
+        )
+        template_data["cmdline_extra"].extend(cmdline_extra)
+        template_data["add_input"].extend(add_input)
         template_data.update(input_model.keywords)
         # now we need to build the coords data
         data = []
@@ -198,14 +205,25 @@ class GaussianHarness(ProgramHarness):
             "input_result": input_model.copy(deep=True),
         }
 
-    @staticmethod
-    def check_convergence(logfile: str) -> None:
+    @classmethod
+    def check_convergence(cls, logfile: str) -> None:
         """
         Check the gaussian log file to make sure we have normal termination.
         """
         if "Normal termination of Gaussian" not in logfile:
             # raise an error with the log file as output
             raise UnknownError(message=logfile)
+
+    @classmethod
+    def scf_property_conversion(
+        cls, scf_properties: List[str]
+    ) -> Tuple[List[str], List[str]]:
+        """For each of the scp_properties requested convert them to gaussian format."""
+        cmdline_extra, add_input = [], []
+        if "wiberg_lowdin_indices" in scf_properties:
+            cmdline_extra.append("pop=(nboread)")
+            add_input.extend(["", "$nbo BNDIDX $end"])
+        return cmdline_extra, add_input
 
     def parse_output(
         self, outfiles: Dict[str, str], input_model: AtomicInput
@@ -215,6 +233,7 @@ class GaussianHarness(ProgramHarness):
         From the fchk file we get the energy and hessian, the gradient is taken from the log file.
         """
         properties = {}
+        qcvars = {}
         # make sure we got valid exit status
         self.check_convergence(logfile=outfiles["gaussian.log"])
         version = self.parse_version(logfile=outfiles["gaussian.log"])
@@ -238,9 +257,17 @@ class GaussianHarness(ProgramHarness):
             hessian = self.parse_hessian(fchkfile=outfiles["lig.fchk"])
             output_data["return_result"] = hessian
 
+        # parse scf_properties
+        if "scf_properties" in input_model.keywords:
+            qcvars["WIBERG_LOWDIN_INDICES"] = self.parse_wbo(
+                logfile=outfiles["gaussian.log"]
+            )
+
         # if there is an extra output file grab it
         if "gaussian.wfx" in outfiles:
             output_data["extras"]["gaussian.wfx"] = outfiles["gaussian.wfx"]
+        if qcvars:
+            output_data["extras"]["qcvars"] = qcvars
         output_data["properties"] = properties
         output_data["schema_name"] = "qcschema_output"
         output_data["stdout"] = outfiles["gaussian.log"]
@@ -248,8 +275,8 @@ class GaussianHarness(ProgramHarness):
         output_data["provenance"] = provenance
         return AtomicResult(**output_data)
 
-    @staticmethod
-    def parse_version(logfile: str) -> str:
+    @classmethod
+    def parse_version(cls, logfile: str) -> str:
         """
         Parse the gaussian version from the logfile.
         """
@@ -264,8 +291,8 @@ class GaussianHarness(ProgramHarness):
         version = lines[star_line + 1].strip()
         return version
 
-    @staticmethod
-    def parse_gradient(fchfile: str) -> List[float]:
+    @classmethod
+    def parse_gradient(cls, fchfile: str) -> List[float]:
         """
         Parse the cartesian gradient from a gaussian fchk file and return them as a flat list.
         """
@@ -281,14 +308,13 @@ class GaussianHarness(ProgramHarness):
                     gradient.extend([float(grad) for grad in line.split()])
         return gradient
 
-    @staticmethod
-    def parse_hessian(fchkfile: str) -> List[float]:
+    @classmethod
+    def parse_hessian(cls, fchkfile: str) -> List[float]:
         """
         Parse the hessian from the fchk file and return as a flat list in atomic units.
         Note gaussian gives us only half of the matrix so we have to fix this.
         #TODO the reshaping or the array could be fragile is there a better way?
         """
-        import numpy as np
 
         hessian = []
         hessian_found = False
@@ -314,6 +340,29 @@ class GaussianHarness(ProgramHarness):
                 m += 1
 
         return full_hessian.flatten().tolist()
+
+    @classmethod
+    def parse_wbo(cls, logfile: str, natoms: int) -> List[float]:
+        """
+        Parse the WBO matrix from the logfile as a flat list.
+        """
+        wbo_matrix = [[] for _ in range(natoms)]
+        matrix_line = None
+        lines = logfile.split("\n")
+        for i, line in enumerate(lines):
+            if "Wiberg bond index matrix" in line:
+                matrix_line = i + 1
+                break
+        # now get the matrix
+        for i in range(int(np.ceil(natoms / 9))):
+            starting_line = matrix_line + ((i + 1) * 3) + (i * natoms)
+            for line in lines[starting_line : starting_line + natoms]:
+                sp = line.split()
+                atom_idx = int(float(sp[0])) - 1
+                orders = [float(value) for value in sp[2:]]
+                wbo_matrix[atom_idx].extend(orders)
+
+        return np.array(wbo_matrix).flatten().tolist()
 
 
 # register the gaussian harness this must be done so gaussian can be used!

@@ -56,6 +56,8 @@ class Hessian(StageBase):
             driver="hessian",
             qc_spec=qc_spec,
             local_options=local_options,
+            # we need to request the wbos for the hessian for qforce
+            extras={"scf_properties": ["wiberg_lowdin_indices"]},
         )
         with open("result.json", "w") as output:
             output.write(result.json())
@@ -67,6 +69,7 @@ class Hessian(StageBase):
 
         np.savetxt("hessian.txt", result.return_result)
         molecule.hessian = result.return_result
+        molecule.wbo = result.extras["qcvars"]["WIBERG_LOWDIN_INDICES"]
         check_symmetry(molecule.hessian)
         return molecule
 

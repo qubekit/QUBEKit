@@ -150,4 +150,8 @@ class SolventPsi4(SolventBase):
         Medium {{{medium_str
         }}}
         Cavity {{{cavity_str}}}"""
-        return {"pcm": True, "pcm__input": pcm_string}
+        return {
+            "pcm": True,
+            "pcm__input": pcm_string,
+            "scf_properties": ["MBIS_CHARGES"],
+        }

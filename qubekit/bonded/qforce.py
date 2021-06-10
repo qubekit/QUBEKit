@@ -1,7 +1,4 @@
 """An interface to the QForce program for bonded parameter derivation via internal hessian fitting."""
-
-import os
-import shutil
 from io import StringIO
 from typing import TYPE_CHECKING, Any, Dict
 
@@ -10,7 +7,6 @@ from pydantic import Field, PrivateAttr
 from qcelemental.util import which_import
 from typing_extensions import Literal
 
-from qubekit.parametrisation import Gromacs
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
 
@@ -24,6 +20,7 @@ class QForceHessianFitting(StageBase):
     fitting, this will fit all bonds, angles and rigid torsions and does not require an initial guess.
     """
 
+    type: Literal["QForceHessianFitting"] = "QForceHessianFitting"
     combination_rule: Literal["amber"] = Field(
         "amber",
         description="The nonbonded combination rule that should be used in QForce during fitting.",
@@ -34,13 +31,12 @@ class QForceHessianFitting(StageBase):
     _combination_to_scaling: Dict[str, Dict[str, float]] = PrivateAttr(
         {"amber": {"lj": 0.5, "charge": 0.8333, "comb_rule": 2}}
     )
-    _bonding_threshold: float = PrivateAttr(0.3)
 
     def start_message(self, **kwargs) -> str:
         return "Starting internal hessian fitting using QForce."
 
     def finish_message(self, **kwargs) -> str:
-        return "Internal hessian fitting finshed, saving parameters."
+        return "Internal hessian fitting finished, saving parameters."
 
     @classmethod
     def is_available(cls) -> bool:
@@ -60,7 +56,7 @@ class QForceHessianFitting(StageBase):
 
     def _generate_settings(self) -> StringIO:
         """
-        Generate the qforce settings for the fitting.
+        Generate the QForce settings for the fitting.
         Note:
             The urey terms are set to off as we do not currently support them.
         """
@@ -72,6 +68,7 @@ class QForceHessianFitting(StageBase):
         ext_lj_fudge = {combination_settings["lj"]}
         ext_q_fudge = {combination_settings["charge"]}
         ext_comb_rule = {combination_settings["comb_rule"]}
+        ext_h_cap = H0
         charge_scaling = {self.charge_scaling}
         [terms]
         urey = false
@@ -98,8 +95,8 @@ class QForceHessianFitting(StageBase):
             lj_types.append(lj_type)
             # here we only add the type values once assuming symmetry has already been applied
             if lj_type not in atom_types:
-                atom_value = molecule.NonbondedForce[i][1:]
-                atom_types[lj_type] = atom_value
+                atom_value = molecule.NonbondedForce[(i,)]
+                atom_types[lj_type] = (atom_value.sigma, atom_value.epsilon)
 
         return dict(lj_types=lj_types, atom_types=atom_types)
 
@@ -120,6 +117,25 @@ class QForceHessianFitting(StageBase):
             / (constants.BOHR_TO_ANGS ** 2)
         )
 
+    @classmethod
+    def _save_parameters(cls, molecule: "Ligand", qforce_terms) -> None:
+        """Update the Ligand with the final parameters from the QForce hessian fitting."""
+
+        for bond in qforce_terms["bond"]:
+            qube_bond = molecule.BondForce[bond.atomids]
+            qube_bond.length = bond.equ * constants.ANGS_TO_NM
+            qube_bond.k = bond.fconst * 100
+        for angle in qforce_terms["angle"]:
+            qube_angle = molecule.AngleForce[angle.atomids]
+            qube_angle.angle = angle.equ
+            qube_angle.k = angle.fconst
+        for dihedral in qforce_terms["dihedral"]["rigid"]:
+            qube_dihedral = molecule.TorsionForce[dihedral.atomids]
+            qube_dihedral.k2 = dihedral.fconst / 2
+        for improper in qforce_terms["dihedral"]["improper"]:
+            qube_improper = molecule.ImproperTorsionForce[improper.atomids]
+            qube_improper.k2 = improper.fconst / 2
+
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         The main worker method of the class, this will take the ligand and fit the hessian using qforce and then return ligand with the optimized parameters.
@@ -130,49 +146,26 @@ class QForceHessianFitting(StageBase):
         qm_data = self._create_qm_data_dictionary(molecule=molecule)
         atom_types = self._generate_atom_types(molecule=molecule)
         qforce_settings = self._generate_settings()
-
-        _ = run_hessian_fitting_for_external(
+        result = run_hessian_fitting_for_external(
             molecule.name, qm_data=qm_data, ext_lj=atom_types, config=qforce_settings
         )
-        # now we need to grab the top file
-        output_folder = f"{molecule.name}_qforce"
-        shutil.copy(os.path.join(output_folder, "gas.top"), "gas.top")
-        shutil.copy(
-            os.path.join(output_folder, f"{molecule.name}_qforce.itp"),
-            f"{molecule.name}_qforce.itp",
-        )
-        # now get the parameters from the gromacs files
-        gromacs = Gromacs()
-        molecule = gromacs.run(
-            molecule=molecule,
-            input_files=[
-                "gas.top",
-            ],
-        )
         # now we need to get the terms back into the molecule
+        self._save_parameters(molecule=molecule, qforce_terms=result)
         return molecule
-
-    def _clean_wbo_matrix(self, wbo_matrix: np.array) -> np.array:
-        """
-        Take the wbo matrix and clean it to replicate orbital analysis.
-        """
-        # set all values too low to 0
-        wbo_matrix[wbo_matrix < self._bonding_threshold] = 0
-        return wbo_matrix
 
     def _create_qm_data_dictionary(self, molecule: "Ligand") -> Dict:
         """
         Create the QForce QM data dictionary required to run the hessian fitting.
         """
         qm_data = dict(
-            n_atoms=len(molecule.atoms),
+            n_atoms=molecule.n_atoms,
             charge=molecule.charge,
             multiplicity=molecule.multiplicity,
             elements=np.array([atom.atomic_number for atom in molecule.atoms]),
             coords=molecule.coordinates,
             hessian=self._get_hessian_triangle(molecule.hessian),
-            n_bonds=[atom.GetTotalDegree() for atom in molecule.to_rdkit().GetAtoms()],
-            b_orders=self._clean_wbo_matrix(wbo_matrix=molecule.wbo),
+            n_bonds=[atom.GetTotalValence() for atom in molecule.to_rdkit().GetAtoms()],
+            b_orders=molecule.wbo,
             lone_e=[0 for _ in molecule.atoms],
             point_charges=[atom.aim.charge for atom in molecule.atoms],
         )

@@ -239,7 +239,7 @@ class LennardJones612(StageBase):
 
         for atom, lj_datum in zip(molecule.atoms, lj_data.values()):
             if not lj_datum.a_i:
-                sigma, epsilon = 0, 0
+                sigma, epsilon = 1, 0
             else:
                 # sigma = (a_i / b_i) ** (1 / 6)
                 sigma = (lj_datum.a_i / lj_datum.b_i) ** (1 / 6)
