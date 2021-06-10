@@ -140,7 +140,6 @@ def test_chargemol_template(tmpdir, version):
         mol = Ligand.from_file(get_data("water.pdb"))
         OpenFF().run(molecule=mol)
         charge_method = DDECCharges(
-            apply_symmetry=True,
             ddec_version=version,
         )
         # fake the chargemol dir

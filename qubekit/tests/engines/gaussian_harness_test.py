@@ -104,6 +104,195 @@ def test_build_input(tmpdir, driver, result):
             com.write(file_input)
 
 
+def test_gaussian_nbo_input_file():
+    """Make sure we can build a file which will run a nbo calculation when complete."""
+    mol = Ligand.from_file(get_data("water.pdb"))
+    # now make an atomic input for the harness
+    task = qcel.models.AtomicInput(
+        molecule=mol.to_qcschema(),
+        driver="energy",
+        model={"method": "b3lyp-d3bj", "basis": "6-311G"},
+        keywords={"scf_properties": ["wiberg_lowdin_indices"]},
+    )
+    # we need the harness as this will render the template
+    gaussian_harness = GaussianHarness()
+    config = qcng.config.get_config(local_options={"ncores": 1, "memory": 1})
+    job_inputs = gaussian_harness.build_input(task, config)
+    # make sure the job file matches or expected reference
+    with open(get_data("gaussian_nbo_example.com")) as g_out:
+        assert g_out.read() == job_inputs["infiles"]["gaussian.com"]
+
+
+def test_parse_wbo_matrix():
+    """
+    Make sure we can parse a large wbo matrix split into multiple blocks from an output file.
+    """
+    natoms = 12  # parsing benzene
+    with open(get_data("gaussian_nbo.log")) as log:
+        logfile = log.read()
+
+    wbo_matrix = GaussianHarness.parse_wbo(logfile=logfile, natoms=natoms)
+    assert wbo_matrix == [
+        0.0,
+        1.4368,
+        0.0111,
+        0.1144,
+        0.0111,
+        1.4373,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        1.4368,
+        0.0,
+        1.4373,
+        0.0111,
+        0.1144,
+        0.0111,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0111,
+        1.4373,
+        0.0,
+        1.4368,
+        0.0111,
+        0.1144,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.1144,
+        0.0111,
+        1.4368,
+        0.0,
+        1.4373,
+        0.0111,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0111,
+        0.1144,
+        0.0111,
+        1.4373,
+        0.0,
+        1.4368,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        1.4373,
+        0.0111,
+        0.1144,
+        0.0111,
+        1.4368,
+        0.0,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.0,
+        0.0021,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0021,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0021,
+        0.0,
+        0.0021,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0004,
+        0.0021,
+        0.0,
+        0.0021,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0006,
+        0.0004,
+        0.0021,
+        0.0,
+        0.0021,
+        0.0004,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0021,
+        0.0,
+        0.0021,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0021,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0021,
+        0.0,
+    ]
+    assert len(wbo_matrix) == 144
+
+
+def test_scf_property_conversion():
+    """
+    Convert the QCEngine scf property into the correct command line and extra input variables
+    """
+    scf_properties = ["wiberg_lowdin_indices"]
+    cmdline, add_input = GaussianHarness.scf_property_conversion(
+        scf_properties=scf_properties
+    )
+    assert "pop=(nboread)" in cmdline
+    assert "$nbo BNDIDX $end" in add_input
+
+
 def test_get_version_from_log():
     """
     Try and extract the version info from a mock log file.
