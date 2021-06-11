@@ -121,6 +121,9 @@ class QForceHessianFitting(StageBase):
     def _save_parameters(cls, molecule: "Ligand", qforce_terms) -> None:
         """Update the Ligand with the final parameters from the QForce hessian fitting."""
 
+        # qforce only add impropers when there are no rigid terms so remove any initial terms
+        molecule.ImproperTorsionForce.clear_parameters()
+
         for bond in qforce_terms["bond"]:
             qube_bond = molecule.BondForce[bond.atomids]
             qube_bond.length = bond.equ * constants.ANGS_TO_NM
