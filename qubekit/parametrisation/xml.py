@@ -10,7 +10,11 @@ from qubekit.parametrisation.base_parametrisation import Parametrisation
 class XML(Parametrisation):
     """Read in the parameters for a molecule from an XML file and store them into the molecule."""
 
-    type: Literal["xml"] = "xml"
+    type: Literal["XML"] = "XML"
+
+    @classmethod
+    def is_available(cls) -> bool:
+        return True
 
     @classmethod
     def _improper_torsion_ordering(cls) -> str:

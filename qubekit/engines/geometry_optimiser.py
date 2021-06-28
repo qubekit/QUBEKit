@@ -4,20 +4,23 @@
 A class which handles general geometry optimisation tasks.
 """
 import copy
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
 import qcelemental as qcel
 import qcengine as qcng
 from pydantic import Field, PositiveInt, validator
 from typing_extensions import Literal
 
-from qubekit.engines.base_engine import BaseEngine
-from qubekit.molecules import Ligand
 from qubekit.utils import constants
+from qubekit.utils.datastructures import SchemaBase
 from qubekit.utils.exceptions import SpecificationError
 
+if TYPE_CHECKING:
+    from qubekit.molecules import Ligand
+    from qubekit.utils.datastructures import LocalResource, QCOptions
 
-class GeometryOptimiser(BaseEngine):
+
+class GeometryOptimiser(SchemaBase):
     """
     A general geometry optimiser class which can dispatch the optimisation call to the correct program and method via qcengine.
     #TODO do we want to expose more optimiser settings?
@@ -27,15 +30,12 @@ class GeometryOptimiser(BaseEngine):
         "geometric",
         description="The name of the optimisation engine which should be used note only gaussian supports native optimisation.",
     )
-    program: str = "rdkit"
-    basis: Optional[str] = None
-    method: str = "mmff94"
     maxiter: PositiveInt = Field(
         350, description="The maximum number of optimisation steps."
     )
     convergence: Literal["GAU", "GAU_TIGHT", "GAU_VERYTIGHT"] = Field(
         "GAU_TIGHT",
-        description="The convergence critera for the geometry optimisation.",
+        description="The convergence criteria for the geometry optimisation.",
     )
     extras: Optional[Dict] = Field(
         None,
@@ -43,7 +43,7 @@ class GeometryOptimiser(BaseEngine):
     )
 
     @validator("optimiser")
-    def validate_optimiser(cls, optimiser: str) -> str:
+    def _validate_optimiser(cls, optimiser: str) -> str:
         """
         Make sure the chosen optimiser is available.
         """
@@ -54,77 +54,24 @@ class GeometryOptimiser(BaseEngine):
             )
         return optimiser.lower()
 
-    def _validate_specification(self) -> None:
+    def _validate_specification(self, qc_spec: "QCOptions") -> None:
         """
         Validate the specification this is called before running an optimisation to catch errors before run time.
         """
-        from openff.toolkit.typing.engines.smirnoff import get_available_force_fields
 
-        openff_forcefields = [
-            ff.split(".offxml")[0].lower() for ff in get_available_force_fields()
-        ]
-        # set up some models
-        ani_methods = {"ani1x", "ani1ccx", "ani2x"}
-        xtb_methods = {
-            "gfn0-xtb",
-            "gfn0xtb",
-            "gfn1-xtb",
-            "gfn1xtb",
-            "gfn2-xtb",
-            "gfn2xtb",
-            "gfn-ff",
-            "gfnff",
-        }
-        rdkit_methods = {"uff", "mmff94", "mmff94s"}
-        gaff_forcefields = {
-            "gaff-1.4",
-            "gaff-1.8",
-            "gaff-1.81",
-            "gaff-2.1",
-            "gaff-2.11",
-        }
-        settings = {
-            "openmm": {"antechamber": gaff_forcefields, "smirnoff": openff_forcefields},
-            "torchani": {None: ani_methods},
-            "xtb": {None: xtb_methods},
-            "rdkit": {None: rdkit_methods},
-        }
         # now check these settings
         # TODO do we raise an error or just change at run time with a warning?
-        if self.program.lower() != "psi4" and self.optimiser == "optking":
+        if qc_spec.program.lower() != "psi4" and self.optimiser.lower() == "optking":
             raise SpecificationError(
                 f"The optimiser optking currently only supports psi4 as the engine."
             )
 
-        # we do not validate QM as there are so many options
-        if self.program.lower() in settings:
-            program_settings = settings[self.program.lower()]
-
-            allowed_methods = program_settings.get(self.basis, None)
-            if allowed_methods is None:
-                raise SpecificationError(
-                    f"The Basis {self.basis} is not supported for the program {self.program} please chose from {program_settings.keys()}"
-                )
-            # now check the method
-            method = self.method.split(".offxml")[0].lower()
-            if method not in allowed_methods:
-                raise SpecificationError(
-                    f"The method {method} is not available for the program {self.program}  with basis {self.basis}, please chose from {allowed_methods}"
-                )
-
-    def __init__(self, **data):
-        """
-        Validate.
-        """
-        super().__init__(**data)
-        self._validate_specification()
-
-    def build_optimiser_keywords(self) -> Dict[str, Union[str, float]]:
+    def _build_optimiser_keywords(self, program: str) -> Dict[str, Union[str, float]]:
         """
         Based on the selected optimiser return the optimisation keywords.
         Are there any other options we want to expose?
         """
-        opt_keywords = {"program": self.program}
+        opt_keywords = {"program": program}
         if self.optimiser == "geometric":
             opt_keywords["coordsys"] = "dlc"
             opt_keywords["maxiter"] = self.maxiter
@@ -146,11 +93,13 @@ class GeometryOptimiser(BaseEngine):
 
     def optimise(
         self,
-        molecule: Ligand,
+        molecule: "Ligand",
+        qc_spec: "QCOptions",
+        local_options: "LocalResource",
         allow_fail: bool = False,
         return_result: bool = False,
         extras: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Ligand, Optional[qcel.models.OptimizationResult]]:
+    ) -> Tuple["Ligand", Optional[qcel.models.OptimizationResult]]:
         """
         For the given specification in the class run an optimisation on the ligand.
 
@@ -160,6 +109,10 @@ class GeometryOptimiser(BaseEngine):
         Args:
             molecule:
                 The molecule which should be optimised
+            qc_spec:
+                The QCOptions object which describes the program, basis and method to use.
+            local_options:
+                The loacl options including cores and memory.
             allow_fail:
                 If we should not raise an error if the molecule fails to be optimised, this will extract the last geometry
                 from the trajectory and return it.
@@ -172,17 +125,17 @@ class GeometryOptimiser(BaseEngine):
             A new copy of the molecule at the optimised coordinates.
         """
         # first validate the settings
-        self._validate_specification()
+        self._validate_specification(qc_spec=qc_spec)
         # now validate that the programs are installed
-        self.check_available(program=self.program, optimiser=self.optimiser)
+        self.check_available(program=qc_spec.program, optimiser=self.optimiser)
 
         # now we need to distribute the job
-        model = self.qc_model
+        model = qc_spec.qc_model
         specification = qcel.models.procedures.QCInputSpecification(
             model=model, keywords={"dft_spherical_points": 590, "dft_radial_points": 99}
         )
         initial_mol = molecule.to_qcschema()
-        optimiser_keywords = self.build_optimiser_keywords()
+        optimiser_keywords = self._build_optimiser_keywords(program=qc_spec.program)
         if extras is not None:
             optimiser_keywords.update(extras)
         opt_task = qcel.models.OptimizationInput(
@@ -194,10 +147,10 @@ class GeometryOptimiser(BaseEngine):
             input_data=opt_task,
             procedure=self.optimiser,
             raise_error=False,
-            local_options=self.local_options,
+            local_options=local_options.local_options,
         )
         # dump info to file
-        result_mol = self.handle_output(molecule=molecule, opt_output=opt_result)
+        result_mol = self._handle_output(molecule=molecule, opt_output=opt_result)
         # check if we can/have failed and raise the error
         if not opt_result.success and not allow_fail:
             raise RuntimeError(
@@ -207,13 +160,13 @@ class GeometryOptimiser(BaseEngine):
         full_result = opt_result if return_result else None
         return result_mol, full_result
 
-    def handle_output(
+    def _handle_output(
         self,
-        molecule: Ligand,
+        molecule: "Ligand",
         opt_output: Union[
             qcel.models.OptimizationResult, qcel.models.common_models.FailedOperation
         ],
-    ) -> Ligand:
+    ) -> "Ligand":
         """
         Sort the output of the optimisation depending on success.
 

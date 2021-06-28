@@ -471,7 +471,6 @@ class ReadInputProtein:
         atoms: List[Atom],
         bonds: Optional[List[Bond]] = None,
         coords: Optional[np.ndarray] = None,
-        pdb_names: Optional[List[str]] = None,
         residues: Optional[List[str]] = None,
         name: Optional[str] = None,
     ):
@@ -480,7 +479,6 @@ class ReadInputProtein:
         self.coords = coords
         self.name = name
         self.residues = residues
-        self.pdb_names = pdb_names
 
     @classmethod
     def from_pdb(cls, file_name: str, name: Optional[str] = None):
@@ -495,7 +493,6 @@ class ReadInputProtein:
         atoms = []
         bonds = []
         Residues = []
-        pdb_names = []
 
         # atom counter used for graph node generation
         atom_count = 0
@@ -526,8 +523,6 @@ class ReadInputProtein:
 
                 atoms.append(qube_atom)
 
-                pdb_names.append(str(line.split()[2]))
-
                 # also get the residue order from the pdb file so we can rewrite the file
                 Residues.append(str(line.split()[3]))
 
@@ -557,7 +552,6 @@ class ReadInputProtein:
             atoms=atoms,
             bonds=bonds,
             coords=coords,
-            pdb_names=pdb_names,
             residues=residues,
             name=name,
         )

@@ -31,7 +31,6 @@ from qubekit.utils.constants import (
     VACUUM_PERMITTIVITY,
 )
 from qubekit.utils.datastructures import StageBase
-from qubekit.utils.helpers import append_to_log
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
@@ -54,11 +53,6 @@ class VirtualSites(StageBase):
     """
 
     type: Literal["VirtualSites"] = "VirtualSites"
-    enable_symmetry: bool = Field(
-        default=True,
-        description="If atoms which require multiple virtual sites should be "
-        "constrained to be symmetric.",
-    )
     site_error_factor: float = Field(
         1.005,
         description="The factor by which a site must reduce the error before being accepted.",
@@ -67,6 +61,9 @@ class VirtualSites(StageBase):
     site_error_threshold: float = Field(
         1, description="The ESP error threshold to start fitting virtual sites.", gt=0
     )
+
+    # only for debugging so not exposed
+    _enable_symmetry: bool = PrivateAttr(default=True)
 
     _vdw_radii: ClassVar[Dict[str, float]] = {
         "H": 1.44,
@@ -109,6 +106,12 @@ class VirtualSites(StageBase):
         """This class should always be available with qubekit"""
         return True
 
+    def start_message(self, **kwargs) -> str:
+        return "Fitting virtual site positions and charges."
+
+    def finish_message(self, **kwargs) -> str:
+        return "Virtual sites optimised and saved."
+
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         Using the aim reference data stored in the ligand calculate virtual sites and add them to the ligand.
@@ -117,7 +120,8 @@ class VirtualSites(StageBase):
         Fit the ESP accordingly and store v-sites if they improve error.
         If any v-sites are found to be useful, write them to an xyz and store them in the Ligand object
         """
-
+        # remove any old sites
+        molecule.extra_sites.clear_sites()
         self._coords = molecule.coordinates
         self._molecule = molecule
         for atom_index, atom in enumerate(molecule.atoms):
@@ -770,7 +774,7 @@ class VirtualSites(StageBase):
             # charge, charge, lambda, lambda
             bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
             vec_a, vec_b = self._get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-            if self._molecule.enable_symmetry:
+            if self._enable_symmetry:
                 two_site_fit = minimize(
                     self._symm_two_sites_objective_function,
                     np.array([0.0, 1.0]),
@@ -845,10 +849,10 @@ class VirtualSites(StageBase):
 
         # Error in esp is sufficiently low to not require virtual sites.
         if no_site_error <= self.site_error_threshold:
-            append_to_log(
-                self._molecule.home,
-                f"No virtual site needed for atom {self._molecule.atoms[atom_index].atom_name}.",
-            )
+            # append_to_log(
+            #     self._molecule.home,
+            #     f"No virtual site needed for atom {self._molecule.atoms[atom_index].atom_name}.",
+            # )
             return
 
         one_site_error, one_site_coords = self._fit_one_site(atom_index)
@@ -861,41 +865,41 @@ class VirtualSites(StageBase):
             2: two_site_error,
         }
 
-        max_err = self._molecule.v_site_error_factor
-        if no_site_error < min(one_site_error * max_err, two_site_error * max_err):
-            append_to_log(
-                self._molecule.home,
-                "No virtual site placement has reduced the error significantly.",
-                and_print=True,
-            )
-        elif one_site_error < two_site_error * max_err:
-            append_to_log(
-                self._molecule.home,
-                "The addition of one virtual site was found to be best.",
-                and_print=True,
-            )
+        max_err = self.site_error_factor
+        # if no_site_error < min(one_site_error * max_err, two_site_error * max_err):
+        # append_to_log(
+        #     self._molecule.home,
+        #     "No virtual site placement has reduced the error significantly.",
+        #     and_print=True,
+        # )
+        if one_site_error < two_site_error * max_err:
+            # append_to_log(
+            #     self._molecule.home,
+            #     "The addition of one virtual site was found to be best.",
+            #     and_print=True,
+            # )
             self._v_sites_coords.extend(one_site_coords)
             self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
                 one_site_coords[0][1]
             )
 
         else:
-            append_to_log(
-                self._molecule.home,
-                "The addition of two virtual sites was found to be best.",
-                and_print=True,
-            )
+            # append_to_log(
+            #     self._molecule.home,
+            #     "The addition of two virtual sites was found to be best.",
+            #     and_print=True,
+            # )
             self._v_sites_coords.extend(two_site_coords)
             self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
                 two_site_coords[0][1] + two_site_coords[1][1]
             )
-        append_to_log(
-            self._molecule.home,
-            f"Errors (kcal/mol):\n"
-            f"No Site     One Site     Two Sites\n"
-            f"{no_site_error:.4f}      {one_site_error:.4f}       {two_site_error:.4f}",
-            and_print=True,
-        )
+        # append_to_log(
+        #     self._molecule.home,
+        #     f"Errors (kcal/mol):\n"
+        #     f"No Site     One Site     Two Sites\n"
+        #     f"{no_site_error:.4f}      {one_site_error:.4f}       {two_site_error:.4f}",
+        #     and_print=True,
+        # )
         self._plot(atom_index, site_errors, one_site_coords, two_site_coords)
 
     def _plot(

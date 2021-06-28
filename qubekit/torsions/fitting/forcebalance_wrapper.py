@@ -19,18 +19,16 @@ from qubekit.utils.file_handling import get_data, make_and_change_into
 from qubekit.utils.helpers import export_torsiondrive_data
 
 
-class Priors:
+class Priors(BaseModel):
     """
     A class which controls the forcebalance force field prior values.
     """
 
-    def __init__(self, torsions_k: float = 6.0):
-        """
-        map the values to the forcebalance force field tag.
-        """
-        self.Proper_k = torsions_k
+    Proper_k: float = Field(
+        6.0, description="The initial prior for the proper torsion k values."
+    )
 
-    def dict(self) -> Dict[str, Any]:
+    def format_priors(self) -> Dict[str, Any]:
         """
         Returns:
             A formatted dict version of the prior that can be consumed by forcebalance.
@@ -207,6 +205,7 @@ class ForceBalanceFitting(StageBase):
         validate_assignment = True
         arbitrary_types_allowed = True
 
+    type: Literal["ForceBalanceFitting"] = "ForceBalanceFitting"
     penalty_type: Literal["L1", "L2"] = "L1"
     job_type: str = "optimize"
     max_iterations: PositiveInt = 10
@@ -226,7 +225,13 @@ class ForceBalanceFitting(StageBase):
     normalize_weights: bool = False
     extras: Dict[str, Any] = {}
     priors: Priors = Priors()
-    targets: Dict[str, TargetBase] = {"TorsionProfile_OpenMM": TorsionProfile()}
+    targets: Dict[str, TorsionProfile] = {"TorsionProfile_OpenMM": TorsionProfile()}
+
+    def start_message(self, **kwargs) -> str:
+        return "Performing torsion optimisations using ForceBalance."
+
+    def finish_message(self, **kwargs) -> str:
+        return "Torsion optimisation complete."
 
     @classmethod
     def is_available(cls) -> bool:
@@ -362,7 +367,7 @@ class ForceBalanceFitting(StageBase):
             template = Template(file.read())
 
         data = self.dict(exclude={"targets", "priors"})
-        data["priors"] = self.priors.dict()
+        data["priors"] = self.priors.format_priors()
         data["fitting_targets"] = target_data
         target_options = {}
         for target in self.targets.values():
@@ -422,7 +427,7 @@ class ForceBalanceFitting(StageBase):
             # load the new parameters into the ligand
             # xml needs a pdb file
             xml = XML()
-            xml.parametrise_molecule(
+            xml.run(
                 molecule=molecule,
                 input_files=[os.path.join("result", self.job_type, "bespoke.xml")],
             )

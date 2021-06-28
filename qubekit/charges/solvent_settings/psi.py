@@ -1,15 +1,16 @@
-from typing import ClassVar, Dict
+from typing import Any, ClassVar, Dict
 
 from pydantic import Field, validator
 from typing_extensions import Literal
 
+from qubekit.charges.solvent_settings.base import SolventBase
 from qubekit.utils import constants
-from qubekit.utils.datastructures import SchemaBase
 from qubekit.utils.exceptions import SpecificationError
 
 
-class SolventPsi4(SchemaBase):
+class SolventPsi4(SolventBase):
 
+    program: Literal["psi4"] = "psi4"
     units: Literal["au", "angstrom"] = Field(
         ...,
         description="The units used in the input options atomic units are used by default.",
@@ -31,7 +32,7 @@ class SolventPsi4(SchemaBase):
         description="If true, the radii for the spheres will be scaled by 1.2. For finer control on the scaling factor for each sphere, select explicit creation mode.",
     )
     cavity_RadiiSet: Literal["bondi", "uff", "allinger"] = Field(
-        "Bondi",
+        "bondi",
         description="Select set of atomic radii to be used. Currently Bondi-Mantina Bondi, UFF  and Allinger’s MM3 sets available. Radii in Allinger’s MM3 set are obtained by dividing the value in the original paper by 1.2, as done in the ADF COSMO implementation We advise to turn off scaling of the radii by 1.2 when using this set.",
     )
     cavity_MinRadius: float = Field(
@@ -131,7 +132,7 @@ class SolventPsi4(SchemaBase):
                 kwargs["cavity_Area"] = cavity_Area
         super(SolventPsi4, self).__init__(**kwargs)
 
-    def format_keywords(self) -> str:
+    def format_keywords(self) -> Dict[str, Any]:
         """
         Generate the formatted PCM settings string which can be ingested by psi4 via the qcschema interface.
         """
@@ -149,4 +150,4 @@ class SolventPsi4(SchemaBase):
         Medium {{{medium_str
         }}}
         Cavity {{{cavity_str}}}"""
-        return pcm_string
+        return {"pcm": True, "pcm__input": pcm_string}

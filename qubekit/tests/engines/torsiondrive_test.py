@@ -9,7 +9,7 @@ import pytest
 from qubekit.engines import TorsionDriver, optimise_grid_point
 from qubekit.molecules import Ligand
 from qubekit.utils import constants
-from qubekit.utils.datastructures import TorsionScan
+from qubekit.utils.datastructures import LocalResource, QCOptions, TorsionScan
 from qubekit.utils.file_handling import get_data
 
 
@@ -24,7 +24,10 @@ def ethane_state() -> Dict[str, Any]:
     tdriver = TorsionDriver(grid_spacing=15)
     # make the scan data
     dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
-    td_state = tdriver._create_initial_state(molecule=mol, dihedral_data=dihedral_data)
+    qc_spec = QCOptions(program="rdkit", basis=None, method="uff")
+    td_state = tdriver._create_initial_state(
+        molecule=mol, dihedral_data=dihedral_data, qc_spec=qc_spec
+    )
     return td_state
 
 
@@ -40,7 +43,7 @@ def test_get_initial_state(tmpdir):
         # make the scan data
         dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
         td_state = tdriver._create_initial_state(
-            molecule=mol, dihedral_data=dihedral_data
+            molecule=mol, dihedral_data=dihedral_data, qc_spec=QCOptions()
         )
         assert td_state["dihedrals"] == [
             dihedral,
@@ -60,15 +63,17 @@ def test_optimise_grid_point_and_update(tmpdir, ethane_state):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("ethane.sdf"))
-        tdriver = TorsionDriver(
-            program="rdkit", method="uff", basis=None, memory=1, cores=1, n_workers=1
-        )
+        tdriver = TorsionDriver(n_workers=1)
+        qc_spec = QCOptions(program="rdkit", basis=None, method="uff")
+        local_ops = LocalResource(cores=1, memory=1)
         geo_opt = tdriver._build_geometry_optimiser()
         # get the job inputs
         new_jobs = tdriver._get_new_jobs(td_state=ethane_state)
         coords = new_jobs["-60"][0]
         result = optimise_grid_point(
             geometry_optimiser=geo_opt,
+            qc_spec=qc_spec,
+            local_options=local_ops,
             molecule=mol,
             coordinates=coords,
             dihedral=ethane_state["dihedrals"][0],
@@ -96,16 +101,18 @@ def test_full_tdrive(tmpdir):
         bond = ethane.find_rotatable_bonds()[0]
         dihedral = ethane.dihedrals[bond.indices][0]
         dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
+        qc_spec = QCOptions(program="rdkit", basis=None, method="uff")
+        local_ops = LocalResource(cores=1, memory=1)
         tdriver = TorsionDriver(
-            program="rdkit",
-            method="uff",
-            basis=None,
-            memory=2,
-            cores=1,
             n_workers=1,
             grid_spacing=60,
         )
-        _ = tdriver.run_torsiondrive(molecule=ethane, dihedral_data=dihedral_data)
+        _ = tdriver.run_torsiondrive(
+            molecule=ethane,
+            dihedral_data=dihedral_data,
+            qc_spec=qc_spec,
+            local_options=local_ops,
+        )
 
 
 def test_get_new_jobs(ethane_state):

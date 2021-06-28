@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, Generator, List, Optional, Tuple, Type
+from typing import Dict, Generator, List, Optional, Tuple, TypeVar
 
 from pydantic import BaseModel, Field
 from typing_extensions import Literal
@@ -14,33 +14,34 @@ from qubekit.forcefield.parameters import (
 )
 from qubekit.utils.exceptions import MissingParameterError
 
+T = TypeVar("T", bound=BaseParameter)
+
 
 class BaseForceGroup(BaseModel):
     """
     The base force group all should derive from this is used to query and set parameters.
     """
 
-    type: Literal["base"] = "base"
-    parameters: Optional[Dict[Tuple[int, ...], Type[BaseParameter]]] = None
+    class Config:
+        json_encoders = {tuple: lambda x: str(x)}
+        validate_assignment = True
 
-    def __iter__(self) -> Generator[Type[BaseParameter], None, None]:
+    type: Literal["base"] = "base"
+    parameters: Optional[List[T]] = None
+
+    def __iter__(self) -> Generator[T, None, None]:
         if self.parameters is None:
             parameters = []
         else:
-            parameters = self.parameters.values()
+            parameters = self.parameters
         for parameter in parameters:
             yield parameter
 
     def __getitem__(self, item):
-        try:
-            return self.parameters[item]
-        except TypeError:
-            raise MissingParameterError
-        except KeyError:
-            try:
-                return self.parameters[tuple(reversed(item))]
-            except KeyError:
-                raise MissingParameterError
+        for parameter in self:
+            if parameter.atoms == item or parameter.atoms == tuple(reversed(item)):
+                return parameter
+        raise MissingParameterError
 
     @classmethod
     @abc.abstractmethod
@@ -69,9 +70,6 @@ class BaseForceGroup(BaseModel):
         else:
             return len(self.parameters)
 
-    class Config:
-        validate_assignment = True
-
     def xml_data(self) -> Dict[str, str]:
         """
         Create the required xml data dictionary for this forcegroup which can be converted to OpenMM xml.
@@ -98,7 +96,7 @@ class BaseForceGroup(BaseModel):
         """
 
         if self.parameters is None:
-            self.parameters = {}
+            self.parameters = []
         # Always delete old params (forwards or backwards)
         try:
             self.remove_parameter(atoms)
@@ -107,20 +105,22 @@ class BaseForceGroup(BaseModel):
         parameter_type = self._parameter_class()
         kwargs["atoms"] = atoms
         parameter = parameter_type(**kwargs)
-        self.parameters[atoms] = parameter
+        self.parameters.append(parameter)
 
     def clear_parameters(self):
         """Remove all current parameters."""
-        self.parameters = {}
+        self.parameters = []
 
     def remove_parameter(self, atoms: Tuple[int, ...]):
         """Remove a parameter in this force group."""
-        self.parameters.pop(self[atoms].atoms)
+        parameter = self[atoms]
+        self.parameters.remove(parameter)
 
 
 class HarmonicBondForce(BaseForceGroup):
 
     type: Literal["HarmonicBondForce"] = "HarmonicBondForce"
+    parameters: Optional[List[HarmonicBondParameter]] = None
 
     @classmethod
     def _parameter_class(cls):
@@ -138,6 +138,7 @@ class HarmonicBondForce(BaseForceGroup):
 class HarmonicAngleForce(BaseForceGroup):
 
     type: Literal["HarmonicAngleForce"] = "HarmonicAngleForce"
+    parameters: Optional[List[HarmonicAngleParameter]] = None
 
     @classmethod
     def _parameter_class(cls):
@@ -155,6 +156,7 @@ class HarmonicAngleForce(BaseForceGroup):
 class PeriodicTorsionForce(BaseForceGroup):
 
     type: Literal["PeriodicTorsionForce"] = "PeriodicTorsionForce"
+    parameters: Optional[List[PeriodicTorsionParameter]] = None
     ordering: Literal["default", "amber", "charmm", "smirnoff"] = "default"
 
     @classmethod
@@ -171,9 +173,10 @@ class PeriodicTorsionForce(BaseForceGroup):
         return []
 
 
-class ImproperTorsionForce(BaseForceGroup):
+class PeriodicImproperTorsionForce(BaseForceGroup):
 
-    type: Literal["ImproperTorsionForce"] = "ImproperTorsionForce"
+    type: Literal["PeriodicImproperTorsionForce"] = "PeriodicImproperTorsionForce"
+    parameters: Optional[List[ImproperTorsionParameter]] = None
 
     @classmethod
     def _parameter_class(cls):
@@ -191,9 +194,10 @@ class ImproperTorsionForce(BaseForceGroup):
 class LennardJones126Force(BaseForceGroup):
 
     type: Literal["NonbondedForce"] = "NonbondedForce"
+    parameters: Optional[List[LennardJones612Parameter]] = None
     coulomb14scale: float = Field(0.8333333333, description="The 1-4 coulomb scaling.")
     lj14scale: float = Field(0.5, description="The 1-4 lj scaling.")
-    combination: Literal["amber"] = Field(
+    combination: Literal["amber", "geometric"] = Field(
         "amber", description="The combination rule that should be used."
     )
 

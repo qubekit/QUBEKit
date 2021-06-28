@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from pydantic import validator
+from qcelemental.util import which_import
 from simtk import unit
 from simtk.openmm import System
 from typing_extensions import Literal
@@ -35,8 +36,21 @@ class OpenFF(Parametrisation):
     A serialised XML is then stored in the parameter dictionaries.
     """
 
-    type: Literal["smirnoff"] = "smirnoff"
+    type: Literal["OpenFF"] = "OpenFF"
     force_field: str = "openff_unconstrained-1.3.0.offxml"
+
+    def start_message(self, **kwargs) -> str:
+        return f"Parametrising molecule with {self.force_field}."
+
+    @classmethod
+    def is_available(cls) -> bool:
+        off = which_import(
+            "openff.toolkit",
+            return_bool=True,
+            raise_error=True,
+            raise_msg="Please install via `conda install openff-toolkit`.",
+        )
+        return off
 
     @classmethod
     def _improper_torsion_ordering(cls) -> str:

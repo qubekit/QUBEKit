@@ -47,7 +47,7 @@ def test_parameter_engines(tmpdir, parameter_engine, openff, antechamber):
         assert mol.ImproperTorsionForce.n_parameters == 0
         assert mol.NonbondedForce.n_parameters == 0
 
-        engine.parametrise_molecule(mol)
+        engine.run(mol)
         # make sure the parameters have been set
         assert mol.BondForce.n_parameters != 0
         assert mol.AngleForce.n_parameters != 0
@@ -64,7 +64,7 @@ def test_openff_skeleton(tmpdir, openff):
     with tmpdir.as_cwd():
         # load a molecule with boron
         mol = Ligand.from_file(get_data("132-Benzodioxaborole.pdb"))
-        openff.parametrise_molecule(molecule=mol)
+        openff.run(molecule=mol)
 
         # no charges should be generated
         for i in range(mol.n_atoms):
@@ -90,7 +90,7 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
 
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("acetone.sdf"))
-        param_mol = param_method.parametrise_molecule(mol)
+        param_mol = param_method.run(mol)
         with open("serialised.xml") as old:
             with open("orig.xml", "w") as new:
                 new.write(old.read())
@@ -99,7 +99,7 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
 
         # make a second mol
         mol2 = Ligand.from_file(get_data("acetone.sdf"))
-        param_mol2 = xml.parametrise_molecule(molecule=mol2, input_files=["test.xml"])
+        param_mol2 = xml.run(molecule=mol2, input_files=["test.xml"])
 
         for bond in mol.bonds:
             bond_tuple = (bond.atom1_index, bond.atom2_index)
@@ -122,11 +122,13 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
             assert atom1.epsilon == pytest.approx(atom2.epsilon)
 
         # loop over the round trip mol as we lose some parameters which are 0
-        for dihedral, terms in param_mol2.TorsionForce.parameters.items():
-            other_dih = param_mol.TorsionForce[dihedral]
-            for key in terms.__fields__:
+        for dihedral in param_mol2.TorsionForce.parameters:
+            other_dih = param_mol.TorsionForce[dihedral.atoms]
+            for key in dihedral.__fields__:
                 if key != "atoms":
-                    assert getattr(terms, key) == pytest.approx(getattr(other_dih, key))
+                    assert getattr(dihedral, key) == pytest.approx(
+                        getattr(other_dih, key)
+                    )
 
 
 def test_improper_round_trip_openff(tmpdir, openff):
@@ -136,7 +138,7 @@ def test_improper_round_trip_openff(tmpdir, openff):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("benzene.sdf"))
         # assign new parameters
-        openff.parametrise_molecule(molecule=mol)
+        openff.run(molecule=mol)
         # make sure we have some 18 impropers
         assert mol.ImproperTorsionForce.n_parameters == 18
         # now write out the parameters
@@ -144,7 +146,7 @@ def test_improper_round_trip_openff(tmpdir, openff):
         # now load a new molecule
         mol2 = Ligand.from_file(get_data("benzene.sdf"))
         assert mol2.TorsionForce.n_parameters == 0
-        XML().parametrise_molecule(molecule=mol2, input_files=["test.xml"])
+        XML().run(molecule=mol2, input_files=["test.xml"])
         # make sure we have the same 18 impropers
         assert mol2.ImproperTorsionForce.n_parameters == 18
 
@@ -156,7 +158,7 @@ def test_improper_round_trip_antechamber(tmpdir, antechamber):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("benzene.sdf"))
         # assign new parameters
-        antechamber.parametrise_molecule(molecule=mol)
+        antechamber.run(molecule=mol)
         # make sure we have some 6 impropers
         assert mol.ImproperTorsionForce.n_parameters == 6
         # now write out the parameters
@@ -164,7 +166,7 @@ def test_improper_round_trip_antechamber(tmpdir, antechamber):
         # now load a new molecule
         mol2 = Ligand.from_file(get_data("benzene.sdf"))
         assert mol2.TorsionForce.n_parameters == 0
-        XML().parametrise_molecule(molecule=mol2, input_files=["test.xml"])
+        XML().run(molecule=mol2, input_files=["test.xml"])
         # make sure we have the same 18 impropers
         assert mol2.ImproperTorsionForce.n_parameters == 6
 
@@ -175,7 +177,7 @@ def test_xml_with_sites(tmpdir, xml):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("pyridine.pdb"))
-        xml.parametrise_molecule(
+        xml.run(
             mol,
             input_files=[
                 get_data("pyridine.xml"),
@@ -195,7 +197,7 @@ def test_xml_sites_roundtrip(tmpdir, xml):
 
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("pyridine.pdb"))
-        xml.parametrise_molecule(
+        xml.run(
             mol,
             input_files=[
                 get_data("pyridine.xml"),
@@ -205,7 +207,7 @@ def test_xml_sites_roundtrip(tmpdir, xml):
         mol.write_parameters(file_name="test.xml")
 
         mol2 = Ligand.from_file(get_data("pyridine.pdb"))
-        xml.parametrise_molecule(
+        xml.run(
             mol2,
             input_files=[
                 "test.xml",
@@ -243,10 +245,10 @@ def test_xml_sites_roundtrip(tmpdir, xml):
         assert mol_site.p2 == mol2_site.p2
         assert mol_site.p3 == mol2_site.p3
 
-        for dihedral, terms in mol.TorsionForce.parameters.items():
-            other_dih = mol2.TorsionForce[dihedral]
-            for key in terms.__fields__:
-                assert getattr(terms, key) == pytest.approx(getattr(other_dih, key))
+        for dihedral in mol.TorsionForce.parameters:
+            other_dih = mol2.TorsionForce[dihedral.atoms]
+            for key in dihedral.__fields__:
+                assert getattr(dihedral, key) == pytest.approx(getattr(other_dih, key))
 
 
 @pytest.mark.parametrize(
@@ -283,7 +285,7 @@ def test_round_trip_energy(tmpdir, molecule, method, openff, antechamber):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data(molecule))
         # parametrise the system
-        engine.parametrise_molecule(mol)
+        engine.run(mol)
         # this will make a serialised system in the folder so get the reference energy
         ref_system = XmlSerializer.deserializeSystem(open("serialised.xml").read())
         parm_top = load_topology(
@@ -318,7 +320,7 @@ def test_openff_impropers(tmpdir, openff):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("benzene.sdf"))
-        openff.parametrise_molecule(molecule=mol)
+        openff.run(molecule=mol)
         assert mol.TorsionForce.ordering == "smirnoff"
         # 6 impropers applied as trefoil = 18
         assert mol.ImproperTorsionForce.n_parameters == 18
@@ -330,7 +332,7 @@ def test_amber_improper(tmpdir, antechamber):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("benzene.sdf"))
-        antechamber.parametrise_molecule(molecule=mol)
+        antechamber.run(molecule=mol)
         assert mol.TorsionForce.ordering == "amber"
         assert mol.ImproperTorsionForce.n_parameters == 6
 
@@ -342,7 +344,7 @@ def test_param_storage(tmpdir):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("chloromethane.pdb"))
-        OpenFF().parametrise_molecule(mol)
+        OpenFF().run(mol)
         with pytest.raises(ValidationError):
             # Try to only set one param at once (create requires all at once)
             mol.NonbondedForce.create_parameter(atoms=(0,), charge=0.1)
@@ -392,7 +394,7 @@ def test_parameter_tags(tmpdir, force_group, ff_group, key, terms):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("biphenyl.sdf"))
-        OpenFF().parametrise_molecule(molecule=mol)
+        OpenFF().run(molecule=mol)
         # set the parameter tags
         for term in terms:
             f_group = getattr(mol, force_group)

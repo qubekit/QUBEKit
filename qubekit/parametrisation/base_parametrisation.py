@@ -8,12 +8,12 @@ from typing_extensions import Literal
 from qubekit.forcefield import VirtualSite3Point
 from qubekit.molecules.ligand import Ligand
 from qubekit.utils import constants
-from qubekit.utils.datastructures import SchemaBase
+from qubekit.utils.datastructures import StageBase
 from qubekit.utils.exceptions import MissingParameterError, TopologyMismatch
 from qubekit.utils.helpers import check_improper_torsion, check_proper_torsion
 
 
-class Parametrisation(SchemaBase, abc.ABC):
+class Parametrisation(StageBase, abc.ABC):
     """
     Class of methods which perform the initial parametrisation for the molecule.
     The Parameters will be stored into the molecule as force group objects which hold individual parameters.
@@ -23,6 +23,12 @@ class Parametrisation(SchemaBase, abc.ABC):
     """
 
     type: Literal["base"] = "base"
+
+    def start_message(self, **kwargs) -> str:
+        return f"Parametrising molecule using local input files."
+
+    def finish_message(self, **kwargs) -> str:
+        return "Molecule parameterised and values stored."
 
     @abc.abstractmethod
     def _build_system(
@@ -37,8 +43,8 @@ class Parametrisation(SchemaBase, abc.ABC):
         """Return the improper torsion ordering this parametrisation method uses."""
         ...
 
-    def parametrise_molecule(
-        self, molecule: Ligand, input_files: Optional[List[str]] = None
+    def run(
+        self, molecule: Ligand, input_files: Optional[List[str]] = None, **kwargs
     ) -> Ligand:
         """
         Parametrise the ligand using the current engine.

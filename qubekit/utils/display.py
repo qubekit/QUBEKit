@@ -4,7 +4,6 @@ import os
 from collections import OrderedDict
 
 from qubekit.utils.constants import COLOURS
-from qubekit.utils.helpers import unpickle
 
 
 def pretty_progress():
@@ -56,12 +55,12 @@ def pretty_progress():
         header_string.format(
             "Name",
             "Param",
-            "Pre Opt",
-            "QM Opt",
+            "Opt",
             "Hessian",
-            "Mod-Sem",
+            "Bonded",
             "Charges",
-            "L-J",
+            "VSites",
+            "Non-Bond",
             "Tor Scan",
             "Tor Opt",
         )
@@ -204,25 +203,25 @@ def pretty_print(molecule, to_file=False, finished=True):
         print("")
 
 
-def display_molecule_objects(*names):
-    """
-    prints the requested molecule objects in a nicely formatted way, easy to copy elsewhere.
-    To be used via the -display command
-    :param names: list of strings where each item is the name of a molecule object such as 'basis' or 'coords'
-    """
-    try:
-        molecule = unpickle()["finalise"]
-    except KeyError:
-        print(
-            "QUBEKit encountered an error during execution; returning the initial molecule objects."
-        )
-        molecule = unpickle()["parametrise"]
-
-    for name in names:
-        result = getattr(molecule, name, None)
-        if result is not None:
-            print(f"{name}:  {repr(result)}")
-        else:
-            print(
-                f"Invalid molecule object: {name}. Please check the log file for the data you require."
-            )
+# def display_molecule_objects(*names):
+#     """
+#     prints the requested molecule objects in a nicely formatted way, easy to copy elsewhere.
+#     To be used via the -display command
+#     :param names: list of strings where each item is the name of a molecule object such as 'basis' or 'coords'
+#     """
+#     try:
+#         molecule = unpickle()["finalise"]
+#     except KeyError:
+#         print(
+#             "QUBEKit encountered an error during execution; returning the initial molecule objects."
+#         )
+#         molecule = unpickle()["parametrise"]
+#
+#     for name in names:
+#         result = getattr(molecule, name, None)
+#         if result is not None:
+#             print(f"{name}:  {repr(result)}")
+#         else:
+#             print(
+#                 f"Invalid molecule object: {name}. Please check the log file for the data you require."
+#             )

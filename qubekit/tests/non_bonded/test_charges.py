@@ -15,6 +15,7 @@ from qubekit.engines import GaussianHarness
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import OpenFF
 from qubekit.utils import constants
+from qubekit.utils.datastructures import LocalResource, QCOptions
 from qubekit.utils.exceptions import SpecificationError
 from qubekit.utils.file_handling import get_data
 
@@ -137,13 +138,9 @@ def test_chargemol_template(tmpdir, version):
     """
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("water.pdb"))
-        OpenFF().parametrise_molecule(molecule=mol)
+        OpenFF().run(molecule=mol)
         charge_method = DDECCharges(
             apply_symmetry=True,
-            basis="sto-3g",
-            method="hf",
-            cores=1,
-            memory=1,
             ddec_version=version,
         )
         # fake the chargemol dir
@@ -166,7 +163,7 @@ def test_gaussian_solvent_template():
     mol = Ligand.from_file(get_data("water.pdb"))
     # get the charge method and implicit solvent engine
     charge_engine = DDECCharges()
-    solvent_settings = charge_engine.solvent_settings.format_keywords()
+    solvent_settings = charge_engine._get_calculation_settings()
     # now make an atomic input for the harness
     task = AtomicInput(
         molecule=mol.to_qcschema(),
@@ -180,4 +177,26 @@ def test_gaussian_solvent_template():
     job_inputs = gaussian_harness.build_input(task, config)
     # make sure the job file matches or expected reference
     with open(get_data("gaussian_solvent_example.com")) as g_out:
+        assert g_out.read() == job_inputs["infiles"]["gaussian.com"]
+
+
+def test_gaussian_no_solvent_template():
+    """
+    Make sure that we can calculate the electron density with no implicit solvent.
+    """
+    mol = Ligand.from_file(get_data("water.pdb"))
+    # get the charge method and implicit solvent engine
+    charge_engine = DDECCharges(solvent_settings=None)
+    settings = charge_engine._get_calculation_settings()
+    task = AtomicInput(
+        molecule=mol.to_qcschema(),
+        driver="energy",
+        model={"method": "b3lyp-d3bj", "basis": "6-311G"},
+        keywords=settings,
+    )
+    # we need the harness as this will render the template
+    gaussian_harness = GaussianHarness()
+    config = get_config(local_options={"ncores": 1, "memory": 1})
+    job_inputs = gaussian_harness.build_input(task, config)
+    with open(get_data("gaussian_gas_example.com")) as g_out:
         assert g_out.read() == job_inputs["infiles"]["gaussian.com"]

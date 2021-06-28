@@ -24,11 +24,10 @@ def mol():
     with TemporaryDirectory() as temp:
         os.chdir(temp)
         molecule = Ligand.from_file(file_name=get_data("chloromethane.pdb"))
-        molecule.home = None
-        OpenFF().parametrise_molecule(molecule)
+        OpenFF().run(molecule)
         ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")
         dir_path = os.path.dirname(ddec_file_path)
-        ExtractChargeData.read_files(molecule, dir_path, "chargemol")
+        ExtractChargeData.extract_charge_data_chargemol(molecule, dir_path, 6)
         # apply symmetry to the reference data
         DDECCharges.apply_symmetrisation(molecule=molecule)
         # apply the reference charge to the nonbonded
@@ -220,3 +219,20 @@ def test_fit(mol, vs, tmpdir):
             + sum(site.charge for site in mol.extra_sites)
             == 0
         )
+
+
+def test_refit(mol, vs, tmpdir):
+    """Make sure restarting a vsite fit produces the same result and removes old sites."""
+    with tmpdir.as_cwd():
+        vs.run(molecule=mol)
+        assert mol.extra_sites.n_sites == 2
+        # the new ref value
+        ref = mol.copy(deep=True)
+        vs.run(molecule=mol)
+        # make sure old sites are removed
+        assert mol.extra_sites.n_sites == 2
+        # check the sites are the same
+        assert ref.extra_sites[1][0].charge == mol.extra_sites[1][0].charge
+        assert ref.extra_sites[1][1].charge == mol.extra_sites[1][1].charge
+        # make sure the aim data was not changed
+        assert ref.atoms[1].aim.charge == mol.atoms[1].aim.charge

@@ -9,12 +9,6 @@ class TorsionDriveFailed(Exception):
     """ """
 
 
-class PickleFileNotFound(Exception):
-    """
-    Cannot find .QUBEKit_states.
-    """
-
-
 class FileTypeError(Exception):
     """
     Invalid file type e.g. trying to read a mol file when we only accept pdb or mol2.
@@ -84,4 +78,10 @@ class ForceBalanceError(Exception):
 class GeometryOptimisationError(Exception):
     """
     The molecule conformer could not be optimised.
+    """
+
+
+class WorkFlowExecutionError(Exception):
+    """
+    Raised whenever we hit an error executing the workflow.
     """

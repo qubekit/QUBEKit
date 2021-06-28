@@ -2,41 +2,44 @@
 A Charge derivation base class.
 """
 import abc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional, TypeVar
 
 import numpy as np
 from pydantic import Field
 from typing_extensions import Literal
 
-from qubekit.engines import QCEngine
-from qubekit.engines.base_engine import BaseEngine
-from qubekit.utils.datastructures import StageBase
+from qubekit.charges.solvent_settings.base import SolventBase
+from qubekit.utils.datastructures import LocalResource, QCOptions, StageBase
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
 
+T = TypeVar("T", bound=SolventBase)
 
-class ChargeBase(StageBase, BaseEngine):
+
+class ChargeBase(StageBase):
 
     type: Literal["ChargeBase"] = "ChargeBase"
-    apply_symmetry: bool = Field(
-        True,
-        description="Apply symmetry to the raw charge and volume values before assigning them.",
+    solvent_settings: Optional[T] = Field(
+        None,
+        description="The settings used to calculate the electron density in implicit solvent.",
+    )
+    program: Literal["gaussian"] = Field(
+        "gaussian",
+        description="The name of the QM program to calculate the electron density.",
+    )
+    basis: Optional[str] = Field(
+        None,
+        description="The alternative basis set name, to specify a different "
+        "one from that used for optimisations.",
+    )
+    method: Optional[str] = Field(
+        None,
+        description="The alternative method name, to specify a different one from that used for optimisations.",
     )
 
-    def build_engine(self) -> QCEngine:
-        """
-        Build a QCEngine instance with the settings we want to use.
-        """
-        engine = QCEngine(
-            program=self.program,
-            memory=self.memory,
-            method=self.method,
-            basis=self.basis,
-            cores=self.cores,
-            driver="energy",
-        )
-        return engine
+    def finish_message(self, **kwargs) -> str:
+        return "Charges calculated and AIM reference data stored."
 
     @classmethod
     def apply_symmetrisation(cls, molecule: "Ligand") -> "Ligand":
@@ -62,13 +65,28 @@ class ChargeBase(StageBase, BaseEngine):
 
         return molecule
 
+    def _get_qc_options(self) -> Optional[QCOptions]:
+        """
+        Extract a QCOptions model from the solvent settings.
+        """
+        if self.basis is not None and self.method is not None:
+            return QCOptions(
+                program=self.program,
+                method=self.method,
+                basis=self.basis,
+            )
+        return None
+
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         A template run method which makes sure symmetry is applied when requested.
         """
-        molecule = self._run(molecule, **kwargs)
-        if self.apply_symmetry:
-            molecule = self.apply_symmetrisation(molecule=molecule)
+        local_options = kwargs.get("local_options")
+        # use the alternative or if not the provided spec
+        qc_spec = self._get_qc_options() or kwargs.get("qc_spec")
+        molecule = self._run(molecule, local_options=local_options, qc_spec=qc_spec)
+        # apply symmetry to the charge parameters
+        molecule = self.apply_symmetrisation(molecule=molecule)
         # now store the reference values into the nonbonded force as a parameter
         for i in range(molecule.n_atoms):
             atom = molecule.atoms[i]
@@ -76,7 +94,25 @@ class ChargeBase(StageBase, BaseEngine):
         return molecule
 
     @abc.abstractmethod
-    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _gas_calculation_settings(self) -> Dict[str, Any]:
+        """Build the gas phase settings dict for the calculation."""
+        ...
+
+    def _get_calculation_settings(self) -> Dict[str, Any]:
+        """
+        Build the calculation settings dict for the qcengine job.
+
+        First we check for solvent keywords else we use the gas phase keywords.
+        """
+        if self.solvent_settings is not None:
+            return self.solvent_settings.format_keywords()
+        else:
+            return self._gas_calculation_settings()
+
+    @abc.abstractmethod
+    def _run(
+        self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
+    ) -> "Ligand":
         """
         The main method of the ChargeClass which should generate the charge and aim reference data and store it in the ligand.
         """

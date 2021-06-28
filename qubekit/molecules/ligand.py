@@ -19,15 +19,15 @@ TODO ligand.py Refactor:
 
 import decimal
 import os
-import pickle
 import xml.etree.ElementTree as ET
-from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from xml.dom.minidom import parseString
 
 import networkx as nx
 import numpy as np
 import qcelemental as qcel
+from pydantic import Field, validator
+from qcelemental.models.types import Array
 from rdkit import Chem
 from simtk import unit
 from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple
@@ -38,14 +38,15 @@ from qubekit.forcefield import (
     BaseForceGroup,
     HarmonicAngleForce,
     HarmonicBondForce,
-    ImproperTorsionForce,
     LennardJones126Force,
+    PeriodicImproperTorsionForce,
     PeriodicTorsionForce,
     VirtualSiteGroup,
 )
 from qubekit.molecules.components import Atom, Bond, TorsionDriveData
 from qubekit.molecules.utils import RDKit, ReadInput
 from qubekit.utils import constants
+from qubekit.utils.datastructures import SchemaBase
 from qubekit.utils.exceptions import (
     ConformerError,
     FileTypeError,
@@ -53,81 +54,69 @@ from qubekit.utils.exceptions import (
     StereoChemistryError,
     TopologyMismatch,
 )
-from qubekit.utils.helpers import _assert_wrapper
 
 
-class DefaultsMixin:
-    """
-    This class holds all of the default configs from the config file.
-    It's effectively a placeholder for all of the attributes which may
-    be changed by editing the config file(s).
-
-    See the config class for details of all these params.
-
-    It's a mixin because:
-        * Normal multiple inheritance doesn't make sense in this context
-        * Composition would be a bit messier and may require stuff like:
-            mol = Ligand('methane.pdb', 'methane')
-            mol.defaults.threads
-            >> 2
-
-            rather than the nice clean:
-            mol.threads
-            >> 2
-        * Mixin is cleaner and clearer with respect to super() calls.
-    """
-
-    def __init__(self, *args, **kwargs):
-
-        super().__init__(*args, **kwargs)
-
-        self.theory = "wB97XD"
-        self.basis = "6-311++G(d,p)"
-        self.vib_scaling = 1
-        self.threads = 4
-        self.memory = 4
-        self.convergence = "GAU_TIGHT"
-        self.iterations = 350
-        self.bonds_engine = "g09"
-        self.charges_engine = "chargemol"
-        self.ddec_version = 6
-        self.dielectric = 4.0
-        self.geometric = True
-        self.solvent = True
-        self.enable_symmetry = True
-        self.enable_virtual_sites = True
-        self.v_site_error_factor = 1.005
-
-        self.dih_start = -165
-        self.increment = 15
-        self.dih_end = 180
-        self.t_weight = "infinity"
-        self.opt_method = "BFGS"
-        self.refinement_method = "SP"
-        self.tor_limit = 20
-        self.div_index = 0
-        self.parameter_engine = "antechamber"
-        self.l_pen = 0.0
-        self.pre_opt_method: str = "rdkit_uff"
-        self.relative_to_global = False
-
-        self.excited_state = False
-        self.excited_theory = "TDA"
-        self.n_states = 3
-        self.excited_root = 1
-        self.use_pseudo = False
-        self.pseudo_potential_block = ""
-
-        self.chargemol = "/home/<QUBEKit_user>/chargemol_09_26_2017"
-        self.log = 999
-
-
-class Molecule:
+class Molecule(SchemaBase):
     """Base class for ligands and proteins.
 
     The class is a simple representation of the molecule as a list of atom and bond objects, many attributes are then
     inferred from these core objects.
     """
+
+    atoms: List[Atom] = Field(
+        ..., description="A list of QUBEKit atom objects which make up the molecule."
+    )
+    bonds: Optional[List[Bond]] = Field(
+        None,
+        description="The list of QUBEKit bond objects which connect the individual atoms.",
+    )
+    coordinates: Optional[Array[float]] = Field(
+        None,
+        description="A numpy arrary of the current cartesian positions of each atom in angstrom, this must be of size (n_atoms, 3)",
+    )
+    multiplicity: int = Field(
+        1,
+        description="The integer multiplicity of the molecule which is used in QM calculations.",
+    )
+    name: str = Field(
+        "unk",
+        description="An optional name string which will be used in all file IO calls by default.",
+    )
+    provenance: Dict[str, Any] = Field(
+        dict(creator="QUBEKit", version=qubekit.__version__),
+        description="Information on the version and method used to create this molecule.",
+    )
+    extra_sites: VirtualSiteGroup = Field(
+        VirtualSiteGroup(),
+        description="A force object which records any virtual sistes in the molecule",
+    )
+    BondForce: Union[HarmonicBondForce] = Field(
+        HarmonicBondForce(),
+        description="A force object which records bonded interactions between pairs of atoms",
+    )
+    AngleForce: Union[HarmonicAngleForce] = Field(
+        HarmonicAngleForce(),
+        description="A force object which records angle interactions between atom triplets.",
+    )
+    TorsionForce: Union[PeriodicTorsionForce] = Field(
+        PeriodicTorsionForce(),
+        description="A force object which records torsion interactions between atom quartets.",
+    )
+    ImproperTorsionForce: Union[PeriodicImproperTorsionForce] = Field(
+        PeriodicImproperTorsionForce(),
+        description="A force group which records improper torsion interactions between atom quatetes.",
+    )
+    NonbondedForce: Union[LennardJones126Force] = Field(
+        LennardJones126Force(),
+        description="A force group which records atom nonbonded parameters.",
+    )
+
+    @validator("coordinates")
+    def _reshape_coords(cls, coordinates: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        if coordinates is not None:
+            return coordinates.reshape((-1, 3))
+        else:
+            return coordinates
 
     def __init__(
         self,
@@ -137,9 +126,14 @@ class Molecule:
         multiplicity: int = 1,
         name: str = "unk",
         routine: Optional[Set] = None,
+        provenance: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ):
         """
         Init the molecule using the basic information.
+
+        Note:
+            This method updates the provanance info.
 
         Args:
             atoms:
@@ -155,65 +149,28 @@ class Molecule:
             routine:
                 The set of strings which encode the routine information used to create the molecule.
 
-
-        # XML Info
-        extra_sites
-        qm_scans                Dictionary of central scanned bonds and there energies and structures
-
-        # This section has different units due to it interacting with OpenMM
-        BondForce       Dictionary of equilibrium distances and force constants stored under the bond tuple.
-                                {(1, 2): [0.108, 405.65]} (nano meters, kJ/mol)
-        AngleForce      Dictionary of equilibrium angles and force constants stored under the angle tuple
-                                e.g. {(2, 1, 3): [2.094395, 150.00]} (radians, kJ/mol)
-        TorsionForce    Dictionary of lists of the torsions values [periodicity, k, phase] stored under the
-                                dihedral tuple with an improper tag only for improper torsions
-                                e.g. {(3, 1, 2, 6): [[1, 0.6, 0], [2, 0, 3.141592653589793], ... Improper]}
-        NonbondedForce          OrderedDict; L-J params. Keys are atom index, vals are [charge, sigma, epsilon]
-
-        combination             str; Combination rules e.g. 'opls'
-
-        # QUBEKit Internals
-        state                   str; Describes the stage the analysis is in for pickling and unpickling
-        config_file             str or path; the config file used for the execution
-        restart                 bool; is the current execution starting from the beginning (False) or restarting (True)?
+            bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
-        self.name: str = name
-        # Structure
-        self.coordinates: Optional[np.ndarray] = coordinates
-        self.atoms: List[Atom] = atoms
-        self.bonds: Optional[List[Bond]] = bonds
-        self.multiplicity: int = multiplicity
-        # the way the molecule was made?
+        # the way the molecule was made
         method = routine or {"__init__"}
-        provenance = dict(
-            creator="QUBEKit", version=qubekit.__version__, routine=method
+        if provenance is None:
+            new_provenance = dict(
+                creator="QUBEKit", version=qubekit.__version__, routine=method
+            )
+        else:
+            # make sure we respect the provenance when parsing a json file
+            new_provenance = provenance
+            new_provenance["routine"] = set(new_provenance["routine"])
+
+        super(Molecule, self).__init__(
+            atoms=atoms,
+            bonds=bonds,
+            multiplicity=multiplicity,
+            name=name,
+            coordinates=coordinates,
+            provenance=new_provenance,
+            **kwargs,
         )
-        self.provenance: Dict[str, Any] = provenance
-
-        self.qm_scans: Optional[List[TorsionDriveData]] = None
-        self.descriptors = None
-
-        # Forcefield Info
-        self.extra_sites: VirtualSiteGroup = VirtualSiteGroup()
-        self.BondForce: BaseForceGroup = HarmonicBondForce()
-        self.AngleForce: BaseForceGroup = HarmonicAngleForce()
-        self.TorsionForce: BaseForceGroup = PeriodicTorsionForce()
-        self.ImproperTorsionForce: BaseForceGroup = ImproperTorsionForce()
-        self.NonbondedForce: BaseForceGroup = LennardJones126Force()
-
-        self.combination: str = "amber"
-
-        # QUBEKit internals
-        self.state: Optional[str] = None
-        self.config_file: str = "master_config.ini"
-        self.restart: Optional[str] = None
-        self.end: Optional[str] = None
-        self.skip: Optional[str] = None
-        self.verbose: bool = True
-        self.n_workers: int = 1
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.__dict__!r})"
 
     def __str__(self, trunc=False):
         """
@@ -276,9 +233,13 @@ class Molecule:
     def to_file(self, file_name: str) -> None:
         """
         Write the molecule object to file working out the file type from the extension.
-        Works with PDB, MOL, SDF, XYZ any other we want?
+        Works with PDB, MOL, SDF, XYZ, Json any other we want?
         """
-        return RDKit.mol_to_file(rdkit_mol=self.to_rdkit(), file_name=file_name)
+        if ".json" in file_name:
+            with open(file_name, "w") as output:
+                output.write(self.json(indent=2))
+        else:
+            return RDKit.mol_to_file(rdkit_mol=self.to_rdkit(), file_name=file_name)
 
     def generate_conformers(self, n_conformers: int) -> List[np.ndarray]:
         """
@@ -781,38 +742,6 @@ class Molecule:
 
         return ET.ElementTree(root)
 
-    def pickle(self, state=None):
-        """
-        Pickles the Molecule object in its current state to the (hidden) pickle file.
-        If other pickle objects already exist for the particular object:
-            the latest object is put to the top.
-        """
-
-        mols = OrderedDict()
-        # First check if the pickle file exists
-        try:
-            # Try to load a hidden pickle file; make sure to get all objects
-            with open(".QUBEKit_states", "rb") as pickle_jar:
-                while True:
-                    try:
-                        mol = pickle.load(pickle_jar)
-                        mols[mol.state] = mol
-                    except EOFError:
-                        break
-        except FileNotFoundError:
-            pass
-
-        # Now we can save the items; first assign the location
-        self.state = state
-        mols[self.state] = self
-
-        # Open the pickle jar which will always be the ligand object's name
-        with open(".QUBEKit_states", "wb") as pickle_jar:
-
-            # If there were other molecules of the same state in the jar: overwrite them
-            for val in mols.values():
-                pickle.dump(val, pickle_jar)
-
     @property
     def bond_types(self) -> Dict[str, List[Tuple[int, int]]]:
         """
@@ -945,8 +874,9 @@ class Molecule:
         Returns:
             An rdkit representation of the molecule.
         """
-        # TODO what properties should be put in the rdkit molecule? Multiplicity?
+        from qubekit.utils.helpers import _assert_wrapper
 
+        # TODO what properties should be put in the rdkit molecule? Multiplicity?
         # make an editable molecule
         rd_mol = Chem.RWMol()
         if self.name is not None:
@@ -1075,7 +1005,21 @@ class Molecule:
             self.NonbondedForce[(last_atom_index,)].charge += extra
 
 
-class Ligand(DefaultsMixin, Molecule):
+class Ligand(Molecule):
+    """
+    The Ligand class seperats from protiens as we add fields to store QM calculations, such as the hessian and add more
+    rdkit support methods.
+    """
+
+    hessian: Optional[Array[float]] = Field(
+        None,
+        description="The hessian matrix calculated for this molecule at the QM optimised geometry.",
+    )
+    qm_scans: Optional[List[TorsionDriveData]] = Field(
+        None,
+        description="The list of reference torsiondrive results which we can fit against.",
+    )
+
     def __init__(
         self,
         atoms: List[Atom],
@@ -1084,34 +1028,19 @@ class Ligand(DefaultsMixin, Molecule):
         multiplicity: int = 1,
         name: str = "unk",
         routine: Optional[Set] = None,
+        provenance: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ):
-        """
-        parameter_engine        A string keeping track of the parameter engine used to assign the initial parameters
-        hessian                 2d numpy array; matrix of size 3N x 3N where N is number of atoms in the molecule
-        modes                   A list of the qm predicted frequency modes
-        home
-
-        constraints_file        Either an empty string (does nothing in geometric run command); or
-                                the abspath of the constraint.txt file (constrains the execution of geometric)
-        """
-
-        super().__init__(
+        super(Ligand, self).__init__(
             atoms=atoms,
             bonds=bonds,
             coordinates=coordinates,
             multiplicity=multiplicity,
             name=name,
             routine=routine,
+            provenance=provenance,
+            **kwargs,
         )
-
-        self.parameter_engine = "openmm"
-        self.hessian = None
-        self.home: Optional[str] = None
-
-        self.constraints_file = None
-
-        # Run validation
-        # self.symmetrise_from_topology()
         # make sure we have unique atom names
         self._validate_atom_names()
 

@@ -5,19 +5,18 @@ import logging
 import math
 import operator
 import os
-import pickle
-from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
+from qubekit.molecules import Ligand
 from qubekit.utils import constants
 from qubekit.utils.constants import COLOURS
-from qubekit.utils.exceptions import PickleFileNotFound, TopologyMismatch
+from qubekit.utils.exceptions import FileTypeError, TopologyMismatch
 
 if TYPE_CHECKING:
-    from qubekit.molecules import Ligand, TorsionDriveData
+    from qubekit.molecules import TorsionDriveData
 
 # TODO Move csv stuff for bulk runs to file_handling.py
 
@@ -43,11 +42,9 @@ def mol_data_from_csv(csv_name: str):
             row["multiplicity"] = (
                 int(float(row["multiplicity"])) if row["multiplicity"] else 1
             )
-            row["config_file"] = (
-                row["config_file"] if row["config_file"] else "default_config"
-            )
+            row["config_file"] = row["config_file"] if row["config_file"] else None
             row["restart"] = row["restart"] if row["restart"] else None
-            row["end"] = row["end"] if row["end"] else "finalise"
+            row["end"] = row["end"] if row["end"] else None
             rows.append(row)
 
     # Creates the nested dictionaries with the names as the keys
@@ -79,8 +76,11 @@ def generate_bulk_csv(csv_name, max_execs=None):
     # Find any local pdb files to write sample configs
     files = []
     for file in os.listdir("."):
-        if file.endswith(".pdb"):
-            files.append(file[:-4])
+        try:
+            _ = Ligand.from_file(file_name=file)
+            files.append(file)
+        except FileTypeError:
+            continue
 
     # If max number of pdbs per file is unspecified, just put them all in one file.
     if max_execs is None:
@@ -177,42 +177,6 @@ def append_to_log(
             return
 
 
-def unpickle(location=None):
-    """
-    Unpickle the pickle file, and return an ordered dictionary of
-    ligand instances--indexed by their progress.
-    :param location: optional location of the pickle file .QUBEKit_states
-    :return mol_states: An ordered dictionary of the states of the molecule at various stages
-    (parametrise, mm_optimise, etc).
-    """
-
-    mol_states = OrderedDict()
-
-    # unpickle the pickle jar
-    # try to load a pickle file make sure to get all objects
-    pickle_file = ".QUBEKit_states"
-
-    if location is None:
-        location = os.getcwd()
-        while pickle_file not in os.listdir(location):
-            location = os.path.split(location)[0]
-            if not location:
-                raise PickleFileNotFound()
-
-    # Either location is provided or pickle file has been found in loop.
-    pickle_path = os.path.join(location, pickle_file)
-
-    with open(pickle_path, "rb") as jar:
-        while True:
-            try:
-                mol = pickle.load(jar)
-                mol_states[mol.state] = mol
-            except EOFError:
-                break
-
-    return mol_states
-
-
 @contextmanager
 def _assert_wrapper(exception_type):
     """
@@ -287,42 +251,6 @@ def collect_archive_tdrive(tdrive_record, client):
         ), "The energies collected do not match the QCArchive minima."
 
     return energies, geometry
-
-
-def update_ligand(restart_key, cls):
-    """
-    1. Create `old_mol` object by unpickling
-    2. Initialise a `new_mol` with the input from `old_mol`
-    3. Copy any objects in `old_mol` across to `new_mol`
-            - check for attributes which have had names changed
-    4. return `new_mol` as the fixed ligand object to be used from now onwards
-    """
-
-    # Get the old mol from the pickle file (probably in ../)
-    old_mol = unpickle()[restart_key]
-    # Initialise a new molecule based on the same mol_input that was used from before (cls = Ligand)
-    try:
-        new_mol = cls.from_rdkit(
-            rdkit_mol=old_mol.rdkit_mol,
-            name=old_mol.name,
-            multiplicity=old_mol.multiplicity,
-        )
-        # make sure we set the qm geometry
-        new_mol.coordinates = old_mol.coords["qm"]
-    except AttributeError:
-        new_mol = cls.from_rdkit(
-            rdkit_mol=old_mol.to_rdkit(),
-            name=old_mol.name,
-            multiplicity=old_mol.multiplicity,
-        )
-
-    for attr, val in new_mol.__dict__.items():
-        try:
-            setattr(new_mol, attr, getattr(old_mol, attr))
-        except AttributeError:
-            setattr(new_mol, attr, val)
-
-    return new_mol
 
 
 @contextmanager

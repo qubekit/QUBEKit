@@ -65,3 +65,7 @@ class VirtualSiteGroup(BaseModel):
     def remove_sites(self, parent_index: int):
         """Return the list of sites removed from the parent index."""
         self.sites.pop(parent_index)
+
+    def clear_sites(self) -> None:
+        """Remove all sites from the molecule."""
+        self.sites = {}

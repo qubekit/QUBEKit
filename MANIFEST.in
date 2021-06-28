@@ -4,5 +4,5 @@ include *.md
 include LICENSE.txt
 include setup.py
 
-graft QUBEKit
+graft qubekit
 global-exclude *.py[cod] __pycache__ *.so

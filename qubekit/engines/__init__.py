@@ -6,5 +6,5 @@ from qubekit.engines.gaussian import Gaussian
 from qubekit.engines.gaussian_harness import GaussianHarness
 from qubekit.engines.geometry_optimiser import GeometryOptimiser
 from qubekit.engines.openmm import OpenMM
-from qubekit.engines.qcengine import QCEngine
+from qubekit.engines.qcengine import call_qcengine
 from qubekit.engines.torsiondrive import TorsionDriver, optimise_grid_point

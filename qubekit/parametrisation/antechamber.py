@@ -4,6 +4,7 @@ import subprocess as sp
 from tempfile import TemporaryDirectory
 from typing import List, Optional
 
+from qcelemental.util import which
 from simtk.openmm import System, app
 from typing_extensions import Literal
 
@@ -17,8 +18,21 @@ class AnteChamber(Parametrisation):
     then build and export the xml tree object.
     """
 
-    type: Literal["antechamber"] = "antechamber"
+    type: Literal["AnteChamber"] = "AnteChamber"
     force_field: Literal["gaff", "gaff2"] = "gaff2"
+
+    def start_message(self, **kwargs) -> str:
+        return f"Parametrising molecule with {self.force_field}."
+
+    @classmethod
+    def is_available(cls) -> bool:
+        ate = which(
+            "antechamber",
+            raise_error=True,
+            return_bool=True,
+            raise_msg="Please install ambertools using `conda install ambertools -c conda-forge.`",
+        )
+        return ate
 
     @classmethod
     def _improper_torsion_ordering(cls) -> str:

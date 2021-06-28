@@ -12,10 +12,10 @@ def test_lennard_jones612(tmpdir):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("chloromethane.pdb"))
         # get some initial Nonbonded values
-        OpenFF().parametrise_molecule(molecule=mol)
+        OpenFF().run(molecule=mol)
         # get some aim reference data
-        ExtractChargeData.read_files(
-            molecule=mol, dir_path=get_data(""), charges_engine="chargemol"
+        ExtractChargeData.extract_charge_data_chargemol(
+            molecule=mol, dir_path=get_data(""), ddec_version=6
         )
         # apply symmetry to the reference data
         DDECCharges.apply_symmetrisation(molecule=mol)

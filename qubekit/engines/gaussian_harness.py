@@ -69,7 +69,7 @@ class GaussianHarness(ProgramHarness):
             result = self.parse_output(proc["outfiles"], input_data)
             return result
         else:
-            raise UnknownError(proc["stderr"])
+            raise UnknownError(proc["outfiles"]["gaussian.log"])
 
     def execute(
         self,

@@ -1,35 +1,33 @@
-import os
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
+from pydantic import Field, PrivateAttr
+
+from qubekit.forcefield import LennardJones126Force
 from qubekit.molecules.components import Bond
-from qubekit.molecules.ligand import DefaultsMixin, Molecule
+from qubekit.molecules.ligand import Molecule
 from qubekit.molecules.utils import ReadInputProtein
 from qubekit.utils.exceptions import FileTypeError
 
 
-class Protein(DefaultsMixin, Molecule):
+class Protein(Molecule):
     """
     This class handles the protein input to make the QUBEKit xml files and rewrite the pdb so we can use it.
     """
 
-    def __init__(self, mol_input, name=None):
-        """
-        is_protein      Bool; True for Protein class
-        home            Current working directory (location for QUBEKit execution).
-        residues        List of all residues in the molecule in order e.g. ['ARG', 'HIS', ... ]
-        Residues        List of residue names for each atom e.g. ['ARG', 'ARG', 'ARG', ... 'HIS', 'HIS', ... ]
-        pdb_names       List
-        """
+    residues: Optional[List[str]] = Field(
+        None, description="The list of all residues in order."
+    )
+    Residues: Optional[List[str]] = Field(
+        None, description="The list of residue names for each atom."
+    )
+    # update to work with old opls parameters
+    NonbondedForce = LennardJones126Force(coulomb14scale=0.5, combination="geometric")
+    _symm_hs: Dict[str, Any] = PrivateAttr({})
+    _methyl_amine_nitride_cores: Dict[str, Any] = PrivateAttr({})
 
-        super().__init__(mol_input, name)
-
-        self.home = os.getcwd()
-        self.residues = None
-        self.Residues = None
-        self.pdb_names = None
-
-        self.combination = "opls"
+    def __init__(self, mol_input):
+        super().__init__(**mol_input.__dict__)
 
         if not isinstance(mol_input, ReadInputProtein):
             self._check_file_type(file_name=mol_input)
@@ -93,8 +91,8 @@ class Protein(DefaultsMixin, Molecule):
                     amine_hs.append(hs)
                     methyl_amine_nitride_cores.append(atom.atom_index)
 
-        self.symm_hs = {"methyl": methyl_hs, "amine": amine_hs, "other": other_hs}
-        self.methyl_amine_nitride_cores = methyl_amine_nitride_cores
+        self._symm_hs = {"methyl": methyl_hs, "amine": amine_hs, "other": other_hs}
+        self._methyl_amine_nitride_cores = methyl_amine_nitride_cores
 
     def _save_to_protein(self, mol_input: ReadInputProtein):
         """
@@ -113,8 +111,6 @@ class Protein(DefaultsMixin, Molecule):
             self.coordinates = mol_input.coords
         if mol_input.residues is not None:
             self.residues = mol_input.residues
-        if mol_input.pdb_names is not None:
-            self.pdb_names = mol_input.pdb_names
         if mol_input.bonds is not None:
             self.bonds = mol_input.bonds
 
@@ -162,8 +158,8 @@ class Protein(DefaultsMixin, Molecule):
             for bond in self.BondForce:
                 self.bonds.append(
                     Bond(
-                        atom1_indx=bond[0],
-                        atom2_index=bond[1],
+                        atom1_indx=bond.atoms[0],
+                        atom2_index=bond.atoms[1],
                         bond_order=1,
                         aromatic=False,
                     )

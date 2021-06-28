@@ -1,44 +1,54 @@
 import pytest
 import qcengine
 
-from qubekit.engines import QCEngine
+from qubekit.engines import call_qcengine
 from qubekit.molecules import Ligand
+from qubekit.utils.datastructures import LocalResource, QCOptions
 from qubekit.utils.file_handling import get_data
 
 
 @pytest.mark.parametrize(
-    "program, basis, method",
+    "qc_options",
     [
-        pytest.param("rdkit", None, "mmff94", id="rdkit mmff"),
-        pytest.param("openmm", "smirnoff", "openff-1.0.0.offxml", id="parsley"),
-        pytest.param("openmm", "antechamber", "gaff-2.11", id="gaff-2.11"),
-        pytest.param("psi4", "3-21g", "hf", id="psi4 hf"),
-        pytest.param("gaussian", "3-21g", "hf", id="gaussian hf"),
+        pytest.param(
+            QCOptions(program="rdkit", basis=None, method="mmff94"), id="rdkit mmff"
+        ),
+        pytest.param(
+            QCOptions(program="openmm", basis="smirnoff", method="openff-1.0.0.offxml"),
+            id="parsley",
+        ),
+        pytest.param(
+            QCOptions(program="openmm", basis="antechamber", method="gaff-2.11"),
+            id="gaff-2.11",
+        ),
+        pytest.param(
+            QCOptions(program="psi4", basis="3-21g", method="hf"), id="psi4 hf"
+        ),
+        pytest.param(
+            QCOptions(program="gaussian", basis="3-21g", method="hf"), id="gaussian hf"
+        ),
     ],
 )
-def test_single_point_energy(program, basis, method, tmpdir):
+def test_single_point_energy(qc_options: QCOptions, tmpdir):
     """
     Make sure our qcengine wrapper works correctly.
     """
-    if program not in qcengine.list_available_programs():
-        pytest.skip(f"{program} missing skipping test.")
+    if qc_options.program.lower() not in qcengine.list_available_programs():
+        pytest.skip(f"{qc_options.program} missing skipping test.")
 
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("water.pdb"))
-        engine = QCEngine(
-            program=program,
-            basis=basis,
-            method=method,
-            memory=1,
-            cores=1,
+        result = call_qcengine(
+            molecule=mol,
             driver="energy",
+            qc_spec=qc_options,
+            local_options=LocalResource(cores=1, memory=1),
         )
-        result = engine.call_qcengine(molecule=mol)
         assert result.driver == "energy"
-        assert result.model.basis == basis
-        assert result.model.method == method
-        assert result.provenance.creator.lower() == program
+        assert result.model.basis == qc_options.basis
+        assert result.model.method == qc_options.method
+        assert result.provenance.creator.lower() == qc_options.program
         # make sure the grid was set to ultrafine for psi4
-        if program == "psi4":
+        if qc_options.program == "psi4":
             assert result.keywords["dft_spherical_points"] == 590
             assert result.keywords["dft_radial_points"] == 99

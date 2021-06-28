@@ -2,8 +2,8 @@ from qubekit.forcefield.force_groups import (
     BaseForceGroup,
     HarmonicAngleForce,
     HarmonicBondForce,
-    ImproperTorsionForce,
     LennardJones126Force,
+    PeriodicImproperTorsionForce,
     PeriodicTorsionForce,
 )
 from qubekit.forcefield.parameters import (
