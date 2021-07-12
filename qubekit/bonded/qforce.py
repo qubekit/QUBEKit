@@ -123,21 +123,27 @@ class QForceHessianFitting(StageBase):
 
         # qforce only add impropers when there are no rigid terms so remove any initial terms
         molecule.ImproperTorsionForce.clear_parameters()
+        #TODO check which ordering this should be, this defines the order the improper should be measured as
+        molecule.TorsionForce.ordering = "amber"
 
         for bond in qforce_terms["bond"]:
-            qube_bond = molecule.BondForce[bond.atomids]
+            qube_bond = molecule.BondForce[tuple(bond.atomids)]
             qube_bond.length = bond.equ * constants.ANGS_TO_NM
             qube_bond.k = bond.fconst * 100
         for angle in qforce_terms["angle"]:
-            qube_angle = molecule.AngleForce[angle.atomids]
+            qube_angle = molecule.AngleForce[tuple(angle.atomids)]
             qube_angle.angle = angle.equ
             qube_angle.k = angle.fconst
         for dihedral in qforce_terms["dihedral"]["rigid"]:
-            qube_dihedral = molecule.TorsionForce[dihedral.atomids]
-            qube_dihedral.k2 = dihedral.fconst / 2
+            qube_dihedral = molecule.TorsionForce[tuple(dihedral.atomids)]
+            # print(dihedral.atomids, dihedral.equ, dihedral.fconst)
+            qube_dihedral.k2 = dihedral.fconst / 4
         for improper in qforce_terms["dihedral"]["improper"]:
-            qube_improper = molecule.ImproperTorsionForce[improper.atomids]
-            qube_improper.k2 = improper.fconst / 2
+            molecule.ImproperTorsionForce.create_parameter(atoms=tuple(improper.atomids), k2=improper.fconst / 4)
+        for inversion in qforce_terms["dihedral"]["inversion"]:
+            #TODO work out how to handle inversion dihedrals
+            qube_dihedral = molecule.TorsionForce[tuple(inversion.atomids)]
+            # print(inversion.fconst)
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """

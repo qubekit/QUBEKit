@@ -149,6 +149,20 @@ class GaussianHarness(ProgramHarness):
         drivers = {"energy": "SP", "gradient": "Force=NoStep", "hessian": "FREQ"}
         return drivers[driver.lower()]
 
+    @classmethod
+    def get_symmetry(cls, driver: str) -> str:
+        """
+        For gaussian calculations we want to set the use of symmetry depending on the driver.
+
+        Note:
+            There is an issue with turning off symmetry for large molecules when using an implicit solvent.
+
+        Important:
+            Symmetry must be turned off for gradient calculations so geometric is not confused.
+        """
+        symmetry = {"energy": "", "gradient": "nosymm", "hessian": "nosymm"}
+        return symmetry[driver.lower()]
+
     def build_input(
         self,
         input_model: AtomicInput,
@@ -171,6 +185,7 @@ class GaussianHarness(ProgramHarness):
             "threads": config.ncores,
             "driver": self.driver_conversion(driver=input_model.driver),
             "title": "gaussian job",
+            "symmetry": self.get_symmetry(driver=input_model.driver)
         }
         molecule = input_model.molecule
         spec = input_model.model
