@@ -120,11 +120,14 @@ class QForceHessianFitting(StageBase):
     @classmethod
     def _save_parameters(cls, molecule: "Ligand", qforce_terms) -> None:
         """Update the Ligand with the final parameters from the QForce hessian fitting."""
+        from qforce.forces import convert_to_inversion_rb
 
         # qforce only add impropers when there are no rigid terms so remove any initial terms
         molecule.ImproperTorsionForce.clear_parameters()
-        #TODO check which ordering this should be, this defines the order the improper should be measured as
-        molecule.TorsionForce.ordering = "amber"
+        # remove any starting parameters
+        molecule.RBTorsionForce.clear_parameters()
+        # this just means the improper should be constructed in the order defined by the forcefield
+        molecule.TorsionForce.ordering = "charmm"
 
         for bond in qforce_terms["bond"]:
             qube_bond = molecule.BondForce[tuple(bond.atomids)]
@@ -136,14 +139,23 @@ class QForceHessianFitting(StageBase):
             qube_angle.k = angle.fconst
         for dihedral in qforce_terms["dihedral"]["rigid"]:
             qube_dihedral = molecule.TorsionForce[tuple(dihedral.atomids)]
-            # print(dihedral.atomids, dihedral.equ, dihedral.fconst)
             qube_dihedral.k2 = dihedral.fconst / 4
         for improper in qforce_terms["dihedral"]["improper"]:
-            molecule.ImproperTorsionForce.create_parameter(atoms=tuple(improper.atomids), k2=improper.fconst / 4)
+            molecule.ImproperTorsionForce.create_parameter(
+                atoms=tuple(improper.atomids), k2=improper.fconst / 4
+            )
         for inversion in qforce_terms["dihedral"]["inversion"]:
-            #TODO work out how to handle inversion dihedrals
-            qube_dihedral = molecule.TorsionForce[tuple(inversion.atomids)]
-            # print(inversion.fconst)
+            # use the RB torsion type to model the inversion dihedrals
+            # first remove the periodic torsion
+            try:
+                molecule.TorsionForce.remove_parameter(atoms=tuple(inversion.atomids))
+            except ValueError:
+                pass
+            # get the parameters in RB form
+            c0, c1, c2 = convert_to_inversion_rb(inversion.fconst, inversion.equ)
+            molecule.RBTorsionForce.create_parameter(
+                atoms=tuple(inversion.atomids), **{"c0": c0, "c1": c1, "c2": c2}
+            )
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """

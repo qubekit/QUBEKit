@@ -70,7 +70,7 @@ class GaussianHarness(ProgramHarness):
             result = self.parse_output(proc["outfiles"], input_data)
             return result
         else:
-            raise UnknownError(proc["stderr"])
+            raise UnknownError(proc["outfiles"]["gaussian.log"])
 
     def execute(
         self,
@@ -185,7 +185,7 @@ class GaussianHarness(ProgramHarness):
             "threads": config.ncores,
             "driver": self.driver_conversion(driver=input_model.driver),
             "title": "gaussian job",
-            "symmetry": self.get_symmetry(driver=input_model.driver)
+            "symmetry": self.get_symmetry(driver=input_model.driver),
         }
         molecule = input_model.molecule
         spec = input_model.model

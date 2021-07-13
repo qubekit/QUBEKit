@@ -41,6 +41,8 @@ from qubekit.forcefield import (
     LennardJones126Force,
     PeriodicImproperTorsionForce,
     PeriodicTorsionForce,
+    RBImproperTorsionForce,
+    RBProperTorsionForce,
     VirtualSiteGroup,
 )
 from qubekit.molecules.components import Atom, Bond, TorsionDriveData
@@ -98,13 +100,21 @@ class Molecule(SchemaBase):
         HarmonicAngleForce(),
         description="A force object which records angle interactions between atom triplets.",
     )
-    TorsionForce: Union[PeriodicTorsionForce] = Field(
+    TorsionForce: PeriodicTorsionForce = Field(
         PeriodicTorsionForce(),
-        description="A force object which records torsion interactions between atom quartets.",
+        description="A force object which records torsion interactions between atom quartets, using a periodic function.",
     )
-    ImproperTorsionForce: Union[PeriodicImproperTorsionForce] = Field(
+    ImproperTorsionForce: PeriodicImproperTorsionForce = Field(
         PeriodicImproperTorsionForce(),
-        description="A force group which records improper torsion interactions between atom quatetes.",
+        description="A force group which records improper torsion interactions between atom quartets using a periodic function.",
+    )
+    RBTorsionForce: RBProperTorsionForce = Field(
+        RBProperTorsionForce(),
+        description="A force group which records torsion interactions between atom quartets using a RB function.",
+    )
+    ImproperRBTorsionForce: RBImproperTorsionForce = Field(
+        RBImproperTorsionForce(),
+        description="A force object which records improper torsion interactions between atom quartets using a RB function.",
     )
     NonbondedForce: Union[LennardJones126Force] = Field(
         LennardJones126Force(),
@@ -708,6 +718,19 @@ class Molecule(SchemaBase):
         for parameter in self.ImproperTorsionForce:
             ET.SubElement(
                 TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+            )
+        RBTorsion = ET.SubElement(
+            root,
+            self.RBTorsionForce.openmm_group(),
+            attrib=self.RBTorsionForce.xml_data(),
+        )
+        for parameter in self.RBTorsionForce:
+            ET.SubElement(
+                RBTorsion, parameter.openmm_type(), attrib=parameter.xml_data()
+            )
+        for parameter in self.ImproperRBTorsionForce:
+            ET.SubElement(
+                RBTorsion, parameter.openmm_type(), attrib=parameter.xml_data()
             )
 
         # now we add more site info after general bonding

@@ -8,9 +8,11 @@ from qubekit.forcefield.parameters import (
     BaseParameter,
     HarmonicAngleParameter,
     HarmonicBondParameter,
+    ImproperRBTorsionParameter,
     ImproperTorsionParameter,
     LennardJones612Parameter,
     PeriodicTorsionParameter,
+    ProperRBTorsionParameter,
 )
 from qubekit.utils.exceptions import MissingParameterError
 
@@ -185,6 +187,42 @@ class PeriodicImproperTorsionForce(BaseForceGroup):
     @classmethod
     def openmm_group(cls):
         return "PeriodicTorsionForce"
+
+    @classmethod
+    def symmetry_parameters(cls) -> List[str]:
+        return []
+
+
+class RBProperTorsionForce(BaseForceGroup):
+
+    type: Literal["RBProperTorsionForce"] = "RBProperTorsionForce"
+    parameters: Optional[List[ProperRBTorsionParameter]] = None
+
+    @classmethod
+    def _parameter_class(cls):
+        return ProperRBTorsionParameter
+
+    @classmethod
+    def openmm_group(cls):
+        return "RBProperTorsionForce"
+
+    @classmethod
+    def symmetry_parameters(cls) -> List[str]:
+        return []
+
+
+class RBImproperTorsionForce(BaseForceGroup):
+
+    type: Literal["RBImproperTorsionForce"] = "RBImproperTorsionForce"
+    parameters: Optional[List[ImproperRBTorsionParameter]] = None
+
+    @classmethod
+    def _parameter_class(cls):
+        return ImproperRBTorsionParameter
+
+    @classmethod
+    def openmm_group(cls):
+        return "RBProperTorsionForce"
 
     @classmethod
     def symmetry_parameters(cls) -> List[str]:

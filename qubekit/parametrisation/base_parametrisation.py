@@ -184,6 +184,4 @@ class Parametrisation(StageBase, abc.ABC):
 
             return molecule
         except FileNotFoundError:
-            # Check what parameter engine we are using if not none then raise an error
-            if molecule.parameter_engine != "none":
-                raise FileNotFoundError("Molecule could not be serialised from OpenMM")
+            raise FileNotFoundError("Molecule could not be serialised from OpenMM")
