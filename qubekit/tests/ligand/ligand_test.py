@@ -132,7 +132,7 @@ def test_no_dihedrals():
     Make sure we return None when no dihedrals are found in the molecule.
     """
     mol = Ligand.from_file(file_name=get_data("water.pdb"))
-    assert mol.dihedrals is None
+    assert not mol.dihedrals
     assert mol.n_dihedrals == 0
 
 
