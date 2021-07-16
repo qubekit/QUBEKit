@@ -270,9 +270,9 @@ class VirtualSites(StageBase):
 
     @staticmethod
     def _generate_sample_points_relative(
-            vdw_radius: float,
-            shells: int = 5,
-            min_points_per_shell=32,
+        vdw_radius: float,
+        shells: int = 5,
+        min_points_per_shell=32,
     ) -> np.ndarray:
         """
         Generate evenly distributed points in a series of shells around the point (0, 0, 0)
