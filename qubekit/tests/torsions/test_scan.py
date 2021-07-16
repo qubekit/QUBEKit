@@ -110,7 +110,7 @@ def test_no_dihedrals(tmpdir):
         mol = Ligand.from_file(get_data("ethane.sdf"))
         t_scan = TorsionScan1D()
         result_mol = t_scan.run(molecule=mol)
-        assert result_mol.qm_scans is None
+        assert not result_mol.qm_scans
         assert np.allclose(result_mol.coordinates, mol.coordinates)
 
 
