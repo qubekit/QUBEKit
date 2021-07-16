@@ -172,51 +172,6 @@ class Molecule(SchemaBase):
             **kwargs,
         )
 
-    def __str__(self, trunc=False):
-        """
-        Prints the Molecule class objects' names and values one after another with new lines between each.
-        Mostly just used for logging, debugging and displaying the results at the end of a run.
-        If trunc is set to True:
-            Check the items being printed:
-                If they are empty or None -> skip over them
-                If they're short (<120 chars) -> print them as normal
-                Otherwise -> print a truncated version of them.
-        If trunc is set to False:
-            Just print everything (all key: value pairs) as is with a little extra spacing.
-        """
-
-        # TODO Replace with default __str__, this logic should be in print_print().
-        return_str = ""
-
-        if trunc:
-            for key, val in self.__dict__.items():
-
-                # Just checking (if val) won't work as truth table is ambiguous for length > 1 arrays
-                # I know this is gross, but it's the best of a bad situation.
-                try:
-                    bool(val)
-                # Catch numpy array truth table error
-                except ValueError:
-                    continue
-
-                # Ignore NoneTypes and empty lists / dicts etc unless type is int (charge = 0 for example)
-                if val is not None and (val or isinstance(val, int)):
-                    return_str += f"\n{key} = "
-
-                    # if it's smaller than 120 chars: print it as is. Otherwise print a version cut off with "...".
-                    if len(str(key) + str(val)) < 120:
-                        # Print the repr() not the str(). This means generator expressions etc appear too.
-                        return_str += repr(val)
-                    else:
-                        return_str += repr(val)[: 121 - len(str(key))] + "..."
-
-        else:
-            for key, val in self.__dict__.items():
-                # Return all objects as {ligand object name} = {ligand object value(s)} without any special formatting.
-                return_str += f"\n{key} = {repr(val)}\n"
-
-        return return_str
-
     def to_topology(self) -> nx.Graph:
         """
         Build a networkx representation of the molecule.

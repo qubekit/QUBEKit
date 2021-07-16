@@ -286,17 +286,6 @@ def test_repr():
     repr(mol)
 
 
-@pytest.mark.parametrize(
-    "trunc", [pytest.param(True, id="Trunc"), pytest.param(False, id="No trunc")]
-)
-def test_str(trunc):
-    """
-    Make sure that the ligand str method does not raise an error.
-    """
-    mol = Ligand.from_file(file_name=get_data("water.pdb"))
-    mol.__str__(trunc=trunc)
-
-
 def test_to_openmm_coords(acetone):
     """
     Make sure we can convert the coordinates to openmm style coords

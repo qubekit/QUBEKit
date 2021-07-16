@@ -6,7 +6,7 @@ import math
 import operator
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Tuple
 
 import numpy as np
 
@@ -140,43 +140,6 @@ def generate_bulk_csv(csv_name, max_execs=None):
         print(f"{csv_name[:-4]}_{str(csv_count).zfill(2)}.csv generated.", flush=True)
 
 
-def append_to_log(
-    log_file_path: Optional[str],
-    message: str,
-    major: bool = False,
-    and_print: bool = False,
-):
-    """
-    Appends a message to the log file in a specific format.
-    Used for significant stages in the program such as when a stage has finished.
-    Args:
-        log_file_path:
-            The log file path usually stored in Ligand as home. e.g. self.molecule.home
-        message:
-            Whatever text should be written to the log file (and printed).
-        major:
-            Is this a major message? Major messages are used to indicate progress of stages, and warnings.
-        and_print:
-            Should this be printed to terminal as well as to file?
-    Returns:
-        Only returns when no log file can be found.
-    """
-    # Check if the message is an empty string to avoid adding blank lines and extra separators
-    if message:
-        if and_print:
-            print(message)
-        if log_file_path is None:
-            return
-        log_file = os.path.join(log_file_path, "QUBEKit_log.txt")
-        if major:
-            message = message.upper()
-        try:
-            with open(log_file, "a") as file:
-                file.write(f"\n{message}\n")
-        except FileNotFoundError:
-            return
-
-
 @contextmanager
 def _assert_wrapper(exception_type):
     """
@@ -261,11 +224,6 @@ def hide_warnings():
     logging.disable(logging.WARNING)
     yield
     logging.disable(logging.NOTSET)
-
-
-def string_to_bool(string):
-    """Convert a string to a bool for argparse use when casting to bool"""
-    return string.casefold() in ["true", "t", "yes", "y"]
 
 
 def check_proper_torsion(

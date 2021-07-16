@@ -91,7 +91,7 @@ class Optimiser(StageBase):
         description="The pre-optimisation method that should be used before full QM.",
     )
     seed_conformers: int = Field(
-        10,
+        40,
         description="The number of seed conformers that we should attempt to generate to find the QM minimum.",
         gt=0,
     )
