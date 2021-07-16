@@ -269,7 +269,11 @@ class VirtualSites(StageBase):
         )
 
     @staticmethod
-    def _generate_sample_points_relative(vdw_radius: float) -> np.ndarray:
+    def _generate_sample_points_relative(
+            vdw_radius: float,
+            shells: int = 5,
+            min_points_per_shell=32,
+    ) -> np.ndarray:
         """
         Generate evenly distributed points in a series of shells around the point (0, 0, 0)
         This uses fibonacci spirals to produce an even spacing of points on a sphere.
@@ -278,8 +282,6 @@ class VirtualSites(StageBase):
         :return: list of numpy arrays where each array is the xyz coordinates of a sample point.
         """
 
-        min_points_per_shell = 32
-        shells = 5
         phi = PI * (3.0 - np.sqrt(5.0))
 
         relative_sample_points = []

@@ -248,6 +248,7 @@ class WorkFlow(SchemaBase):
         # try and find missing dependencies
         self.validate_workflow(workflow=workflow)
         # start message
+        # TODO Move to outside workflow so this doesn't get printed for every run in bulk.
         print(
             "If QUBEKit ever breaks or you would like to view timings and loads of other info, "
             "view the log file.\nOur documentation (README.md) "

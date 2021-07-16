@@ -41,7 +41,7 @@ class RDKit:
             )
 
     @staticmethod
-    def mol_to_mutliconformer_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
+    def mol_to_multiconformer_file(rdkit_mol: Chem.Mol, file_name: str) -> None:
         """
         Write the rdkit molecule to a multi conformer file.
         Args:

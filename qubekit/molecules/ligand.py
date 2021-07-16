@@ -275,7 +275,7 @@ class Molecule(SchemaBase):
             ]
         for conformer in positions:
             RDKit.add_conformer(rdkit_mol=rd_mol, conformer_coordinates=conformer)
-        return RDKit.mol_to_mutliconformer_file(rdkit_mol=rd_mol, file_name=file_name)
+        return RDKit.mol_to_multiconformer_file(rdkit_mol=rd_mol, file_name=file_name)
 
     def get_atom_with_name(self, name):
         """
