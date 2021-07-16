@@ -88,6 +88,9 @@ class TorsionScan1D(StageBase):
         Important:
             We work with a copy of the input molecule as we change the coordinates throughout the calculation.
         """
+
+        molecule.qm_scans = []
+
         # work with a copy as we change coordinates from the qm a lot!
         drive_mol = copy.deepcopy(molecule)
         # first find all rotatable bonds, while removing the unwanted scans
