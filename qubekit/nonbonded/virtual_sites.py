@@ -1035,6 +1035,9 @@ class VirtualSites(StageBase):
         Uses the coordinates to generate the necessary position vectors to be used in the xml.
         """
 
+        # Prevent duplication of sites.
+        self._molecule.extra_sites.clear_sites()
+
         topology = self._molecule.to_topology()
         for site_number, site in enumerate(self._v_sites_coords):
 
@@ -1111,3 +1114,5 @@ class VirtualSites(StageBase):
             site_data["p1"] = round(p1, 4)
 
             self._molecule.extra_sites.create_site(**site_data)
+
+        assert self._molecule.extra_sites.n_sites == len(self._v_sites_coords)
