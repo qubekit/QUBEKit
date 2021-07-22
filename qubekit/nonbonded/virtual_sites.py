@@ -863,7 +863,7 @@ class VirtualSites(StageBase):
             2: two_site_error,
         }
 
-        with open('site_results.txt', 'w') as site_file:
+        with open("site_results.txt", "w") as site_file:
 
             if one_site_error < two_site_error * self.site_error_factor:
                 site_file.write(
