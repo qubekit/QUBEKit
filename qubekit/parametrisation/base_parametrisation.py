@@ -141,6 +141,9 @@ class Parametrisation(StageBase, abc.ABC):
 
             # Check if we found any sites
             if sites:
+                # Ensure old sites are removed
+                molecule.extra_sites.clear_sites()
+
                 for site in sites.values():
                     molecule.extra_sites.add_site(site=site)
 
