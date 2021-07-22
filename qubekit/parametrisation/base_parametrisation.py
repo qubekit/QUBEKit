@@ -100,16 +100,22 @@ class Parametrisation(StageBase, abc.ABC):
                     parent_index=int(virtual_site.get("p1")),
                     closest_a_index=int(virtual_site.get("p2")),
                     closest_b_index=int(virtual_site.get("p3")),
-                    o_weights=[float(virtual_site.get(f"wo{j}")) for j in range(1, limit)],
-                    x_weights=[float(virtual_site.get(f"wx{j}")) for j in range(1, limit)],
-                    y_weights=[float(virtual_site.get(f"wy{j}")) for j in range(1, limit)],
+                    o_weights=[
+                        float(virtual_site.get(f"wo{j}")) for j in range(1, limit)
+                    ],
+                    x_weights=[
+                        float(virtual_site.get(f"wx{j}")) for j in range(1, limit)
+                    ],
+                    y_weights=[
+                        float(virtual_site.get(f"wy{j}")) for j in range(1, limit)
+                    ],
                     # fake the charge, this will be set later
                     charge=0,
                 )
                 if virtual_site.get("wx4") is None:
                     site = VirtualSite3Point(**site_data)
                 else:
-                    site_data['closest_c_index'] = int(virtual_site.get("p4"))
+                    site_data["closest_c_index"] = int(virtual_site.get("p4"))
                     site = VirtualSite4Point(**site_data)
                 sites[i] = site
 
