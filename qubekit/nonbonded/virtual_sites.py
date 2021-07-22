@@ -863,27 +863,27 @@ class VirtualSites(StageBase):
             2: two_site_error,
         }
 
-        if one_site_error < two_site_error * self.site_error_factor:
-            print(
-                f"One virtual site has been added to atom "
-                f"{self._molecule.atoms[atom_index].atomic_symbol}{self._molecule.atoms[atom_index].atom_name}\n"
-                f"No site error: {site_errors[0]}    One site error: {site_errors[1]}"
-            )
-            self._v_sites_coords.extend(one_site_coords)
-            self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
-                one_site_coords[0][1]
-            )
+        with open('site_results.txt', 'w') as site_file:
 
-        else:
-            print(
-                f"Two virtual sites have been added to atom "
-                f"{self._molecule.atoms[atom_index].atomic_symbol}{self._molecule.atoms[atom_index].atom_name}\n"
-                f"No site error: {site_errors[0]}    Two sites error: {site_errors[2]}"
-            )
-            self._v_sites_coords.extend(two_site_coords)
-            self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
-                two_site_coords[0][1] + two_site_coords[1][1]
-            )
+            if one_site_error < two_site_error * self.site_error_factor:
+                site_file.write(
+                    f"One virtual site has been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
+                    f"No site error: {site_errors[0]: .4f}    One site error: {site_errors[1]: .4f}"
+                )
+                self._v_sites_coords.extend(one_site_coords)
+                self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
+                    one_site_coords[0][1]
+                )
+
+            else:
+                site_file.write(
+                    f"Two virtual sites have been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
+                    f"No site error: {site_errors[0]: .4f}    Two sites error: {site_errors[2]: .4f}"
+                )
+                self._v_sites_coords.extend(two_site_coords)
+                self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
+                    two_site_coords[0][1] + two_site_coords[1][1]
+                )
         self._plot(atom_index, site_errors, one_site_coords, two_site_coords)
 
     def _plot(
