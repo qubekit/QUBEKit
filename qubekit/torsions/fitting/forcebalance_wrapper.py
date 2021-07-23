@@ -264,7 +264,7 @@ class ForceBalanceFitting(StageBase):
         # check we have targets to fit
         if not self.targets:
             raise ForceBalanceError(
-                f"No fitting targets have been set for forcebalance, please set at least one target."
+                "No fitting targets have been set for forcebalance, please set at least one target."
             )
 
         # now we have validated the data run the optimiser
@@ -289,7 +289,7 @@ class ForceBalanceFitting(StageBase):
         """
 
         # set up the master fitting folder
-        with forcebalance_setup(folder_name=f"ForceBalance"):
+        with forcebalance_setup(folder_name="ForceBalance"):
             fitting_folder = os.getcwd()
             fitting_targets = {}
             # prep the target folders

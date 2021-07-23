@@ -3,7 +3,7 @@
 """
 A custom gaussian harness for QCEngine which should be registered with qcengine.
 """
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from qcelemental.models import AtomicInput, AtomicResult
@@ -15,6 +15,9 @@ from qcengine.util import execute
 
 from qubekit.utils import constants
 from qubekit.utils.file_handling import get_data
+
+if TYPE_CHECKING:
+    from qcengine.config import TaskConfig
 
 
 class GaussianHarness(ProgramHarness):

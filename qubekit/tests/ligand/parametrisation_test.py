@@ -2,23 +2,8 @@ import pytest
 from pydantic.error_wrappers import ValidationError
 
 from qubekit.molecules import Ligand
-from qubekit.parametrisation import XML, AnteChamber, OpenFF
+from qubekit.parametrisation import XML, OpenFF
 from qubekit.utils.file_handling import get_data
-
-
-@pytest.fixture
-def antechamber():
-    return AnteChamber(force_field="gaff2")
-
-
-@pytest.fixture
-def openff():
-    return OpenFF(force_field="openff_unconstrained-1.3.0.offxml")
-
-
-@pytest.fixture
-def xml():
-    return XML()
 
 
 @pytest.mark.parametrize(

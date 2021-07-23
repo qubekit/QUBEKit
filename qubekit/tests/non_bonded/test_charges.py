@@ -4,7 +4,6 @@ Test generating charge reference data or storing charges.
 
 import os
 
-import numpy as np
 import pytest
 from qcelemental.models import AtomicInput
 from qcelemental.util import which_import
@@ -15,7 +14,6 @@ from qubekit.engines import GaussianHarness
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import OpenFF
 from qubekit.utils import constants
-from qubekit.utils.datastructures import LocalResource, QCOptions
 from qubekit.utils.exceptions import SpecificationError
 from qubekit.utils.file_handling import get_data
 

@@ -27,7 +27,7 @@ class Parametrisation(StageBase, abc.ABC):
     type: Literal["base"] = "base"
 
     def start_message(self, **kwargs) -> str:
-        return f"Parametrising molecule using local input files."
+        return "Parametrising molecule using local input files."
 
     def finish_message(self, **kwargs) -> str:
         return "Molecule parameterised and values stored."

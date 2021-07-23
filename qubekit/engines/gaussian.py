@@ -73,7 +73,7 @@ class Gaussian(Engines):
             if self.molecule.excited_state:
                 commands = f"# {self.molecule.theory}/{self.molecule.basis} "
                 if self.molecule.use_pseudo:
-                    commands += f" Pseudo=Read"
+                    commands += " Pseudo=Read"
 
                 commands += (
                     f" {self.molecule.excited_theory}=(Nstates={self.molecule.n_states}, "
@@ -88,7 +88,7 @@ class Gaussian(Engines):
 
             # Adds the commands in groups. They MUST be in the right order because Gaussian.
             if optimise:
-                commands += f"Opt=ModRedundant "
+                commands += "Opt=ModRedundant "
 
             if hessian:
                 commands += "freq "

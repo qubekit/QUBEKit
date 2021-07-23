@@ -21,14 +21,6 @@ from qubekit.utils.exceptions import (
 from qubekit.utils.file_handling import get_data
 
 
-@pytest.fixture
-def acetone():
-    """
-    Make a ligand class from the acetone pdb.
-    """
-    return Ligand.from_file(file_name=get_data("acetone.sdf"))
-
-
 def test_has_unique_names(acetone):
     """
     Make sure the method can correctly identify if a molecule has unique names.

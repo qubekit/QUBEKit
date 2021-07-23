@@ -994,7 +994,7 @@ class Molecule(SchemaBase):
         """
         if scan_data.__class__ != TorsionDriveData:
             raise MissingReferenceData(
-                f"The reference data must be in the form of the torsion drive data class."
+                "The reference data must be in the form of the torsion drive data class."
             )
         else:
             if self.qm_scans is None:
