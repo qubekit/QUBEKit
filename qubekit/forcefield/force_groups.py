@@ -204,7 +204,7 @@ class RBProperTorsionForce(BaseForceGroup):
 
     @classmethod
     def openmm_group(cls):
-        return "RBProperTorsionForce"
+        return "RBTorsionForce"
 
     @classmethod
     def symmetry_parameters(cls) -> List[str]:
@@ -222,7 +222,7 @@ class RBImproperTorsionForce(BaseForceGroup):
 
     @classmethod
     def openmm_group(cls):
-        return "RBProperTorsionForce"
+        return "RBTorsionForce"
 
     @classmethod
     def symmetry_parameters(cls) -> List[str]:

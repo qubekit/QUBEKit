@@ -708,30 +708,40 @@ class Molecule(SchemaBase):
             ET.SubElement(
                 AngleForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
-        TorsionForce = ET.SubElement(
-            root, self.TorsionForce.openmm_group(), attrib=self.TorsionForce.xml_data()
-        )
-        for parameter in self.TorsionForce:
-            ET.SubElement(
-                TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+        if (
+            self.TorsionForce.n_parameters > 0
+            or self.ImproperTorsionForce.n_parameters > 0
+        ):
+            TorsionForce = ET.SubElement(
+                root,
+                self.TorsionForce.openmm_group(),
+                attrib=self.TorsionForce.xml_data(),
             )
-        for parameter in self.ImproperTorsionForce:
-            ET.SubElement(
-                TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+            for parameter in self.TorsionForce:
+                ET.SubElement(
+                    TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
+            for parameter in self.ImproperTorsionForce:
+                ET.SubElement(
+                    TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
+        if (
+            self.RBTorsionForce.n_parameters > 0
+            or self.ImproperRBTorsionForce.n_parameters > 0
+        ):
+            RBTorsion = ET.SubElement(
+                root,
+                self.RBTorsionForce.openmm_group(),
+                attrib=self.RBTorsionForce.xml_data(),
             )
-        RBTorsion = ET.SubElement(
-            root,
-            self.RBTorsionForce.openmm_group(),
-            attrib=self.RBTorsionForce.xml_data(),
-        )
-        for parameter in self.RBTorsionForce:
-            ET.SubElement(
-                RBTorsion, parameter.openmm_type(), attrib=parameter.xml_data()
-            )
-        for parameter in self.ImproperRBTorsionForce:
-            ET.SubElement(
-                RBTorsion, parameter.openmm_type(), attrib=parameter.xml_data()
-            )
+            for parameter in self.RBTorsionForce:
+                ET.SubElement(
+                    RBTorsion, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
+            for parameter in self.ImproperRBTorsionForce:
+                ET.SubElement(
+                    RBTorsion, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
 
         # now we add more site info after general bonding
         for i, site in enumerate(self.extra_sites):

@@ -9,6 +9,7 @@ from typing_extensions import Literal
 
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
+from qubekit.utils.helpers import check_improper_torsion, check_proper_torsion
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
@@ -122,40 +123,81 @@ class QForceHessianFitting(StageBase):
         """Update the Ligand with the final parameters from the QForce hessian fitting."""
         from qforce.forces import convert_to_inversion_rb
 
-        # qforce only add impropers when there are no rigid terms so remove any initial terms
-        molecule.ImproperTorsionForce.clear_parameters()
+        # get all of the flexible dihedrals which qforce has not fit yet and keep our parent parameters
+        center_bonds = []
+        for flexible_torsion in qforce_terms["dihedral"]["flexible"]:
+            center_bonds.append(tuple(flexible_torsion.atomids)[1:3])
+        flexible_torsions = []
+        for torsion in molecule.TorsionForce:
+            if (
+                torsion.atoms[1:3] in center_bonds
+                or tuple(reversed(torsion.atoms[1:3])) in center_bonds
+            ):
+                flexible_torsions.append(torsion)
+
         # remove any starting parameters
+        molecule.BondForce.clear_parameters()
+        molecule.AngleForce.clear_parameters()
+        molecule.TorsionForce.clear_parameters()
+        # qforce only adds impropers when there are no rigid terms so remove any initial terms
+        molecule.ImproperTorsionForce.clear_parameters()
         molecule.RBTorsionForce.clear_parameters()
         # this just means the improper should be constructed in the order defined by the forcefield
         molecule.TorsionForce.ordering = "charmm"
 
         for bond in qforce_terms["bond"]:
-            qube_bond = molecule.BondForce[tuple(bond.atomids)]
-            qube_bond.length = bond.equ * constants.ANGS_TO_NM
-            qube_bond.k = bond.fconst * 100
+            # we only want terms which are non zero
+            if round(bond.fconst * 100, ndigits=3) != 0:
+                bond_data = {
+                    "length": bond.equ * constants.ANGS_TO_NM,
+                    "k": bond.fconst * 100,
+                }
+                molecule.BondForce.create_parameter(
+                    atoms=tuple(bond.atomids), **bond_data
+                )
         for angle in qforce_terms["angle"]:
-            qube_angle = molecule.AngleForce[tuple(angle.atomids)]
-            qube_angle.angle = angle.equ
-            qube_angle.k = angle.fconst
+            if round(angle.fconst, ndigits=3) != 0:
+                angle_data = {"angle": angle.equ, "k": angle.fconst}
+                molecule.AngleForce.create_parameter(tuple(angle.atomids), **angle_data)
         for dihedral in qforce_terms["dihedral"]["rigid"]:
-            qube_dihedral = molecule.TorsionForce[tuple(dihedral.atomids)]
-            qube_dihedral.k2 = dihedral.fconst / 4
+            if round(dihedral.fconst / 4, ndigits=3) != 0:
+                dihedral_data = {
+                    "k2": dihedral.fconst / 4,
+                }
+                molecule.TorsionForce.create_parameter(
+                    atoms=tuple(dihedral.atomids), **dihedral_data
+                )
         for improper in qforce_terms["dihedral"]["improper"]:
-            molecule.ImproperTorsionForce.create_parameter(
-                atoms=tuple(improper.atomids), k2=improper.fconst / 4
-            )
+            if round(improper.fconst / 4, ndigits=3) != 0:
+                molecule.ImproperTorsionForce.create_parameter(
+                    atoms=tuple(improper.atomids), k2=improper.fconst / 4
+                )
         for inversion in qforce_terms["dihedral"]["inversion"]:
             # use the RB torsion type to model the inversion dihedrals
-            # first remove the periodic torsion
-            try:
-                molecule.TorsionForce.remove_parameter(atoms=tuple(inversion.atomids))
-            except ValueError:
-                pass
             # get the parameters in RB form
             c0, c1, c2 = convert_to_inversion_rb(inversion.fconst, inversion.equ)
-            molecule.RBTorsionForce.create_parameter(
-                atoms=tuple(inversion.atomids), **{"c0": c0, "c1": c1, "c2": c2}
+            c0, c1, c2 = (
+                round(c0, ndigits=3),
+                round(c1, ndigits=3),
+                round(c2, ndigits=3),
             )
+            inversion_data = {"c0": c0, "c1": c1, "c2": c2}
+            if check_proper_torsion(
+                torsion=tuple(inversion.atomids), molecule=molecule
+            ):
+                molecule.RBTorsionForce.create_parameter(
+                    atoms=tuple(inversion.atomids), **inversion_data
+                )
+            else:
+                improper = check_improper_torsion(
+                    improper=tuple(inversion.atomids), molecule=molecule
+                )
+                molecule.ImproperRBTorsionForce.create_parameter(
+                    atoms=improper, **inversion_data
+                )
+
+        # now add back the flexible torsions
+        molecule.TorsionForce.parameters.extend(flexible_torsions)
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
@@ -178,6 +220,15 @@ class QForceHessianFitting(StageBase):
         """
         Create the QForce QM data dictionary required to run the hessian fitting.
         """
+        # try and get the point charges from AIM first, as virtual sites are not supported in qforce
+        # we need to use the raw aim data
+        point_charges = [atom.aim.charge for atom in molecule.atoms]
+        if not any(point_charges):
+            # if we have no aim data there should be no sites so use the forcefield data
+            point_charges = [
+                float(molecule.NonbondedForce[(i,)].charge)
+                for i in range(molecule.n_atoms)
+            ]
         qm_data = dict(
             n_atoms=molecule.n_atoms,
             charge=molecule.charge,
@@ -188,6 +239,6 @@ class QForceHessianFitting(StageBase):
             n_bonds=[atom.GetTotalValence() for atom in molecule.to_rdkit().GetAtoms()],
             b_orders=molecule.wbo,
             lone_e=[0 for _ in molecule.atoms],
-            point_charges=[atom.aim.charge for atom in molecule.atoms],
+            point_charges=point_charges,
         )
         return qm_data
