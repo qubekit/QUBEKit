@@ -357,6 +357,9 @@ def progress():
             "No QUBEKit directories with log files found. Perhaps you need to move to the parent directory."
         )
     else:
+        # Sort alphabetically
+        results = dict(sorted(results.items(), key=lambda item: item[0]))
+
         print("Displaying progress of all analyses in current directory.")
         print(f"Progress key: {COLOURS.green}\u2713{COLOURS.end} = Done;", end=" ")
         print(f"{COLOURS.blue}S{COLOURS.end} = Skipped;", end=" ")

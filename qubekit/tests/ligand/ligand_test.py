@@ -124,7 +124,7 @@ def test_no_dihedrals():
     Make sure we return None when no dihedrals are found in the molecule.
     """
     mol = Ligand.from_file(file_name=get_data("water.pdb"))
-    assert mol.dihedrals is None
+    assert not mol.dihedrals
     assert mol.n_dihedrals == 0
 
 
@@ -276,17 +276,6 @@ def test_repr():
     """Make sure the ligand repr works."""
     mol = Ligand.from_file(file_name=get_data("water.pdb"))
     repr(mol)
-
-
-@pytest.mark.parametrize(
-    "trunc", [pytest.param(True, id="Trunc"), pytest.param(False, id="No trunc")]
-)
-def test_str(trunc):
-    """
-    Make sure that the ligand str method does not raise an error.
-    """
-    mol = Ligand.from_file(file_name=get_data("water.pdb"))
-    mol.__str__(trunc=trunc)
 
 
 def test_to_openmm_coords(acetone):

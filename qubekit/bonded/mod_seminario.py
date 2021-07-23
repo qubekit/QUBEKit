@@ -204,9 +204,7 @@ class ModSeminario(StageBase):
         return True
 
     def start_message(self, **kwargs) -> str:
-        return (
-            "Calculating new bonds and angle parameters with modified Seminario method."
-        )
+        return "Calculating new bond and angle parameters with the modified Seminario method."
 
     def finish_message(self, **kwargs) -> str:
         return "Bond and angle parameters calculated."

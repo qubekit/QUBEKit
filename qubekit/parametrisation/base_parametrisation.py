@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, List, Optional
 from simtk.openmm import System, XmlSerializer
 from typing_extensions import Literal
 
-from qubekit.forcefield import VirtualSite3Point
+from qubekit.forcefield import VirtualSite3Point, VirtualSite4Point
+from qubekit.molecules.ligand import Ligand
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
 from qubekit.utils.exceptions import MissingParameterError, TopologyMismatch
@@ -94,6 +95,7 @@ class Parametrisation(StageBase, abc.ABC):
 
             # Extract any virtual site data only supports local coords atm, charges are added later
             for i, virtual_site in enumerate(in_root.iter("LocalCoordinatesSite")):
+                limit = 4 if virtual_site.get("wx4") is None else 5
                 site_data = dict(
                     p1=float(virtual_site.get("pos1")),
                     p2=float(virtual_site.get("pos2")),
@@ -101,14 +103,23 @@ class Parametrisation(StageBase, abc.ABC):
                     parent_index=int(virtual_site.get("p1")),
                     closest_a_index=int(virtual_site.get("p2")),
                     closest_b_index=int(virtual_site.get("p3")),
-                    # TODO add support for four coord sites
-                    o_weights=[float(virtual_site.get(f"wo{j}")) for j in range(1, 4)],
-                    x_weights=[float(virtual_site.get(f"wx{j}")) for j in range(1, 4)],
-                    y_weights=[float(virtual_site.get(f"wy{j}")) for j in range(1, 4)],
-                    # fake the charge this will be set later
+                    o_weights=[
+                        float(virtual_site.get(f"wo{j}")) for j in range(1, limit)
+                    ],
+                    x_weights=[
+                        float(virtual_site.get(f"wx{j}")) for j in range(1, limit)
+                    ],
+                    y_weights=[
+                        float(virtual_site.get(f"wy{j}")) for j in range(1, limit)
+                    ],
+                    # fake the charge, this will be set later
                     charge=0,
                 )
-                site = VirtualSite3Point(**site_data)
+                if virtual_site.get("wx4") is None:
+                    site = VirtualSite3Point(**site_data)
+                else:
+                    site_data["closest_c_index"] = int(virtual_site.get("p4"))
+                    site = VirtualSite4Point(**site_data)
                 sites[i] = site
 
             # Extract all bond data
@@ -143,6 +154,9 @@ class Parametrisation(StageBase, abc.ABC):
 
             # Check if we found any sites
             if sites:
+                # Ensure old sites are removed
+                molecule.extra_sites.clear_sites()
+
                 for site in sites.values():
                     molecule.extra_sites.add_site(site=site)
 

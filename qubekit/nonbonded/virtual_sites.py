@@ -269,7 +269,11 @@ class VirtualSites(StageBase):
         )
 
     @staticmethod
-    def _generate_sample_points_relative(vdw_radius: float) -> np.ndarray:
+    def _generate_sample_points_relative(
+        vdw_radius: float,
+        shells: int = 5,
+        min_points_per_shell=32,
+    ) -> np.ndarray:
         """
         Generate evenly distributed points in a series of shells around the point (0, 0, 0)
         This uses fibonacci spirals to produce an even spacing of points on a sphere.
@@ -278,8 +282,6 @@ class VirtualSites(StageBase):
         :return: list of numpy arrays where each array is the xyz coordinates of a sample point.
         """
 
-        min_points_per_shell = 32
-        shells = 5
         phi = PI * (3.0 - np.sqrt(5.0))
 
         relative_sample_points = []
@@ -849,10 +851,6 @@ class VirtualSites(StageBase):
 
         # Error in esp is sufficiently low to not require virtual sites.
         if no_site_error <= self.site_error_threshold:
-            # append_to_log(
-            #     self._molecule.home,
-            #     f"No virtual site needed for atom {self._molecule.atoms[atom_index].atom_name}.",
-            # )
             return
 
         one_site_error, one_site_coords = self._fit_one_site(atom_index)
@@ -865,41 +863,27 @@ class VirtualSites(StageBase):
             2: two_site_error,
         }
 
-        max_err = self.site_error_factor
-        # if no_site_error < min(one_site_error * max_err, two_site_error * max_err):
-        # append_to_log(
-        #     self._molecule.home,
-        #     "No virtual site placement has reduced the error significantly.",
-        #     and_print=True,
-        # )
-        if one_site_error < two_site_error * max_err:
-            # append_to_log(
-            #     self._molecule.home,
-            #     "The addition of one virtual site was found to be best.",
-            #     and_print=True,
-            # )
-            self._v_sites_coords.extend(one_site_coords)
-            self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
-                one_site_coords[0][1]
-            )
+        with open("site_results.txt", "w") as site_file:
 
-        else:
-            # append_to_log(
-            #     self._molecule.home,
-            #     "The addition of two virtual sites was found to be best.",
-            #     and_print=True,
-            # )
-            self._v_sites_coords.extend(two_site_coords)
-            self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
-                two_site_coords[0][1] + two_site_coords[1][1]
-            )
-        # append_to_log(
-        #     self._molecule.home,
-        #     f"Errors (kcal/mol):\n"
-        #     f"No Site     One Site     Two Sites\n"
-        #     f"{no_site_error:.4f}      {one_site_error:.4f}       {two_site_error:.4f}",
-        #     and_print=True,
-        # )
+            if one_site_error < two_site_error * self.site_error_factor:
+                site_file.write(
+                    f"One virtual site has been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
+                    f"No site error: {site_errors[0]: .4f}    One site error: {site_errors[1]: .4f}"
+                )
+                self._v_sites_coords.extend(one_site_coords)
+                self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
+                    one_site_coords[0][1]
+                )
+
+            else:
+                site_file.write(
+                    f"Two virtual sites have been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
+                    f"No site error: {site_errors[0]: .4f}    Two sites error: {site_errors[2]: .4f}"
+                )
+                self._v_sites_coords.extend(two_site_coords)
+                self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
+                    two_site_coords[0][1] + two_site_coords[1][1]
+                )
         self._plot(atom_index, site_errors, one_site_coords, two_site_coords)
 
     def _plot(
@@ -1051,6 +1035,9 @@ class VirtualSites(StageBase):
         Uses the coordinates to generate the necessary position vectors to be used in the xml.
         """
 
+        # Prevent duplication of sites.
+        self._molecule.extra_sites.clear_sites()
+
         topology = self._molecule.to_topology()
         for site_number, site in enumerate(self._v_sites_coords):
 
@@ -1127,3 +1114,5 @@ class VirtualSites(StageBase):
             site_data["p1"] = round(p1, 4)
 
             self._molecule.extra_sites.create_site(**site_data)
+
+        assert self._molecule.extra_sites.n_sites == len(self._v_sites_coords)

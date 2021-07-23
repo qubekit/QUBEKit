@@ -88,6 +88,8 @@ class LennardJones612(StageBase):
         * Stores the values in the molecule object.
         """
 
+        self.extract_rfrees()
+
         # Calculate initial a_is and b_is
         lj_data = self._calculate_lj_data(molecule=molecule)
 

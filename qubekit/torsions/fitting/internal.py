@@ -15,7 +15,6 @@ from qubekit.engines import Gaussian, OpenMM
 from qubekit.molecules.ligand import Ligand
 from qubekit.utils import constants
 from qubekit.utils.file_handling import make_and_change_into
-from qubekit.utils.helpers import append_to_log
 
 matplotlib.use("Agg")  # Fix for clusters?
 

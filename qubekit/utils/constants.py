@@ -39,8 +39,10 @@ M_TO_ANGS = 1e10  # Metres to Angstroms
 BOHR_TO_ANGS = 0.529177  # Bohrs to Angstroms
 ANGS_TO_BOHR = 1.88972687777  # Angstroms to Bohrs
 
-EPSILON_CONVERSION = (BOHR_TO_ANGS ** 6) * HA_TO_KCAL_P_MOL * KCAL_TO_KJ
-SIGMA_CONVERSION = ANGS_TO_NM
+EPSILON_CONVERSION = (
+    (BOHR_TO_ANGS ** 6) * HA_TO_KCAL_P_MOL * KCAL_TO_KJ
+)  # L-J Conversion
+SIGMA_CONVERSION = ANGS_TO_NM  # L-J Conversion
 
 
 # Used for printing colours to terminal. Wrap a colour and end around a block like so:

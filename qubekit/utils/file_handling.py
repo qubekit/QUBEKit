@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 """
-Purpose of this file is to read various inputs and produce the info required for
-    Ligand() or Protein()
 Should be very little calculation here, simply file reading and some small validations / checks
 """
 import contextlib
