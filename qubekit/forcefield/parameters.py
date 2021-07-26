@@ -161,6 +161,39 @@ class ImproperTorsionParameter(PeriodicTorsionParameter):
         return "Improper"
 
 
+class BasicRBTorsionParameter(BaseParameter):
+
+    type: Literal["BasicRBTorsionParameter"] = "BasicRBTorsionParameter"
+    c0: float = 0
+    c1: float = 0
+    c2: float = 0
+    c3: float = 0
+    c4: float = 0
+    c5: float = 0
+
+    @classmethod
+    def _n_tags(cls) -> int:
+        return 4
+
+
+class ProperRBTorsionParameter(BasicRBTorsionParameter):
+
+    type: Literal["ProperRBTorsionParameter"] = "ProperRBTorsionParameter"
+
+    @classmethod
+    def openmm_type(cls) -> str:
+        return "Proper"
+
+
+class ImproperRBTorsionParameter(BasicRBTorsionParameter):
+
+    type: Literal["ImproperRBTorsionParameter"] = "ImproperRBTorsionParameter"
+
+    @classmethod
+    def openmm_type(cls) -> str:
+        return "Improper"
+
+
 class BasicNonBondedParameter(BaseParameter):
 
     type: Literal["basic_non_bonded"] = "basic_non_bonded"

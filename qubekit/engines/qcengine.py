@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import qcelemental as qcel
 import qcengine as qcng
@@ -16,7 +16,7 @@ def call_qcengine(
     driver: Literal["energy", "gradient", "hessian"],
     qc_spec: "QCOptions",
     local_options: "LocalResource",
-    extras: Optional[Dict[str, str]] = None,
+    extras: Optional[Dict[str, Any]] = None,
 ) -> qcel.models.AtomicResult:
     """
     Calculate the requested property using qcengine for the given molecule.
@@ -51,5 +51,7 @@ def call_qcengine(
     result = qcng.compute(
         task, qc_spec.program, local_options=local_options.local_options
     )
+    with open("qcengine_result.json", "w") as output:
+        output.write(result.json())
 
     return result

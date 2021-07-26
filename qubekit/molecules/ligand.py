@@ -41,6 +41,8 @@ from qubekit.forcefield import (
     LennardJones126Force,
     PeriodicImproperTorsionForce,
     PeriodicTorsionForce,
+    RBImproperTorsionForce,
+    RBProperTorsionForce,
     VirtualSiteGroup,
 )
 from qubekit.molecules.components import Atom, Bond, TorsionDriveData
@@ -98,13 +100,21 @@ class Molecule(SchemaBase):
         HarmonicAngleForce(),
         description="A force object which records angle interactions between atom triplets.",
     )
-    TorsionForce: Union[PeriodicTorsionForce] = Field(
+    TorsionForce: PeriodicTorsionForce = Field(
         PeriodicTorsionForce(),
-        description="A force object which records torsion interactions between atom quartets.",
+        description="A force object which records torsion interactions between atom quartets, using a periodic function.",
     )
-    ImproperTorsionForce: Union[PeriodicImproperTorsionForce] = Field(
+    ImproperTorsionForce: PeriodicImproperTorsionForce = Field(
         PeriodicImproperTorsionForce(),
-        description="A force group which records improper torsion interactions between atom quatetes.",
+        description="A force group which records improper torsion interactions between atom quartets using a periodic function.",
+    )
+    RBTorsionForce: RBProperTorsionForce = Field(
+        RBProperTorsionForce(),
+        description="A force group which records torsion interactions between atom quartets using a RB function.",
+    )
+    ImproperRBTorsionForce: RBImproperTorsionForce = Field(
+        RBImproperTorsionForce(),
+        description="A force object which records improper torsion interactions between atom quartets using a RB function.",
     )
     NonbondedForce: Union[LennardJones126Force] = Field(
         LennardJones126Force(),
@@ -653,17 +663,40 @@ class Molecule(SchemaBase):
             ET.SubElement(
                 AngleForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
-        TorsionForce = ET.SubElement(
-            root, self.TorsionForce.openmm_group(), attrib=self.TorsionForce.xml_data()
-        )
-        for parameter in self.TorsionForce:
-            ET.SubElement(
-                TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+        if (
+            self.TorsionForce.n_parameters > 0
+            or self.ImproperTorsionForce.n_parameters > 0
+        ):
+            TorsionForce = ET.SubElement(
+                root,
+                self.TorsionForce.openmm_group(),
+                attrib=self.TorsionForce.xml_data(),
             )
-        for parameter in self.ImproperTorsionForce:
-            ET.SubElement(
-                TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+            for parameter in self.TorsionForce:
+                ET.SubElement(
+                    TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
+            for parameter in self.ImproperTorsionForce:
+                ET.SubElement(
+                    TorsionForce, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
+        if (
+            self.RBTorsionForce.n_parameters > 0
+            or self.ImproperRBTorsionForce.n_parameters > 0
+        ):
+            RBTorsion = ET.SubElement(
+                root,
+                self.RBTorsionForce.openmm_group(),
+                attrib=self.RBTorsionForce.xml_data(),
             )
+            for parameter in self.RBTorsionForce:
+                ET.SubElement(
+                    RBTorsion, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
+            for parameter in self.ImproperRBTorsionForce:
+                ET.SubElement(
+                    RBTorsion, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
 
         # now we add more site info after general bonding
         for i, site in enumerate(self.extra_sites):
@@ -916,7 +949,7 @@ class Molecule(SchemaBase):
         """
         if scan_data.__class__ != TorsionDriveData:
             raise MissingReferenceData(
-                f"The reference data must be in the form of the torsion drive data class."
+                "The reference data must be in the form of the torsion drive data class."
             )
         else:
             if self.qm_scans is None:
@@ -974,6 +1007,9 @@ class Ligand(Molecule):
         None,
         description="The list of reference torsiondrive results which we can fit against.",
     )
+    wbo: Optional[Array[float]] = Field(
+        None, description="The WBO matrix calculated at the QM optimised geometry."
+    )
 
     def __init__(
         self,
@@ -998,6 +1034,16 @@ class Ligand(Molecule):
         )
         # make sure we have unique atom names
         self._validate_atom_names()
+
+    @validator("hessian", "wbo", allow_reuse=True)
+    def _reshape_matrix(cls, matrix: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        if matrix is not None:
+            if len(matrix.shape) == 1:
+                # the matrix is a flat list
+                # so we need to make the matrix to be square
+                length = int(np.sqrt(matrix.shape[0]))
+                return matrix.reshape((length, length))
+        return matrix
 
     @classmethod
     def from_rdkit(

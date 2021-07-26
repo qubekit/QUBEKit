@@ -33,7 +33,7 @@ def main():
             printf(f"{len(protein.residues)} residues found!")
             # TODO find the magic numbers for the box for onetep
             protein.to_file(file_name="protein.xyz")
-            printf(f"protein.xyz file made for ONETEP\n Run this file")
+            printf("protein.xyz file made for ONETEP\n Run this file")
             sys.exit()
 
     class BuildAction(argparse.Action):

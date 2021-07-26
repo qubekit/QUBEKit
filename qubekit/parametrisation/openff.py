@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from pydantic import validator
 from qcelemental.util import which_import
@@ -6,7 +6,6 @@ from simtk import unit
 from simtk.openmm import System
 from typing_extensions import Literal
 
-from qubekit.molecules import Ligand
 from qubekit.parametrisation.base_parametrisation import Parametrisation
 from qubekit.utils.exceptions import SpecificationError
 from qubekit.utils.helpers import hide_warnings
@@ -28,6 +27,9 @@ with hide_warnings():
         UnassignedProperTorsionParameterException,
         UnassignedValenceParameterException,
     )
+
+if TYPE_CHECKING:
+    from qubekit.molecules import Ligand
 
 
 class OpenFF(Parametrisation):
@@ -71,7 +73,7 @@ class OpenFF(Parametrisation):
             )
 
     def _build_system(
-        self, molecule: Ligand, input_files: Optional[List[str]] = None
+        self, molecule: "Ligand", input_files: Optional[List[str]] = None
     ) -> System:
         """Create the OpenMM system; parametrise using frost; serialise the system."""
 

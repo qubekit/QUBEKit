@@ -63,7 +63,7 @@ class GeometryOptimiser(SchemaBase):
         # TODO do we raise an error or just change at run time with a warning?
         if qc_spec.program.lower() != "psi4" and self.optimiser.lower() == "optking":
             raise SpecificationError(
-                f"The optimiser optking currently only supports psi4 as the engine."
+                "The optimiser optking currently only supports psi4 as the engine."
             )
 
     def _build_optimiser_keywords(self, program: str) -> Dict[str, Union[str, float]]:

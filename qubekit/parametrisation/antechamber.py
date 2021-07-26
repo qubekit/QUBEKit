@@ -2,14 +2,16 @@ import os
 import shutil
 import subprocess as sp
 from tempfile import TemporaryDirectory
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from qcelemental.util import which
 from simtk.openmm import System, app
 from typing_extensions import Literal
 
-from qubekit.molecules import Ligand
 from qubekit.parametrisation.base_parametrisation import Parametrisation
+
+if TYPE_CHECKING:
+    from qubekit.molecules import Ligand
 
 
 class AnteChamber(Parametrisation):
@@ -39,7 +41,7 @@ class AnteChamber(Parametrisation):
         return "amber"
 
     def _build_system(
-        self, molecule: Ligand, input_files: Optional[List[str]] = None
+        self, molecule: "Ligand", input_files: Optional[List[str]] = None
     ) -> System:
         """
         Build a system using the amber prmtop files, first we must use antechamber to prep the molecule.
@@ -49,7 +51,7 @@ class AnteChamber(Parametrisation):
         system = prmtop.createSystem(nonbondedMethod=app.NoCutoff, constraints=None)
         return system
 
-    def _get_prmtop(self, molecule: Ligand) -> str:
+    def _get_prmtop(self, molecule: "Ligand") -> str:
         """Method to run Antechamber, parmchk2 and tleap."""
 
         # file paths when moving in and out of temp locations

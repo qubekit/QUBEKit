@@ -36,3 +36,6 @@ dependencies:
   - dftd3
   - gcp
   - optking
+
+  - pip:
+      - qforce

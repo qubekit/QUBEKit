@@ -79,17 +79,16 @@ def test_driver_conversion(driver, result):
         pytest.param("hessian", "FREQ", id="hessian"),
     ],
 )
-def test_build_input(tmpdir, driver, result):
+def test_build_input(tmpdir, driver, result, acetone):
     """
     Build a gaussian input file for the given input model.
     """
     with tmpdir.as_cwd():
-        mol = Ligand.from_file(file_name=get_data("acetone.pdb"))
         # build the atomic model
         qc_spec = qcel.models.common_models.Model(method="pbe", basis="6-31G")
         # build a job for s specific driver
         qc_task = qcel.models.AtomicInput(
-            molecule=mol.to_qcschema(), driver=driver, model=qc_spec
+            molecule=acetone.to_qcschema(), driver=driver, model=qc_spec
         )
         g = GaussianHarness()
         local_options = qcng.config.TaskConfig(
@@ -102,6 +101,195 @@ def test_build_input(tmpdir, driver, result):
         # make sure we can write the file with no issues
         with open("gaussian.com", "w") as com:
             com.write(file_input)
+
+
+def test_gaussian_nbo_input_file(tmpdir, water):
+    """Make sure we can build a file which will run a nbo calculation when complete."""
+    with tmpdir.as_cwd():
+        # now make an atomic input for the harness
+        task = qcel.models.AtomicInput(
+            molecule=water.to_qcschema(),
+            driver="energy",
+            model={"method": "b3lyp-d3bj", "basis": "6-311G"},
+            keywords={"scf_properties": ["wiberg_lowdin_indices"]},
+        )
+        # we need the harness as this will render the template
+        gaussian_harness = GaussianHarness()
+        config = qcng.config.get_config(local_options={"ncores": 1, "memory": 1})
+        job_inputs = gaussian_harness.build_input(task, config)
+        # make sure the job file matches or expected reference
+        with open(get_data("gaussian_nbo_example.com")) as g_out:
+            assert g_out.read() == job_inputs["infiles"]["gaussian.com"]
+
+
+def test_parse_wbo_matrix():
+    """
+    Make sure we can parse a large wbo matrix split into multiple blocks from an output file.
+    """
+    natoms = 12  # parsing benzene
+    with open(get_data("gaussian_nbo.log")) as log:
+        logfile = log.read()
+
+    wbo_matrix = GaussianHarness.parse_wbo(logfile=logfile, natoms=natoms)
+    assert wbo_matrix == [
+        0.0,
+        1.4368,
+        0.0111,
+        0.1144,
+        0.0111,
+        1.4373,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        1.4368,
+        0.0,
+        1.4373,
+        0.0111,
+        0.1144,
+        0.0111,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0111,
+        1.4373,
+        0.0,
+        1.4368,
+        0.0111,
+        0.1144,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.1144,
+        0.0111,
+        1.4368,
+        0.0,
+        1.4373,
+        0.0111,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0111,
+        0.1144,
+        0.0111,
+        1.4373,
+        0.0,
+        1.4368,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        1.4373,
+        0.0111,
+        0.1144,
+        0.0111,
+        1.4368,
+        0.0,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.0,
+        0.0021,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0021,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0021,
+        0.0,
+        0.0021,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0004,
+        0.0021,
+        0.0,
+        0.0021,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0099,
+        0.0006,
+        0.0004,
+        0.0021,
+        0.0,
+        0.0021,
+        0.0004,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0033,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0021,
+        0.0,
+        0.0021,
+        0.0033,
+        0.0099,
+        0.0004,
+        0.0099,
+        0.0033,
+        0.9064,
+        0.0021,
+        0.0004,
+        0.0006,
+        0.0004,
+        0.0021,
+        0.0,
+    ]
+    assert len(wbo_matrix) == 144
+
+
+def test_scf_property_conversion():
+    """
+    Convert the QCEngine scf property into the correct command line and extra input variables
+    """
+    scf_properties = ["wiberg_lowdin_indices"]
+    cmdline, add_input = GaussianHarness.scf_property_conversion(
+        scf_properties=scf_properties
+    )
+    assert "pop=(nboread)" in cmdline
+    assert "$nbo BNDIDX $end" in add_input
 
 
 def test_get_version_from_log():
@@ -195,7 +383,7 @@ def test_fail_termination():
         pytest.param("hessian", id="hessian"),
     ],
 )
-def test_full_run(driver, tmpdir):
+def test_full_run(driver, tmpdir, acetone):
     """
     For the given driver try a full execution if the user has gaussian installed.
     """
@@ -204,14 +392,13 @@ def test_full_run(driver, tmpdir):
 
     with tmpdir.as_cwd():
         # build the input
-        mol = Ligand.from_file(file_name=get_data("acetone.pdb"))
         # build the atomic model
         qc_spec = qcel.models.common_models.Model(
             method="wB97XD", basis="6-311++G(d,p)"
         )
         # build a job for a specific driver
         qc_task = qcel.models.AtomicInput(
-            molecule=mol.to_qcschema(), driver=driver, model=qc_spec
+            molecule=acetone.to_qcschema(), driver=driver, model=qc_spec
         )
         g = GaussianHarness()
         # run locally with 2 cores and 2 GB memory

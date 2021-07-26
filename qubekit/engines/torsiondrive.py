@@ -41,7 +41,7 @@ class TorsionDriver(SchemaBase):
         description="Upper limit of energy relative to current global minimum to spawn new optimization tasks.",
     )
     starting_conformations: int = Field(
-        1,
+        4,
         description="The number of starting conformations that should be used in the torsiondrive. Note for a molecule with multipule flexible bonds you may need to sample them all.",
     )
 
@@ -231,7 +231,15 @@ class TorsionDriver(SchemaBase):
             The torsiondrive dict or the initial state.
         """
 
-        coords = copy.deepcopy(molecule.coordinates)
+        if self.starting_conformations > 1:
+            coords = molecule.generate_conformers(
+                n_conformers=self.starting_conformations
+            )
+        else:
+            coords = [
+                copy.deepcopy(molecule.coordinates),
+            ]
+
         td_state = td_api.create_initial_state(
             dihedrals=[
                 dihedral_data.torsion,
@@ -240,7 +248,7 @@ class TorsionDriver(SchemaBase):
                 self.grid_spacing,
             ],
             elements=[atom.atomic_symbol for atom in molecule.atoms],
-            init_coords=[(coords * constants.ANGS_TO_BOHR)],
+            init_coords=[(coord * constants.ANGS_TO_BOHR) for coord in coords],
             dihedral_ranges=[
                 dihedral_data.scan_range,
             ],

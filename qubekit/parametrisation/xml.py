@@ -1,10 +1,12 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from simtk.openmm import System, app
 from typing_extensions import Literal
 
-from qubekit.molecules import Ligand
 from qubekit.parametrisation.base_parametrisation import Parametrisation
+
+if TYPE_CHECKING:
+    from qubekit.molecules import Ligand
 
 
 class XML(Parametrisation):
@@ -21,7 +23,7 @@ class XML(Parametrisation):
         return "default"
 
     def _build_system(
-        self, molecule: Ligand, input_files: Optional[List[str]] = None
+        self, molecule: "Ligand", input_files: Optional[List[str]] = None
     ) -> System:
         """Serialise the input XML system using openmm."""
 

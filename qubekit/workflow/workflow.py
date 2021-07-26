@@ -6,8 +6,8 @@ from pydantic import Field, PrivateAttr
 from typing_extensions import Literal
 
 import qubekit
+from qubekit.bonded import ModSeminario, QForceHessianFitting
 from qubekit.charges import DDECCharges, MBISCharges
-from qubekit.mod_seminario import ModSeminario
 from qubekit.molecules import Ligand
 from qubekit.nonbonded import LennardJones612, VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
@@ -38,10 +38,6 @@ class WorkFlow(SchemaBase):
         Optimiser(),
         description="The main geometry optimiser settings including pre_optimisation settings.",
     )
-    bonded_parameters: ModSeminario = Field(
-        ModSeminario(),
-        description="The method that should be used to optimise the bonded parameters.",
-    )
     charges: Union[DDECCharges, MBISCharges] = Field(
         DDECCharges(),
         description="The method that should be used to calculate the AIM reference data the charge should be extracted from. Note that the non-bonded parameters are also calculated from this data.",
@@ -53,6 +49,10 @@ class WorkFlow(SchemaBase):
     non_bonded: LennardJones612 = Field(
         LennardJones612(),
         description="The method that should be used to calculate the non-bonded non-charge parameters and their functional form.",
+    )
+    bonded_parameters: Union[ModSeminario, QForceHessianFitting] = Field(
+        ModSeminario(),
+        description="The method that should be used to optimise the bonded parameters.",
     )
     torsion_scanner: TorsionScan1D = Field(
         TorsionScan1D(),
@@ -134,10 +134,10 @@ class WorkFlow(SchemaBase):
             "parametrisation",
             "optimisation",
             "hessian",
-            "bonded_parameters",
             "charges",
             "virtual_sites",
             "non_bonded",
+            "bonded_parameters",
             "torsion_scanner",
             "torsion_optimisation",
         ]

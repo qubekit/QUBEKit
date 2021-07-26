@@ -45,10 +45,9 @@ class DDECCharges(ChargeBase):
             raise RuntimeError(
                 "Gaussian 09/16 was not found please make sure they are available."
             )
-        try:
-            # TODO should we also check the path to the folder is correct?
-            chargemol = os.getenv("CHARGEMOL_DIR")
-        except KeyError:
+        # TODO should we also check the path to the folder is correct?
+        chargemol = os.getenv("CHARGEMOL_DIR")
+        if chargemol is None:
             raise RuntimeError(
                 "Please set the path to chargemol as an environment variable called CHARGEMOL_DIR."
             )

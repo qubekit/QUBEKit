@@ -119,7 +119,7 @@ All that would be needed is some input file containing the coordinates, and the 
 
 ```python
 from qubekit.molecules.ligand import Ligand
-from qubekit.mod_seminario import ModSeminario
+from qubekit.bonded.mod_seminario import ModSeminario
 
 import numpy as np
 
