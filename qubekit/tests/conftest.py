@@ -14,6 +14,12 @@ def acetone():
 
 
 @pytest.fixture
+def water():
+    """Make a qube water molecule."""
+    return Ligand.from_file(file_name=get_data("water.pdb"))
+
+
+@pytest.fixture
 def antechamber():
     return AnteChamber(force_field="gaff2")
 

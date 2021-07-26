@@ -217,6 +217,9 @@ class GaussianHarness(ProgramHarness):
         template_data["data"] = data
 
         rendered_template = template.render(**template_data)
+        # also write to file
+        with open("gaussian.com", "w") as output:
+            output.write(rendered_template)
         return {
             "infiles": {"gaussian.com": rendered_template},
             "scratch_directory": config.scratch_directory,

@@ -6,7 +6,6 @@ from simtk.openmm import System, XmlSerializer
 from typing_extensions import Literal
 
 from qubekit.forcefield import VirtualSite3Point, VirtualSite4Point
-from qubekit.molecules.ligand import Ligand
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
 from qubekit.utils.exceptions import MissingParameterError, TopologyMismatch

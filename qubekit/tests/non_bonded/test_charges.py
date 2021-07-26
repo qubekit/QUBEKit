@@ -11,7 +11,6 @@ from qcengine.config import get_config
 
 from qubekit.charges import DDECCharges, MBISCharges, SolventPsi4
 from qubekit.engines import GaussianHarness
-from qubekit.molecules import Ligand
 from qubekit.parametrisation import OpenFF
 from qubekit.utils import constants
 from qubekit.utils.exceptions import SpecificationError
@@ -130,70 +129,71 @@ def test_ddec_available():
 @pytest.mark.parametrize(
     "version", [pytest.param(3, id="DDEC3"), pytest.param(6, id="DDEC6")]
 )
-def test_chargemol_template(tmpdir, version):
+def test_chargemol_template(tmpdir, version, water):
     """
     Make sure we can correctly render a chargemol template job.
     """
     with tmpdir.as_cwd():
-        mol = Ligand.from_file(get_data("water.pdb"))
-        OpenFF().run(molecule=mol)
+        OpenFF().run(molecule=water)
         charge_method = DDECCharges(
             ddec_version=version,
         )
         # fake the chargemol dir
         os.environ["CHARGEMOL_DIR"] = "test"
         # now render the template
-        charge_method._build_chargemol_input(density_file_name="test.wfx", molecule=mol)
+        charge_method._build_chargemol_input(
+            density_file_name="test.wfx", molecule=water
+        )
         with open("job_control.txt") as job_file:
             job_data = job_file.readlines()
 
         assert f"DDEC{version}\n" in job_data
         assert "test.wfx\n" in job_data
         assert "test/atomic_densities/\n" in job_data
-        assert f"{mol.charge}\n" in job_data
+        assert f"{water.charge}\n" in job_data
 
 
-def test_gaussian_solvent_template():
+def test_gaussian_solvent_template(tmpdir, water):
     """
     Make sure that the template rendered with solvent settings matches what we expect.
     """
-    mol = Ligand.from_file(get_data("water.pdb"))
-    # get the charge method and implicit solvent engine
-    charge_engine = DDECCharges()
-    solvent_settings = charge_engine._get_calculation_settings()
-    # now make an atomic input for the harness
-    task = AtomicInput(
-        molecule=mol.to_qcschema(),
-        driver="energy",
-        model={"method": "b3lyp-d3bj", "basis": "6-311G"},
-        keywords=solvent_settings,
-    )
-    # we need the harness as this will render the template
-    gaussian_harness = GaussianHarness()
-    config = get_config(local_options={"ncores": 1, "memory": 1})
-    job_inputs = gaussian_harness.build_input(task, config)
-    # make sure the job file matches or expected reference
-    with open(get_data("gaussian_solvent_example.com")) as g_out:
-        assert g_out.read() == job_inputs["infiles"]["gaussian.com"]
+    with tmpdir.as_cwd():
+        # get the charge method and implicit solvent engine
+        charge_engine = DDECCharges()
+        solvent_settings = charge_engine._get_calculation_settings()
+        # now make an atomic input for the harness
+        task = AtomicInput(
+            molecule=water.to_qcschema(),
+            driver="energy",
+            model={"method": "b3lyp-d3bj", "basis": "6-311G"},
+            keywords=solvent_settings,
+        )
+        # we need the harness as this will render the template
+        gaussian_harness = GaussianHarness()
+        config = get_config(local_options={"ncores": 1, "memory": 1})
+        job_inputs = gaussian_harness.build_input(task, config)
+        # make sure the job file matches or expected reference
+        with open(get_data("gaussian_solvent_example.com")) as g_out:
+            assert g_out.read() == job_inputs["infiles"]["gaussian.com"]
 
 
-def test_gaussian_no_solvent_template():
+def test_gaussian_no_solvent_template(tmpdir, water):
     """
     Make sure that we can calculate the electron density with no implicit solvent.
     """
-    mol = Ligand.from_file(get_data("water.pdb"))
-    # get the charge method and implicit solvent engine
-    charge_engine = DDECCharges(solvent_settings=None)
-    settings = charge_engine._get_calculation_settings()
-    task = AtomicInput(
-        molecule=mol.to_qcschema(),
-        driver="energy",
-        model={"method": "b3lyp-d3bj", "basis": "6-311G"},
-        keywords=settings,
-    )
-    # we need the harness as this will render the template
-    gaussian_harness = GaussianHarness()
-    config = get_config(local_options={"ncores": 1, "memory": 1})
-    job_inputs = gaussian_harness.build_input(task, config)
-    with open(get_data("gaussian_gas_example.com")) as g_out:
-        assert g_out.read() == job_inputs["infiles"]["gaussian.com"]
+    with tmpdir.as_cwd():
+        # get the charge method and implicit solvent engine
+        charge_engine = DDECCharges(solvent_settings=None)
+        settings = charge_engine._get_calculation_settings()
+        task = AtomicInput(
+            molecule=water.to_qcschema(),
+            driver="energy",
+            model={"method": "b3lyp-d3bj", "basis": "6-311G"},
+            keywords=settings,
+        )
+        # we need the harness as this will render the template
+        gaussian_harness = GaussianHarness()
+        config = get_config(local_options={"ncores": 1, "memory": 1})
+        job_inputs = gaussian_harness.build_input(task, config)
+        with open(get_data("gaussian_gas_example.com")) as g_out:
+            assert g_out.read() == job_inputs["infiles"]["gaussian.com"]
