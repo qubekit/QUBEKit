@@ -14,7 +14,7 @@ def test_is_available():
 
         assert QForceHessianFitting.is_available() is True
     except (ModuleNotFoundError, ImportError):
-        assert QForceHessianFitting.is_available() is False
+        pass
 
 
 def test_generate_qforce_settings():
@@ -59,7 +59,9 @@ def test_coumarin_run(tmpdir, coumarin):
     Run coumarin through qforce and make sure we have the expected number of bond, angle, periodic and RB proper
     and improper torsions.
     """
-    if not QForceHessianFitting.is_available():
+    try:
+        QForceHessianFitting.is_available()
+    except ModuleNotFoundError:
         pytest.skip("QForce is not available skipping test.")
 
     with tmpdir.as_cwd():

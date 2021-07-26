@@ -1,7 +1,7 @@
 %Mem=1GB
 %NProcShared=1
 %Chk=lig
-# EmpiricalDispersion=GD3BJ b3lyp/6-311G  SCF=(XQC, MaxConventionalCycles=300) nosymm SP Int(Grid=UltraFine) pop=(nboread)
+# EmpiricalDispersion=GD3BJ b3lyp/6-311G  SCF=(XQC, MaxConventionalCycles=300)  SP Int(Grid=UltraFine) pop=(nboread)
 
 gaussian job
 
