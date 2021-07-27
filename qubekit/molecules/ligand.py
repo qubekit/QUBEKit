@@ -20,6 +20,7 @@ TODO ligand.py Refactor:
 import decimal
 import os
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from xml.dom.minidom import parseString
 
@@ -607,6 +608,14 @@ class Molecule(SchemaBase):
         # Create XML layout
         root = ET.Element("ForceField")
 
+        ET.SubElement(
+            root,
+            f"QUBEKit",
+            attrib={
+                "Version": qubekit.__version__,
+                "Date": datetime.now().strftime("%Y_%m_%d"),
+            },
+        )
         AtomTypes = ET.SubElement(root, "AtomTypes")
         Residues = ET.SubElement(root, "Residues")
 
