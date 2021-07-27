@@ -1,9 +1,21 @@
 import pytest
 from pydantic.error_wrappers import ValidationError
 
+import qubekit
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import XML, OpenFF
 from qubekit.utils.file_handling import get_data
+
+
+def test_xml_version(openff, acetone, tmpdir):
+    """
+    Make sure the qubekit version used to make an xml is included in the file.
+    """
+    with tmpdir.as_cwd():
+        openff.run(acetone)
+        ff = acetone._build_forcefield()
+        root = ff.find("QUBEKit")
+        assert qubekit.__version__ == root.get("Version")
 
 
 @pytest.mark.parametrize(
