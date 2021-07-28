@@ -33,19 +33,7 @@ def call_qcengine(
     """
     qc_mol = molecule.to_qcschema()
     # default keywords
-    keywords = {
-        "scf_type": "df",
-        # make sure we always use an ultrafine grid
-        "dft_spherical_points": 590,
-        "dft_radial_points": 99,
-    }
-    # include tdscf settings if requested
-    if qc_spec.td_settings is not None:
-        # use psi4 keyword settings to be consistent
-        keywords["tdscf_states"] = qc_spec.td_settings.n_states
-        keywords["tdscf_tda"] = qc_spec.td_settings.use_tda
-        # work around a setting in psi4
-        keywords["wcombine"] = False
+    keywords = qc_spec.keywords
     if extras is not None:
         keywords.update(extras)
     task = qcel.models.AtomicInput(

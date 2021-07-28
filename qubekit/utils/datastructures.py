@@ -1,5 +1,5 @@
 import abc
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import qcelemental as qcel
@@ -101,6 +101,26 @@ class QCOptions(SchemaBase):
             raise SpecificationError(
                 f"The program {self.program} is not available, available programs are {programs}"
             )
+
+    @property
+    def keywords(self) -> Dict[str, Union[str, int]]:
+        """
+        Build some keywords in a consistent way for the qcspec.
+        """
+        keywords = {
+            "scf_type": "df",
+            # make sure we always use an ultrafine grid
+            "dft_spherical_points": 590,
+            "dft_radial_points": 99,
+        }
+        if self.td_settings is not None:
+            # use psi4 keyword settings to be consistent
+            keywords["tdscf_states"] = self.td_settings.n_states
+            keywords["tdscf_tda"] = self.td_settings.use_tda
+            # work around a setting in psi4
+            if self.program.lower() == "psi4":
+                keywords["wcombine"] = False
+        return keywords
 
     @property
     def qc_model(self) -> qcel.models.common_models.Model:

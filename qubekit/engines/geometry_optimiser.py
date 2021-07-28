@@ -132,7 +132,7 @@ class GeometryOptimiser(SchemaBase):
         # now we need to distribute the job
         model = qc_spec.qc_model
         specification = qcel.models.procedures.QCInputSpecification(
-            model=model, keywords={"dft_spherical_points": 590, "dft_radial_points": 99}
+            model=model, keywords=qc_spec.keywords
         )
         initial_mol = molecule.to_qcschema()
         optimiser_keywords = self._build_optimiser_keywords(program=qc_spec.program)
