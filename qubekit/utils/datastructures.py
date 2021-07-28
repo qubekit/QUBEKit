@@ -53,6 +53,17 @@ class LocalResource(SchemaBase):
             return LocalResource(cores=cores, memory=memory)
 
 
+class TDSettings(SchemaBase):
+    """
+    A schema with available options for Time-Dependent calculations.
+    """
+
+    n_states: int = Field(3, description="The number of states to solve for.")
+    use_tda: bool = Field(
+        False, description="If we should use the Tamm-Dancoff approximation (TDA)."
+    )
+
+
 class QCOptions(SchemaBase):
     """
     A simple Schema to validate QC/ML/MM runtime options.
@@ -68,6 +79,10 @@ class QCOptions(SchemaBase):
     )
     method: str = Field(
         "wB97X-D", description="The method that should be used for the computation."
+    )
+    td_settings: Optional[TDSettings] = Field(
+        None,
+        description="Any time dependent settings that should be used during the computation. Note not all programs support this option.",
     )
 
     @validator("program", "method")
@@ -91,8 +106,18 @@ class QCOptions(SchemaBase):
     def qc_model(self) -> qcel.models.common_models.Model:
         """
         Build the QC model for the computation.
+
+        Important:
+            The method name can be changed depending on the program used and td settings
         """
-        model = qcel.models.common_models.Model(method=self.method, basis=self.basis)
+        if self.td_settings is not None and self.program == "psi4":
+            # we have to add the td tag
+            method = self.method
+            if "td" != method.split("-")[0]:
+                method = f"td-{method}"
+        else:
+            method = self.method
+        model = qcel.models.common_models.Model(method=method, basis=self.basis)
         return model
 
     def validate_specification(self) -> None:
@@ -147,6 +172,11 @@ class QCOptions(SchemaBase):
             if method not in allowed_methods:
                 raise SpecificationError(
                     f"The method {method} is not available for the program {self.program}  with basis {self.basis}, please chose from {allowed_methods}"
+                )
+        if self.td_settings is not None:
+            if self.program.lower() not in ["psi4", "gaussian"]:
+                raise SpecificationError(
+                    f"The program {self.program.lower()} does not support time-dependent calculations."
                 )
 
 

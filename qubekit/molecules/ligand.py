@@ -610,7 +610,7 @@ class Molecule(SchemaBase):
 
         ET.SubElement(
             root,
-            f"QUBEKit",
+            "QUBEKit",
             attrib={
                 "Version": qubekit.__version__,
                 "Date": datetime.now().strftime("%Y_%m_%d"),

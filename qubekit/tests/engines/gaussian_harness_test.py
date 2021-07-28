@@ -103,6 +103,32 @@ def test_build_input(tmpdir, driver, result, acetone):
             com.write(file_input)
 
 
+@pytest.mark.parametrize(
+    "use_tda, theory",
+    [pytest.param(True, "TDA", id="TDA"), pytest.param(False, "TD", id="TD")],
+)
+def test_gaussian_td_settings(tmpdir, water, use_tda, theory):
+    """
+    Test for the correct parsing of any td_settings included in the qcoptions schema.
+    """
+    with tmpdir.as_cwd():
+        task = qcel.models.AtomicInput(
+            molecule=water.to_qcschema(),
+            driver="energy",
+            model={"method": "cam-b3lyp", "basis": "6-31G*"},
+            keywords={"tdscf_states": 10, "tdscf_tda": use_tda},
+        )
+        gaussian_harness = GaussianHarness()
+        config = qcng.config.get_config(local_options={"ncores": 1, "memory": 1})
+        job_inputs = gaussian_harness.build_input(task, config)
+        job_script = job_inputs["infiles"]["gaussian.com"]
+        if use_tda:
+            theory = "TDA"
+        else:
+            theory = "TD"
+        assert job_script.find(f"{theory}=(nstates=10)") != -1
+
+
 def test_gaussian_nbo_input_file(tmpdir, water):
     """Make sure we can build a file which will run a nbo calculation when complete."""
     with tmpdir.as_cwd():

@@ -208,6 +208,8 @@ class GaussianHarness(ProgramHarness):
         )
         template_data["cmdline_extra"].extend(cmdline_extra)
         template_data["add_input"].extend(add_input)
+        # check for td settings
+        template_data["td_settings"] = self.td_settings(keywords=input_model.keywords)
         template_data.update(input_model.keywords)
         # now we need to build the coords data
         data = []
@@ -234,6 +236,17 @@ class GaussianHarness(ProgramHarness):
         if "Normal termination of Gaussian" not in logfile:
             # raise an error with the log file as output
             raise UnknownError(message=logfile)
+
+    @classmethod
+    def td_settings(cls, keywords: Dict[str, str]) -> str:
+        """Construct any time-dependent settings from the input keywords."""
+        use_tda = keywords.get("tdscf_tda")
+        states = keywords.get("tdscf_states")
+        if use_tda is None:
+            return ""
+        else:
+            theory = f"TD{'A' if use_tda else ''}=(nstates={states})"
+            return theory
 
     @classmethod
     def scf_property_conversion(
