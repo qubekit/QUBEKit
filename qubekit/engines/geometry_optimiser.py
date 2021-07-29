@@ -128,6 +128,8 @@ class GeometryOptimiser(SchemaBase):
         self._validate_specification(qc_spec=qc_spec)
         # now validate that the programs are installed
         self.check_available(program=qc_spec.program, optimiser=self.optimiser)
+        # validate the qc_model
+        qc_spec.validate_specification()
 
         # now we need to distribute the job
         model = qc_spec.qc_model

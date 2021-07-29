@@ -52,26 +52,26 @@ def test_single_point_energy(qc_options: QCOptions, tmpdir, water):
             assert result.keywords["dft_radial_points"] == 99
 
 
-def test_psi4_tddft(water, tmpdir):
-    """
-    Make sure td settings are respected and used in the calculation.
-    """
-    with tmpdir.as_cwd():
-        qc_spec = QCOptions(
-            method="td-hf",
-            basis="3-21g",
-            td_settings=TDSettings(n_states=3, use_tda=True),
-        )
-        result = call_qcengine(
-            molecule=water,
-            driver="energy",
-            qc_spec=qc_spec,
-            local_options=LocalResource(cores=1, memory=1),
-        )
-        assert (
-            "TD-HF ROOT 0 -> ROOT 1 MAGNETIC TRANSITION DIPOLE MOMENT - A SYMMETRY"
-            in result.extras["qcvars"]
-        )
+# def test_psi4_tddft(water, tmpdir):
+#     """
+#     Make sure td settings are respected and used in the calculation.
+#     """
+#     with tmpdir.as_cwd():
+#         qc_spec = QCOptions(
+#             method="td-hf",
+#             basis="3-21g",
+#             td_settings=TDSettings(n_states=3, use_tda=True),
+#         )
+#         result = call_qcengine(
+#             molecule=water,
+#             driver="energy",
+#             qc_spec=qc_spec,
+#             local_options=LocalResource(cores=1, memory=1),
+#         )
+#         assert (
+#             "TD-HF ROOT 0 -> ROOT 1 MAGNETIC TRANSITION DIPOLE MOMENT - A SYMMETRY"
+#             in result.extras["qcvars"]
+#         )
 
 
 @pytest.mark.parametrize(

@@ -31,6 +31,8 @@ def call_qcengine(
     Returns:
         The full qcelemental atomic result so any required information can be extracted.
     """
+    # validate the qc spec
+    qc_spec.validate_specification()
     qc_mol = molecule.to_qcschema()
     # default keywords
     keywords = qc_spec.keywords
