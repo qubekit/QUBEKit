@@ -3,6 +3,7 @@ import qcengine
 
 from qubekit.engines import call_qcengine
 from qubekit.utils.datastructures import LocalResource, QCOptions, TDSettings
+from qubekit.utils.exceptions import SpecificationError
 
 
 @pytest.mark.parametrize(
@@ -106,3 +107,17 @@ def test_td_method_conversion_gaussian():
     )
     qc_model = spec.qc_model
     assert qc_model.method == "cam-b3lyp"
+
+
+def test_td_psi4_validate():
+    """
+    Make sure validation fails in psi4 if we try and do a td calculation as geometry optimization does not work yet.
+    """
+    spec = QCOptions(
+        program="psi4",
+        method="td-cam-b3lyp",
+        basis="6-31+G*",
+        td_settings=TDSettings(n_states=3, use_tda=False),
+    )
+    with pytest.raises(SpecificationError):
+        spec.validate_specification()

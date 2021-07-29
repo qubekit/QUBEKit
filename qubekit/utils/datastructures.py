@@ -194,7 +194,7 @@ class QCOptions(SchemaBase):
                     f"The method {method} is not available for the program {self.program}  with basis {self.basis}, please chose from {allowed_methods}"
                 )
         if self.td_settings is not None:
-            if self.program.lower() not in ["psi4", "gaussian"]:
+            if self.program.lower() not in ["gaussian"]:
                 raise SpecificationError(
                     f"The program {self.program.lower()} does not support time-dependent calculations."
                 )
