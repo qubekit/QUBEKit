@@ -13,6 +13,7 @@ from qubekit.charges import DDECCharges, MBISCharges, SolventPsi4
 from qubekit.engines import GaussianHarness
 from qubekit.parametrisation import OpenFF
 from qubekit.utils import constants
+from qubekit.utils.datastructures import LocalResource, QCOptions, TDSettings
 from qubekit.utils.exceptions import SpecificationError
 from qubekit.utils.file_handling import get_data
 
@@ -197,3 +198,25 @@ def test_gaussian_no_solvent_template(tmpdir, water):
         job_inputs = gaussian_harness.build_input(task, config)
         with open(get_data("gaussian_gas_example.com")) as g_out:
             assert g_out.read() == job_inputs["infiles"]["gaussian.com"]
+
+
+def test_gaussian_td_solvent_template(tmpdir, water):
+    """
+    Make sure that we can calculate the electron density with implicit solvent in a td-scf calculation.
+    """
+    with tmpdir.as_cwd():
+        # get the charge method and implicit solvent engine
+        charge_engine = DDECCharges()
+        charge_engine.solvent_settings.solver_type = "IPCM"
+        qc_spec = QCOptions(
+            method="cam-b3lyp",
+            basis="6-31G",
+            program="gaussian",
+            td_settings=TDSettings(),
+        )
+        options = LocalResource(cores=1, memory=1)
+        with pytest.raises(SpecificationError):
+            charge_engine.run(water, qc_spec=qc_spec, local_options=options)
+
+        # as we can not run gaussian just make sure the solver was changed when we use td-scf
+        assert charge_engine.solvent_settings.solver_type == "PCM"
