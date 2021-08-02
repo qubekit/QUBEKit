@@ -211,9 +211,6 @@ def test_fit(mol, vs, tmpdir):
             float(mol.NonbondedForce[(1,)].charge)
         )
 
-        # now fix the total charge
-        mol.fix_net_charge()
-
         assert (
             sum(param.charge for param in mol.NonbondedForce)
             + sum(site.charge for site in mol.extra_sites)
