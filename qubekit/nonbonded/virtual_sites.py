@@ -122,6 +122,9 @@ class VirtualSites(StageBase):
         """
         # remove any old sites
         molecule.extra_sites.clear_sites()
+        for i, atom in enumerate(molecule.atoms):
+            molecule.NonbondedForce[(i,)].charge = atom.aim.charge
+
         self._coords = molecule.coordinates
         self._molecule = molecule
         for atom_index, atom in enumerate(molecule.atoms):
@@ -137,6 +140,8 @@ class VirtualSites(StageBase):
 
         # clear any cache variables
         self._clear_cache()
+
+        molecule.fix_net_charge()
 
         return molecule
 
