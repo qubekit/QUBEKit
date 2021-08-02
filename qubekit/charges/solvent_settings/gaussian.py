@@ -33,12 +33,18 @@ class SolventGaussian(SolventBase):
         """
         Format the options into a dict that can be consumed by the gaussian harness.
         """
+        # this depends on the solver used
+        eps_setting = (
+            f"Eps={self.epsilon}"
+            if self.solver_type == "PCM"
+            else f"\n{self.epsilon} {self.volume_contour}"
+        )
         data = dict(
             cmdline_extra=[
                 f"SCRF=({self.solver_type}, Read)",
                 "density=current",
                 "OUTPUT=WFX",
             ],
-            add_input=[f"\n{self.epsilon} {self.volume_contour}", "gaussian.wfx"],
+            add_input=[eps_setting, "gaussian.wfx"],
         )
         return data
