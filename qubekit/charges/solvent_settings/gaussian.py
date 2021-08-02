@@ -35,7 +35,7 @@ class SolventGaussian(SolventBase):
         """
         # this depends on the solver used
         eps_setting = (
-            f"Eps={self.epsilon}"
+            f"\nEps={self.epsilon}\n"
             if self.solver_type == "PCM"
             else f"\n{self.epsilon} {self.volume_contour}"
         )
