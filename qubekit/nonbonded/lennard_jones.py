@@ -74,8 +74,8 @@ class LennardJones612(StageBase):
                             7.6, 6.5, float(lines[i + 6].split(" ")[6])
                         )
                         try:
-                            self._alpha = float(lines[i + 7].split(" ")[2])
-                            self._beta = float(lines[i + 8].split(" ")[2])
+                            self._alpha = float(lines[i + 7].split(" ")[6])
+                            self._beta = float(lines[i + 8].split(" ")[6])
                         except (IndexError, ValueError):
                             pass
 
