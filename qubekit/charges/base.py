@@ -96,6 +96,9 @@ class ChargeBase(StageBase):
         for i in range(molecule.n_atoms):
             atom = molecule.atoms[i]
             molecule.NonbondedForce[(i,)].charge = atom.aim.charge
+
+        molecule.fix_net_charge()
+
         return molecule
 
     @abc.abstractmethod

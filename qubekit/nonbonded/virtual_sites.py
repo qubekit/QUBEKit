@@ -122,7 +122,8 @@ class VirtualSites(StageBase):
         """
         # remove any old sites
         molecule.extra_sites.clear_sites()
-        for i, atom in enumerate(molecule.atoms):
+        for i in range(molecule.n_atoms):
+            atom = molecule.atoms[i]
             molecule.NonbondedForce[(i,)].charge = atom.aim.charge
 
         self._coords = molecule.coordinates
@@ -138,10 +139,10 @@ class VirtualSites(StageBase):
 
             self._write_xyz()
 
+        self._molecule.fix_net_charge()
+
         # clear any cache variables
         self._clear_cache()
-
-        molecule.fix_net_charge()
 
         return molecule
 
@@ -868,12 +869,12 @@ class VirtualSites(StageBase):
             2: two_site_error,
         }
 
-        with open("site_results.txt", "w") as site_file:
+        with open("site_results.txt", "a+") as site_file:
 
             if one_site_error < two_site_error * self.site_error_factor:
                 site_file.write(
                     f"One virtual site has been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
-                    f"No site error: {site_errors[0]: .4f}    One site error: {site_errors[1]: .4f}"
+                    f"No site error: {site_errors[0]: .4f}    One site error: {site_errors[1]: .4f}\n"
                 )
                 self._v_sites_coords.extend(one_site_coords)
                 self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
@@ -883,7 +884,7 @@ class VirtualSites(StageBase):
             else:
                 site_file.write(
                     f"Two virtual sites have been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
-                    f"No site error: {site_errors[0]: .4f}    Two sites error: {site_errors[2]: .4f}"
+                    f"No site error: {site_errors[0]: .4f}    Two sites error: {site_errors[2]: .4f}\n"
                 )
                 self._v_sites_coords.extend(two_site_coords)
                 self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
