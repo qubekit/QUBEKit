@@ -1,7 +1,7 @@
 %Mem={{ memory }}GB
 %NProcShared={{ threads }}
 %Chk=lig
-# {{ theory }}/{{ basis }}  SCF=(XQC, MaxConventionalCycles={{ scf_maxiter }}) {{ symmetry }} {{ driver }} Int(Grid=UltraFine) {%- for cmd in cmdline_extra %} {{ cmd }} {%- endfor %}
+# {{ theory }}/{{ basis }}  SCF=(XQC, MaxConventionalCycles={{ scf_maxiter }}) {{ symmetry }} {{ driver }} Int(Grid=UltraFine) {{ td_settings }} {%- for cmd in cmdline_extra %} {{ cmd }} {%- endfor %}
 
 {{ title }}
 

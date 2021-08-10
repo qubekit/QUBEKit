@@ -63,6 +63,8 @@ class TorsionDriver(SchemaBase):
         Returns:
             The molecule with the results of the scan saved in it.
         """
+        # validate the qc spec
+        qc_spec.validate_specification()
         td_state = self._create_initial_state(
             molecule=molecule, dihedral_data=dihedral_data, qc_spec=qc_spec
         )

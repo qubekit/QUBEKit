@@ -9,7 +9,7 @@ from pydantic import Field
 from typing_extensions import Literal
 
 from qubekit.charges.solvent_settings.base import SolventBase
-from qubekit.utils.datastructures import LocalResource, QCOptions, StageBase
+from qubekit.utils.datastructures import LocalResource, QCOptions, StageBase, TDSettings
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
@@ -36,6 +36,10 @@ class ChargeBase(StageBase):
     method: Optional[str] = Field(
         None,
         description="The alternative method name, to specify a different one from that used for optimisations.",
+    )
+    td_settings: Optional[TDSettings] = Field(
+        None,
+        description="The alternative Time-Dependent calculation settings that should be used in the calculation.",
     )
 
     def finish_message(self, **kwargs) -> str:
@@ -74,6 +78,7 @@ class ChargeBase(StageBase):
                 program=self.program,
                 method=self.method,
                 basis=self.basis,
+                td_settings=self.td_settings,
             )
         return None
 

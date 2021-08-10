@@ -10,11 +10,12 @@ class SolventGaussian(SolventBase):
     """A simple schema to encode the Gaussian implicit solvent settings.
 
     Important:
-        We currently only support the IPCM with an epsilon value of 4
+        All Rfree values were fit to IPCM with an epsilon of 4. IPCM is not available with TD-SCF calculations
+        and so PCM must be used. This is still in development.
     """
 
     program: Literal["gaussian"] = "gaussian"
-    solver_type: Literal["IPCM"] = Field(
+    solver_type: Literal["IPCM", "PCM"] = Field(
         "IPCM",
         description="The solver type to be used when calculating the polarised density.",
     )
@@ -32,12 +33,18 @@ class SolventGaussian(SolventBase):
         """
         Format the options into a dict that can be consumed by the gaussian harness.
         """
+        # this depends on the solver used
+        eps_setting = (
+            f"\nEps={self.epsilon}\n"
+            if self.solver_type == "PCM"
+            else f"\n{self.epsilon} {self.volume_contour}"
+        )
         data = dict(
             cmdline_extra=[
                 f"SCRF=({self.solver_type}, Read)",
                 "density=current",
                 "OUTPUT=WFX",
             ],
-            add_input=[f"\n{self.epsilon} {self.volume_contour}", "gaussian.wfx"],
+            add_input=[eps_setting, "gaussian.wfx"],
         )
         return data

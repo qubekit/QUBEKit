@@ -153,6 +153,9 @@ class DDECCharges(ChargeBase):
         Returns:
             The molecule updated with the raw partitioned reference data.
         """
+        if qc_spec.td_settings is not None:
+            # we need to set the solvent solver to PCM
+            self.solvent_settings.solver_type = "PCM"
         # get the solvent keywords
         extras = self._get_calculation_settings()
 

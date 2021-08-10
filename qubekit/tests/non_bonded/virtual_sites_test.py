@@ -191,6 +191,8 @@ def test_get_vector_from_coords(vs, mol):
 
 def test_fit(mol, vs, tmpdir):
     with tmpdir.as_cwd():
+        # make sure this is the reference value
+        assert mol.atoms[1].aim.charge == -0.183627
         vs.run(molecule=mol)
         # make sure we have a site
         assert mol.extra_sites.n_sites == 2
@@ -201,8 +203,8 @@ def test_fit(mol, vs, tmpdir):
         # make sure the other values are similar to the aim values
         for atom in mol.atoms:
             if atom.atom_index != 1:
-                assert atom.aim.charge == float(
-                    mol.NonbondedForce[(atom.atom_index,)].charge
+                assert atom.aim.charge == pytest.approx(
+                    float(mol.NonbondedForce[(atom.atom_index,)].charge), abs=1e-5
                 )
 
         LennardJones612().run(molecule=mol)
@@ -231,5 +233,6 @@ def test_refit(mol, vs, tmpdir):
         # check the sites are the same
         assert ref.extra_sites[1][0].charge == mol.extra_sites[1][0].charge
         assert ref.extra_sites[1][1].charge == mol.extra_sites[1][1].charge
+        assert ref.NonbondedForce[(1,)].charge == mol.NonbondedForce[(1,)].charge
         # make sure the aim data was not changed
         assert ref.atoms[1].aim.charge == mol.atoms[1].aim.charge

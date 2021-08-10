@@ -1,7 +1,7 @@
 %Mem=1GB
 %NProcShared=1
 %Chk=lig
-# EmpiricalDispersion=GD3BJ b3lyp/6-311G  SCF=(XQC, MaxConventionalCycles=300)  SP Int(Grid=UltraFine) SCRF=(IPCM, Read) density=current OUTPUT=WFX
+# EmpiricalDispersion=GD3BJ b3lyp/6-311G  SCF=(XQC, MaxConventionalCycles=300)  SP Int(Grid=UltraFine)  SCRF=(IPCM, Read) density=current OUTPUT=WFX
 
 gaussian job
 

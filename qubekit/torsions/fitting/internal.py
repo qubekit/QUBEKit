@@ -11,7 +11,7 @@ import numpy as np
 from scipy.optimize import differential_evolution, minimize
 from scipy.stats import linregress
 
-from qubekit.engines import Gaussian, OpenMM
+from qubekit.engines import OpenMM
 from qubekit.molecules.ligand import Ligand
 from qubekit.utils import constants
 from qubekit.utils.file_handling import make_and_change_into

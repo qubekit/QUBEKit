@@ -31,14 +31,11 @@ def call_qcengine(
     Returns:
         The full qcelemental atomic result so any required information can be extracted.
     """
+    # validate the qc spec
+    qc_spec.validate_specification()
     qc_mol = molecule.to_qcschema()
     # default keywords
-    keywords = {
-        "scf_type": "df",
-        # make sure we always use an ultrafine grid
-        "dft_spherical_points": 590,
-        "dft_radial_points": 99,
-    }
+    keywords = qc_spec.keywords
     if extras is not None:
         keywords.update(extras)
     task = qcel.models.AtomicInput(
