@@ -91,6 +91,7 @@ class Parametrisation(StageBase, abc.ABC):
 
         try:
             in_root = ET.parse("serialised.xml").getroot()
+            forces = dict((f.get("type"), f) for f in in_root.iter("Force"))
 
             # Extract any virtual site data only supports local coords atm, charges are added later
             for i, virtual_site in enumerate(in_root.iter("LocalCoordinatesSite")):
@@ -121,79 +122,106 @@ class Parametrisation(StageBase, abc.ABC):
                     site = VirtualSite4Point(**site_data)
                 sites[i] = site
 
-            # Extract all bond data
-            for Bond in in_root.iter("Bond"):
+            # Extract all harmonic bond data
+            molecule.BondForce.clear_parameters()
+            for Bond in forces["HarmonicBondForce"].iter("Bond"):
                 bond = (int(Bond.get("p1")), int(Bond.get("p2")))
                 molecule.BondForce.create_parameter(
                     atoms=bond, length=float(Bond.get("d")), k=float(Bond.get("k"))
                 )
 
             # Extract all angle data
-            for Angle in in_root.iter("Angle"):
+            molecule.AngleForce.clear_parameters()
+            for Angle in forces["HarmonicAngleForce"].iter("Angle"):
                 angle = int(Angle.get("p1")), int(Angle.get("p2")), int(Angle.get("p3"))
                 molecule.AngleForce.create_parameter(
                     atoms=angle, angle=float(Angle.get("a")), k=float(Angle.get("k"))
                 )
 
             # Extract all non-bonded data, do not add virtual site info to the nonbonded list
+            molecule.NonbondedForce.clear_parameters()
+            # make sure we remove sites and make charges consistent
+            molecule.extra_sites.clear_sites()
             atom_num, site_num = 0, 0
-            for Atom in in_root.iter("Particle"):
-                if "q" in Atom.attrib:
-                    if atom_num >= molecule.n_atoms:
-                        sites[site_num].charge = float(Atom.get("q"))
-                        site_num += 1
-                    else:
-                        molecule.NonbondedForce.create_parameter(
-                            atoms=(atom_num,),
-                            charge=float(Atom.get("q")),
-                            sigma=float(Atom.get("sig")),
-                            epsilon=float(Atom.get("eps")),
-                        )
-                        atom_num += 1
+            for Atom in forces["NonbondedForce"].iter("Particle"):
+                if atom_num >= molecule.n_atoms:
+                    sites[site_num].charge = float(Atom.get("q"))
+                    site_num += 1
+                else:
+                    molecule.NonbondedForce.create_parameter(
+                        atoms=(atom_num,),
+                        charge=float(Atom.get("q")),
+                        sigma=float(Atom.get("sig")),
+                        epsilon=float(Atom.get("eps")),
+                    )
+                    atom_num += 1
 
             # Check if we found any sites
             if sites:
-                # Ensure old sites are removed
-                molecule.extra_sites.clear_sites()
-
                 for site in sites.values():
                     molecule.extra_sites.add_site(site=site)
 
-            # Extract all of the torsion data
-            for Torsion in in_root.iter("Torsion"):
-                k = float(Torsion.get("k"))
-                # if k=0 there is no value in saving
-                if k == 0:
-                    continue
-                tor_str = tuple(int(Torsion.get(f"p{i}")) for i in range(1, 5))
-                phase = float(Torsion.get("phase"))
-                if phase == 3.141594:
-                    phase = constants.PI
-                p = Torsion.get("periodicity")
-                data = {"k" + p: k, "periodicity" + p: int(p), "phase" + p: phase}
-                # check if the torsion is proper or improper
-                if check_proper_torsion(torsion=tor_str, molecule=molecule):
-                    try:
-                        torsion = molecule.TorsionForce[tor_str]
-                        torsion.update(**data)
-                    except MissingParameterError:
-                        molecule.TorsionForce.create_parameter(atoms=tor_str, **data)
-                else:
-                    try:
-                        improper_str = check_improper_torsion(
-                            improper=tor_str, molecule=molecule
-                        )
+            # Extract all of the periodic torsion data
+            molecule.TorsionForce.clear_parameters()
+            molecule.ImproperTorsionForce.clear_parameters()
+            if "PeriodicTorsionForce" in forces:
+                for Torsion in forces["PeriodicTorsionForce"].iter("Torsion"):
+                    k = float(Torsion.get("k"))
+                    # if k=0 there is no value in saving
+                    if k == 0:
+                        continue
+                    tor_str = tuple(int(Torsion.get(f"p{i}")) for i in range(1, 5))
+                    phase = float(Torsion.get("phase"))
+                    if phase == 3.141594:
+                        phase = constants.PI
+                    p = Torsion.get("periodicity")
+                    data = {"k" + p: k, "periodicity" + p: int(p), "phase" + p: phase}
+                    # check if the torsion is proper or improper
+                    if check_proper_torsion(torsion=tor_str, molecule=molecule):
                         try:
-                            torsion = molecule.ImproperTorsionForce[improper_str]
+                            torsion = molecule.TorsionForce[tor_str]
                             torsion.update(**data)
                         except MissingParameterError:
-                            molecule.ImproperTorsionForce.create_parameter(
+                            molecule.TorsionForce.create_parameter(
+                                atoms=tor_str, **data
+                            )
+                    else:
+                        try:
+                            improper_str = check_improper_torsion(
+                                improper=tor_str, molecule=molecule
+                            )
+                            try:
+                                torsion = molecule.ImproperTorsionForce[improper_str]
+                                torsion.update(**data)
+                            except MissingParameterError:
+                                molecule.ImproperTorsionForce.create_parameter(
+                                    atoms=improper_str, **data
+                                )
+                        except TopologyMismatch:
+                            raise RuntimeError(
+                                f"Found a periodic torsion that is not proper or improper {tor_str}"
+                            )
+
+            molecule.RBTorsionForce.clear_parameters()
+            molecule.ImproperRBTorsionForce.clear_parameters()
+            if "RBTorsionForce" in forces:
+                for RBTorsion in forces["RBTorsionForce"].iter("Torsion"):
+                    tor_str = tuple(int(RBTorsion.get(f"p{i}")) for i in range(1, 5))
+                    data = dict((f"c{i}", RBTorsion.get(f"c{i}")) for i in range(6))
+                    if check_proper_torsion(torsion=tor_str, molecule=molecule):
+                        molecule.RBTorsionForce.create_parameter(atoms=tor_str, **data)
+                    else:
+                        try:
+                            improper_str = check_improper_torsion(
+                                improper=tor_str, molecule=molecule
+                            )
+                            molecule.ImproperRBTorsionForce.create_parameter(
                                 atoms=improper_str, **data
                             )
-                    except TopologyMismatch:
-                        raise RuntimeError(
-                            f"Found a torsion that is not proper or improper {tor_str}"
-                        )
+                        except TopologyMismatch:
+                            raise RuntimeError(
+                                f"Found a RB torsion that is not proper or improper {tor_str}"
+                            )
 
             return molecule
         except FileNotFoundError:

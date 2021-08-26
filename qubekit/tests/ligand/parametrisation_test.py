@@ -1,5 +1,7 @@
 import pytest
+from parmed.openmm import energy_decomposition_system, load_topology
 from pydantic.error_wrappers import ValidationError
+from simtk.openmm import XmlSerializer, app
 
 import qubekit
 from qubekit.molecules import Ligand
@@ -271,9 +273,6 @@ def test_round_trip_energy(tmpdir, molecule, method, openff, antechamber):
     Note we relax the comparison to abs=2e-3 due to differences in nonbonded cutoffs, phase rounding and the ordering
     improper torsions are applied.
     """
-    from parmed.openmm import energy_decomposition_system, load_topology
-    from simtk.openmm import XmlSerializer, app
-
     if method == "openff":
         engine = openff
     else:
@@ -332,6 +331,9 @@ def test_amber_improper(tmpdir, antechamber):
         antechamber.run(molecule=mol)
         assert mol.TorsionForce.ordering == "amber"
         assert mol.ImproperTorsionForce.n_parameters == 6
+        assert mol.TorsionForce.n_parameters == 24
+        assert mol.RBTorsionForce.n_parameters == 0
+        assert mol.ImproperRBTorsionForce.n_parameters == 0
 
 
 def test_param_storage(tmpdir):
@@ -412,3 +414,51 @@ def test_parameter_tags(tmpdir, force_group, ff_group, key, terms):
                     assert ff_term.get("parametrize") == "test tag"
                 else:
                     assert ff_term.get("parametrize", None) is None
+
+
+def test_read_rb_terms(tmpdir):
+    """
+    Make sure we can parameterise a molecules using an xml file with RB torsion terms.
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(file_name=get_data("cyclohexane.sdf"))
+        XML().run(molecule=mol, input_files=[get_data("cyclohexane.xml")])
+        # there should be 6 RB terms
+        assert mol.RBTorsionForce.n_parameters == 6
+        # and no periodic terms
+        assert mol.TorsionForce.n_parameters == 0
+
+
+def test_rb_energy_round_trip(tmpdir):
+    """
+    Make sure that no parameters are lost when reading in  RBterms.
+    """
+    with tmpdir.as_cwd():
+        # load the molecule and parameterise
+        mol = Ligand.from_file(file_name=get_data("cyclohexane.sdf"))
+        XML().run(molecule=mol, input_files=[get_data("cyclohexane.xml")])
+        # load the serialised system we extract the parameters from as our reference
+        ref_system = XmlSerializer.deserializeSystem(open("serialised.xml").read())
+        parm_top = load_topology(
+            mol.to_openmm_topology(), system=ref_system, xyz=mol.openmm_coordinates()
+        )
+        ref_energy = energy_decomposition_system(
+            parm_top, ref_system, platform="Reference"
+        )
+        # now we need to build the system from our stored parameters
+        mol.write_parameters(file_name="test.xml")
+        ff = app.ForceField("test.xml")
+        qube_system = ff.createSystem(mol.to_openmm_topology())
+        with open("qube.xml", "w") as xml_out:
+            xml_out.write(XmlSerializer.serialize(qube_system))
+        qube_struc = load_topology(
+            mol.to_openmm_topology(), system=qube_system, xyz=mol.openmm_coordinates()
+        )
+        qube_energy = energy_decomposition_system(
+            qube_struc, qube_system, platform="Reference"
+        )
+        # compare the decomposed energies of the groups
+        for force_group, energy in ref_energy:
+            for qube_force, qube_e in qube_energy:
+                if force_group == qube_force:
+                    assert energy == pytest.approx(qube_e, abs=2e-3)
