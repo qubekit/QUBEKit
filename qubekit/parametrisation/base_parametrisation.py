@@ -61,7 +61,9 @@ class Parametrisation(StageBase, abc.ABC):
         system = self._build_system(molecule=molecule, input_files=input_files)
         self._serialise_system(system=system)
         self._gather_parameters(molecule=molecule)
-        molecule.TorsionForce.ordering = self._improper_torsion_ordering()
+        # only reset the ordering if it is default else this might have been set by another stage
+        if molecule.TorsionForce.ordering == "default":
+            molecule.TorsionForce.ordering = self._improper_torsion_ordering()
         return molecule
 
     def _serialise_system(self, system: System) -> None:
