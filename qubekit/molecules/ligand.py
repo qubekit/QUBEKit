@@ -30,9 +30,16 @@ import qcelemental as qcel
 from pydantic import Field, validator
 from qcelemental.models.types import Array
 from rdkit import Chem
-from simtk import unit
-from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple
-from simtk.openmm.app.element import Element
+
+try:
+    # fix for the openmm namechange
+    from openmm import unit
+    from openmm.app import Aromatic, Double, Single, Topology, Triple
+    from openmm.app.element import Element
+except (ModuleNotFoundError, ImportError):
+    from simtk import unit
+    from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple
+    from simtk.openmm.app.element import Element
 
 import qubekit
 from qubekit.forcefield import (
