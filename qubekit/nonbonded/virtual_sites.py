@@ -758,7 +758,7 @@ class VirtualSites(StageBase):
             {
                 "type": "ineq",
                 "fun": VirtualSites._two_site_one_or_three_bond_constraint_lambda,
-            }
+            },
         ]
         for constraint in constraints:
             two_site_fit = minimize(
