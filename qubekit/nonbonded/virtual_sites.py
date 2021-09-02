@@ -670,7 +670,7 @@ class VirtualSites(StageBase):
         return sum(abs(self._no_site_esps - site_esps))
 
     @staticmethod
-    def _two_site_one_bond_constraint_charge(x):
+    def _two_site_one_or_three_bond_constraint_charge(x):
         """
         In the case of a halogen atom being given two virtual sites,
         mimicking the chemistry would imply a positive and negative charge either side of the atom.
@@ -680,7 +680,7 @@ class VirtualSites(StageBase):
         return -1 * x[0] * x[1]
 
     @staticmethod
-    def _two_site_one_bond_constraint_lambda(x):
+    def _two_site_one_or_three_bond_constraint_lambda(x):
         """
         In the case of a halogen atom being given two virtual sites,
         mimicking the chemistry would imply a positive and negative charge either side of the atom.
@@ -741,33 +741,44 @@ class VirtualSites(StageBase):
     def _fit_two_sites_one_or_three_bonds(self, atom_index: int):
         """
         Fit method for two sites whose parent, <atom_index> has one or three bonds
-        e.g. uncharged halogens and nitrogens
+        e.g. uncharged halogens, carbonyls and nitrogens
         """
         vec_a, vec_b = self._get_vector_from_coords(atom_index, n_sites=2)
         bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
-        if len(self._molecule.atoms[atom_index].bonds) == 1:
-            constraint = {
+
+        # dummy variables to be overwritten
+        error = 10000
+        two_site_coords = []
+
+        constraints = [
+            {
                 "type": "ineq",
-                "fun": VirtualSites._two_site_one_bond_constraint_charge,
+                "fun": VirtualSites._two_site_one_or_three_bond_constraint_charge,
+            },
+            {
+                "type": "ineq",
+                "fun": VirtualSites._two_site_one_or_three_bond_constraint_lambda,
             }
-        else:
-            constraint = None
-        two_site_fit = minimize(
-            self._two_sites_objective_function,
-            np.array([0.0, 0.0, 1.0, 1.0]),
-            args=(atom_index, vec_a, vec_b),
-            bounds=bounds,
-            constraints=constraint,
-        )
-        error = two_site_fit.fun / len(self._sample_points)
-        q_a, q_b, lam_a, lam_b = two_site_fit.x
-        site_a_coords, site_b_coords = self._sites_coords_from_vecs_and_lams(
-            atom_index, lam_a, lam_b, vec_a, vec_b
-        )
-        two_site_coords = [
-            (site_a_coords, q_a, atom_index),
-            (site_b_coords, q_b, atom_index),
         ]
+        for constraint in constraints:
+            two_site_fit = minimize(
+                self._two_sites_objective_function,
+                np.array([0.0, 0.0, 1.0, 1.0]),
+                args=(atom_index, vec_a, vec_b),
+                bounds=bounds,
+                constraints=constraint,
+            )
+            if two_site_fit.fun / len(self._sample_points) < error:
+                error = two_site_fit.fun / len(self._sample_points)
+
+                q_a, q_b, lam_a, lam_b = two_site_fit.x
+                site_a_coords, site_b_coords = self._sites_coords_from_vecs_and_lams(
+                    atom_index, lam_a, lam_b, vec_a, vec_b
+                )
+                two_site_coords = [
+                    (site_a_coords, q_a, atom_index),
+                    (site_b_coords, q_b, atom_index),
+                ]
         return error, two_site_coords
 
     def _fit_two_sites_two_bonds(self, atom_index: int):
