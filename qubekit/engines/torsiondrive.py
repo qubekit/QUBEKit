@@ -1,4 +1,6 @@
 import copy
+import os
+import shutil
 from multiprocessing import Pool
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -98,6 +100,7 @@ class TorsionDriver(SchemaBase):
         resource_settings = local_options.divide_resource(n_tasks=self.n_workers)
         complete = False
         target_dihedral = td_state["dihedrals"][0]
+        total_jobs = -1
         while not complete:
             new_jobs = self._get_new_jobs(td_state=td_state)
             if not new_jobs:
@@ -114,6 +117,7 @@ class TorsionDriver(SchemaBase):
                     )
                     for grid_id_str, job_geo_list in new_jobs.items():
                         for geo_job in job_geo_list:
+                            total_jobs += 1
                             work_list.append(
                                 pool.apply_async(
                                     func=optimise_grid_point,
@@ -125,6 +129,7 @@ class TorsionDriver(SchemaBase):
                                         geo_job,
                                         target_dihedral,
                                         grid_id_str,
+                                        total_jobs,
                                     ),
                                 )
                             )
@@ -142,6 +147,7 @@ class TorsionDriver(SchemaBase):
                 # make a work list as well
                 for grid_id_str, job_geo_list in new_jobs.items():
                     for geo_job in job_geo_list:
+                        total_jobs += 1
                         work_list.append(
                             (
                                 geometry_optimiser,
@@ -152,6 +158,7 @@ class TorsionDriver(SchemaBase):
                                 geo_job,
                                 target_dihedral,
                                 grid_id_str,
+                                total_jobs,
                             )
                         )
                 for work in tqdm.tqdm(
@@ -204,12 +211,18 @@ class TorsionDriver(SchemaBase):
                     break
         # validate the data
         torsion_data.validate_angles()
-        # dump to file
+        # dump to file (qdata.txt and scan.xyz)
         export_torsiondrive_data(molecule=molecule, tdrive_data=torsion_data)
+        # dump the qubekit torsion data to file
+        torsion_data.to_file("scan_data.json")
         # save to mol
         molecule.add_qm_scan(scan_data=torsion_data)
         # dump the torsiondrive state to file
         td_api.current_state_json_dump(td_state, "torsiondrive_state.json")
+        # now remove all temp folders
+        for f in os.listdir("."):
+            if os.path.isdir(f):
+                shutil.rmtree(f, ignore_errors=True)
 
         return molecule
 
@@ -352,6 +365,7 @@ def optimise_grid_point(
     coordinates: List[float],
     dihedral: Tuple[int, int, int, int],
     dihedral_angle: int,
+    job_id: int,
 ) -> GridPointResult:
     """
     For the given molecule at its initial coordinates perform a restrained optimisation at the given dihedral angle.
@@ -364,12 +378,13 @@ def optimise_grid_point(
         coordinates: The input coordinates in bohr made by torsiondrive.
         dihedral: The atom indices of the dihedral which should be fixed.
         dihedral_angle: The angle the dihedral should be set to during the optimisation.
+        job_id: The id of the job used to build the scratch folder
 
     Returns:
         The result of the optimisation which contains the initial and final geometry along with the final energy.
     """
     # build a folder to run the calculation in we only store the last calculation at the grid point.
-    with folder_setup(folder_name=f"grid_point_{dihedral_angle}"):
+    with folder_setup(folder_name=f"grid_point_{dihedral_angle}_job_{job_id}"):
         # build the optimiser constraints and set torsiondrive settings
         optimiser_settings = _build_optimiser_settings(
             dihedral=dihedral, dihedral_angle=dihedral_angle

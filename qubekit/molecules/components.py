@@ -324,6 +324,7 @@ class ReferenceData(BaseModel):
 
     class Config:
         validate_assignment = True
+        json_encoders = {np.ndarray: lambda v: v.flatten().tolist()}
 
     @validator("geometry", "gradient")
     def _check_geom_grad(cls, array: np.ndarray) -> np.array:
@@ -368,6 +369,7 @@ class TorsionDriveData(BaseModel):
     class Config:
         validate_assignment = True
         allow_mutation = False
+        json_encoders = {np.ndarray: lambda v: v.flatten().tolist()}
 
     @validator("torsion_drive_range")
     def _check_scan_range(cls, scan_range: Tuple[int, int]) -> Tuple[int, int]:
@@ -375,6 +377,13 @@ class TorsionDriveData(BaseModel):
         Make sure the scan range is in order lowest to highest.
         """
         return tuple(sorted(scan_range))
+
+    def to_file(self, file_name: str) -> None:
+        """
+        Write the object to file.
+        """
+        with open(file_name, "w") as output:
+            output.write(self.json(indent=2))
 
     @property
     def max_angle(self) -> int:
