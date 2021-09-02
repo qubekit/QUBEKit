@@ -78,6 +78,7 @@ def test_optimise_grid_point_and_update(tmpdir, ethane_state):
             coordinates=coords,
             dihedral=ethane_state["dihedrals"][0],
             dihedral_angle=-60,
+            job_id=0,
         )
         new_state = tdriver._update_state(
             td_state=ethane_state,
