@@ -21,6 +21,10 @@ class BasicParameterModel(BaseModel, abc.ABC):
         set(),
         description="Any cosmetic attributes which should be added to the xml such as tagging parameters for fitting with ForceBalance.",
     )
+    parameter_eval: Set[str] = Field(
+        set(),
+        description="A list of parameter eval tags that should be added to the xml to constrain parameters.",
+    )
 
     class Config:
         validate_assignment = True
@@ -66,7 +70,7 @@ class BaseParameter(BasicParameterModel):
 
     def xml_data(self) -> Dict[str, str]:
         """Get the xml data for this parameter in the correct format."""
-        data = self.dict(exclude={"atoms", "attributes", "type"})
+        data = self.dict(exclude={"atoms", "attributes", "type", "parameter_eval"})
         # we need to string everything
         for key, value in data.items():
             if value == "pi":
@@ -78,8 +82,11 @@ class BaseParameter(BasicParameterModel):
         attribute_string = ", ".join(
             attribute for attribute in self.attributes if self.attributes
         )
+        eval_string = ", ".join(param_eval for param_eval in self.parameter_eval)
         if attribute_string:
             data["parameterize"] = attribute_string
+        if eval_string:
+            data["parameter_eval"] = eval_string
         # now do class tags
         for i, atom in enumerate(self.atoms, start=1):
             data[f"class{i}"] = str(atom)

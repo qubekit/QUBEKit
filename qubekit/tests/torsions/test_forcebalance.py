@@ -112,12 +112,15 @@ def test_generate_forcefield(tmpdir, biphenyl):
     Test generating a fitting forcefield for forcebalance with the correct torsion terms tagged.
     """
     with tmpdir.as_cwd():
+        fb = ForceBalanceFitting()
         os.mkdir("forcefield")
         # get some openff params for the ligand
         OpenFF().run(molecule=biphenyl)
-        ForceBalanceFitting.generate_forcefield(molecule=biphenyl)
+        fb.generate_forcefield(molecule=biphenyl)
         # load the forcefield and check for cosmetic tags
         root = ET.parse(os.path.join("forcefield", "bespoke.xml")).getroot()
+        p_tags = 0
+        eval_tags = 0
         for torsion in root.iter(tag="Proper"):
             a1 = torsion.get(key="class1")
             a2 = torsion.get(key="class2")
@@ -125,15 +128,50 @@ def test_generate_forcefield(tmpdir, biphenyl):
             a4 = torsion.get(key="class4")
             atoms = [a1, a2, a3, a4]
             dihedral = [int(re.search("[0-9]+", atom).group()) for atom in atoms]
-            # if we have the same central bond make sure we have the parametrise tag
-            tag = torsion.get(key="parameterize", default=None)
             central_bond = dihedral[1:3]
-            if central_bond == [10, 11] or central_bond == [11, 10]:
-                # make sure we have a tag
-                for t in tag.split(","):
-                    assert t.strip() in ["k1", "k2", "k3", "k4"]
+            # if we have the same central bond make sure we have the parametrise or eval tag
+            p_tag = torsion.get(key="parameterize", default=None)
+            if p_tag is not None:
+                p_tags += 1
+                if central_bond == (10, 11) or central_bond == (11, 10):
+                    # make sure we have a tag
+                    for t in p_tag.split(","):
+                        assert t.strip() in ["k1", "k2", "k3", "k4"]
             else:
-                assert tag is None
+                eval_tag = torsion.get(key="parameter_eval", default=None)
+                if eval_tag is not None:
+                    eval_tags += 1
+
+                else:
+                    assert eval_tag is None
+        # all torsions are the same symmetry type, so we should have one parametrize tag
+        # and 3 eval tags
+        assert p_tags == 1
+        assert eval_tags == 3
+
+
+def test_torsion_symmetry_groups(mol_47):
+    """
+    Test grouping the targeted torsions by symmetry groups.
+    """
+    fb = ForceBalanceFitting()
+    # only return the OH torsions, there are two
+    bonds = mol_47.find_rotatable_bonds(smirks_to_remove=["[#6:1]~[#6:2]"])
+    assert len(bonds) == 2
+    # now find all torsions for the first bond
+    oh_bond = bonds[0]
+    all_dihedrals = mol_47.dihedrals
+    try:
+        dihedrals = all_dihedrals[oh_bond.indices]
+    except KeyError:
+        dihedrals = all_dihedrals[tuple(reversed(oh_bond.indices))]
+    dihedral_groups = fb.group_by_symmetry(molecule=mol_47, dihedrals=dihedrals)
+    # there should only be two types in the OH torsions
+    assert len(dihedral_groups) == 2
+    # one torsion from OH to core, for each OH
+    assert len(dihedral_groups[0]) == 2
+    # two torsion from OH the CH3, for each OH
+    assert len(dihedral_groups[1]) == 4
 
 
 def test_generate_optimise_in(tmpdir, biphenyl):
@@ -171,17 +209,26 @@ def test_full_optimise(tmpdir, biphenyl):
         OpenFF().run(biphenyl)
         # use default values
         fb = ForceBalanceFitting()
-        fitted_molecule = fb.run(molecule=biphenyl)
+        fit_molecule = biphenyl.copy(deep=True)
+        fit_molecule = fb.run(molecule=fit_molecule)
         # now compare the fitted results
+        master_terms = None
         for old_values in biphenyl.TorsionForce:
             central_bond = old_values.atoms[1:3]
-            if central_bond == [10, 11] or central_bond == [11, 10]:
+            if central_bond == (10, 11) or central_bond == (11, 10):
                 # compare the k values, making sure they have been changed
-                fitted_values = fitted_molecule.TorsionForce[old_values.atoms]
+                fitted_values = fit_molecule.TorsionForce[old_values.atoms]
+                if master_terms is None:
+                    master_terms = fitted_values.copy(deep=True)
                 assert fitted_values.k1 != old_values.k1
                 assert fitted_values.k2 != old_values.k2
                 assert fitted_values.k3 != old_values.k3
                 assert fitted_values.k4 != old_values.k4
+                # make sure all terms are the same between the symmetry equivalent dihedrals
+                assert fitted_values.k1 == master_terms.k1
+                assert fitted_values.k2 == master_terms.k2
+                assert fitted_values.k3 == master_terms.k3
+                assert fitted_values.k4 == master_terms.k4
 
 
 def test_optimise_no_target(tmpdir, biphenyl):

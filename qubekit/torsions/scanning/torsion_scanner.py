@@ -101,6 +101,9 @@ class TorsionScan1D(StageBase):
             print("No rotatable bonds found to scan!")
             return molecule
 
+        # remove symmetry duplicates
+        bonds = self._get_symmetry_unique_bonds(molecule=drive_mol, bonds=bonds)
+
         torsion_scans = []
         for bond in bonds:
             # get the scan range and a torsion for the bond
@@ -119,6 +122,20 @@ class TorsionScan1D(StageBase):
         # make sure we have all of the scans we expect
         assert len(result_mol.qm_scans) == len(bonds)
         return result_mol
+
+    def _get_symmetry_unique_bonds(
+        self, molecule: "Ligand", bonds: List["Bond"]
+    ) -> List["Bond"]:
+        """
+        For a list of central torsion bonds deduplicate the list by bond symmetry types.
+        """
+        atom_types = molecule.atom_types
+        unique_bonds = {}
+        for bond in bonds:
+            bond_type = f"{atom_types[bond.atom1_index]}-{atom_types[bond.atom2_index]}"
+            if bond_type not in unique_bonds and bond_type[::-1] not in unique_bonds:
+                unique_bonds[bond_type] = bond
+        return list(unique_bonds.values())
 
     def _get_scan_range(self, molecule: "Ligand", bond: "Bond") -> Tuple[int, int]:
         """

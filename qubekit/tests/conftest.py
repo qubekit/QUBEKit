@@ -5,7 +5,7 @@ from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.utils.file_handling import get_data
 
 
-@pytest.fixture
+@pytest.fixture()
 def acetone():
     """
     Make a ligand class from the acetone pdb.
@@ -13,27 +13,32 @@ def acetone():
     return Ligand.from_file(file_name=get_data("acetone.sdf"))
 
 
-@pytest.fixture
+@pytest.fixture()
 def water():
     """Make a qube water molecule."""
     return Ligand.from_file(file_name=get_data("water.pdb"))
 
 
-@pytest.fixture
+@pytest.fixture()
 def antechamber():
     return AnteChamber(force_field="gaff2")
 
 
-@pytest.fixture
+@pytest.fixture()
 def openff():
     return OpenFF(force_field="openff_unconstrained-1.3.0.offxml")
 
 
-@pytest.fixture
+@pytest.fixture()
 def xml():
     return XML()
 
 
-@pytest.fixture
+@pytest.fixture()
 def coumarin():
     return Ligand.parse_file(get_data("coumarin_hess_wbo.json"))
+
+
+@pytest.fixture()
+def mol_47():
+    return Ligand.from_smiles("CC(C)(O)CCC(C)(C)O", "mol_47")
