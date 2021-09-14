@@ -150,3 +150,16 @@ def test_double_dihedral(tmpdir):
         assert len(result_mol.qm_scans) == 2
         # make sure input molecule coords were not changed
         assert np.allclose(mol.coordinates, result_mol.coordinates)
+
+
+def test_symmetry_deduplication(tmpdir, mol_47):
+    """Make sure only one torsion per symmetry group is found."""
+
+    scanner = TorsionScan1D()
+    # get all rotatable bonds
+    smirks = [torsion.smirks for torsion in scanner.avoided_torsions]
+    bonds = mol_47.find_rotatable_bonds(smirks_to_remove=smirks)
+    assert len(bonds) == 5
+    # now deduplicate for symmetry
+    bonds = scanner._get_symmetry_unique_bonds(mol_47, bonds)
+    assert len(bonds) == 3

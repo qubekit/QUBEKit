@@ -5,7 +5,7 @@ import abc
 import copy
 import os
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from pydantic import BaseModel, Field, PositiveFloat, PositiveInt
 from qcelemental.util import which_import
@@ -212,7 +212,7 @@ class ForceBalanceFitting(StageBase):
     convergence_step_criteria: PositiveFloat = 0.01
     convergence_objective_criteria: PositiveFloat = 0.01
     convergence_gradient_criteria: PositiveFloat = 0.01
-    n_criteria: PositiveInt = 2
+    n_criteria: PositiveInt = 1
     eig_lowerbound: PositiveFloat = 0.01
     finite_difference_h: PositiveFloat = 0.01
     penalty_additive: PositiveFloat = 0.1
@@ -314,8 +314,7 @@ class ForceBalanceFitting(StageBase):
             result_ligand = self.collect_results(molecule=molecule)
             return result_ligand
 
-    @staticmethod
-    def generate_forcefield(molecule: Ligand) -> None:
+    def generate_forcefield(self, molecule: Ligand) -> None:
         """
         For the given molecule generate the fitting forcefield with the target torsion terms tagged with the parameterize keyword.
 
@@ -339,18 +338,62 @@ class ForceBalanceFitting(StageBase):
             except KeyError:
                 dihedrals = copy_mol.dihedrals[tuple(reversed(central_bond))]
 
-            for dihedral in dihedrals:
-                # add parametrise flags for forcebalance
-                parameter = copy_mol.TorsionForce[dihedral]
+            dihedral_groups = self.group_by_symmetry(
+                molecule=copy_mol, dihedrals=dihedrals
+            )
+
+            for dihedral_group in dihedral_groups:
+                # add parametrise flags for forcebalance to one dihedral in the group
+                # the rest get parameter eval tags referenced to this master dihedral
+                master_dihedral = dihedral_group[0]
+                dihedral_string = ".".join(str(i) for i in master_dihedral)
+                eval_tags = [
+                    f"k{i}=PARM['Proper/k{i}/{dihedral_string}']" for i in range(1, 5)
+                ]
+                master_parameter = copy_mol.TorsionForce[master_dihedral]
+
                 # we need to make sure all parameters are bigger than 0 to be loaded into an OpenMM system
                 parameter_data = {"attributes": {"k1", "k2", "k3", "k4"}}
                 for k in ["k1", "k2", "k3", "k4"]:
-                    if getattr(parameter, k) == 0:
+                    if getattr(master_parameter, k) == 0:
                         parameter_data[k] = 1e-6
-                parameter.update(**parameter_data)
+                master_parameter.update(**parameter_data)
+
+                # now add parameter evals
+                for dihedral in dihedral_group[1:]:
+                    parameter = copy_mol.TorsionForce[dihedral]
+                    parameter.parameter_eval = eval_tags
 
         # now we have all of the dihedrals build the force field
         copy_mol.write_parameters(file_name=os.path.join("forcefield", "bespoke.xml"))
+
+    def group_by_symmetry(
+        self, molecule: Ligand, dihedrals: List[Tuple[int, int, int, int]]
+    ) -> List[List[Tuple[int, int, int, int]]]:
+        """
+        For a list of target dihedrals to be optimised group them by symmetry type.
+
+        Note:
+            Dihedrals not in the target bond but in the same symmetry group are also included.
+        """
+        dihedral_types = molecule.dihedral_types
+        atom_types = molecule.atom_types
+        dihedral_groups = {}
+        for dihedral in dihedrals:
+            # get the dihedral type
+            dihedral_type = "-".join(atom_types[i] for i in dihedral)
+            # now get all dihedrals of this type
+            if (
+                dihedral_type not in dihedral_groups
+                and dihedral_type[::-1] not in dihedral_groups
+            ):
+                try:
+                    dihedral_groups[dihedral_type] = dihedral_types[dihedral_type]
+                except KeyError:
+                    dihedral_groups[dihedral_type[::-1]] = dihedral_types[
+                        dihedral_type[::-1]
+                    ]
+        return list(dihedral_groups.values())
 
     def generate_optimise_in(self, target_data: Dict[str, List[str]]) -> None:
         """
