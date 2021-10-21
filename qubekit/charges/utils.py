@@ -17,27 +17,6 @@ class ExtractChargeData:
     Store all info back into the molecule object
     """
 
-    # @classmethod
-    # def read_files(
-    #     cls,
-    #     molecule: "Ligand",
-    #     dir_path: str,
-    #     charges_engine: Literal["chargemol", "onetep"] = "chargemol",
-    # ) -> "Ligand":
-    #     if charges_engine == "chargemol":
-    #         # TODO Add way of finding ddec version based on files present before use
-    #         updated_mol = cls.extract_charge_data_chargemol(
-    #             molecule, dir_path, molecule.ddec_version
-    #         )
-    #     elif charges_engine == "onetep":
-    #         updated_mol = cls.extract_charge_data_onetep(molecule, dir_path)
-    #     else:
-    #         raise ModuleNotFoundError(
-    #             "Only chargemol or onetep are currently usable engines in QUBEKit."
-    #         )
-    #
-    #     return updated_mol
-
     @classmethod
     def extract_charge_data_chargemol(
         cls,

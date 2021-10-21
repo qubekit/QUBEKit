@@ -260,3 +260,45 @@ class LennardJones612(StageBase):
             non_bonded_forces[atom.atom_index] = (sigma, epsilon)
 
         return non_bonded_forces
+
+    def _calculate_b_prime(
+        self,
+        lj_data: Dict[int, LJData],
+        molecule: "Ligand",
+    ) -> Dict[int, Tuple[float, float]]:
+        """
+        Use the lj_data to calculate the sigma values, as well as a b_free_prime value.
+        b_free_prime is used purely for FB optimisation, not normal MD simulations.
+        ordinarily, epsilon = b_free_prime / (128 * r_free ** 6)
+        However, to use in an FB optimisation, we must input b_free_prime instead of epsilon directly,
+        since r_free needs to be optimised.
+        Args:
+            lj_data: Dict of the a_i, b_i and r_aim values needed for sigma/epsilon calculation.
+            molecule: The molecule we should calculate the non-bonded values for.
+        Returns:
+            The calculated sigma and b_free_prime (called epsilon as placeholder) values
+            ready to be inserted into the molecule object.
+        """
+
+        non_bonded_forces = {}
+
+        for atom, lj_datum in zip(molecule.atoms, lj_data.values()):
+            atomic_symbol, atom_vol = atom.atomic_symbol, atom.aim.volume
+            if not lj_datum.a_i:
+                sigma, epsilon = 1, 0
+            else:
+                sigma = (lj_datum.a_i / lj_datum.b_i) ** (1 / 6)
+                sigma *= constants.SIGMA_CONVERSION
+
+                # Used purely for FB optimisation.
+                # eps = b_free_prime / (128 * r_free ** 6)
+                b_free_prime = lj_datum.b_i / (
+                    (atom_vol / self.free_parameters[atomic_symbol].v_free) ** 2
+                )
+
+                # rename for inserting into dict.
+                epsilon = b_free_prime
+
+            non_bonded_forces[atom.atom_index] = (sigma, epsilon)
+
+        return non_bonded_forces
