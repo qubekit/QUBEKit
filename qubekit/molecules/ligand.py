@@ -34,11 +34,11 @@ from rdkit import Chem
 try:
     # fix for the openmm namechange
     from openmm import unit
-    from openmm.app import Aromatic, Double, Single, Topology, Triple
+    from openmm.app import Aromatic, Double, PDBFile, Single, Topology, Triple
     from openmm.app.element import Element
 except (ModuleNotFoundError, ImportError):
     from simtk import unit
-    from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple
+    from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple, PDBFile
     from simtk.openmm.app.element import Element
 
 import qubekit
@@ -1106,6 +1106,24 @@ class Ligand(Molecule):
             routine=routine,
         )
 
+    def has_ub_terms(self) -> bool:
+        """Return `True` if the molecule has Ure-Bradly terms, as there are forces between non-bonded atoms."""
+        for bond in self.BondForce:
+            try:
+                self.get_bond_between(*bond.atoms)
+            except TopologyMismatch:
+                return True
+        return False
+
+    def _to_ub_pdb(self) -> None:
+        """A privet method to write the molecule to a non-standard pdb file with connections for Urey-Bradly terms."""
+        openmm_top = self.to_openmm_topology()
+        PDBFile.writeFile(
+            topology=openmm_top,
+            positions=self.openmm_coordinates(),
+            file=open(f"{self.name}.pdb", "w"),
+        )
+
     @staticmethod
     def _check_file_name(file_name: str) -> None:
         """
@@ -1200,6 +1218,16 @@ class Ligand(Molecule):
             topology.addBond(
                 atom1=atom1, atom2=atom2, type=b_type, order=bond.bond_order
             )
+        # now check for Urey-Bradley terms
+        for bond in self.BondForce:
+            try:
+                self.get_bond_between(*bond.atoms)
+            except TopologyMismatch:
+                # the bond is not in the bond list so add it as a u-b term
+                atom1 = top_atoms[bond.atoms[0]]
+                atom2 = top_atoms[bond.atoms[1]]
+                # this is a fake bond used for U-B terms.
+                topology.addBond(atom1=atom1, atom2=atom2, type=Single, order=1)
 
         return topology
 
@@ -1210,7 +1238,7 @@ class Ligand(Molecule):
         mapped: bool = False,
     ) -> str:
         """
-        Create a canonical smiles representation for the molecule based on the input setttings.
+        Create a canonical smiles representation for the molecule based on the input settings.
 
         Args:
             isomeric:
