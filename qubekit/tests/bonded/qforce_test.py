@@ -21,7 +21,9 @@ def test_generate_qforce_settings():
     """
     Generate the qforce settings string.
     """
-    qf = QForceHessianFitting(combination_rule="amber", charge_scaling=1, use_urey_bradley=False)
+    qf = QForceHessianFitting(
+        combination_rule="amber", charge_scaling=1, use_urey_bradley=False
+    )
     settings = qf._generate_settings()
     expected = """
         [ff]
