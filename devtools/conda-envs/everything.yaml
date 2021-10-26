@@ -1,7 +1,6 @@
 name: test
 channels:
   - conda-forge
-  - psi4
   - psi4/label/dev
   - defaults
 dependencies:
@@ -25,16 +24,16 @@ dependencies:
   - scipy
   - networkx >=2.4
   - matplotlib-base
-  - qcengine >=0.20.0
-  - qcelemental >=0.23.0
+  - qcengine >=0.18.0
+  - qcelemental >=0.19.0
   - jinja2
   - typing-extensions
 
   # Optional
   - xtb-python
   - torchani
-  - psi4 =1.4.1
-  - gau2grid
+  - psi4 =1.4a2.dev1058+670a850
+  - gau2grid =2.0.3
   - dftd3
   - gcp
   - optking
