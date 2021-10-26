@@ -21,7 +21,9 @@ def test_generate_qforce_settings():
     """
     Generate the qforce settings string.
     """
-    qf = QForceHessianFitting(combination_rule="amber", charge_scaling=1)
+    qf = QForceHessianFitting(
+        combination_rule="amber", charge_scaling=1, use_urey_bradley=False
+    )
     settings = qf._generate_settings()
     expected = """
         [ff]
@@ -32,7 +34,7 @@ def test_generate_qforce_settings():
         ext_h_cap = H0
         charge_scaling = 1.0
         [terms]
-        urey = false
+        urey = False
         """
     assert settings.read() == StringIO(expected).read()
 
