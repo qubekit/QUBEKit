@@ -4,6 +4,7 @@ Test generating charge reference data or storing charges.
 
 import os
 
+import numpy as np
 import pytest
 from qcelemental.models import AtomicInput
 from qcelemental.util import which_import
@@ -17,82 +18,35 @@ from qubekit.utils.datastructures import LocalResource, QCOptions, TDSettings
 from qubekit.utils.exceptions import SpecificationError
 from qubekit.utils.file_handling import get_data
 
-# def test_mbis_water_no_symm(tmpdir):
-#     """
-#     Make sure we can generate some mbis values for a molecule in a water solvent.
-#     """
-#     if not which_import("psi4", raise_error=False, return_bool=True):
-#         pytest.skip("Skipping as PSI4 not installed.")
-#     with tmpdir.as_cwd():
-#         mol = Ligand.from_file(get_data("water.pdb"))
-#         OpenFF().parametrise_molecule(molecule=mol)
-#         charge_method = MBISCharges(
-#             apply_symmetry=False,
-#             basis="sto-3g",
-#             method="hf",
-#             cores=1,
-#             memory=1,
-#             solvent_settings=SolventPsi4(medium_Solvent="water", units="au"),
-#         )
-#         mol = charge_method.run(molecule=mol)
-#         assert mol.atoms[0].aim.charge == pytest.approx(-0.60645602)
-#         assert mol.atoms[1].aim.charge == pytest.approx(0.30312772)
-#         assert np.allclose(
-#             mol.atoms[0].dipole.to_array(),
-#             np.array([-0.00340732, -0.02118032, -0.00321348]),
-#         )
-#         assert np.allclose(
-#             mol.atoms[1].dipole.to_array(),
-#             np.array([0.00601651, -0.00138073, -0.00013425]),
-#         )
-#         assert np.allclose(
-#             mol.atoms[0].quadrupole.to_array(),
-#             np.array(
-#                 [
-#                     [0.02579991, 0.00198263, 0.00139757],
-#                     [0.00198263, 0.03733655, 0.01542122],
-#                     [0.00139757, 0.01542122, -0.06313645],
-#                 ]
-#             ),
-#         )
-#         assert np.allclose(
-#             mol.atoms[1].quadrupole.to_array(),
-#             np.array(
-#                 [
-#                     [-8.38231138e-03, 1.54368625e-02, 2.10736120e-03],
-#                     [1.54368625e-02, -7.36342859e-05, -1.11254560e-03],
-#                     [2.10736120e-03, -1.11254560e-03, 8.45594566e-03],
-#                 ]
-#             ),
-#         )
 
-
-# def test_mbis_water_symm(tmpdir):
-#     """
-#     Make sure symmetry is correctly applied when requested to the reference charge values.
-#     """
-#     if not which_import("psi4", raise_error=False, return_bool=True):
-#         pytest.skip("Skipping as PSI4 not installed.")
-#     with tmpdir.as_cwd():
-#         mol = Ligand.from_file(get_data("water.pdb"))
-#         OpenFF().parametrise_molecule(molecule=mol)
-#         charge_method = MBISCharges(
-#             apply_symmetry=True,
-#             basis="sto-3g",
-#             method="hf",
-#             cores=1,
-#             memory=1,
-#             solvent_settings=SolventPsi4(medium_Solvent="water", units="au"),
-#         )
-#         mol = charge_method.run(molecule=mol)
-#         assert mol.atoms[1].aim.charge == float(mol.atoms[2].aim.charge)
-#         assert mol.atoms[1].aim.volume == mol.atoms[2].aim.volume
-#         # make sure the force is updated as well
-#         assert mol.atoms[0].aim.charge == float(mol.NonbondedForce[(0,)].charge)
-#         assert mol.NonbondedForce[(1,)].charge == mol.NonbondedForce[(2,)].charge
-#         # make sure the quadrupole is traceless
-#         for atom in mol.atoms:
-#             assert np.trace(atom.quadrupole.to_array()) == pytest.approx(0)
+def test_mbis_water_symm(tmpdir, water):
+    """
+    Make sure symmetry is correctly applied when requested to the reference charge values.
+    """
+    if not which_import("psi4", raise_error=False, return_bool=True):
+        pytest.skip("Skipping as PSI4 not installed.")
+    with tmpdir.as_cwd():
+        OpenFF().run(molecule=water)
+        charge_method = MBISCharges(
+            basis="sto-3g",
+            method="hf",
+            solvent_settings=SolventPsi4(medium_Solvent="water", units="au"),
+        )
+        local_options = LocalResource(cores=1, memory=1)
+        mol = charge_method.run(molecule=water, local_options=local_options)
+        # use approx as we do rounding with symmetry
+        assert mol.atoms[1].aim.charge == pytest.approx(float(mol.atoms[2].aim.charge))
+        assert mol.atoms[1].aim.volume == pytest.approx(mol.atoms[2].aim.volume)
+        # make sure the force is updated as well
+        assert mol.atoms[0].aim.charge == pytest.approx(
+            float(mol.NonbondedForce[(0,)].charge)
+        )
+        assert mol.NonbondedForce[(1,)].charge == pytest.approx(
+            mol.NonbondedForce[(2,)].charge
+        )
+        # make sure the quadrupole is traceless
+        for atom in mol.atoms:
+            assert np.trace(atom.quadrupole.to_array()) == pytest.approx(0)
 
 
 def test_mbis_available():

@@ -18,16 +18,16 @@ jobs:
       fail-fast: false
       matrix:
         cfg:
-          - conda-env: basic
-            python-version: 3.7
-            os: ubuntu-latest
-
-          - conda-env: basic
-            python-version: 3.7
-            os: macOS-latest
+#          - conda-env: basic
+#            python-version: 3.7
+#            os: ubuntu-latest
+#
+#          - conda-env: basic
+#            python-version: 3.7
+#            os: macOS-latest
 
           - conda-env: everything
-            python-version: 3.7
+            python-version: 3.8
             os: ubuntu-latest
 
           - conda-env: basic
@@ -54,11 +54,14 @@ jobs:
           ulimit -a
 
       - name: Create Environment
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v2.1.1
         with:
           activate-environment: test
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
           python-version: ${{ matrix.cfg.python-version }}
+
+          channels: conda-forge,psi4,defaults
+
           auto-update-conda: true
           auto-activate-base: false
           show-channel-urls: true
