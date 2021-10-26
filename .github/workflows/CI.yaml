@@ -60,7 +60,7 @@ jobs:
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
           python-version: ${{ matrix.cfg.python-version }}
 
-          channels: conda-forge,psi4,psi4/label/dev/,defaults
+          channels: conda-forge,psi4,defaults
 
           auto-update-conda: true
           auto-activate-base: false
