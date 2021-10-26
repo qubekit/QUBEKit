@@ -86,6 +86,8 @@ class ChargeBase(StageBase):
         """
         A template run method which makes sure symmetry is applied when requested.
         """
+        # remove any extra sites as they will be invalidated by new charges
+        molecule.extra_sites.clear_sites()
         local_options = kwargs.get("local_options")
         # use the alternative or if not the provided spec
         qc_spec = self._get_qc_options() or kwargs.get("qc_spec")
