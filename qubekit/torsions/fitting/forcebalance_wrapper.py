@@ -346,11 +346,12 @@ class ForceBalanceFitting(StageBase):
                 # add parametrise flags for forcebalance to one dihedral in the group
                 # the rest get parameter eval tags referenced to this master dihedral
                 master_dihedral = dihedral_group[0]
-                dihedral_string = ".".join(str(i) for i in master_dihedral)
+                master_parameter = copy_mol.TorsionForce[master_dihedral]
+                # use the parameter atom order to be consistent
+                dihedral_string = ".".join(str(i) for i in master_parameter.atoms)
                 eval_tags = [
                     f"k{i}=PARM['Proper/k{i}/{dihedral_string}']" for i in range(1, 5)
                 ]
-                master_parameter = copy_mol.TorsionForce[master_dihedral]
 
                 # we need to make sure all parameters are bigger than 0 to be loaded into an OpenMM system
                 parameter_data = {"attributes": {"k1", "k2", "k3", "k4"}}
