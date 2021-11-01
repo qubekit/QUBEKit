@@ -29,6 +29,11 @@ class QForceHessianFitting(StageBase):
     charge_scaling: float = Field(
         1, description="The amount by which the charge should be scaled during fitting."
     )
+    use_urey_bradley: bool = Field(
+        False,
+        description="If Urey-Bradley coupling terms should also be fit using QForce.",
+    )
+
     _combination_to_scaling: Dict[str, Dict[str, float]] = PrivateAttr(
         {"amber": {"lj": 0.5, "charge": 0.8333, "comb_rule": 2}}
     )
@@ -72,7 +77,7 @@ class QForceHessianFitting(StageBase):
         ext_h_cap = H0
         charge_scaling = {self.charge_scaling}
         [terms]
-        urey = false
+        urey = {self.use_urey_bradley}
         """
         return StringIO(settings)
 
@@ -159,6 +164,19 @@ class QForceHessianFitting(StageBase):
             if round(angle.fconst, ndigits=3) != 0:
                 angle_data = {"angle": angle.equ, "k": angle.fconst}
                 molecule.AngleForce.create_parameter(tuple(angle.atomids), **angle_data)
+        if "urey" in qforce_terms:
+            # grab urey angle terms and make a bond for the terminal atoms
+            for urey in qforce_terms["urey"]:
+                if round(urey.fconst * 100, ndigits=3) != 0:
+                    urey_data = {
+                        "length": urey.equ * constants.ANGS_TO_NM,
+                        "k": urey.fconst * 100,
+                    }
+                    atoms = urey.atomids
+                    # make sure to grab the terminal atoms when making the bond term
+                    molecule.BondForce.create_parameter(
+                        atoms=tuple([atoms[0], atoms[2]]), **urey_data
+                    )
         for dihedral in qforce_terms["dihedral"]["rigid"]:
             if round(dihedral.fconst / 4, ndigits=3) != 0:
                 dihedral_data = {
