@@ -53,6 +53,7 @@ class TorsionDriver(SchemaBase):
         dihedral_data: TorsionScan,
         qc_spec: "QCOptions",
         local_options: "LocalResource",
+        seed_coordinates: Optional[List[np.ndarray]] = None,
     ) -> "Ligand":
         """
         Run a torsion drive for the given molecule and the targeted dihedral. The results of the scan are packed into the
@@ -68,7 +69,10 @@ class TorsionDriver(SchemaBase):
         # validate the qc spec
         qc_spec.validate_specification()
         td_state = self._create_initial_state(
-            molecule=molecule, dihedral_data=dihedral_data, qc_spec=qc_spec
+            molecule=molecule,
+            dihedral_data=dihedral_data,
+            qc_spec=qc_spec,
+            seed_coordinates=seed_coordinates,
         )
         return self._run_torsiondrive(
             td_state=td_state,
@@ -231,6 +235,7 @@ class TorsionDriver(SchemaBase):
         molecule: "Ligand",
         dihedral_data: TorsionScan,
         qc_spec: "QCOptions",
+        seed_coordinates: Optional[List[np.ndarray]] = None,
     ) -> Dict[str, Any]:
         """
         Create the initial state for the torsion drive using the input settings.
@@ -246,14 +251,23 @@ class TorsionDriver(SchemaBase):
             The torsiondrive dict or the initial state.
         """
 
-        if self.starting_conformations > 1:
+        if seed_coordinates is not None:
+            coords = seed_coordinates
+
+        elif self.starting_conformations > 1:
             coords = molecule.generate_conformers(
                 n_conformers=self.starting_conformations
             )
+
         else:
             coords = [
                 copy.deepcopy(molecule.coordinates),
             ]
+
+        # write out the starting geometries
+        molecule.to_multiconformer_file(
+            file_name="starting_coords.xyz", positions=coords
+        )
 
         td_state = td_api.create_initial_state(
             dihedrals=[
