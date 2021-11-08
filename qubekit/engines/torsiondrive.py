@@ -100,8 +100,6 @@ class TorsionDriver(SchemaBase):
 
         # build the geometry optimiser
         geometry_optimiser = self._build_geometry_optimiser()
-        # create a new local resource object by dividing the current one by n workers
-        resource_settings = local_options.divide_resource(n_tasks=self.n_workers)
         complete = False
         target_dihedral = td_state["dihedrals"][0]
         total_jobs = -1
@@ -113,12 +111,15 @@ class TorsionDriver(SchemaBase):
 
             work_list = []
             results = []
+            n_jobs = sum([len(value) for value in new_jobs.values()])
             if self.n_workers > 1:
+                # make a pool of workers based on the number of jobs to run and the max workers available
+                workers = min([n_jobs, self.n_workers])
+                # create a new local resource object by dividing the current one by n workers
+                resource_settings = local_options.divide_resource(n_tasks=workers)
                 # start worker pool for multiple optimisers
                 with Pool(processes=self.n_workers) as pool:
-                    print(
-                        f"setting up {self.n_workers} workers to compute optimisations"
-                    )
+                    print(f"setting up {workers} workers to compute optimisations")
                     for grid_id_str, job_geo_list in new_jobs.items():
                         for geo_job in job_geo_list:
                             total_jobs += 1
