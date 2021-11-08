@@ -14,24 +14,28 @@ from qubekit.utils.file_handling import get_data
 
 
 @pytest.fixture
-def ethane_state() -> Dict[str, Any]:
+def ethane_state(tmpdir) -> Dict[str, Any]:
     """
     build an initial state for a ethane scan.
     """
-    mol = Ligand.from_file(get_data("ethane.sdf"))
-    bond = mol.find_rotatable_bonds()[0]
-    dihedral = mol.dihedrals[bond.indices][0]
-    tdriver = TorsionDriver(grid_spacing=15)
-    # make the scan data
-    dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
-    qc_spec = QCOptions(program="rdkit", basis=None, method="uff")
-    td_state = tdriver._create_initial_state(
-        molecule=mol, dihedral_data=dihedral_data, qc_spec=qc_spec
-    )
-    return td_state
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("ethane.sdf"))
+        bond = mol.find_rotatable_bonds()[0]
+        dihedral = mol.dihedrals[bond.indices][0]
+        tdriver = TorsionDriver(grid_spacing=15)
+        # make the scan data
+        dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
+        qc_spec = QCOptions(program="rdkit", basis=None, method="uff")
+        td_state = tdriver._create_initial_state(
+            molecule=mol, dihedral_data=dihedral_data, qc_spec=qc_spec
+        )
+        return td_state
 
 
-def test_get_initial_state(tmpdir):
+@pytest.mark.parametrize(
+    "starting_conformations", [pytest.param(1, id="1"), pytest.param(4, id="4")]
+)
+def test_get_initial_state(tmpdir, starting_conformations):
     """
     Make sure we can correctly build a starting state using the torsiondrive api.
     """
@@ -39,7 +43,7 @@ def test_get_initial_state(tmpdir):
         mol = Ligand.from_file(get_data("ethane.sdf"))
         bond = mol.find_rotatable_bonds()[0]
         dihedral = mol.dihedrals[bond.indices][0]
-        tdriver = TorsionDriver()
+        tdriver = TorsionDriver(starting_conformations=starting_conformations)
         # make the scan data
         dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
         td_state = tdriver._create_initial_state(
@@ -55,6 +59,35 @@ def test_get_initial_state(tmpdir):
         assert np.allclose(
             (mol.coordinates * constants.ANGS_TO_BOHR), td_state["init_coords"][0]
         )
+        # make sure we have tried to generate conformers
+        assert len(td_state["init_coords"]) <= tdriver.starting_conformations
+
+
+def test_initial_state_coords_passed(tmpdir):
+    """
+    Make sure any seed conformations are used in the initial state
+    """
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("ethane.sdf"))
+        bond = mol.find_rotatable_bonds()[0]
+        dihedral = mol.dihedrals[bond.indices][0]
+        tdriver = TorsionDriver()
+        # make the scan data
+        dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
+        # make some mock coords
+        coords = [np.random.random(size=(mol.n_atoms, 3)) for _ in range(4)]
+        td_state = tdriver._create_initial_state(
+            molecule=mol,
+            dihedral_data=dihedral_data,
+            qc_spec=QCOptions(),
+            seed_coordinates=coords,
+        )
+        assert len(td_state["init_coords"]) == 4
+        # make sure they are the same random coords
+        for i in range(4):
+            assert np.allclose(
+                (coords[i] * constants.ANGS_TO_BOHR), td_state["init_coords"][i]
+            )
 
 
 def test_optimise_grid_point_and_update(tmpdir, ethane_state):
@@ -91,7 +124,10 @@ def test_optimise_grid_point_and_update(tmpdir, ethane_state):
         assert "-45" in next_jobs
 
 
-def test_full_tdrive(tmpdir):
+@pytest.mark.parametrize(
+    "workers", [pytest.param(1, id="1 worker"), pytest.param(2, id="2 workers")]
+)
+def test_full_tdrive(tmpdir, workers):
     """
     Try and run a full torsiondrive for ethane with a cheap rdkit method.
     """
@@ -103,9 +139,9 @@ def test_full_tdrive(tmpdir):
         dihedral = ethane.dihedrals[bond.indices][0]
         dihedral_data = TorsionScan(torsion=dihedral, scan_range=(-165, 180))
         qc_spec = QCOptions(program="rdkit", basis=None, method="uff")
-        local_ops = LocalResource(cores=1, memory=1)
+        local_ops = LocalResource(cores=workers, memory=2)
         tdriver = TorsionDriver(
-            n_workers=1,
+            n_workers=workers,
             grid_spacing=60,
         )
         _ = tdriver.run_torsiondrive(
