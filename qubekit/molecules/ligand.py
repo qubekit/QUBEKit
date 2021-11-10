@@ -1115,13 +1115,13 @@ class Ligand(Molecule):
                 return True
         return False
 
-    def _to_ub_pdb(self) -> None:
+    def _to_ub_pdb(self, file_name: Optional[str] = None) -> None:
         """A privet method to write the molecule to a non-standard pdb file with connections for Urey-Bradly terms."""
         openmm_top = self.to_openmm_topology()
         PDBFile.writeFile(
             topology=openmm_top,
             positions=self.openmm_coordinates(),
-            file=open(f"{self.name}.pdb", "w"),
+            file=open(f"{file_name or self.name}.pdb", "w"),
         )
 
     @staticmethod
