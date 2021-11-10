@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 import pytest
+from rdkit.Chem.rdchem import AtomValenceException
 
 from qubekit.molecules import Ligand, TorsionDriveData
 from qubekit.parametrisation import OpenFF
@@ -63,6 +64,25 @@ def test_torsion_target_generation(tmpdir, biphenyl):
         required_files = ["molecule.pdb", "metadata.json", "qdata.txt", "scan.xyz"]
         for f in required_files:
             assert f in os.listdir(target_name)
+
+
+def test_target_generation_ub_terms(tmpdir, biphenyl):
+    """
+    Make sure we can make a valid target folder when we have ub terms.
+    """
+    with tmpdir.as_cwd():
+        mol = biphenyl.copy(deep=True)
+        # add a ub term for each angle
+        for angle in mol.angles:
+            mol.BondForce.create_parameter(atoms=(angle[0], angle[2]), length=1, k=1)
+        torsion_target = TorsionProfile()
+        target_folders = torsion_target.prep_for_fitting(molecule=mol)
+
+        with pytest.raises(
+            AtomValenceException,
+            match="Explicit valence for atom # 6 C, 5, is greater than permitted",
+        ):
+            _ = Ligand.from_file(os.path.join(target_folders[0], "molecule.pdb"))
 
 
 def test_target_prep_no_data(tmpdir, biphenyl):

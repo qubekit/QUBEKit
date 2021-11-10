@@ -149,7 +149,10 @@ class TorsionProfile(TargetBase):
             target_folders.append(task_name)
             make_and_change_into(name=task_name)
             # make the pdb topology file
-            molecule.to_file(file_name="molecule.pdb")
+            if molecule.has_ub_terms():
+                molecule._to_ub_pdb(file_name="molecule")
+            else:
+                molecule.to_file(file_name="molecule.pdb")
             # write the qdata file
             export_torsiondrive_data(molecule=molecule, tdrive_data=scan)
             # make the metadata
