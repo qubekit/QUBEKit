@@ -58,7 +58,7 @@ class LennardJones612(StageBase):
         Parameters are taken from the "Final physical parameters" section and stored
         to be used in the proceeding LJ calculations.
         """
-        for file in os.listdir("."):
+        for file in os.listdir("../../"):
             if file.endswith(".out"):
                 with open(file) as opt_file:
                     lines = opt_file.readlines()
