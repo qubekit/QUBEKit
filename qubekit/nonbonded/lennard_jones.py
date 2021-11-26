@@ -60,7 +60,7 @@ class LennardJones612(StageBase):
         """
         for file in os.listdir("../../"):
             if file.endswith(".out"):
-                with open(file) as opt_file:
+                with open(f"../../{file}") as opt_file:
                     lines = opt_file.readlines()
                     for i, line in enumerate(lines):
                         if "Final physical parameters" in line:
