@@ -22,6 +22,7 @@ class LennardJones612(StageBase):
         description="If polar hydrogen should keep their LJ values `True`, rather than transfer them to the parent atom `False`.",
     )
     free_parameters: ClassVar[Dict[str, FreeParams]] = {
+        # v_free, b_free, r_free
         "H": FreeParams(7.6, 6.5, 1.64),
         "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
         "B": FreeParams(46.7, 99.5, 2.08),
@@ -52,32 +53,36 @@ class LennardJones612(StageBase):
         return True
 
     def extract_rfrees(self):
-        if "optimise.out" in os.listdir("../../"):
-            print("Rfree parameters extracted from ForceBalance output.")
-            with open("../../optimise.out") as opt_file:
-                lines = opt_file.readlines()
-                for i, line in enumerate(lines):
-                    if "Final physical parameters:" in line:
-                        self.free_parameters["C"] = FreeParams(
-                            34.4, 46.6, float(lines[i + 2].split(" ")[6])
+        """
+        Open any .out files from ForceBalance and read in the relevant parameters.
+        Parameters are taken from the "Final physical parameters" section and stored
+        to be used in the proceeding LJ calculations.
+        """
+        for file in os.listdir("."):
+            if file.endswith(".out"):
+                with open(file) as opt_file:
+                    lines = opt_file.readlines()
+                    for i, line in enumerate(lines):
+                        if "Final physical parameters" in line:
+                            lines = lines[i:]
+                            break
+                    else:
+                        raise EOFError(
+                            "Could not find final parameters in ForceBalance file."
                         )
-                        self.free_parameters["N"] = FreeParams(
-                            25.9, 24.2, float(lines[i + 3].split(" ")[6])
-                        )
-                        self.free_parameters["O"] = FreeParams(
-                            22.1, 15.6, float(lines[i + 4].split(" ")[6])
-                        )
-                        self.free_parameters["H"] = FreeParams(
-                            7.6, 6.5, float(lines[i + 5].split(" ")[6])
-                        )
-                        self.free_parameters["X"] = FreeParams(
-                            7.6, 6.5, float(lines[i + 6].split(" ")[6])
-                        )
-                        try:
-                            self._alpha = float(lines[i + 7].split(" ")[6])
-                            self._beta = float(lines[i + 8].split(" ")[6])
-                        except (IndexError, ValueError):
-                            pass
+                for line in lines:
+                    for k, v in self.free_parameters.items():
+                        if f"{k}Element" in line:
+                            self.free_parameters[k] = FreeParams(
+                                v.v_free, v.b_free, float(line.split(" ")[6])
+                            )
+                            print(f"Updated {k}free parameter from ForceBalance file.")
+                    if "xalpha" in line:
+                        self._alpha = float(line.split(" ")[6])
+                        print("Updated alpha parameter from ForceBalance file.")
+                    elif "xbeta" in line:
+                        self._beta = float(line.split(" ")[6])
+                        print("Updated beta parameter from ForceBalance file.")
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
