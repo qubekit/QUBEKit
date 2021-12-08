@@ -203,7 +203,7 @@ name,smiles,multiplicity,config_file,restart,end
 *Only the name column needs to be filled (which is filled automatically with the generated csv),
 any empty columns will simply use the default values:
 
-* The smiles string column only needs to be filled if a pdb is *not* supplied;
+* The smiles string column only needs to be filled if a file is *not* supplied;
 * If the multiplicity column is empty, multiplicity will be set to 1; 
 * If the config column is empty, the default config is used;
 * Leaving the restart column empty will start the program from the beginning;
@@ -213,13 +213,13 @@ A bulk analysis is called with the `run` command, followed by the name of the cs
 
     qubekit bulk run example.csv
     
-Any pdb files should all be in the same place: where you're running QUBEKit from.
+Any necessary files should all be in the same place: where you're running QUBEKit from.
 Upon executing this bulk command, QUBEKit will work through the rows in the csv file.
 Each molecule will be given its own directory (the same as single molecule analyses).
 
-Be aware that the names of the pdb files are used as keys to find the configs.
-So, each pdb being analysed should have a corresponding row in the csv file with the correct name
-(if using smiles strings, the name column will just be the name given to the created pdb file).
+Be aware that the names of the files are used as keys to find the configs.
+So, each molecule file being analysed should have a corresponding row in the csv file with the correct name
+(if using smiles strings, the name column will just be the name given to the created file).
 
 For example (barring the header, csv row order does not matter, and you do not need to include smiles strings when a file is provided; column order *does* matter):
 
