@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import math
 import os
-from typing import TYPE_CHECKING, ClassVar, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Tuple
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field
 from typing_extensions import Literal
 
 from qubekit.nonbonded.utils import FreeParams, LJData
@@ -21,25 +21,34 @@ class LennardJones612(StageBase):
         False,
         description="If polar hydrogen should keep their LJ values `True`, rather than transfer them to the parent atom `False`.",
     )
-    free_parameters: ClassVar[Dict[str, FreeParams]] = {
-        # v_free, b_free, r_free
-        "H": FreeParams(7.6, 6.5, 1.64),
-        "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
-        "B": FreeParams(46.7, 99.5, 2.08),
-        "C": FreeParams(34.4, 46.6, 2.08),
-        "N": FreeParams(25.9, 24.2, 1.72),
-        "O": FreeParams(22.1, 15.6, 1.60),
-        "F": FreeParams(18.2, 9.5, 1.58),
-        "P": FreeParams(84.6, 185, 2.07),
-        "S": FreeParams(75.2, 134.0, 2.00),
-        "Cl": FreeParams(65.1, 94.6, 1.88),
-        "Br": FreeParams(95.7, 162.0, 1.96),
-        "Si": FreeParams(101.64, 305, 2.08),
-        "I": FreeParams(153.8, 385.0, 2.04),
-    }
+    free_parameters: Dict[str, FreeParams] = Field(
+        {
+            # v_free, b_free, r_free
+            "H": FreeParams(7.6, 6.5, 1.64),
+            "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
+            "B": FreeParams(46.7, 99.5, 2.08),
+            "C": FreeParams(34.4, 46.6, 2.08),
+            "N": FreeParams(25.9, 24.2, 1.72),
+            "O": FreeParams(22.1, 15.6, 1.60),
+            "F": FreeParams(18.2, 9.5, 1.58),
+            "P": FreeParams(84.6, 185, 2.07),
+            "S": FreeParams(75.2, 134.0, 2.00),
+            "Cl": FreeParams(65.1, 94.6, 1.88),
+            "Br": FreeParams(95.7, 162.0, 1.96),
+            "Si": FreeParams(101.64, 305, 2.08),
+            "I": FreeParams(153.8, 385.0, 2.04),
+        },
+        description="The Rfree parameters used to derive the Lennard Jones terms.",
+    )
     # If left as 1, 0, then no change will be made to final calc (multiply by 1 and to power of 0)
-    _alpha: float = PrivateAttr(default=1)
-    _beta: float = PrivateAttr(default=0)
+    alpha: float = Field(
+        default=1,
+        description="The amount by which the aim/free volume ration should be scaled.",
+    )
+    beta: float = Field(
+        default=0,
+        description="The power by which the aim/free volume should raised. Note this will be 2 + beta.",
+    )
 
     def start_message(self, **kwargs) -> str:
         return "Calculating Lennard-Jones parameters for a 12-6 potential."
@@ -78,10 +87,10 @@ class LennardJones612(StageBase):
                             )
                             print(f"Updated {k}free parameter from ForceBalance file.")
                     if "xalpha" in line:
-                        self._alpha = float(line.split(" ")[6])
+                        self.alpha = float(line.split(" ")[6])
                         print("Updated alpha parameter from ForceBalance file.")
                     elif "xbeta" in line:
-                        self._beta = float(line.split(" ")[6])
+                        self.beta = float(line.split(" ")[6])
                         print("Updated beta parameter from ForceBalance file.")
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
@@ -255,10 +264,10 @@ class LennardJones612(StageBase):
                 # epsilon = (b_i ** 2) / (4 * a_i)
                 epsilon = (lj_datum.b_i * lj_datum.b_i) / (4 * lj_datum.a_i)
 
-                # _alpha and _beta
-                epsilon *= self._alpha * (
+                # alpha and beta
+                epsilon *= self.alpha * (
                     (atom.aim.volume / self.free_parameters[atom.atomic_symbol].v_free)
-                    ** self._beta
+                    ** self.beta
                 )
                 epsilon *= constants.EPSILON_CONVERSION
 
