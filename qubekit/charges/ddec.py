@@ -3,11 +3,13 @@ An interface to charge mol via gaussian.
 """
 
 import os
+import shutil
 import subprocess as sp
 from typing import Any, Dict, Optional
 
 from jinja2 import Template
 from pydantic import Field
+from qcelemental.util import which
 from typing_extensions import Literal
 
 from qubekit.charges.base import ChargeBase
@@ -46,11 +48,12 @@ class DDECCharges(ChargeBase):
                 "Gaussian 09/16 was not found please make sure they are available."
             )
         # TODO should we also check the path to the folder is correct?
-        chargemol = os.getenv("CHARGEMOL_DIR")
-        if chargemol is None:
-            raise RuntimeError(
-                "Please set the path to chargemol as an environment variable called CHARGEMOL_DIR."
-            )
+        chargemol = which(
+            "chargemol",
+            return_bool=True,
+            raise_error=True,
+            raise_msg="Please install chargemol via `conda install chargemol -c conda-forge`.",
+        )
         return gaussian and chargemol
 
     def _build_chargemol_input(
@@ -64,12 +67,19 @@ class DDECCharges(ChargeBase):
         with open(template_file) as file:
             template = Template(file.read())
 
+        chargemol_path = shutil.which("chargemol")
+        # now split to find the chargemol atomic densities
+        chargemol_path = chargemol_path.split("bin")[0]
+        chargemol_path = os.path.join(
+            chargemol_path, "share", "chargemol", "atomic_densities"
+        )
+
         # gather the required template data
         template_data = dict(
             charge=molecule.charge,
             ddec_version=self.ddec_version,
             density_file=density_file_name,
-            chargemol_dir=os.getenv("CHARGEMOL_DIR"),
+            chargemol_dir=chargemol_path,
         )
 
         rendered_template = template.render(**template_data)
@@ -105,13 +115,10 @@ class DDECCharges(ChargeBase):
             # Export a variable to the environment that chargemol will use to work out the threads, must be a string
             os.environ["OMP_NUM_THREADS"] = str(cores)
             with open("log.txt", "w+") as log:
-                control_path = (
-                    "chargemol_FORTRAN_09_26_2017/compiled_binaries/linux/"
-                    "Chargemol_09_26_2017_linux_parallel job_control.txt"
-                )
+
                 try:
                     sp.run(
-                        os.path.join(os.getenv("CHARGEMOL_DIR"), control_path),
+                        f"{shutil.which('chargemol')} job_controll.txt",
                         shell=True,
                         stdout=log,
                         stderr=log,
