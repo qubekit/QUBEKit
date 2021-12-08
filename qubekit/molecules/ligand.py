@@ -739,7 +739,7 @@ class Molecule(SchemaBase):
                 attrib={
                     "charge": str(site.charge),
                     "epsilon": "0",
-                    "sigma": "0",
+                    "sigma": "1",
                     "type": site_name,
                 },
             )
