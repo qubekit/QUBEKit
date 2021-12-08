@@ -47,7 +47,7 @@ class DDECCharges(ChargeBase):
             raise RuntimeError(
                 "Gaussian 09/16 was not found please make sure they are available."
             )
-        # TODO should we also check the path to the folder is correct?
+
         chargemol = which(
             "chargemol",
             return_bool=True,
@@ -71,7 +71,7 @@ class DDECCharges(ChargeBase):
         # now split to find the chargemol atomic densities
         chargemol_path = chargemol_path.split("bin")[0]
         chargemol_path = os.path.join(
-            chargemol_path, "share", "chargemol", "atomic_densities"
+            chargemol_path, "share", "chargemol",
         )
 
         # gather the required template data
