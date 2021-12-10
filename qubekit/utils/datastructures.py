@@ -117,9 +117,10 @@ class QCOptions(SchemaBase):
             # use psi4 keyword settings to be consistent
             keywords["tdscf_states"] = self.td_settings.n_states
             keywords["tdscf_tda"] = self.td_settings.use_tda
-            # work around a setting in psi4
-            if self.program.lower() == "psi4":
-                keywords["wcombine"] = False
+
+        # work around a setting in psi4, fixes range seperated functionals
+        if self.program.lower() == "psi4":
+            keywords["wcombine"] = False
         return keywords
 
     @property

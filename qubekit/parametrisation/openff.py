@@ -7,7 +7,6 @@ from simtk.openmm import System
 from typing_extensions import Literal
 
 from qubekit.parametrisation.base_parametrisation import Parametrisation
-from qubekit.utils.exceptions import SpecificationError
 from qubekit.utils.helpers import hide_warnings
 
 with hide_warnings():
@@ -34,7 +33,7 @@ if TYPE_CHECKING:
 
 class OpenFF(Parametrisation):
     """
-    This class uses the OpenFFtoolkit 2 to parametrise a molecule and load an OpenMM simulation.
+    This class uses the OpenFFtoolkit to parametrise a molecule and load an OpenMM simulation.
     A serialised XML is then stored in the parameter dictionaries.
     """
 
@@ -68,8 +67,8 @@ class OpenFF(Parametrisation):
         if force_field in openff_forcefields:
             return force_field.lower()
         else:
-            raise SpecificationError(
-                f"The force field {force_field} was not found by the openff-toolkit please chosse from {openff_forcefields}."
+            raise ValueError(
+                f"The force field {force_field} was not found by the openff-toolkit please chose from {openff_forcefields}."
             )
 
     def _build_system(

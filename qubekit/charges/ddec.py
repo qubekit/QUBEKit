@@ -71,7 +71,9 @@ class DDECCharges(ChargeBase):
         # now split to find the chargemol atomic densities
         chargemol_path = chargemol_path.split("bin")[0]
         chargemol_path = os.path.join(
-            chargemol_path, "share", "chargemol",
+            chargemol_path,
+            "share",
+            "chargemol",
         )
 
         # gather the required template data
@@ -118,7 +120,7 @@ class DDECCharges(ChargeBase):
 
                 try:
                     sp.run(
-                        f"{shutil.which('chargemol')} job_controll.txt",
+                        "chargemol job_controll.txt",
                         shell=True,
                         stdout=log,
                         stderr=log,
