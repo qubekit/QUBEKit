@@ -20,6 +20,7 @@ dependencies:
   - tqdm
   - torsiondrive
   - numpy >=1.18.1
+  - chargemol
   - scipy
   - networkx >=2.4
   - matplotlib-base

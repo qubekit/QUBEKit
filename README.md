@@ -81,29 +81,20 @@ Chargemol is an option for charge partitioning. QUBEKit contains alternative app
 
 Installation of Gaussian is likely handled by your institution.
 
-* [Chargemol](https://sourceforge.net/projects/ddec/files/)
-
-Chargemol can be downloaded and installed from a zip file in the above link. 
-Following unzipping, please export the path of the executable like so:
-
-    export CHARGEMOL_DIR="/<location>/chargemol_09_26_2017/"
-
-Conda packages are included in the conda-forge install.
+Minimal conda packages are included in the conda-forge install with all optional engine packages left to the user to install.
 If there are dependency issues or version conflicts in your environment, packages can be installed individually.
 
     conda install -c conda-forge qubekit
 
-The following table details some core requirements included in the conda install of QUBEKit.
-If any packages are missing from the install or causing issues, this table shows how to get them.
+The following table details some optional calculation engine packages which are not included in the QUBEKit conda package and how to install them.
 
 | **Package** | Conda Install |
 | :------ | :------ |
-| [OpenForceField](https://openforcefield.org/) | `conda install -c conda-forge openff-toolkit` |
-| [OpenMM](http://openmm.org/) | `conda install -c omnia openmm` |
-| [PSI4](http://www.psicode.org/) | `conda install -c psi4 psi4` |
-| [QCEngine](https://pypi.org/project/qcengine/) | `conda install -c conda-forge qcengine` |
-| [RDKit](http://rdkit.org/) | `conda install -c rdkit rdkit` |
-| [TorsionDrive](https://github.com/lpwgroup/torsiondrive) | `conda install -c conda-forge torsiondrive` |
+| [PSI4](http://www.psicode.org/) >=1.4.1 | `conda install -c psi4 psi4` |
+| [Chargemol](https://sourceforge.net/projects/ddec/files/)| `conda install -c conda-forge chargemol` |
+| [xtb-python](https://github.com/grimme-lab/xtb-python) | `conda install -c conda-forge xtb-python` |
+| [torchani](https://github.com/aiqm/torchani) | `conda install -c conda-forge torchani` |
+
 
 Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
 This is generally safest, as Anaconda should deal with versions and conflicts in your environment.

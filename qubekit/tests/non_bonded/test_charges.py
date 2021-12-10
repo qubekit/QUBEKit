@@ -2,8 +2,6 @@
 Test generating charge reference data or storing charges.
 """
 
-import os
-
 import pytest
 from qcelemental.models import AtomicInput
 from qcelemental.util import which_import
@@ -91,8 +89,6 @@ def test_chargemol_template(tmpdir, version, water):
         charge_method = DDECCharges(
             ddec_version=version,
         )
-        # fake the chargemol dir
-        os.environ["CHARGEMOL_DIR"] = "test"
         # now render the template
         charge_method._build_chargemol_input(
             density_file_name="test.wfx", molecule=water
@@ -102,8 +98,26 @@ def test_chargemol_template(tmpdir, version, water):
 
         assert f"DDEC{version}\n" in job_data
         assert "test.wfx\n" in job_data
-        assert "test/atomic_densities/\n" in job_data
         assert f"{water.charge}\n" in job_data
+
+
+@pytest.mark.parametrize(
+    "version", [pytest.param(3, id="DDEC3"), pytest.param(6, id="DDEC6")]
+)
+def test_chargemol_run(tmpdir, water, version):
+    """
+    test running a chargemol calculation and storing the aim data.
+    """
+
+    wfx_file = get_data("water.wfx")
+    with tmpdir.as_cwd():
+        assert water.atoms[0].aim.charge is None
+        charge_method = DDECCharges(ddec_version=version)
+        water = charge_method._call_chargemol(
+            density_file_content=open(wfx_file).read(), molecule=water, cores=1
+        )
+
+        assert water.atoms[0].aim.charge is not None
 
 
 def test_gaussian_solvent_template(tmpdir, water):
