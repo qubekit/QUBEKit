@@ -77,14 +77,15 @@ class ExtractChargeData:
                 f"Cannot find charge or cloud penetration data in {net_charge_file_path}."
             )
 
+        chargemol_xyz = []
         for line in lines[ddec_start_pos : ddec_start_pos + atom_total]:
             # _'s are the atomic symbol, xyz coords, then the quadrupole moment tensor eigenvalues.
             (
                 atom_count,
                 _,
-                _,
-                _,
-                _,
+                x,
+                y,
+                z,
                 charge,
                 x_dipole,
                 y_dipole,
@@ -117,6 +118,11 @@ class ExtractChargeData:
                 q_yy=(-float(q_x2_y2) / 2 - float(q_3z2_r2) / 6),
                 q_zz=float(q_3z2_r2) / 3,
             )
+
+            # save the chargemol reorientated positions
+            chargemol_xyz.append([x, y, z])
+
+        molecule.chargemol_coords = chargemol_xyz
 
         for line in lines[cloud_pen_pos : cloud_pen_pos + atom_total]:
             # _'s are the xyz coords and the r_squared.

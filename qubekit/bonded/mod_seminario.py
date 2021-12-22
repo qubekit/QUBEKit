@@ -357,7 +357,7 @@ class ModSeminario(StageBase):
                     # Finds the mean value of the additional contribution
                     scaling_factor_all_angles[i][j][0] += extra_contribs / (m + n - 2)
 
-        scaling_factors_angles_list = [[]] * len(molecule.angles)
+        scaling_factors_angles_list = [[] for _ in range(molecule.n_angles)]
 
         # Orders the scaling factors according to the angle list
         for i in range(len(central_atoms_angles)):
@@ -376,7 +376,7 @@ class ModSeminario(StageBase):
 
             for i, angle in enumerate(molecule.angles):
 
-                scalings = scaling_factors_angles_list[i][:2]
+                scalings = scaling_factors_angles_list[i]
 
                 # Ensures that there is no difference when the ordering is changed.
                 ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(
