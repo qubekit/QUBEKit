@@ -126,7 +126,7 @@ class VirtualSites(StageBase):
             atom = molecule.atoms[i]
             molecule.NonbondedForce[(i,)].charge = atom.aim.charge
 
-        self._coords = molecule.coordinates
+        self._coords = molecule.chargemol_coords
         self._molecule = molecule
         for atom_index, atom in enumerate(molecule.atoms):
             if len(atom.bonds) < 4:

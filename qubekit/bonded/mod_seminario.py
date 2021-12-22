@@ -357,7 +357,7 @@ class ModSeminario(StageBase):
                     # Finds the mean value of the additional contribution
                     scaling_factor_all_angles[i][j][0] += extra_contribs / (m + n - 2)
 
-        scaling_factors_angles_list = [[]] * len(molecule.angles)
+        scaling_factors_angles_list = [[] for _ in range(molecule.n_angles)]
 
         # Orders the scaling factors according to the angle list
         for i in range(len(central_atoms_angles)):

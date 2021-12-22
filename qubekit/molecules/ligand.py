@@ -128,8 +128,13 @@ class Molecule(SchemaBase):
         LennardJones126Force(),
         description="A force group which records atom nonbonded parameters.",
     )
+    chargemol_coords: Optional[Array[float]] = Field(
+        None,
+        description="The coordinates used to calculate the chargemol quantities, "
+        "this is a reorientated conformation",
+    )
 
-    @validator("coordinates")
+    @validator("coordinates", "chargemol_coords")
     def _reshape_coords(cls, coordinates: Optional[np.ndarray]) -> Optional[np.ndarray]:
         if coordinates is not None:
             return coordinates.reshape((-1, 3))
