@@ -38,33 +38,28 @@ def test_mod_sem_symmetry(tmpdir):
 
 def test_hessian_unit_regression(tmpdir):
     """
-    The units returned from QM jobs was changed which caused an error in the Modified seminario method
-    here we try and recreate a result before the unit rework.
+    The modsem method was found to have a bug in the scaling code which caused all angles to be scaled by the same amount.
+    Here we try to reproduce some reference values for methanol which has a mix of scaled and non scaled angles.
     """
     with tmpdir.as_cwd():
         # load coords at the qm geometry
-        mol = Ligand.from_file(get_data("chloromethane.sdf"))
-        hessian = np.loadtxt(fname=get_data("chloromethane_hessian.txt"))
-        mol.hessian = hessian
+        mol = Ligand.parse_file(get_data("methanol.json"))
+
         mod_sem = ModSeminario()
         mod_sem.run(molecule=mol)
 
-        # check the C-CL bond
-        assert round(mol.BondForce[(0, 1)].length, ndigits=4) == 0.1805
+        # check the C-O bond
+        assert round(mol.BondForce[(0, 1)].length, ndigits=4) == 0.1413
         # get in kcal/mol like the reference values
-        assert round(mol.BondForce[(0, 1)].k * constants.KJ_TO_KCAL / 200, 2) == 155.640
-        # check a C-H bond
-        assert round(mol.BondForce[(0, 2)].length, 3) == 0.109
-        assert round(mol.BondForce[(0, 2)].k * constants.KJ_TO_KCAL / 200, 2) == 379.88
+        assert round(mol.BondForce[(0, 1)].k, 3) == 246439.036
+        # check a O-H bond
+        assert round(mol.BondForce[(1, 5)].length, 4) == 0.0957
+        assert round(mol.BondForce[(1, 5)].k, 2) == 513819.18
 
-        # check a CL-C-H angle
-        assert (
-            round(mol.AngleForce[(1, 0, 2)].angle * constants.RAD_TO_DEG, 2) == 108.47
-        )
-        assert round(mol.AngleForce[(1, 0, 2)].k * constants.KJ_TO_KCAL / 2, 2) == 37.01
+        # check the C-O-H angle
+        assert round(mol.AngleForce[(0, 1, 5)].angle, 3) == 1.899
+        assert round(mol.AngleForce[(0, 1, 5)].k, 3) == 578.503
 
-        # check a H-C-H angle
-        assert (
-            round(mol.AngleForce[(2, 0, 3)].angle * constants.RAD_TO_DEG, 2) == 110.45
-        )
-        assert round(mol.AngleForce[(2, 0, 3)].k * constants.KJ_TO_KCAL / 2, 2) == 37.49
+        # check a scaled H-C-H angle
+        assert round(mol.AngleForce[(2, 0, 3)].angle, 3) == 1.894
+        assert round(mol.AngleForce[(2, 0, 3)].k, 3) == 357.05

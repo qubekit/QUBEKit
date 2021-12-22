@@ -376,7 +376,7 @@ class ModSeminario(StageBase):
 
             for i, angle in enumerate(molecule.angles):
 
-                scalings = scaling_factors_angles_list[i][:2]
+                scalings = scaling_factors_angles_list[i]
 
                 # Ensures that there is no difference when the ordering is changed.
                 ab_k_theta, ab_theta_0 = ModSemMaths.force_constant_angle(

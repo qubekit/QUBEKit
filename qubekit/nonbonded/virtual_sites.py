@@ -126,7 +126,13 @@ class VirtualSites(StageBase):
             atom = molecule.atoms[i]
             molecule.NonbondedForce[(i,)].charge = atom.aim.charge
 
-        self._coords = molecule.chargemol_coords
+        # if we have used chargemol the dipole and quad values are for a new orientation so we must use those coords
+        # else use QM
+        self._coords = (
+            molecule.chargemol_coords
+            if molecule.chargemol_coords is not None
+            else molecule.coordinates
+        )
         self._molecule = molecule
         for atom_index, atom in enumerate(molecule.atoms):
             if len(atom.bonds) < 4:
