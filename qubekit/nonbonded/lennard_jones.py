@@ -18,26 +18,11 @@ class LennardJones612(StageBase):
 
     type: Literal["LennardJones612"] = "LennardJones612"
     lj_on_polar_h: bool = Field(
-        False,
+        True,
         description="If polar hydrogen should keep their LJ values `True`, rather than transfer them to the parent atom `False`.",
     )
     free_parameters: Dict[str, FreeParams] = Field(
-        {
-            # v_free, b_free, r_free
-            "H": FreeParams(7.6, 6.5, 1.64),
-            "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
-            "B": FreeParams(46.7, 99.5, 2.08),
-            "C": FreeParams(34.4, 46.6, 2.08),
-            "N": FreeParams(25.9, 24.2, 1.72),
-            "O": FreeParams(22.1, 15.6, 1.60),
-            "F": FreeParams(18.2, 9.5, 1.58),
-            "P": FreeParams(84.6, 185, 2.07),
-            "S": FreeParams(75.2, 134.0, 2.00),
-            "Cl": FreeParams(65.1, 94.6, 1.88),
-            "Br": FreeParams(95.7, 162.0, 1.96),
-            "Si": FreeParams(101.64, 305, 2.08),
-            "I": FreeParams(153.8, 385.0, 2.04),
-        },
+        ...,
         description="The Rfree parameters used to derive the Lennard Jones terms.",
     )
     # If left as 1, 0, then no change will be made to final calc (multiply by 1 and to power of 0)
@@ -67,6 +52,7 @@ class LennardJones612(StageBase):
         Parameters are taken from the "Final physical parameters" section and stored
         to be used in the proceeding LJ calculations.
         """
+        # TODO remove this method and use Rfree in the config
         for file in os.listdir("../../"):
             if file.endswith(".out"):
                 with open(f"../../{file}") as opt_file:
@@ -76,8 +62,9 @@ class LennardJones612(StageBase):
                             lines = lines[i:]
                             break
                     else:
-                        raise EOFError(
-                            "Could not find final parameters in ForceBalance file."
+                        # don't raise an error if we search a random output file
+                        print(
+                            f"Could not find final parameters in ForceBalance file {file}."
                         )
                 for line in lines:
                     for k, v in self.free_parameters.items():
