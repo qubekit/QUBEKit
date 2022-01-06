@@ -148,7 +148,7 @@ class Molecule(SchemaBase):
         coordinates: Optional[np.ndarray] = None,
         multiplicity: int = 1,
         name: str = "unk",
-        routine: Optional[Set] = None,
+        routine: Optional[List[str]] = None,
         provenance: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
@@ -175,7 +175,7 @@ class Molecule(SchemaBase):
             bool; is the current execution starting from the beginning (False) or restarting (True)?
         """
         # the way the molecule was made
-        method = routine or {"__init__"}
+        method = routine or ["__init__"]
         if provenance is None:
             new_provenance = dict(
                 creator="QUBEKit", version=qubekit.__version__, routine=method
@@ -183,7 +183,7 @@ class Molecule(SchemaBase):
         else:
             # make sure we respect the provenance when parsing a json file
             new_provenance = provenance
-            new_provenance["routine"] = set(new_provenance["routine"])
+            new_provenance["routine"] = new_provenance["routine"]
 
         super(Molecule, self).__init__(
             atoms=atoms,
@@ -1101,7 +1101,7 @@ class Ligand(Molecule):
         coords = rdkit_mol.GetConformer().GetPositions()
         bonds = bonds or None
         # method use to make the molecule
-        routine = {"QUBEKit.ligand.from_rdkit"}
+        routine = ["QUBEKit.ligand.from_rdkit"]
         return cls(
             atoms=atoms,
             bonds=bonds,
@@ -1159,7 +1159,7 @@ class Ligand(Molecule):
             multiplicity=multiplicity,
         )
         # now edit the routine to include this call
-        ligand.provenance["routine"].update(
+        ligand.provenance["routine"].extend(
             ["QUBEKit.ligand.from_file", os.path.abspath(file_name)]
         )
         return ligand
@@ -1184,7 +1184,7 @@ class Ligand(Molecule):
             rdkit_mol=input_data.rdkit_mol, name=name, multiplicity=multiplicity
         )
         # now edit the routine to include this command
-        ligand.provenance["routine"].update(
+        ligand.provenance["routine"].extend(
             ["QUBEKit.ligand.from_smiles", smiles_string]
         )
         return ligand
