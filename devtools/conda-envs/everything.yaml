@@ -22,6 +22,7 @@ dependencies:
   - numpy >=1.18.1
   - chargemol
   - scipy
+  - click
   - networkx >=2.4
   - matplotlib-base
   - qcengine >=0.18.0
