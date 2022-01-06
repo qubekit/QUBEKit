@@ -1,4 +1,4 @@
-from typing import Literal
+from typing_extensions import Literal
 
 from qubekit.nonbonded.lennard_jones import LennardJones612
 from qubekit.nonbonded.utils import FreeParams
