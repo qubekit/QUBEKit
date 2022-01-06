@@ -1,6 +1,7 @@
-from qubekit.nonbonded.utils import FreeParams
 from typing import Literal
+
 from qubekit.nonbonded.lennard_jones import LennardJones612
+from qubekit.nonbonded.utils import FreeParams
 
 
 # define the constants of the model for each element

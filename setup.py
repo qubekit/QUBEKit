@@ -26,8 +26,8 @@ setup(
     author="Joshua Thomas Horton, Chris Ringrose",
     entry_points={
         "console_scripts": [
-            "QUBEKit = qubekit.cli:cli",
-            "qubekit = qubekit.cli:cli",
+            "QUBEKit = qubekit.cli.cli:cli",
+            "qubekit = qubekit.cli.cli:cli",
             "QUBEKit-pro = qubekit.proteins.protein_run:main",
         ]
     },

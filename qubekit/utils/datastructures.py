@@ -71,7 +71,7 @@ class QCOptions(SchemaBase):
     """
 
     program: str = Field(
-        "psi4",
+        "gaussian",
         description="The name of the program which should be used to carry out the computation, such as psi4",
     )
     basis: Optional[str] = Field(

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import math
-import os
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from pydantic import Field
@@ -9,6 +8,7 @@ from typing_extensions import Literal
 from qubekit.nonbonded.utils import FreeParams, LJData
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
+from qubekit.utils.exceptions import MissingRfreeError
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
@@ -27,11 +27,11 @@ class LennardJones612(StageBase):
     )
     # If left as 1, 0, then no change will be made to final calc (multiply by 1 and to power of 0)
     alpha: float = Field(
-        default=1,
+        default=1.0,
         description="The amount by which the aim/free volume ration should be scaled.",
     )
     beta: float = Field(
-        default=0,
+        default=0.0,
         description="The power by which the aim/free volume should raised. Note this will be 2 + beta.",
     )
 
@@ -46,39 +46,60 @@ class LennardJones612(StageBase):
         """This class should always be available."""
         return True
 
-    def extract_rfrees(self):
+    def check_element_coverage(self, molecule: "Ligand"):
         """
-        Open any .out files from ForceBalance and read in the relevant parameters.
-        Parameters are taken from the "Final physical parameters" section and stored
-        to be used in the proceeding LJ calculations.
+        For the given molecule check that we have Rfree parameters for all of the present elements.
+
+        Note:
+            If polar hydrogens are to have LJ terms an Rfree must be given for element X
         """
-        # TODO remove this method and use Rfree in the config
-        for file in os.listdir("../../"):
-            if file.endswith(".out"):
-                with open(f"../../{file}") as opt_file:
-                    lines = opt_file.readlines()
-                    for i, line in enumerate(lines):
-                        if "Final physical parameters" in line:
-                            lines = lines[i:]
-                            break
-                    else:
-                        # don't raise an error if we search a random output file
-                        print(
-                            f"Could not find final parameters in ForceBalance file {file}."
-                        )
-                for line in lines:
-                    for k, v in self.free_parameters.items():
-                        if f"{k}Element" in line:
-                            self.free_parameters[k] = FreeParams(
-                                v.v_free, v.b_free, float(line.split(" ")[6])
-                            )
-                            print(f"Updated {k}free parameter from ForceBalance file.")
-                    if "xalpha" in line:
-                        self.alpha = float(line.split(" ")[6])
-                        print("Updated alpha parameter from ForceBalance file.")
-                    elif "xbeta" in line:
-                        self.beta = float(line.split(" ")[6])
-                        print("Updated beta parameter from ForceBalance file.")
+        target_elements = set([atom.atomic_symbol.lower() for atom in molecule.atoms])
+        covered_elements = set([e.lower() for e in self.free_parameters.keys()])
+        missing_elements = target_elements.difference(covered_elements)
+        if missing_elements != set():
+            raise MissingRfreeError(
+                "The following elements have no reference Rfree values which are required to "
+                f"parameterise the molecule {missing_elements}"
+            )
+
+        if self.lj_on_polar_h and "x" not in covered_elements:
+            raise MissingRfreeError(
+                "Please supply Rfree data for polar hydrogen using the symbol X is `lj_on_polar_h` is True"
+            )
+
+    # def extract_rfrees(self):
+    #     """
+    #     Open any .out files from ForceBalance and read in the relevant parameters.
+    #     Parameters are taken from the "Final physical parameters" section and stored
+    #     to be used in the proceeding LJ calculations.
+    #     """
+    #     # TODO remove this method and use Rfree in the config
+    #     for file in os.listdir("../../"):
+    #         if file.endswith(".out"):
+    #             with open(f"../../{file}") as opt_file:
+    #                 lines = opt_file.readlines()
+    #                 for i, line in enumerate(lines):
+    #                     if "Final physical parameters" in line:
+    #                         lines = lines[i:]
+    #                         break
+    #                 else:
+    #                     # don't raise an error if we search a random output file
+    #                     print(
+    #                         f"Could not find final parameters in ForceBalance file {file}."
+    #                     )
+    #             for line in lines:
+    #                 for k, v in self.free_parameters.items():
+    #                     if f"{k}Element" in line:
+    #                         self.free_parameters[k] = FreeParams(
+    #                             v.v_free, v.b_free, float(line.split(" ")[6])
+    #                         )
+    #                         print(f"Updated {k}free parameter from ForceBalance file.")
+    #                 if "xalpha" in line:
+    #                     self.alpha = float(line.split(" ")[6])
+    #                     print("Updated alpha parameter from ForceBalance file.")
+    #                 elif "xbeta" in line:
+    #                     self.beta = float(line.split(" ")[6])
+    #                     print("Updated beta parameter from ForceBalance file.")
 
     def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
@@ -89,7 +110,9 @@ class LennardJones612(StageBase):
         * Stores the values in the molecule object.
         """
 
-        self.extract_rfrees()
+        self.check_element_coverage(molecule=molecule)
+
+        # self.extract_rfrees()
 
         # Calculate initial a_is and b_is
         lj_data = self._calculate_lj_data(molecule=molecule)

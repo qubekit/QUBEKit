@@ -8,7 +8,7 @@ import pytest
 
 from qubekit.charges import DDECCharges, ExtractChargeData
 from qubekit.molecules import Ligand
-from qubekit.nonbonded.lennard_jones import LennardJones612
+from qubekit.nonbonded.protocols import cl_base, get_protocol
 from qubekit.nonbonded.virtual_sites import VirtualSites
 from qubekit.parametrisation import OpenFF
 from qubekit.utils.constants import BOHR_TO_ANGS
@@ -206,8 +206,10 @@ def test_fit(mol, vs, tmpdir):
                 assert atom.aim.charge == pytest.approx(
                     float(mol.NonbondedForce[(atom.atom_index,)].charge), abs=1e-5
                 )
-
-        LennardJones612().run(molecule=mol)
+        lj = get_protocol(protocol_name="0")
+        # add fake Cl param
+        lj.free_parameters["Cl"] = cl_base(r_free=1.88)
+        lj.run(molecule=mol)
         # make sure lJ did not reset the charge on the parent
         assert mol.atoms[1].aim.charge != pytest.approx(
             float(mol.NonbondedForce[(1,)].charge)

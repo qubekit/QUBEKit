@@ -59,7 +59,7 @@ class VirtualSites(StageBase):
         gt=0,
     )
     site_error_threshold: float = Field(
-        1, description="The ESP error threshold to start fitting virtual sites.", gt=0
+        1.0, description="The ESP error threshold to start fitting virtual sites.", gt=0
     )
 
     # only for debugging so not exposed

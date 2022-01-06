@@ -85,3 +85,9 @@ class WorkFlowExecutionError(Exception):
     """
     Raised whenever we hit an error executing the workflow.
     """
+
+
+class MissingRfreeError(Exception):
+    """
+    Raised when trying to parameterise a molecule with no reference Rfree.
+    """

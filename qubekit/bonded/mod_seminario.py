@@ -194,7 +194,7 @@ class ModSeminario(StageBase):
 
     type: Literal["ModSeminario"] = "ModSeminario"
     vibrational_scaling: float = Field(
-        1,
+        1.0,
         description="The vibration scaling that should be used to correct the reference DFT frequencies.",
     )
 

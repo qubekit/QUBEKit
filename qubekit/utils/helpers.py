@@ -6,7 +6,7 @@ import math
 import operator
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
@@ -59,7 +59,7 @@ def mol_data_from_csv(csv_name: str):
     return final
 
 
-def generate_bulk_csv(csv_name, max_execs=None):
+def generate_bulk_csv(csv_name: str, max_execs: Optional[int] = None):
     """
     Generates a csv with minimal information inside.
     Contains only headers and a row of defaults and populates all of the named files where available.

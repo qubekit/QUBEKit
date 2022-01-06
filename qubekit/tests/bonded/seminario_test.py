@@ -6,7 +6,6 @@ import numpy as np
 
 from qubekit.bonded import ModSeminario
 from qubekit.molecules import Ligand
-from qubekit.utils import constants
 from qubekit.utils.file_handling import get_data
 
 
