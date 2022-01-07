@@ -21,11 +21,11 @@ class StageResult(SchemaBase):
     A results class to hold basic information about the progress of the stage.
     """
 
-    stage: str = Field(
+    stage: Optional[str] = Field(
         ...,
         description="The stage identifier i.e stage.type as this is not the same as the general workflow stage name.",
     )
-    stage_settings: Dict[str, Any] = Field(
+    stage_settings: Optional[Dict[str, Any]] = Field(
         ..., description="The dict of the stage serialising any settings used."
     )
     status: Status = Field(

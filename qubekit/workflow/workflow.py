@@ -9,7 +9,7 @@ import qubekit
 from qubekit.bonded import ModSeminario, QForceHessianFitting
 from qubekit.charges import DDECCharges, MBISCharges
 from qubekit.molecules import Ligand
-from qubekit.nonbonded import LennardJones612, VirtualSites
+from qubekit.nonbonded import LennardJones612, VirtualSites, get_protocol
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.torsions import ForceBalanceFitting, TorsionScan1D
 from qubekit.utils.datastructures import LocalResource, QCOptions, SchemaBase, StageBase
@@ -47,7 +47,7 @@ class WorkFlow(SchemaBase):
         description="The method that should be used to fit virtual sites if they are requested.",
     )
     non_bonded: LennardJones612 = Field(
-        LennardJones612(),
+        get_protocol(protocol_name="0"),
         description="The method that should be used to calculate the non-bonded non-charge parameters and their functional form.",
     )
     bonded_parameters: Union[ModSeminario, QForceHessianFitting] = Field(
@@ -75,11 +75,13 @@ class WorkFlow(SchemaBase):
         }
         # now loop over the stages and update the options
         for stage_name, result in results.results.items():
-            if stage_name != "Hessian":  # this stage had no settings
+            if stage_name != "Hessian":  # this stage has no settings
                 model_data[stage_name] = result.stage_settings
         return cls(**model_data)
 
-    def validate_workflow(self, workflow: List[str]) -> None:
+    def validate_workflow(
+        self, workflow: List[str], molecule: Optional[Ligand] = None
+    ) -> None:
         """
         Make sure that the workflow can be run ahead of time by looking for errors in the QCspecification and missing dependencies.
 
@@ -91,7 +93,9 @@ class WorkFlow(SchemaBase):
         # then check each component for missing dependencies
         for field in workflow:
             stage = getattr(self, field)
-            stage.is_available()
+            # some stages are optional and should be skipped
+            if stage is not None:
+                stage.is_available()
         # check special stages
         # check that the pre_opt method is available
         if "optimisation" in workflow:
@@ -99,6 +103,9 @@ class WorkFlow(SchemaBase):
             if stage.pre_optimisation_method is not None:
                 pre_spec = stage.convert_pre_opt(method=stage.pre_optimisation_method)
                 pre_spec.validate_specification()
+        # if we are doing nonbonded check the element coverage
+        if "non_bonded" in workflow and molecule is not None:
+            self.non_bonded.check_element_coverage(molecule=molecule)
 
     def to_file(self, filename: str) -> None:
         """
@@ -170,12 +177,33 @@ class WorkFlow(SchemaBase):
         )
         # for each stage set if they are to be ran
         for stage_name in workflow:
-            stage: StageBase = getattr(self, stage_name)
-            stage_result = StageResult(
-                stage=stage.type, stage_settings=stage.dict(), status=Status.Waiting
-            )
+            stage: Optional[StageBase] = getattr(self, stage_name)
+            if stage is not None:
+                stage_result = StageResult(
+                    stage=stage.type, stage_settings=stage.dict(), status=Status.Waiting
+                )
+            else:
+                stage_result = StageResult(
+                    stage=None, stage_settings=None, status=Status.Waiting
+                )
+
             result.results[stage_name] = stage_result
         return result
+
+    def _get_optional_stage_skip(
+        self, skip_stages: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """
+        Add any optional stages which are skipped when not supplied, to the skip stages list.
+        """
+        if self.virtual_sites is None and skip_stages is not None:
+            # we get a tuple from click so we can not append
+            return [*skip_stages, "virtual_sites"]
+
+        elif self.virtual_sites is None and skip_stages is None:
+            return ["virtual_sites"]
+
+        return skip_stages
 
     def restart_workflow(
         self,
@@ -194,6 +222,7 @@ class WorkFlow(SchemaBase):
             end: The name of the last stage to be computed before finishing.
         """
         molecule = result.current_molecule
+        skip_stages = self._get_optional_stage_skip(skip_stages=skip_stages)
         run_order = self.get_running_order(
             start=start, skip_stages=skip_stages, end=end
         )
@@ -217,6 +246,7 @@ class WorkFlow(SchemaBase):
             end: The last stage to be computed before finishing, useful to finish early.
         """
         # get the running order
+        skip_stages = self._get_optional_stage_skip(skip_stages=skip_stages)
         run_order = self.get_running_order(skip_stages=skip_stages, end=end)
         results = self._build_initial_results(molecule=molecule)
         # if we have any skips assign them
@@ -246,7 +276,7 @@ class WorkFlow(SchemaBase):
             A fully parametrised molecule.
         """
         # try and find missing dependencies
-        self.validate_workflow(workflow=workflow)
+        self.validate_workflow(workflow=workflow, molecule=molecule)
         # start message
         # TODO Move to outside workflow so this doesn't get printed for every run in bulk.
         print(

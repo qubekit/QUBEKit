@@ -21,6 +21,7 @@ dependencies:
   - networkx >=2.4
   - matplotlib-base
   - qcengine >=0.18.0
+  - click
   - chargemol
   - qcelemental >=0.19.0
   - forcebalance

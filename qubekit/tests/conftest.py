@@ -3,6 +3,7 @@ import pytest
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.utils.file_handling import get_data
+from qubekit.workflow.workflow import QCOptions, WorkFlow
 
 
 @pytest.fixture()
@@ -42,3 +43,10 @@ def coumarin():
 @pytest.fixture()
 def mol_47():
     return Ligand.from_smiles("CC(C)(O)CCC(C)(C)O", "mol_47")
+
+
+@pytest.fixture()
+def rdkit_workflow():
+    rdkit_spec = QCOptions(program="rdkit", method="uff", basis=None)
+    workflow = WorkFlow(qc_options=rdkit_spec)
+    return workflow

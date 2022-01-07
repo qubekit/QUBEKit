@@ -9,6 +9,7 @@ from typing_extensions import Literal
 from qubekit.nonbonded.utils import FreeParams, LJData
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
+from qubekit.utils.exceptions import MissingRfreeError
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
@@ -18,35 +19,20 @@ class LennardJones612(StageBase):
 
     type: Literal["LennardJones612"] = "LennardJones612"
     lj_on_polar_h: bool = Field(
-        False,
+        True,
         description="If polar hydrogen should keep their LJ values `True`, rather than transfer them to the parent atom `False`.",
     )
     free_parameters: Dict[str, FreeParams] = Field(
-        {
-            # v_free, b_free, r_free
-            "H": FreeParams(7.6, 6.5, 1.64),
-            "X": FreeParams(7.6, 6.5, 1.0),  # Polar Hydrogen
-            "B": FreeParams(46.7, 99.5, 2.08),
-            "C": FreeParams(34.4, 46.6, 2.08),
-            "N": FreeParams(25.9, 24.2, 1.72),
-            "O": FreeParams(22.1, 15.6, 1.60),
-            "F": FreeParams(18.2, 9.5, 1.58),
-            "P": FreeParams(84.6, 185, 2.07),
-            "S": FreeParams(75.2, 134.0, 2.00),
-            "Cl": FreeParams(65.1, 94.6, 1.88),
-            "Br": FreeParams(95.7, 162.0, 1.96),
-            "Si": FreeParams(101.64, 305, 2.08),
-            "I": FreeParams(153.8, 385.0, 2.04),
-        },
+        ...,
         description="The Rfree parameters used to derive the Lennard Jones terms.",
     )
     # If left as 1, 0, then no change will be made to final calc (multiply by 1 and to power of 0)
     alpha: float = Field(
-        default=1,
+        default=1.0,
         description="The amount by which the aim/free volume ration should be scaled.",
     )
     beta: float = Field(
-        default=0,
+        default=0.0,
         description="The power by which the aim/free volume should raised. Note this will be 2 + beta.",
     )
 
@@ -61,12 +47,34 @@ class LennardJones612(StageBase):
         """This class should always be available."""
         return True
 
+    def check_element_coverage(self, molecule: "Ligand"):
+        """
+        For the given molecule check that we have Rfree parameters for all of the present elements.
+
+        Note:
+            If polar hydrogens are to have LJ terms an Rfree must be given for element X
+        """
+        target_elements = set([atom.atomic_symbol.lower() for atom in molecule.atoms])
+        covered_elements = set([e.lower() for e in self.free_parameters.keys()])
+        missing_elements = target_elements.difference(covered_elements)
+        if missing_elements != set():
+            raise MissingRfreeError(
+                "The following elements have no reference Rfree values which are required to "
+                f"parameterise the molecule {missing_elements}"
+            )
+
+        if self.lj_on_polar_h and "x" not in covered_elements:
+            raise MissingRfreeError(
+                "Please supply Rfree data for polar hydrogen using the symbol X is `lj_on_polar_h` is True"
+            )
+
     def extract_rfrees(self):
         """
         Open any .out files from ForceBalance and read in the relevant parameters.
         Parameters are taken from the "Final physical parameters" section and stored
         to be used in the proceeding LJ calculations.
         """
+        # TODO remove this method and use Rfree in the config
         for file in os.listdir("../../"):
             if file.endswith(".out"):
                 with open(f"../../{file}") as opt_file:
@@ -76,8 +84,9 @@ class LennardJones612(StageBase):
                             lines = lines[i:]
                             break
                     else:
-                        raise EOFError(
-                            "Could not find final parameters in ForceBalance file."
+                        # don't raise an error if we search a random output file
+                        print(
+                            f"Could not find final parameters in ForceBalance file {file}."
                         )
                 for line in lines:
                     for k, v in self.free_parameters.items():
@@ -101,6 +110,8 @@ class LennardJones612(StageBase):
         * Calculates the sigma and epsilon values using those a_i and b_i values.
         * Stores the values in the molecule object.
         """
+
+        self.check_element_coverage(molecule=molecule)
 
         self.extract_rfrees()
 
