@@ -201,7 +201,7 @@ class OpenMM(Engines):
                     coords[i] -= 2 * finite_step
                     e2 = self.get_energy(self.format_coords(coords))
                     hessian[i, j] = (e1 + e2) / (
-                        4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass
+                        4 * finite_step**2 * self.molecule.atoms[i // 3].atomic_mass
                     )
                 else:
                     coords = deepcopy(input_coords)
@@ -221,7 +221,7 @@ class OpenMM(Engines):
                     coords[j] += finite_step
                     e4 = self.get_energy(self.format_coords(coords))
                     hessian[i, j] = (e1 + e2 - e3 - e4) / (
-                        4 * finite_step ** 2 * self.molecule.atoms[i // 3].atomic_mass
+                        4 * finite_step**2 * self.molecule.atoms[i // 3].atomic_mass
                     )
 
         # Hessian is currently just the upper right half of the matrix.

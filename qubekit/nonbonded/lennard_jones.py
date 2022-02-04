@@ -173,7 +173,7 @@ class LennardJones612(StageBase):
                     (atom_vol / self.free_parameters[atomic_symbol].v_free) ** 2
                 )
 
-                a_i = 32 * b_i * (r_aim ** 6)
+                a_i = 32 * b_i * (r_aim**6)
 
             # Element not in elem_dict.
             except KeyError:
@@ -245,7 +245,7 @@ class LennardJones612(StageBase):
             # Square all the b_i values again
             lj_data[atom_index].b_i *= lj_datum.b_i
             # Recalculate the a_is based on the new b_is
-            lj_data[atom_index].a_i = 32 * lj_datum.b_i * (lj_datum.r_aim ** 6)
+            lj_data[atom_index].a_i = 32 * lj_datum.b_i * (lj_datum.r_aim**6)
 
         return lj_data
 

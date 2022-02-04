@@ -164,8 +164,11 @@ def test_bond_lengths(acetone):
     bond_lengths = acetone.measure_bonds()
     rdkit_mol = acetone.to_rdkit()
     for bond, length in bond_lengths.items():
-        assert pytest.approx(
-            rdMolTransforms.GetBondLength(rdkit_mol.GetConformer(), *bond) == length
+        assert (
+            pytest.approx(
+                rdMolTransforms.GetBondLength(rdkit_mol.GetConformer(), *bond)
+            )
+            == length
         )
 
 
@@ -176,8 +179,9 @@ def test_measure_angles(acetone):
     angle_values = acetone.measure_angles()
     rdkit_mol = acetone.to_rdkit()
     for angle, value in angle_values.items():
-        assert pytest.approx(
-            rdMolTransforms.GetAngleDeg(rdkit_mol.GetConformer(), *angle) == value
+        assert (
+            pytest.approx(rdMolTransforms.GetAngleDeg(rdkit_mol.GetConformer(), *angle))
+            == value
         )
 
 
@@ -188,8 +192,11 @@ def test_measure_dihedrals(acetone):
     dihedral_values = acetone.measure_dihedrals()
     rdkit_mol = acetone.to_rdkit()
     for dihedral, value in dihedral_values.items():
-        assert pytest.approx(
-            rdMolTransforms.GetDihedralDeg(rdkit_mol.GetConformer(), *dihedral) == value
+        assert (
+            pytest.approx(
+                rdMolTransforms.GetDihedralDeg(rdkit_mol.GetConformer(), *dihedral)
+            )
+            == value
         )
 
 

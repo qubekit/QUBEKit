@@ -238,7 +238,7 @@ class VirtualSites(StageBase):
         :return: dipole esp value
         """
         return (dipole_moment * ELECTRON_CHARGE * ELECTRON_CHARGE).dot(dist_vector) / (
-            4 * PI * VACUUM_PERMITTIVITY * dist ** 3
+            4 * PI * VACUUM_PERMITTIVITY * dist**3
         )
 
     @staticmethod
@@ -258,7 +258,7 @@ class VirtualSites(StageBase):
             * ELECTRON_CHARGE
             * ELECTRON_CHARGE
             * dist_vector.dot(m_tensor).dot(dist_vector)
-        ) / (8 * PI * VACUUM_PERMITTIVITY * dist ** 5)
+        ) / (8 * PI * VACUUM_PERMITTIVITY * dist**5)
 
     @staticmethod
     def _cloud_penetration(a: float, b: float, dist: float) -> float:
@@ -273,7 +273,7 @@ class VirtualSites(StageBase):
             (
                 ELECTRON_CHARGE
                 * ELECTRON_CHARGE
-                / (VACUUM_PERMITTIVITY * BOHR_TO_ANGS ** 3)
+                / (VACUUM_PERMITTIVITY * BOHR_TO_ANGS**3)
             )
             * np.exp(a - b * dist)
             * (2 / (b * dist) + 1)
@@ -350,7 +350,7 @@ class VirtualSites(StageBase):
             self._molecule.atoms[atom_index].dipole.to_array() * BOHR_TO_ANGS
         )
         m_tensor = self._molecule.atoms[atom_index].quadrupole.to_array() * (
-            BOHR_TO_ANGS ** 2
+            BOHR_TO_ANGS**2
         )
 
         # this term is not available via MBIS or onetep

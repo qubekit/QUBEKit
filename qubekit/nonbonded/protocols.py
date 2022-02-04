@@ -171,14 +171,18 @@ protocol_5a = {
 
 protocol_5b = {
     "free_parameters": {
-        "H": h_base(r_free=1.731),
-        "X": h_base(r_free=1.294),
-        "C": c_base(r_free=2.035),
-        "N": n_base(r_free=1.722),
-        "O": o_base(r_free=1.574),
+        "H": h_base(r_free=1.747),
+        "X": h_base(r_free=1.332),
+        "C": c_base(r_free=2.019),
+        "N": n_base(r_free=1.733),
+        "O": o_base(r_free=1.598),
+        "F": f_base(r_free=1.652),
+        "Cl": cl_base(r_free=1.867),
+        "Br": br_base(r_free=2.001),
+        "S": s_base(r_free=2.036),
     },
-    "alpha": 1.221,
-    "beta": 0.489,
+    "alpha": 1.182,
+    "beta": 0.445,
 }
 
 protocol_5c = {
@@ -193,11 +197,15 @@ protocol_5c = {
 
 protocol_5d = {
     "free_parameters": {
-        "H": h_base(r_free=1.732),
-        "X": h_base(r_free=1.442),
-        "C": c_base(r_free=2.013),
-        "N": n_base(r_free=1.680),
-        "O": o_base(r_free=1.558),
+        "H": h_base(r_free=1.749),
+        "X": h_base(r_free=1.447),
+        "C": c_base(r_free=1.984),
+        "N": n_base(r_free=1.717),
+        "O": o_base(r_free=1.580),
+        "F": f_base(r_free=1.628),
+        "Cl": cl_base(r_free=1.831),
+        "Br": br_base(r_free=1.964),
+        "S": s_base(r_free=1.983),
     },
 }
 

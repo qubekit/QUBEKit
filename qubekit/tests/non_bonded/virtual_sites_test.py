@@ -159,7 +159,7 @@ def test_dipole_esp(mol, vs):
 
 def test_quadrupole_esp(mol, vs):
     # convert from atomic units
-    m_tensor = mol.atoms[1].quadrupole.to_array() * BOHR_TO_ANGS ** 2
+    m_tensor = mol.atoms[1].quadrupole.to_array() * BOHR_TO_ANGS**2
     assert vs._quadrupole_esp(np.array([1, 1, 1]), m_tensor, 1) == pytest.approx(
         9.40851165275e-30
     )

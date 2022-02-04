@@ -120,7 +120,7 @@ class QForceHessianFitting(StageBase):
             hessian_1d
             * constants.HA_TO_KCAL_P_MOL
             * constants.KCAL_TO_KJ
-            / (constants.BOHR_TO_ANGS ** 2)
+            / (constants.BOHR_TO_ANGS**2)
         )
 
     @classmethod
