@@ -127,7 +127,7 @@ class SolventPsi4(SolventBase):
                 kwargs["cavity_MinRadius"] = cavity_MinRadius
             if "cavity_Area" not in kwargs:
                 cavity_Area = (
-                    self.__fields__["cavity_Area"].default * constants.BOHR_TO_ANGS ** 2
+                    self.__fields__["cavity_Area"].default * constants.BOHR_TO_ANGS**2
                 )
                 kwargs["cavity_Area"] = cavity_Area
         super(SolventPsi4, self).__init__(**kwargs)

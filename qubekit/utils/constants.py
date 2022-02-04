@@ -40,7 +40,7 @@ BOHR_TO_ANGS = 0.529177  # Bohrs to Angstroms
 ANGS_TO_BOHR = 1.88972687777  # Angstroms to Bohrs
 
 EPSILON_CONVERSION = (
-    (BOHR_TO_ANGS ** 6) * HA_TO_KCAL_P_MOL * KCAL_TO_KJ
+    (BOHR_TO_ANGS**6) * HA_TO_KCAL_P_MOL * KCAL_TO_KJ
 )  # L-J Conversion
 SIGMA_CONVERSION = ANGS_TO_NM  # L-J Conversion
 

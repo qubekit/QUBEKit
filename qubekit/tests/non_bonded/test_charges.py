@@ -65,7 +65,7 @@ def test_pcm_spec_error():
 def test_pcm_unit_conversion():
     """Make sure the pcm units are correctly converted from defaults."""
     spec = SolventPsi4(units="angstrom", medium_Solvent="water")
-    assert spec.cavity_Area == 0.3 * constants.BOHR_TO_ANGS ** 2
+    assert spec.cavity_Area == 0.3 * constants.BOHR_TO_ANGS**2
 
 
 def test_ddec_available():

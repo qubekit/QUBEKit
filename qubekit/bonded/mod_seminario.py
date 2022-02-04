@@ -132,8 +132,8 @@ class ModSemMaths:
             )
 
             # Added as two springs in series
-            k_theta = (1 / ((bond_len_ab ** 2) * sum_first)) + (
-                1 / ((bond_len_bc ** 2) * sum_second)
+            k_theta = (1 / ((bond_len_ab**2) * sum_first)) + (
+                1 / ((bond_len_bc**2) * sum_second)
             )
             k_theta = 1 / k_theta
 
@@ -224,7 +224,7 @@ class ModSeminario(StageBase):
         molecule.BondForce.clear_parameters()
         molecule.AngleForce.clear_parameters()
         # convert the hessian from atomic units
-        conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS ** 2)
+        conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS**2)
         # make sure we do not change the molecule hessian
         hessian = copy.deepcopy(molecule.hessian)
         hessian *= conversion
@@ -398,7 +398,7 @@ class ModSeminario(StageBase):
 
                 # Vib_scaling takes into account DFT deficiencies / anharmonicity.
                 k_theta[i] = ((ab_k_theta + ba_k_theta) / 2) * (
-                    self.vibrational_scaling ** 2
+                    self.vibrational_scaling**2
                 )
                 theta_0[i] = (ab_theta_0 + ba_theta_0) / 2
 
@@ -439,7 +439,7 @@ class ModSeminario(StageBase):
                 )
 
                 # Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.
-                k_b[pos] = np.real((ab + ba) / 2) * (self.vibrational_scaling ** 2)
+                k_b[pos] = np.real((ab + ba) / 2) * (self.vibrational_scaling**2)
 
                 bond_len_list[pos] = bond_lengths[bond]
                 bond_file.write(

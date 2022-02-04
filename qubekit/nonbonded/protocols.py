@@ -179,7 +179,7 @@ protocol_5b = {
         "F": f_base(r_free=1.652),
         "Cl": cl_base(r_free=1.867),
         "Br": br_base(r_free=2.001),
-        "S": s_base(r_free=2.036)
+        "S": s_base(r_free=2.036),
     },
     "alpha": 1.182,
     "beta": 0.445,
@@ -205,7 +205,7 @@ protocol_5d = {
         "F": f_base(r_free=1.628),
         "Cl": cl_base(r_free=1.831),
         "Br": br_base(r_free=1.964),
-        "S": s_base(r_free=1.983)
+        "S": s_base(r_free=1.983),
     },
 }
 
