@@ -30,6 +30,7 @@ dependencies:
   - tqdm
 
   # Optional
+  - xtb-python
   - torchani
   - ambertools
   - optking

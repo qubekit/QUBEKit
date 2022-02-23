@@ -1,9 +1,7 @@
 name: test
 channels:
   - conda-forge
-  - psi4
   - psi4/label/dev
-  - defaults
 dependencies:
     # Base deps
   - python
@@ -35,9 +33,8 @@ dependencies:
   # Optional
   - xtb-python
   - torchani
-  - psi4 >=1.5
-  - msgpack-python
-  - gau2grid
+  - psi4 =1.4a2.dev1058+670a850
+  - gau2grid =2.0.3
   - dftd3
   - gcp
   - optking
