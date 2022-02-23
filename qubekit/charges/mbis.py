@@ -5,7 +5,8 @@ An interface to MBIS via psi4.
 from typing import Any, Dict, Optional
 
 from pydantic import Field
-from qcelemental.util import which_import
+from qcelemental.util import parse_version, safe_version, which, which_import
+from qcengine.util import popen
 from typing_extensions import Literal
 
 from qubekit.charges.base import ChargeBase
@@ -13,6 +14,7 @@ from qubekit.charges.solvent_settings import SolventPsi4
 from qubekit.engines import call_qcengine
 from qubekit.molecules import Dipole, Ligand, Quadrupole
 from qubekit.utils.datastructures import LocalResource, QCOptions
+from qubekit.utils.exceptions import SpecificationError
 
 
 class MBISCharges(ChargeBase):
@@ -32,12 +34,23 @@ class MBISCharges(ChargeBase):
         """
         The MBIS option is only available via new psi4 so make sure it is installed.
         """
-        return which_import(
+        # check installed
+        psi4 = which_import(
             "psi4",
             return_bool=True,
             raise_error=True,
-            raise_msg="Please install via `conda install psi4 -c psi4/label/dev`.",
+            raise_msg="Please install via `conda install psi4 -c psi4`.",
         )
+        # now check the version meets the minimum requirement
+        which_psi4 = which("psi4")
+        with popen([which_psi4, "--version"]) as exc:
+            exc["proc"].wait(timeout=30)
+        version = parse_version(safe_version(exc["stdout"].split()[-1]))
+        if version <= parse_version("1.4a1"):
+            raise SpecificationError(
+                f"The version of psi4 installed is {version} and needs to be 1.4 or newer please update it to continue."
+            )
+        return psi4
 
     def _gas_calculation_settings(self) -> Dict[str, Any]:
         return {"scf_properties": ["MBIS_CHARGES"]}

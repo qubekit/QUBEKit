@@ -90,7 +90,7 @@ class Optimiser(StageBase):
 
     type: Literal["Optimiser"] = "Optimiser"
     pre_optimisation_method: Optional[PreOptMethods] = Field(
-        "uff",
+        "gfn2xtb",
         description="The pre-optimisation method that should be used before full QM.",
     )
     seed_conformers: int = Field(
