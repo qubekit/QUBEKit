@@ -27,7 +27,7 @@ jobs:
 #            os: macOS-latest
 
           - conda-env: everything
-            python-version: 3.7
+            python-version: 3.8
             os: ubuntu-latest
 
           - conda-env: basic
