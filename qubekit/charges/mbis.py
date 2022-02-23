@@ -46,7 +46,7 @@ class MBISCharges(ChargeBase):
         with popen([which_psi4, "--version"]) as exc:
             exc["proc"].wait(timeout=30)
         version = parse_version(safe_version(exc["stdout"].split()[-1]))
-        if version < parse_version("1.4"):
+        if version <= parse_version("1.4a1"):
             raise SpecificationError(
                 f"The version of psi4 installed is {version} and needs to be 1.4 or newer please update it to continue."
             )
