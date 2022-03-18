@@ -124,7 +124,7 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
         for dihedral in param_mol2.TorsionForce.parameters:
             other_dih = param_mol.TorsionForce[dihedral.atoms]
             for key in dihedral.__fields__:
-                if key != "atoms":
+                if key not in ["atoms", "attributes", "parameter_eval"]:
                     assert getattr(dihedral, key) == pytest.approx(
                         getattr(other_dih, key)
                     )
@@ -247,7 +247,10 @@ def test_xml_sites_roundtrip(tmpdir, xml):
         for dihedral in mol.TorsionForce.parameters:
             other_dih = mol2.TorsionForce[dihedral.atoms]
             for key in dihedral.__fields__:
-                assert getattr(dihedral, key) == pytest.approx(getattr(other_dih, key))
+                if key not in ["atoms", "attributes", "parameter_eval"]:
+                    assert getattr(dihedral, key) == pytest.approx(
+                        getattr(other_dih, key)
+                    )
 
 
 @pytest.mark.parametrize(

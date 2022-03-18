@@ -366,8 +366,9 @@ class ModSeminario(StageBase):
                     scaling_factor_all_angles[i][j][0]
                 )
 
-        k_theta, theta_0 = np.zeros(len(molecule.angles)), np.zeros(
-            len(molecule.angles)
+        k_theta, theta_0 = (
+            np.zeros(len(molecule.angles)),
+            np.zeros(len(molecule.angles)),
         )
 
         conversion = constants.KCAL_TO_KJ * 2

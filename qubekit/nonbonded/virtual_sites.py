@@ -475,9 +475,10 @@ class VirtualSites(StageBase):
             r_ab = atom_coords - bonded_coords
             if n_sites == 1:
                 return (r_ab / np.linalg.norm(r_ab)) * scale_factor
-            return (r_ab / np.linalg.norm(r_ab)) * scale_factor, (
-                r_ab / np.linalg.norm(r_ab)
-            ) * scale_factor
+            return (
+                (r_ab / np.linalg.norm(r_ab)) * scale_factor,
+                (r_ab / np.linalg.norm(r_ab)) * scale_factor,
+            )
 
         # e.g. oxygen
         if len(atom.bonds) == 2:
@@ -494,9 +495,10 @@ class VirtualSites(StageBase):
                 vec_b = np.cross(r_ab, r_ac)
             else:
                 vec_b = np.cross((r_ab + r_ac), np.cross(r_ab, r_ac))
-            return (vec_a / np.linalg.norm(vec_a)) * scale_factor, (
-                vec_b / np.linalg.norm(vec_b)
-            ) * scale_factor
+            return (
+                (vec_a / np.linalg.norm(vec_a)) * scale_factor,
+                (vec_b / np.linalg.norm(vec_b)) * scale_factor,
+            )
 
         # e.g. nitrogen
         if len(atom.bonds) == 3:
@@ -522,12 +524,15 @@ class VirtualSites(StageBase):
                         r_ha = atom_coords - h_a_coords
                         r_hb = atom_coords - h_b_coords
 
-                        return (r_vec / np.linalg.norm(r_vec)) * scale_factor, (
-                            (r_ha + r_hb) / np.linalg.norm(r_ha + r_hb)
-                        ) * scale_factor
-                return (r_vec / np.linalg.norm(r_vec)) * scale_factor, (
-                    r_vec / np.linalg.norm(r_vec)
-                ) * scale_factor
+                        return (
+                            (r_vec / np.linalg.norm(r_vec)) * scale_factor,
+                            ((r_ha + r_hb) / np.linalg.norm(r_ha + r_hb))
+                            * scale_factor,
+                        )
+                return (
+                    (r_vec / np.linalg.norm(r_vec)) * scale_factor,
+                    (r_vec / np.linalg.norm(r_vec)) * scale_factor,
+                )
 
     def _esp_from_lambda_and_charge(
         self, atom_index: int, q: float, lam: float, vec: np.ndarray
