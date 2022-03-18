@@ -338,7 +338,11 @@ class GaussianHarness(ProgramHarness):
                 grad_found = True
             elif grad_found:
                 # Nonadiabatic coupling add for g16 support
-                if "Cartesian Force Constants" in line or "Dipole Moment" in line or "Nonadiabatic coupling" in line:
+                if (
+                    "Cartesian Force Constants" in line
+                    or "Dipole Moment" in line
+                    or "Nonadiabatic coupling" in line
+                ):
                     grad_found = False
                 else:
                     gradient.extend([float(grad) for grad in line.split()])
