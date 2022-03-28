@@ -68,6 +68,12 @@ def test_openff_skeleton(tmpdir, openff):
         # no charges should be generated
         for i in range(mol.n_atoms):
             assert mol.NonbondedForce[(0,)].charge == 0
+        # make sure dummy torsions are kept
+        boron_torsion = mol.TorsionForce[(1, 0, 8, 7)]
+        assert boron_torsion.k1 == 0
+        assert boron_torsion.k2 == 0
+        assert boron_torsion.k3 == 0
+        assert boron_torsion.k4 == 0
 
 
 @pytest.mark.parametrize(
