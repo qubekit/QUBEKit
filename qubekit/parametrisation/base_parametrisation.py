@@ -169,9 +169,6 @@ class Parametrisation(StageBase, abc.ABC):
             if "PeriodicTorsionForce" in forces:
                 for Torsion in forces["PeriodicTorsionForce"].iter("Torsion"):
                     k = float(Torsion.get("k"))
-                    # if k=0 there is no value in saving
-                    if k == 0:
-                        continue
                     tor_str = tuple(int(Torsion.get(f"p{i}")) for i in range(1, 5))
                     phase = float(Torsion.get("phase"))
                     if phase == 3.141594:

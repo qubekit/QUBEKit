@@ -68,6 +68,12 @@ def test_openff_skeleton(tmpdir, openff):
         # no charges should be generated
         for i in range(mol.n_atoms):
             assert mol.NonbondedForce[(0,)].charge == 0
+        # make sure dummy torsions are kept
+        boron_torsion = mol.TorsionForce[(1, 0, 8, 7)]
+        assert boron_torsion.k1 == 0
+        assert boron_torsion.k2 == 0
+        assert boron_torsion.k3 == 0
+        assert boron_torsion.k4 == 0
 
 
 @pytest.mark.parametrize(
@@ -124,7 +130,12 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
         for dihedral in param_mol2.TorsionForce.parameters:
             other_dih = param_mol.TorsionForce[dihedral.atoms]
             for key in dihedral.__fields__:
-                if key not in ["atoms", "attributes", "parameter_eval"]:
+                # openmm will not load any torsions which have k=0, this causes differences between antechamber and
+                # qubekit when the phase is not as expected, this does not change the energy however as k=0
+                if (
+                    key not in ["atoms", "attributes", "parameter_eval"]
+                    and "phase" not in key
+                ):
                     assert getattr(dihedral, key) == pytest.approx(
                         getattr(other_dih, key)
                     )
