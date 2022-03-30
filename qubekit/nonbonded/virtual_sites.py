@@ -62,6 +62,10 @@ class VirtualSites(StageBase):
         1.0, description="The ESP error threshold to start fitting virtual sites.", gt=0
     )
 
+    regularisation_epsilon: float = Field(
+        0.0, description="The regularisation factor of the distance between the virtual site to the parent atom."
+    )
+
     # only for debugging so not exposed
     _enable_symmetry: bool = PrivateAttr(default=True)
 
@@ -645,7 +649,9 @@ class VirtualSites(StageBase):
         return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
         """
         site_esps = self._esp_from_lambda_and_charge(atom_index, *q_lam, vec)
-        return sum(abs(self._no_site_esps - site_esps))
+        mean_abs_diff = np.mean(abs(self._no_site_esps - site_esps))
+        regularisation = abs(q_lam[1]) * self.regularisation_epsilon
+        return mean_abs_diff + regularisation
 
     def _two_sites_objective_function(
         self,
@@ -661,7 +667,9 @@ class VirtualSites(StageBase):
         site_esps = self._esp_from_lambdas_and_charges(
             atom_index, *qa_qb_lama_lamb, vec_a, vec_b
         )
-        return sum(abs(self._no_site_esps - site_esps))
+        mean_abs_diff = np.mean(abs(self._no_site_esps - site_esps))
+        regularisation = np.mean(abs(qa_qb_lama_lamb[2:])) * self.regularisation_epsilon
+        return mean_abs_diff + regularisation
 
     def _symm_two_sites_objective_function(
         self,
@@ -678,7 +686,9 @@ class VirtualSites(StageBase):
         site_esps = self._symm_esp_from_lambdas_and_charges(
             atom_index, *q_lam, vec_a, vec_b
         )
-        return sum(abs(self._no_site_esps - site_esps))
+        mean_abs_diff = np.mean(abs(self._no_site_esps - site_esps))
+        regularisation = abs(q_lam[1]) * self.regularisation_epsilon
+        return mean_abs_diff + regularisation
 
     @staticmethod
     def _two_site_one_or_three_bond_constraint_charge(x):
@@ -732,8 +742,9 @@ class VirtualSites(StageBase):
             args=(atom_index, vec),
             bounds=bounds,
         )
-        error = one_site_fit.fun / len(self._sample_points)
+        error = one_site_fit.fun
         q, lam = one_site_fit.x
+        print(f'1 VS, lam q error: {lam} {q} {error}')
         one_site_coords = [((vec * lam) + self._coords[atom_index], q, atom_index)]
 
         return error, one_site_coords
@@ -779,8 +790,8 @@ class VirtualSites(StageBase):
                 bounds=bounds,
                 constraints=constraint,
             )
-            if two_site_fit.fun / len(self._sample_points) < error:
-                error = two_site_fit.fun / len(self._sample_points)
+            if two_site_fit.fun < error:
+                error = two_site_fit.fun
 
                 q_a, q_b, lam_a, lam_b = two_site_fit.x
                 site_a_coords, site_b_coords = self._sites_coords_from_vecs_and_lams(
@@ -815,9 +826,10 @@ class VirtualSites(StageBase):
                         "fun": VirtualSites._symm_two_site_two_bond_constraint,
                     },
                 )
-                if (two_site_fit.fun / len(self._sample_points)) < error:
-                    error = two_site_fit.fun / len(self._sample_points)
+                if two_site_fit.fun < error:
+                    error = two_site_fit.fun
                     q, lam = two_site_fit.x
+                    print(f'Symmetric 2 VS lam q error {lam} {q} {error}')
                     q_a = q_b = q
                     lam_a = lam_b = lam
                     (
@@ -841,9 +853,10 @@ class VirtualSites(StageBase):
                         "fun": VirtualSites._two_site_two_bond_constraint,
                     },
                 )
-                if (two_site_fit.fun / len(self._sample_points)) < error:
-                    error = two_site_fit.fun / len(self._sample_points)
+                if two_site_fit.fun < error:
+                    error = two_site_fit.fun
                     q_a, q_b, lam_a, lam_b = two_site_fit.x
+                    print(f'2 VS: lama lamb q_a q_b error: {lam_a} {lam_b} {q_a} {q_b} {error}')
                     (
                         site_a_coords,
                         site_b_coords,
@@ -874,8 +887,7 @@ class VirtualSites(StageBase):
 
         # Calc error in esp when no sites are present
         vec = self._get_vector_from_coords(atom_index, n_sites=1)
-        no_site_error = self._one_site_objective_function((0, 1), atom_index, vec)
-        no_site_error /= len(self._sample_points)
+        no_site_error = self._one_site_objective_function((0, 0), atom_index, vec)
 
         # Error in esp is sufficiently low to not require virtual sites.
         if no_site_error <= self.site_error_threshold:
