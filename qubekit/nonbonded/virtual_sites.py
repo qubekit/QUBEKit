@@ -613,7 +613,8 @@ class VirtualSites(StageBase):
         self,
         atom_index: int,
         q: float,
-        lam: float,
+        lama: float,
+        lamb: float,
         vec_a: np.ndarray,
         vec_b: np.ndarray,
     ) -> np.ndarray:
@@ -630,7 +631,7 @@ class VirtualSites(StageBase):
         """
 
         site_a_coords, site_b_coords = self._sites_coords_from_vecs_and_lams(
-            atom_index, lam, lam, vec_a, vec_b
+            atom_index, lama, lamb, vec_a, vec_b
         )
 
         return self._generate_atom_mono_esp_three_charges(
@@ -665,7 +666,7 @@ class VirtualSites(StageBase):
 
     def _symm_two_sites_objective_function(
         self,
-        q_lam: Tuple[float, float],
+        q_lama_lamb: Tuple[float, float, float],
         atom_index: int,
         vec_a: np.ndarray,
         vec_b: np.ndarray,
@@ -676,7 +677,7 @@ class VirtualSites(StageBase):
         return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
         """
         site_esps = self._symm_esp_from_lambdas_and_charges(
-            atom_index, *q_lam, vec_a, vec_b
+            atom_index, *q_lama_lamb, vec_a, vec_b
         )
         return sum(abs(self._no_site_esps - site_esps))
 
@@ -707,7 +708,7 @@ class VirtualSites(StageBase):
         This constraint ensures the max scaling factor of the vectors combined is less than 1.
         NB They can then be scaled to be up to 1.5 by the scale factor.
         """
-        return 1 - x[2] ** 2 - x[3] ** 2
+        return 1 - x[1] ** 2 - x[2] ** 2
 
     @staticmethod
     def _symm_two_site_two_bond_constraint(x):
@@ -805,21 +806,22 @@ class VirtualSites(StageBase):
             bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
             vec_a, vec_b = self._get_vector_from_coords(atom_index, n_sites=2, alt=alt)
             if self._enable_symmetry:
+                print("running special case")
                 two_site_fit = minimize(
                     self._symm_two_sites_objective_function,
-                    np.array([0.0, 1.0]),
+                    np.array([0.0, 1.0, 0]),
                     args=(atom_index, vec_a, vec_b),
-                    bounds=bounds[1:3],
+                    bounds=bounds[:3],
                     constraints={
                         "type": "ineq",
-                        "fun": VirtualSites._symm_two_site_two_bond_constraint,
+                        "fun": VirtualSites._two_site_two_bond_constraint,
                     },
                 )
                 if (two_site_fit.fun / len(self._sample_points)) < error:
                     error = two_site_fit.fun / len(self._sample_points)
-                    q, lam = two_site_fit.x
+                    q, lam_a, lam_b = two_site_fit.x
                     q_a = q_b = q
-                    lam_a = lam_b = lam
+                    # lam_a = lam_b = lam
                     (
                         site_a_coords,
                         site_b_coords,
@@ -843,6 +845,7 @@ class VirtualSites(StageBase):
                 )
                 if (two_site_fit.fun / len(self._sample_points)) < error:
                     error = two_site_fit.fun / len(self._sample_points)
+                    print(two_site_fit.x)
                     q_a, q_b, lam_a, lam_b = two_site_fit.x
                     (
                         site_a_coords,
