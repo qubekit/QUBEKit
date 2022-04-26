@@ -12,7 +12,6 @@ from qubekit.workflow import WorkFlowResult
 
 if TYPE_CHECKING:
     from qubekit.molecules import Atom, Ligand
-    from qubekit.nonbonded import FreeParams
 
 
 elements = ["H", "C", "N", "O", "X", "Cl", "S", "F", "Br", "P", "I", "B", "Si", "AB"]
@@ -64,6 +63,8 @@ def _combine_molecules(
     # if alpha and beta should be fit
     if "AB" in parameters:
         fit_ab = True
+
+    rfree_codes = set()  # keep track of all rfree codes used by these molecules
 
     root = ET.Element("ForceField")
     ET.SubElement(
@@ -248,6 +249,8 @@ def _combine_molecules(
                 "type": f"QUBE_{str(parameter.atoms[0] + increment)}",
             }
             if rfree_code in parameters or fit_ab:
+                # keep track of present codes to optimise
+                rfree_codes.add(rfree_code)
                 # this is to be refit
                 atom = molecule.atoms[parameter.atoms[0]]
                 eval_string = _get_eval_string(
@@ -280,7 +283,7 @@ def _combine_molecules(
     # add the ForceBalance tags
     ForceBalance = ET.SubElement(root, "ForceBalance")
     for parameter_to_fit in parameters:
-        if parameter_to_fit != "AB" and parameter_to_fit in rfree_data:
+        if parameter_to_fit != "AB" and parameter_to_fit in rfree_codes:
             fit_data = {
                 f"{parameter_to_fit.lower()}free": str(
                     rfree_data[parameter_to_fit]["r_free"]
@@ -328,7 +331,7 @@ def _get_eval_string(
 
 
 def _find_molecules_and_rfrees() -> Tuple[
-    List["Ligand"], Dict[str, Union["FreeParams", float]]
+    List["Ligand"], Dict[str, Dict[str, Union[str, float]]]
 ]:
     """
     Loop over the local directories looking for qubekit WorkFlowResults and extract the ligands and a list of all
@@ -348,7 +351,7 @@ def _find_molecules_and_rfrees() -> Tuple[
             element_params["alpha"] = lj_stage["alpha"]
             element_params["beta"] = lj_stage["beta"]
 
-    print(f"{len(molecules)} found, combining...")
+    print(f"{len(molecules)} molecules found, combining...")
     return molecules, element_params
 
 
