@@ -50,3 +50,20 @@ def rdkit_workflow():
     rdkit_spec = QCOptions(program="rdkit", method="uff", basis=None)
     workflow = WorkFlow(qc_options=rdkit_spec)
     return workflow
+
+
+@pytest.fixture()
+def rfree_data():
+    return {
+        "H": {"v_free": 7.6, "b_free": 6.5, "r_free": 1.738},
+        "X": {"v_free": 7.6, "b_free": 6.5, "r_free": 1.083},
+        "C": {"v_free": 34.4, "b_free": 46.6, "r_free": 2.008},
+        "N": {"v_free": 25.9, "b_free": 24.2, "r_free": 1.765},
+        "O": {"v_free": 22.1, "b_free": 15.6, "r_free": 1.499},
+        "F": {"v_free": 18.2, "b_free": 9.5, "r_free": 1.58},
+        "Cl": {"v_free": 65.1, "b_free": 94.6, "r_free": 1.88},
+        "Br": {"v_free": 95.7, "b_free": 162.0, "r_free": 1.96},
+        "S": {"v_free": 75.2, "b_free": 134.0, "r_free": 2.0},
+        "alpha": 1,
+        "beta": 0.5,
+    }
