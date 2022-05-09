@@ -40,6 +40,17 @@ def test_get_param_code(molecule, atom_index, expected, request):
     assert rfree_code == expected
 
 
+def test_mutual_args(run_cli):
+    """
+    Make sure an error is raised if we supply parameters and no-targets args.
+    """
+    result = run_cli.invoke(combine, args=["combined.xml", "-p", "C", "--no-targets"])
+    assert result.exit_code == 1
+    assert (
+        "The options parameters and no-targets are mutually exclusive." in result.output
+    )
+
+
 def test_update_increment():
     """
     Make sure force data has the class incremented correctly.
@@ -234,7 +245,7 @@ def test_combine_molecules_sites_deepdiff(openff, xml, acetone, rfree_data, tmpd
             significant_digits=6,
             exclude_regex_paths="mass",
         )
-        assert len(acetone_diff) == 0
+        assert len(pyridine_diff) == 0
 
 
 @pytest.mark.parametrize(
@@ -245,6 +256,7 @@ def test_combine_molecules_sites_deepdiff(openff, xml, acetone, rfree_data, tmpd
             ["-p", "C", "-p", "AB", "-p", "N", "-p", "O"], 5, id="CNO alpha beta"
         ),
         pytest.param([], 7, id="All present"),
+        pytest.param(["--no-targets"], 0, id="No targets"),
     ],
 )
 def test_combine_cli_all(
@@ -270,4 +282,7 @@ def test_combine_cli_all(
         assert "2 molecules found, combining..." in output.output
 
         data = xmltodict.parse(open("combined.xml").read())
-        assert len(data["ForceField"]["ForceBalance"]) == expected
+        if expected > 0:
+            assert len(data["ForceField"]["ForceBalance"]) == expected
+        else:
+            assert data["ForceField"]["ForceBalance"] is None

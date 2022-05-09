@@ -30,15 +30,31 @@ parameters_to_fit = click.Choice(
     help="The elements whose Rfree is to be optimised, if not provided all will be fit.",
     multiple=True,
 )
-def combine(filename: str, parameters: Optional[List[str]] = None):
+@click.option(
+    "-n",
+    "--no-targets",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="If the xmls should be combined with no optimisation targets, this option is useful for Forcebalance single point evaluations.",
+)
+def combine(
+    filename: str, parameters: Optional[List[str]] = None, no_targets: bool = False
+):
     """
     Combine a list of molecules together and create a single master XML force field file.
     """
+    if no_targets and parameters:
+        raise click.ClickException(
+            "The options parameters and no-targets are mutually exclusive."
+        )
 
     molecules, rfrees = _find_molecules_and_rfrees()
-    if not parameters:
+    if not parameters and not no_targets:
         # fit everything
         parameters = elements
+    elif no_targets:
+        parameters = []
 
     xml_data = _combine_molecules(
         molecules=molecules, rfree_data=rfrees, parameters=parameters
