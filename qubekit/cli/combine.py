@@ -273,6 +273,8 @@ def _combine_molecules(
                     atom=atom,
                     rfree_data=rfree_data[rfree_code],
                     a_and_b=fit_ab,
+                    alpha_ref=rfree_data["alpha"],
+                    beta_ref=rfree_data["beta"],
                     rfree_code=rfree_code if rfree_code in parameters else None,
                 )
                 atom_data["parameter_eval"] = eval_string
@@ -322,6 +324,8 @@ def _get_eval_string(
     atom: "Atom",
     rfree_data: Dict[str, str],
     a_and_b: bool,
+    alpha_ref: str,
+    beta_ref: str,
     rfree_code: Optional[str] = None,
 ) -> str:
     """
@@ -329,17 +333,17 @@ def _get_eval_string(
     """
 
     if a_and_b:
-        alpha = "PARM['xalpha/alpha']*"
-        beta = f"*({atom.aim.volume}/{rfree_data['v_free']})**PARM['xbeta/beta']"
+        alpha = "PARM['xalpha/alpha']"
+        beta = "PARM['xbeta/beta']"
     else:
-        alpha, beta = "", ""
+        alpha, beta = alpha_ref, beta_ref
     if rfree_code is not None:
         rfree = f"PARM['{rfree_code}Element/{rfree_code.lower()}free']"
     else:
         rfree = f"{rfree_data['r_free']}"
 
     eval_string = (
-        f"epsilon=({alpha}{rfree_data['b_free']}{beta})/(128*{rfree}**6)*{constants.EPSILON_CONVERSION}, "
+        f"epsilon=({alpha}*{rfree_data['b_free']}*({atom.aim.volume}/{rfree_data['v_free']})**{beta})/(128*{rfree}**6)*{constants.EPSILON_CONVERSION}, "
         f"sigma=2**(5/6)*({atom.aim.volume}/{rfree_data['v_free']})**(1/3)*{rfree}*{constants.SIGMA_CONVERSION}"
     )
 
