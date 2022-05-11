@@ -19,7 +19,7 @@ from qubekit.bonded import ModSeminario
 
 # -- Project information -----------------------------------------------------
 
-project = 'FEgrow'
+project = 'QUBEKit'
 copyright = '2022, Daniel J Cole'
 author = 'Joshua Horton, Chris Ringrose, Daniel J Cole'
 
