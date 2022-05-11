@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qubekit.bonded.mod_seminario &mdash; FEgrow 2.1.1+5.gb02dcd2.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> FEgrow
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../qubekit.html">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../acknowledgments.html">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">FEgrow</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>qubekit.bonded.mod_seminario</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qubekit.bonded.mod_seminario</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Module to implement the Modified Seminario Method</span>
+<span class="sd">Originally written by Alice E. A. Allen, TCM, University of Cambridge</span>
+<span class="sd">Modified by Joshua T. Horton and rewritten by Chris Ringrose, Newcastle University</span>
+<span class="sd">Reference using AEA Allen, MC Payne, DJ Cole, J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">itemgetter</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">Field</span>
+<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span> <span class="nn">qubekit.molecules</span> <span class="kn">import</span> <span class="n">Ligand</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils</span> <span class="kn">import</span> <span class="n">constants</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.datastructures</span> <span class="kn">import</span> <span class="n">StageBase</span>
+
+
+<span class="k">class</span> <span class="nc">ModSemMaths</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Static methods for various mathematical functions relevant to the modified Seminario method.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="si">!r}</span><span class="s2">)&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">unit_vector_normal_to_bond</span><span class="p">(</span><span class="n">u_bc</span><span class="p">,</span> <span class="n">u_ab</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculates unit vector which is normal to the plane abc.&quot;&quot;&quot;</span>
+
+        <span class="n">cross</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">u_bc</span><span class="p">,</span> <span class="n">u_ab</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cross</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">cross</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">unit_vector_along_bond</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">bond</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculates the unit vector along a bond.&quot;&quot;&quot;</span>
+
+        <span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span> <span class="o">=</span> <span class="n">bond</span>
+        <span class="n">diff_ab</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">atom_b</span><span class="p">]</span> <span class="o">-</span> <span class="n">coords</span><span class="p">[</span><span class="n">atom_a</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">diff_ab</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">diff_ab</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">u_pa_from_angles</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This gives the vector in the plane a, b, c and perpendicular to a to b.&quot;&quot;&quot;</span>
+
+        <span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">,</span> <span class="n">atom_c</span> <span class="o">=</span> <span class="n">angle</span>
+
+        <span class="n">u_ab</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_along_bond</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="p">(</span><span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">))</span>
+        <span class="n">u_cb</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_along_bond</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="p">(</span><span class="n">atom_c</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">))</span>
+
+        <span class="n">u_n</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_normal_to_bond</span><span class="p">(</span><span class="n">u_cb</span><span class="p">,</span> <span class="n">u_ab</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_normal_to_bond</span><span class="p">(</span><span class="n">u_n</span><span class="p">,</span> <span class="n">u_ab</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">dot_product</span><span class="p">(</span><span class="n">u_pa</span><span class="p">,</span> <span class="n">eig_ab</span><span class="p">):</span>
+
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">u_pa</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">eig_ab</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">force_constant_bond</span><span class="p">(</span><span class="n">bond</span><span class="p">,</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Force Constant - Equation 10 of Seminario paper - gives force constant for bond.&quot;&quot;&quot;</span>
+
+        <span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span> <span class="o">=</span> <span class="n">bond</span>
+        <span class="n">eigenvals_ab</span> <span class="o">=</span> <span class="n">eigenvals</span><span class="p">[</span><span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">eigenvecs_ab</span> <span class="o">=</span> <span class="n">eigenvecs</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">]</span>
+
+        <span class="n">unit_vectors_ab</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_along_bond</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">bond</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="n">eigenvals_ab</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">unit_vectors_ab</span><span class="p">,</span> <span class="n">eigenvecs_ab</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">force_constant_angle</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="n">bond_lens</span><span class="p">,</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">scalings</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Force Constant - Equation 14 of Seminario paper - gives force constant for angle</span>
+<span class="sd">        (in kcal/mol/rad^2) and equilibrium angle (in degrees).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">,</span> <span class="n">atom_c</span> <span class="o">=</span> <span class="n">angle</span>
+
+        <span class="n">u_ab</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_along_bond</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="p">(</span><span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">))</span>
+        <span class="n">u_cb</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_along_bond</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="p">(</span><span class="n">atom_c</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">))</span>
+
+        <span class="n">bond_len_ab</span> <span class="o">=</span> <span class="n">bond_lens</span><span class="p">[</span><span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">]</span>
+        <span class="n">eigenvals_ab</span> <span class="o">=</span> <span class="n">eigenvals</span><span class="p">[</span><span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">eigenvecs_ab</span> <span class="o">=</span> <span class="n">eigenvecs</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="n">atom_a</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">]</span>
+
+        <span class="n">bond_len_bc</span> <span class="o">=</span> <span class="n">bond_lens</span><span class="p">[</span><span class="n">atom_b</span><span class="p">,</span> <span class="n">atom_c</span><span class="p">]</span>
+        <span class="n">eigenvals_cb</span> <span class="o">=</span> <span class="n">eigenvals</span><span class="p">[</span><span class="n">atom_c</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">eigenvecs_cb</span> <span class="o">=</span> <span class="n">eigenvecs</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="n">atom_c</span><span class="p">,</span> <span class="n">atom_b</span><span class="p">]</span>
+
+        <span class="c1"># Normal vector to angle plane found</span>
+        <span class="n">u_n</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_normal_to_bond</span><span class="p">(</span><span class="n">u_cb</span><span class="p">,</span> <span class="n">u_ab</span><span class="p">)</span>
+
+        <span class="c1"># Angle is linear:</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">u_cb</span> <span class="o">-</span> <span class="n">u_ab</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mf">0.01</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="mf">1.99</span> <span class="o">&lt;</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">u_cb</span> <span class="o">-</span> <span class="n">u_ab</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mf">2.01</span>
+        <span class="p">):</span>
+            <span class="c1"># Scalings are set to 1.</span>
+            <span class="n">k_theta</span><span class="p">,</span> <span class="n">theta_0</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">f_c_a_special_case</span><span class="p">(</span>
+                <span class="n">u_ab</span><span class="p">,</span>
+                <span class="n">u_cb</span><span class="p">,</span>
+                <span class="p">[</span><span class="n">bond_len_ab</span><span class="p">,</span> <span class="n">bond_len_bc</span><span class="p">],</span>
+                <span class="p">[</span><span class="n">eigenvals_ab</span><span class="p">,</span> <span class="n">eigenvals_cb</span><span class="p">],</span>
+                <span class="p">[</span><span class="n">eigenvecs_ab</span><span class="p">,</span> <span class="n">eigenvecs_cb</span><span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">u_pa</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_normal_to_bond</span><span class="p">(</span><span class="n">u_n</span><span class="p">,</span> <span class="n">u_ab</span><span class="p">)</span>
+            <span class="n">u_pc</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_normal_to_bond</span><span class="p">(</span><span class="n">u_cb</span><span class="p">,</span> <span class="n">u_n</span><span class="p">)</span>
+
+            <span class="c1"># Scaling due to additional angles - Modified Seminario Part</span>
+            <span class="n">sum_first</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">sum</span><span class="p">(</span>
+                    <span class="n">eigenvals_ab</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ModSemMaths</span><span class="o">.</span><span class="n">dot_product</span><span class="p">(</span><span class="n">u_pa</span><span class="p">,</span> <span class="n">eigenvecs_ab</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]))</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="o">/</span> <span class="n">scalings</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">sum_second</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">sum</span><span class="p">(</span>
+                    <span class="n">eigenvals_cb</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ModSemMaths</span><span class="o">.</span><span class="n">dot_product</span><span class="p">(</span><span class="n">u_pc</span><span class="p">,</span> <span class="n">eigenvecs_cb</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]))</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="o">/</span> <span class="n">scalings</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Added as two springs in series</span>
+            <span class="n">k_theta</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">((</span><span class="n">bond_len_ab</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">sum_first</span><span class="p">))</span> <span class="o">+</span> <span class="p">(</span>
+                <span class="mi">1</span> <span class="o">/</span> <span class="p">((</span><span class="n">bond_len_bc</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">sum_second</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">k_theta</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">k_theta</span>
+
+            <span class="c1"># Change to OPLS form</span>
+            <span class="n">k_theta</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">k_theta</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span>
+
+            <span class="c1"># Equilibrium Angle</span>
+            <span class="n">theta_0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">u_ab</span><span class="p">,</span> <span class="n">u_cb</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="n">k_theta</span><span class="p">,</span> <span class="n">theta_0</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">f_c_a_special_case</span><span class="p">(</span><span class="n">u_ab</span><span class="p">,</span> <span class="n">u_cb</span><span class="p">,</span> <span class="n">bond_lens</span><span class="p">,</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Force constant angle special case, for example nitrile groups.</span>
+<span class="sd">        This is for when the bond is linear, and therefore cannot be sampled around in the same way.</span>
+<span class="sd">        The perpendicular vector is not defined for a linear bond.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Number of samples around the bond.</span>
+        <span class="n">n_samples</span> <span class="o">=</span> <span class="mi">200</span>
+        <span class="n">k_theta_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">theta</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_samples</span><span class="p">):</span>
+
+            <span class="n">u_n</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span>
+            <span class="p">]</span>
+
+            <span class="n">u_pa</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_normal_to_bond</span><span class="p">(</span><span class="n">u_n</span><span class="p">,</span> <span class="n">u_ab</span><span class="p">)</span>
+            <span class="n">u_pc</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">unit_vector_normal_to_bond</span><span class="p">(</span><span class="n">u_cb</span><span class="p">,</span> <span class="n">u_n</span><span class="p">)</span>
+
+            <span class="n">sum_first</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+                <span class="n">eigenvals</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ModSemMaths</span><span class="o">.</span><span class="n">dot_product</span><span class="p">(</span><span class="n">u_pa</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">[</span><span class="mi">0</span><span class="p">][:,</span> <span class="n">i</span><span class="p">]))</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">sum_second</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+                <span class="n">eigenvals</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ModSemMaths</span><span class="o">.</span><span class="n">dot_product</span><span class="p">(</span><span class="n">u_pc</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">[</span><span class="mi">1</span><span class="p">][:,</span> <span class="n">i</span><span class="p">]))</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="n">k_theta_i</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">((</span><span class="n">bond_lens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">sum_first</span><span class="p">))</span> <span class="o">+</span> <span class="p">(</span>
+                <span class="mi">1</span> <span class="o">/</span> <span class="p">((</span><span class="n">bond_lens</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">sum_second</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">k_theta_i</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">k_theta_i</span>
+
+            <span class="n">k_theta_array</span><span class="p">[</span><span class="n">theta</span><span class="p">]</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">k_theta_i</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span>
+
+        <span class="n">k_theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">k_theta_array</span><span class="p">)</span>
+        <span class="n">theta_0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">u_ab</span><span class="p">,</span> <span class="n">u_cb</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="n">k_theta</span><span class="p">,</span> <span class="n">theta_0</span>
+
+
+<div class="viewcode-block" id="ModSeminario"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario">[docs]</a><span class="k">class</span> <span class="nc">ModSeminario</span><span class="p">(</span><span class="n">StageBase</span><span class="p">):</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;ModSeminario&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;ModSeminario&quot;</span>
+    <span class="n">vibrational_scaling</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The vibration scaling that should be used to correct the reference DFT frequencies.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="ModSeminario.is_available"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.is_available">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_available</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;This class is part of qubekit and always available.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="ModSeminario.start_message"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.start_message">[docs]</a>    <span class="k">def</span> <span class="nf">start_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Calculating new bond and angle parameters with the modified Seminario method.&quot;</span></div>
+
+<div class="viewcode-block" id="ModSeminario.finish_message"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.finish_message">[docs]</a>    <span class="k">def</span> <span class="nf">finish_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Bond and angle parameters calculated.&quot;</span></div>
+
+<div class="viewcode-block" id="ModSeminario.run"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ligand</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The main worker stage which takes the molecule and its hessian and calculates the modified seminario method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            molecule: The qubekit molecule class that should contain a valid hessian and optimised coordinates.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Please cite this method using &lt;J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785&gt;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># reset the bond and angle parameter groups</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">BondForce</span><span class="o">.</span><span class="n">clear_parameters</span><span class="p">()</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">AngleForce</span><span class="o">.</span><span class="n">clear_parameters</span><span class="p">()</span>
+        <span class="c1"># convert the hessian from atomic units</span>
+        <span class="n">conversion</span> <span class="o">=</span> <span class="n">constants</span><span class="o">.</span><span class="n">HA_TO_KCAL_P_MOL</span> <span class="o">/</span> <span class="p">(</span><span class="n">constants</span><span class="o">.</span><span class="n">BOHR_TO_ANGS</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="c1"># make sure we do not change the molecule hessian</span>
+        <span class="n">hessian</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">hessian</span><span class="p">)</span>
+        <span class="n">hessian</span> <span class="o">*=</span> <span class="n">conversion</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_modified_seminario_method</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">,</span> <span class="n">hessian</span><span class="o">=</span><span class="n">hessian</span><span class="p">)</span>
+        <span class="c1"># apply symmetry to the bond and angle parameters</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">symmetrise_bonded_parameters</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">molecule</span></div>
+
+    <span class="k">def</span> <span class="nf">_modified_seminario_method</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="n">hessian</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ligand</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the new bond and angle terms after being passed the symmetric Hessian and</span>
+<span class="sd">        optimised molecule coordinates.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">size_mol</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span>
+        <span class="n">eigenvecs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">size_mol</span><span class="p">,</span> <span class="n">size_mol</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="n">eigenvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">size_mol</span><span class="p">,</span> <span class="n">size_mol</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="n">bond_lens</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">size_mol</span><span class="p">,</span> <span class="n">size_mol</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">size_mol</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">size_mol</span><span class="p">):</span>
+                <span class="n">diff_i_j</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="p">:]</span>
+                <span class="n">bond_lens</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">diff_i_j</span><span class="p">)</span>
+
+                <span class="n">partial_hessian</span> <span class="o">=</span> <span class="n">hessian</span><span class="p">[</span>
+                    <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span> <span class="p">:</span> <span class="p">((</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="n">j</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span> <span class="p">:</span> <span class="p">((</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span>
+                <span class="p">]</span>
+
+                <span class="n">eigenvals</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="p">:],</span> <span class="n">eigenvecs</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span>
+                    <span class="n">partial_hessian</span>
+                <span class="p">)</span>
+
+        <span class="c1"># The bond and angle values are calculated and written to file.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calculate_bonds</span><span class="p">(</span><span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="p">,</span> <span class="n">bond_lens</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calculate_angles</span><span class="p">(</span><span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="p">,</span> <span class="n">bond_lens</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">molecule</span>
+
+<div class="viewcode-block" id="ModSeminario.calculate_angles"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.calculate_angles">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_angles</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="n">bond_lengths</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Uses the modified Seminario method to find the angle parameters and prints them to file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># A structure is created with the index giving the central atom of the angle;</span>
+        <span class="c1"># an array then lists the angles with that central atom.</span>
+        <span class="c1"># e.g. central_atoms_angles[3] contains an array of angles with central atom 3.</span>
+
+        <span class="c1"># Connectivity information for Modified Seminario Method</span>
+        <span class="n">central_atoms_angles</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">):</span>
+            <span class="n">central_atoms_angles</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+            <span class="k">for</span> <span class="n">count</span><span class="p">,</span> <span class="n">angle</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">angles</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">coord</span> <span class="o">==</span> <span class="n">angle</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="c1"># For angle abc, atoms a, c are written to array</span>
+                    <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">coord</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">angle</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">angle</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">count</span><span class="p">])</span>
+
+                    <span class="c1"># For angle abc, atoms c a are written to array</span>
+                    <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">coord</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">angle</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">angle</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">count</span><span class="p">])</span>
+
+        <span class="c1"># Sort rows by atom number</span>
+        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">):</span>
+            <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">coord</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">coord</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Find normals u_pa for each angle</span>
+        <span class="n">unit_pa_all_angles</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">central_atoms_angles</span><span class="p">)):</span>
+            <span class="n">unit_pa_all_angles</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">])):</span>
+                <span class="c1"># For the angle at central_atoms_angles[i][j,:] the u_pa value is found for plane abc and bond ab,</span>
+                <span class="c1"># where abc corresponds to the order of the arguments. This is why the reverse order was also added.</span>
+                <span class="n">angle</span> <span class="o">=</span> <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">i</span><span class="p">,</span> <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">unit_pa_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">u_pa_from_angles</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span><span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Finds the contributing factors from the other angle terms</span>
+        <span class="n">scaling_factor_all_angles</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">central_atoms_angles</span><span class="p">)):</span>
+            <span class="n">scaling_factor_all_angles</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">])):</span>
+                <span class="n">n</span> <span class="o">=</span> <span class="n">m</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="n">angles_around</span> <span class="o">=</span> <span class="n">extra_contribs</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">scaling_factor_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+
+                <span class="c1"># Position in angle list</span>
+                <span class="n">scaling_factor_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+
+                <span class="c1"># Goes through the list of angles with the same central atom, then computes the term needed for MSM.</span>
+
+                <span class="c1"># Forwards direction, finds the same bonds with the central atom i</span>
+                <span class="k">while</span> <span class="p">((</span><span class="n">j</span> <span class="o">+</span> <span class="n">n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span> <span class="ow">and</span> <span class="n">central_atoms_angles</span><span class="p">[</span>
+                    <span class="n">i</span>
+                <span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span> <span class="o">+</span> <span class="n">n</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">extra_contribs</span> <span class="o">+=</span> <span class="p">(</span>
+                        <span class="nb">abs</span><span class="p">(</span>
+                            <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span>
+                                <span class="n">unit_pa_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][:],</span>
+                                <span class="n">unit_pa_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span> <span class="o">+</span> <span class="n">n</span><span class="p">][:],</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+                    <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">angles_around</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="c1"># Backwards direction, finds the same bonds with the central atom i</span>
+                <span class="k">while</span> <span class="p">((</span><span class="n">j</span> <span class="o">-</span> <span class="n">m</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span> <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span>
+                    <span class="mi">0</span>
+                <span class="p">]</span> <span class="o">==</span> <span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span> <span class="o">-</span> <span class="n">m</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">extra_contribs</span> <span class="o">+=</span> <span class="p">(</span>
+                        <span class="nb">abs</span><span class="p">(</span>
+                            <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span>
+                                <span class="n">unit_pa_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][:],</span>
+                                <span class="n">unit_pa_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span> <span class="o">-</span> <span class="n">m</span><span class="p">][:],</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+                    <span class="n">m</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">angles_around</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="n">scaling_factor_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">m</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="c1"># Finds the mean value of the additional contribution</span>
+                    <span class="n">scaling_factor_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">extra_contribs</span> <span class="o">/</span> <span class="p">(</span><span class="n">m</span> <span class="o">+</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">scaling_factors_angles_list</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">n_angles</span><span class="p">)]</span>
+
+        <span class="c1"># Orders the scaling factors according to the angle list</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">central_atoms_angles</span><span class="p">)):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">central_atoms_angles</span><span class="p">[</span><span class="n">i</span><span class="p">])):</span>
+                <span class="n">scaling_factors_angles_list</span><span class="p">[</span><span class="n">scaling_factor_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">scaling_factor_all_angles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="p">)</span>
+
+        <span class="n">k_theta</span><span class="p">,</span> <span class="n">theta_0</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">angles</span><span class="p">)),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">angles</span><span class="p">)),</span>
+        <span class="p">)</span>
+
+        <span class="n">conversion</span> <span class="o">=</span> <span class="n">constants</span><span class="o">.</span><span class="n">KCAL_TO_KJ</span> <span class="o">*</span> <span class="mi">2</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;Modified_Seminario_Angles.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">angle_file</span><span class="p">:</span>
+
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">angle</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">angles</span><span class="p">):</span>
+
+                <span class="n">scalings</span> <span class="o">=</span> <span class="n">scaling_factors_angles_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                <span class="c1"># Ensures that there is no difference when the ordering is changed.</span>
+                <span class="n">ab_k_theta</span><span class="p">,</span> <span class="n">ab_theta_0</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">force_constant_angle</span><span class="p">(</span>
+                    <span class="n">angle</span><span class="p">,</span>
+                    <span class="n">bond_lengths</span><span class="p">,</span>
+                    <span class="n">eigenvals</span><span class="p">,</span>
+                    <span class="n">eigenvecs</span><span class="p">,</span>
+                    <span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span><span class="p">,</span>
+                    <span class="n">scalings</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">ba_k_theta</span><span class="p">,</span> <span class="n">ba_theta_0</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">force_constant_angle</span><span class="p">(</span>
+                    <span class="n">angle</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">bond_lengths</span><span class="p">,</span>
+                    <span class="n">eigenvals</span><span class="p">,</span>
+                    <span class="n">eigenvecs</span><span class="p">,</span>
+                    <span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span><span class="p">,</span>
+                    <span class="n">scalings</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Vib_scaling takes into account DFT deficiencies / anharmonicity.</span>
+                <span class="n">k_theta</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">((</span><span class="n">ab_k_theta</span> <span class="o">+</span> <span class="n">ba_k_theta</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">vibrational_scaling</span><span class="o">**</span><span class="mi">2</span>
+                <span class="p">)</span>
+                <span class="n">theta_0</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">ab_theta_0</span> <span class="o">+</span> <span class="n">ba_theta_0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+
+                <span class="n">angle_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">angle</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">atom_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">angle</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">atom_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">angle</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span><span class="o">.</span><span class="n">atom_name</span><span class="si">}</span><span class="s2">  &quot;</span>
+                <span class="p">)</span>
+                <span class="n">angle_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_theta</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">theta_0</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">angle</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">angle</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">angle</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Add ModSem values to ligand object.</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">AngleForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span>
+                    <span class="n">atoms</span><span class="o">=</span><span class="n">angle</span><span class="p">,</span>
+                    <span class="n">angle</span><span class="o">=</span><span class="n">theta_0</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">constants</span><span class="o">.</span><span class="n">DEG_TO_RAD</span><span class="p">,</span>
+                    <span class="n">k</span><span class="o">=</span><span class="n">k_theta</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">conversion</span><span class="p">,</span>
+                <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ModSeminario.calculate_bonds"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.calculate_bonds">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_bonds</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="n">bond_lengths</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Uses the modified Seminario method to find the bond parameters and print them to file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">bonds</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">to_topology</span><span class="p">()</span><span class="o">.</span><span class="n">edges</span>
+        <span class="n">conversion</span> <span class="o">=</span> <span class="n">constants</span><span class="o">.</span><span class="n">KCAL_TO_KJ</span> <span class="o">*</span> <span class="mi">200</span>
+
+        <span class="n">k_b</span><span class="p">,</span> <span class="n">bond_len_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bonds</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bonds</span><span class="p">))</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;Modified_Seminario_Bonds.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">bond_file</span><span class="p">:</span>
+
+            <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">bond</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bonds</span><span class="p">):</span>
+                <span class="n">ab</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">force_constant_bond</span><span class="p">(</span>
+                    <span class="n">bond</span><span class="p">,</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span>
+                <span class="p">)</span>
+                <span class="n">ba</span> <span class="o">=</span> <span class="n">ModSemMaths</span><span class="o">.</span><span class="n">force_constant_bond</span><span class="p">(</span>
+                    <span class="n">bond</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Order of bonds sometimes causes slight differences; find the mean and apply vib_scaling.</span>
+                <span class="n">k_b</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">((</span><span class="n">ab</span> <span class="o">+</span> <span class="n">ba</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vibrational_scaling</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+                <span class="n">bond_len_list</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">bond_lengths</span><span class="p">[</span><span class="n">bond</span><span class="p">]</span>
+                <span class="n">bond_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">bond</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">atom_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">bond</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">atom_name</span><span class="si">}</span><span class="s2">  &quot;</span>
+                <span class="p">)</span>
+                <span class="n">bond_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_b</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">bond_len_list</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">bond</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">bond</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Add ModSem values to ligand object.</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">BondForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span>
+                    <span class="n">atoms</span><span class="o">=</span><span class="n">bond</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">bond_len_list</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">conversion</span> <span class="o">*</span> <span class="n">k_b</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span>
+                <span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

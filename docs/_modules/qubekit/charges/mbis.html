@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qubekit.charges.mbis &mdash; FEgrow 2.1.1+5.gb02dcd2.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> FEgrow
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../qubekit.html">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../acknowledgments.html">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">FEgrow</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>qubekit.charges.mbis</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qubekit.charges.mbis</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">An interface to MBIS via psi4.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">Field</span>
+<span class="kn">from</span> <span class="nn">qcelemental.util</span> <span class="kn">import</span> <span class="n">parse_version</span><span class="p">,</span> <span class="n">safe_version</span><span class="p">,</span> <span class="n">which</span><span class="p">,</span> <span class="n">which_import</span>
+<span class="kn">from</span> <span class="nn">qcengine.util</span> <span class="kn">import</span> <span class="n">popen</span>
+<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span> <span class="nn">qubekit.charges.base</span> <span class="kn">import</span> <span class="n">ChargeBase</span>
+<span class="kn">from</span> <span class="nn">qubekit.charges.solvent_settings</span> <span class="kn">import</span> <span class="n">SolventPsi4</span>
+<span class="kn">from</span> <span class="nn">qubekit.engines</span> <span class="kn">import</span> <span class="n">call_qcengine</span>
+<span class="kn">from</span> <span class="nn">qubekit.molecules</span> <span class="kn">import</span> <span class="n">Dipole</span><span class="p">,</span> <span class="n">Ligand</span><span class="p">,</span> <span class="n">Quadrupole</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.datastructures</span> <span class="kn">import</span> <span class="n">LocalResource</span><span class="p">,</span> <span class="n">QCOptions</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.exceptions</span> <span class="kn">import</span> <span class="n">SpecificationError</span>
+
+
+<div class="viewcode-block" id="MBISCharges"><a class="viewcode-back" href="../../../classes/charges/mbis.html#qubekit.charges.MBISCharges">[docs]</a><span class="k">class</span> <span class="nc">MBISCharges</span><span class="p">(</span><span class="n">ChargeBase</span><span class="p">):</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;MBISCharges&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;MBISCharges&quot;</span>
+    <span class="n">solvent_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SolventPsi4</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">SolventPsi4</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="s2">&quot;au&quot;</span><span class="p">,</span> <span class="n">medium_Solvent</span><span class="o">=</span><span class="s2">&quot;chloroform&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The engine that should be used to generate the reference density to perform the AIM analysis on.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">program</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;psi4&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;psi4&quot;</span>
+
+<div class="viewcode-block" id="MBISCharges.start_message"><a class="viewcode-back" href="../../../classes/charges/mbis.html#qubekit.charges.MBISCharges.start_message">[docs]</a>    <span class="k">def</span> <span class="nf">start_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Calculating charges using MBIS via psi4.&quot;</span></div>
+
+<div class="viewcode-block" id="MBISCharges.is_available"><a class="viewcode-back" href="../../../classes/charges/mbis.html#qubekit.charges.MBISCharges.is_available">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_available</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The MBIS option is only available via new psi4 so make sure it is installed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># check installed</span>
+        <span class="n">psi4</span> <span class="o">=</span> <span class="n">which_import</span><span class="p">(</span>
+            <span class="s2">&quot;psi4&quot;</span><span class="p">,</span>
+            <span class="n">return_bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_msg</span><span class="o">=</span><span class="s2">&quot;Please install via `conda install psi4 -c psi4`.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># now check the version meets the minimum requirement</span>
+        <span class="n">which_psi4</span> <span class="o">=</span> <span class="n">which</span><span class="p">(</span><span class="s2">&quot;psi4&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">popen</span><span class="p">([</span><span class="n">which_psi4</span><span class="p">,</span> <span class="s2">&quot;--version&quot;</span><span class="p">])</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">exc</span><span class="p">[</span><span class="s2">&quot;proc&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+        <span class="n">version</span> <span class="o">=</span> <span class="n">parse_version</span><span class="p">(</span><span class="n">safe_version</span><span class="p">(</span><span class="n">exc</span><span class="p">[</span><span class="s2">&quot;stdout&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="n">version</span> <span class="o">&lt;=</span> <span class="n">parse_version</span><span class="p">(</span><span class="s2">&quot;1.4a1&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">SpecificationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The version of psi4 installed is </span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2"> and needs to be 1.4 or newer please update it to continue.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">psi4</span></div>
+
+    <span class="k">def</span> <span class="nf">_gas_calculation_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;scf_properties&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;MBIS_CHARGES&quot;</span><span class="p">]}</span>
+
+    <span class="k">def</span> <span class="nf">_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span> <span class="n">local_options</span><span class="p">:</span> <span class="n">LocalResource</span><span class="p">,</span> <span class="n">qc_spec</span><span class="p">:</span> <span class="n">QCOptions</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The main run method which generates a density using psi4 and stores the partitioned MBIS AIM reference values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># now we need to build the keywords for the solvent</span>
+        <span class="n">extras</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_calculation_settings</span><span class="p">()</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">call_qcengine</span><span class="p">(</span>
+            <span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">,</span>
+            <span class="n">driver</span><span class="o">=</span><span class="s2">&quot;energy&quot;</span><span class="p">,</span>
+            <span class="n">qc_spec</span><span class="o">=</span><span class="n">qc_spec</span><span class="p">,</span>
+            <span class="n">local_options</span><span class="o">=</span><span class="n">local_options</span><span class="p">,</span>
+            <span class="n">extras</span><span class="o">=</span><span class="n">extras</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># pick out the MBIS data and store into the molecule.</span>
+        <span class="n">qcvars</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">extras</span><span class="p">[</span><span class="s2">&quot;qcvars&quot;</span><span class="p">]</span>
+        <span class="n">charges</span> <span class="o">=</span> <span class="n">qcvars</span><span class="p">[</span><span class="s2">&quot;MBIS CHARGES&quot;</span><span class="p">]</span>
+        <span class="n">dipoles</span> <span class="o">=</span> <span class="n">qcvars</span><span class="p">[</span><span class="s2">&quot;MBIS DIPOLES&quot;</span><span class="p">]</span>
+        <span class="n">quadrupoles</span> <span class="o">=</span> <span class="n">qcvars</span><span class="p">[</span><span class="s2">&quot;MBIS QUADRUPOLES&quot;</span><span class="p">]</span>
+        <span class="c1"># not used yet</span>
+        <span class="c1"># octupoles = qcvars[&quot;MBIS OCTUPOLES&quot;]</span>
+        <span class="n">volumes</span> <span class="o">=</span> <span class="n">qcvars</span><span class="p">[</span><span class="s2">&quot;MBIS RADIAL MOMENTS &lt;R^3&gt;&quot;</span><span class="p">]</span>
+        <span class="c1"># loop over the atoms and store the data</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">):</span>
+            <span class="n">atom</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">atom</span><span class="o">.</span><span class="n">aim</span><span class="o">.</span><span class="n">charge</span> <span class="o">=</span> <span class="n">charges</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">atom</span><span class="o">.</span><span class="n">aim</span><span class="o">.</span><span class="n">volume</span> <span class="o">=</span> <span class="n">volumes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">dipole</span> <span class="o">=</span> <span class="n">Dipole</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">dipoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">y</span><span class="o">=</span><span class="n">dipoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">z</span><span class="o">=</span><span class="n">dipoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">atom</span><span class="o">.</span><span class="n">dipole</span> <span class="o">=</span> <span class="n">dipole</span>
+            <span class="n">trace</span> <span class="o">=</span> <span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">trace</span> <span class="o">/=</span> <span class="mi">3</span>
+            <span class="c1"># make sure we have the traceless quad tensor</span>
+            <span class="n">quad</span> <span class="o">=</span> <span class="n">Quadrupole</span><span class="p">(</span>
+                <span class="n">q_xx</span><span class="o">=</span><span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">trace</span><span class="p">,</span>
+                <span class="n">q_xy</span><span class="o">=</span><span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+                <span class="n">q_xz</span><span class="o">=</span><span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
+                <span class="n">q_yy</span><span class="o">=</span><span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">trace</span><span class="p">,</span>
+                <span class="n">q_zz</span><span class="o">=</span><span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">trace</span><span class="p">,</span>
+                <span class="n">q_yz</span><span class="o">=</span><span class="n">quadrupoles</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="n">atom</span><span class="o">.</span><span class="n">quadrupole</span> <span class="o">=</span> <span class="n">quad</span>
+
+        <span class="k">return</span> <span class="n">molecule</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

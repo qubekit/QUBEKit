@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qubekit.bonded.qforce &mdash; FEgrow 2.1.1+5.gb02dcd2.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> FEgrow
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../qubekit.html">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../acknowledgments.html">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">FEgrow</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>qubekit.bonded.qforce</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qubekit.bonded.qforce</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;An interface to the QForce program for bonded parameter derivation via internal hessian fitting.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">PrivateAttr</span>
+<span class="kn">from</span> <span class="nn">qcelemental.util</span> <span class="kn">import</span> <span class="n">which_import</span>
+<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span> <span class="nn">qubekit.utils</span> <span class="kn">import</span> <span class="n">constants</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.datastructures</span> <span class="kn">import</span> <span class="n">StageBase</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.helpers</span> <span class="kn">import</span> <span class="n">check_improper_torsion</span><span class="p">,</span> <span class="n">check_proper_torsion</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">qubekit.molecules</span> <span class="kn">import</span> <span class="n">Ligand</span>
+
+
+<div class="viewcode-block" id="QForceHessianFitting"><a class="viewcode-back" href="../../../classes/bonded/qforce.html#qubekit.bonded.QForceHessianFitting">[docs]</a><span class="k">class</span> <span class="nc">QForceHessianFitting</span><span class="p">(</span><span class="n">StageBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class interfaces with qforce &lt;https://github.com/selimsami/qforce&gt; and allows users to do internal hessian</span>
+<span class="sd">    fitting, this will fit all bonds, angles and rigid torsions and does not require an initial guess.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;QForceHessianFitting&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;QForceHessianFitting&quot;</span>
+    <span class="n">combination_rule</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;amber&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="s2">&quot;amber&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The nonbonded combination rule that should be used in QForce during fitting.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">charge_scaling</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The amount by which the charge should be scaled during fitting.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">use_urey_bradley</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">False</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;If Urey-Bradley coupling terms should also be fit using QForce.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">_combination_to_scaling</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;amber&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;lj&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="s2">&quot;charge&quot;</span><span class="p">:</span> <span class="mf">0.8333</span><span class="p">,</span> <span class="s2">&quot;comb_rule&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}}</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="QForceHessianFitting.start_message"><a class="viewcode-back" href="../../../classes/bonded/qforce.html#qubekit.bonded.QForceHessianFitting.start_message">[docs]</a>    <span class="k">def</span> <span class="nf">start_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Starting internal hessian fitting using QForce.&quot;</span></div>
+
+<div class="viewcode-block" id="QForceHessianFitting.finish_message"><a class="viewcode-back" href="../../../classes/bonded/qforce.html#qubekit.bonded.QForceHessianFitting.finish_message">[docs]</a>    <span class="k">def</span> <span class="nf">finish_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Internal hessian fitting finished, saving parameters.&quot;</span></div>
+
+<div class="viewcode-block" id="QForceHessianFitting.is_available"><a class="viewcode-back" href="../../../classes/bonded/qforce.html#qubekit.bonded.QForceHessianFitting.is_available">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_available</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">qforce</span> <span class="o">=</span> <span class="n">which_import</span><span class="p">(</span>
+            <span class="s2">&quot;qforce&quot;</span><span class="p">,</span>
+            <span class="n">return_bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_msg</span><span class="o">=</span><span class="s2">&quot;Please install via `pip install qforce`.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">qforce</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_combination_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the given combination rules get the dictionary of settings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_combination_to_scaling</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">combination_rule</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_generate_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StringIO</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate the QForce settings for the fitting.</span>
+<span class="sd">        Note:</span>
+<span class="sd">            The urey terms are set to off as we do not currently support them.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">combination_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_combination_settings</span><span class="p">()</span>
+
+        <span class="n">settings</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        [ff]</span>
+<span class="s2">        lennard_jones = ext</span>
+<span class="s2">        ext_lj_fudge = </span><span class="si">{</span><span class="n">combination_settings</span><span class="p">[</span><span class="s2">&quot;lj&quot;</span><span class="p">]</span><span class="si">}</span><span class="s2"></span>
+<span class="s2">        ext_q_fudge = </span><span class="si">{</span><span class="n">combination_settings</span><span class="p">[</span><span class="s2">&quot;charge&quot;</span><span class="p">]</span><span class="si">}</span><span class="s2"></span>
+<span class="s2">        ext_comb_rule = </span><span class="si">{</span><span class="n">combination_settings</span><span class="p">[</span><span class="s2">&quot;comb_rule&quot;</span><span class="p">]</span><span class="si">}</span><span class="s2"></span>
+<span class="s2">        ext_h_cap = H0</span>
+<span class="s2">        charge_scaling = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">charge_scaling</span><span class="si">}</span><span class="s2"></span>
+<span class="s2">        [terms]</span>
+<span class="s2">        urey = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">use_urey_bradley</span><span class="si">}</span><span class="s2"></span>
+<span class="s2">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">StringIO</span><span class="p">(</span><span class="n">settings</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_generate_atom_types</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate the atom type groupings used to assign charges and lj values.</span>
+<span class="sd">        Here we use the symmetry groups that were applied in symmetrisation to group the atoms which have the same charge and lj values.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            atom_types: {&#39;lj_types&#39;: [&#39;ha&#39;, &#39;ca&#39;, &#39;ca&#39;, &#39;ha&#39;, &#39;ca&#39;, &#39;ha&#39;, &#39;ca&#39;, &#39;ha&#39;, &#39;ca&#39;, &#39;ha&#39;, &#39;ca&#39;, &#39;ha&#39;],</span>
+<span class="sd">                        &#39;atom_types&#39;: {&#39;ca&#39;: [0.331521, 0.413379], &#39;ha&#39;: [0.262548, 0.0673624]},}</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># now we want to gather the non-bonded terms per type</span>
+        <span class="n">atom_types</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">lj_types</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">atom_symmetry_classes</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">atom_types</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">)):</span>
+            <span class="c1"># get the symmetry type</span>
+            <span class="n">lj_type</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">atomic_symbol</span><span class="si">}{</span><span class="n">atom_symmetry_classes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">lj_types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lj_type</span><span class="p">)</span>
+            <span class="c1"># here we only add the type values once assuming symmetry has already been applied</span>
+            <span class="k">if</span> <span class="n">lj_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">atom_types</span><span class="p">:</span>
+                <span class="n">atom_value</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">NonbondedForce</span><span class="p">[(</span><span class="n">i</span><span class="p">,)]</span>
+                <span class="n">atom_types</span><span class="p">[</span><span class="n">lj_type</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">atom_value</span><span class="o">.</span><span class="n">sigma</span><span class="p">,</span> <span class="n">atom_value</span><span class="o">.</span><span class="n">epsilon</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">lj_types</span><span class="o">=</span><span class="n">lj_types</span><span class="p">,</span> <span class="n">atom_types</span><span class="o">=</span><span class="n">atom_types</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_get_hessian_triangle</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">hessian</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the given hessian matrix reshape it to get a flat representation, of average values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">hessian_1d</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">hessian</span><span class="p">)):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">hessian_1d</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">hessian</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">hessian</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">hessian_1d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">hessian_1d</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">hessian_1d</span>
+            <span class="o">*</span> <span class="n">constants</span><span class="o">.</span><span class="n">HA_TO_KCAL_P_MOL</span>
+            <span class="o">*</span> <span class="n">constants</span><span class="o">.</span><span class="n">KCAL_TO_KJ</span>
+            <span class="o">/</span> <span class="p">(</span><span class="n">constants</span><span class="o">.</span><span class="n">BOHR_TO_ANGS</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_save_parameters</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span> <span class="n">qforce_terms</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Update the Ligand with the final parameters from the QForce hessian fitting.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">qforce.forces</span> <span class="kn">import</span> <span class="n">convert_to_inversion_rb</span>
+
+        <span class="c1"># get all of the flexible dihedrals which qforce has not fit yet and keep our parent parameters</span>
+        <span class="n">center_bonds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">flexible_torsion</span> <span class="ow">in</span> <span class="n">qforce_terms</span><span class="p">[</span><span class="s2">&quot;dihedral&quot;</span><span class="p">][</span><span class="s2">&quot;flexible&quot;</span><span class="p">]:</span>
+            <span class="n">center_bonds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">flexible_torsion</span><span class="o">.</span><span class="n">atomids</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span>
+        <span class="n">flexible_torsions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">torsion</span> <span class="ow">in</span> <span class="n">molecule</span><span class="o">.</span><span class="n">TorsionForce</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">torsion</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="ow">in</span> <span class="n">center_bonds</span>
+                <span class="ow">or</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">torsion</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]))</span> <span class="ow">in</span> <span class="n">center_bonds</span>
+            <span class="p">):</span>
+                <span class="n">flexible_torsions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torsion</span><span class="p">)</span>
+
+        <span class="c1"># remove any starting parameters</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">BondForce</span><span class="o">.</span><span class="n">clear_parameters</span><span class="p">()</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">AngleForce</span><span class="o">.</span><span class="n">clear_parameters</span><span class="p">()</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">TorsionForce</span><span class="o">.</span><span class="n">clear_parameters</span><span class="p">()</span>
+        <span class="c1"># qforce only adds impropers when there are no rigid terms so remove any initial terms</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">ImproperTorsionForce</span><span class="o">.</span><span class="n">clear_parameters</span><span class="p">()</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">RBTorsionForce</span><span class="o">.</span><span class="n">clear_parameters</span><span class="p">()</span>
+        <span class="c1"># this just means the improper should be constructed in the order defined by the forcefield</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">TorsionForce</span><span class="o">.</span><span class="n">ordering</span> <span class="o">=</span> <span class="s2">&quot;charmm&quot;</span>
+
+        <span class="k">for</span> <span class="n">bond</span> <span class="ow">in</span> <span class="n">qforce_terms</span><span class="p">[</span><span class="s2">&quot;bond&quot;</span><span class="p">]:</span>
+            <span class="c1"># we only want terms which are non zero</span>
+            <span class="k">if</span> <span class="nb">round</span><span class="p">(</span><span class="n">bond</span><span class="o">.</span><span class="n">fconst</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">bond_data</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">bond</span><span class="o">.</span><span class="n">equ</span> <span class="o">*</span> <span class="n">constants</span><span class="o">.</span><span class="n">ANGS_TO_NM</span><span class="p">,</span>
+                    <span class="s2">&quot;k&quot;</span><span class="p">:</span> <span class="n">bond</span><span class="o">.</span><span class="n">fconst</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+                <span class="p">}</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">BondForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span>
+                    <span class="n">atoms</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">bond</span><span class="o">.</span><span class="n">atomids</span><span class="p">),</span> <span class="o">**</span><span class="n">bond_data</span>
+                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">angle</span> <span class="ow">in</span> <span class="n">qforce_terms</span><span class="p">[</span><span class="s2">&quot;angle&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">round</span><span class="p">(</span><span class="n">angle</span><span class="o">.</span><span class="n">fconst</span><span class="p">,</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">angle_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;angle&quot;</span><span class="p">:</span> <span class="n">angle</span><span class="o">.</span><span class="n">equ</span><span class="p">,</span> <span class="s2">&quot;k&quot;</span><span class="p">:</span> <span class="n">angle</span><span class="o">.</span><span class="n">fconst</span><span class="p">}</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">AngleForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">angle</span><span class="o">.</span><span class="n">atomids</span><span class="p">),</span> <span class="o">**</span><span class="n">angle_data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;urey&quot;</span> <span class="ow">in</span> <span class="n">qforce_terms</span><span class="p">:</span>
+            <span class="c1"># grab urey angle terms and make a bond for the terminal atoms</span>
+            <span class="k">for</span> <span class="n">urey</span> <span class="ow">in</span> <span class="n">qforce_terms</span><span class="p">[</span><span class="s2">&quot;urey&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="nb">round</span><span class="p">(</span><span class="n">urey</span><span class="o">.</span><span class="n">fconst</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">urey_data</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">urey</span><span class="o">.</span><span class="n">equ</span> <span class="o">*</span> <span class="n">constants</span><span class="o">.</span><span class="n">ANGS_TO_NM</span><span class="p">,</span>
+                        <span class="s2">&quot;k&quot;</span><span class="p">:</span> <span class="n">urey</span><span class="o">.</span><span class="n">fconst</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+                    <span class="p">}</span>
+                    <span class="n">atoms</span> <span class="o">=</span> <span class="n">urey</span><span class="o">.</span><span class="n">atomids</span>
+                    <span class="c1"># make sure to grab the terminal atoms when making the bond term</span>
+                    <span class="n">molecule</span><span class="o">.</span><span class="n">BondForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span>
+                        <span class="n">atoms</span><span class="o">=</span><span class="nb">tuple</span><span class="p">([</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atoms</span><span class="p">[</span><span class="mi">2</span><span class="p">]]),</span> <span class="o">**</span><span class="n">urey_data</span>
+                    <span class="p">)</span>
+        <span class="k">for</span> <span class="n">dihedral</span> <span class="ow">in</span> <span class="n">qforce_terms</span><span class="p">[</span><span class="s2">&quot;dihedral&quot;</span><span class="p">][</span><span class="s2">&quot;rigid&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">round</span><span class="p">(</span><span class="n">dihedral</span><span class="o">.</span><span class="n">fconst</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">dihedral_data</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;k2&quot;</span><span class="p">:</span> <span class="n">dihedral</span><span class="o">.</span><span class="n">fconst</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span>
+                <span class="p">}</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">TorsionForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span>
+                    <span class="n">atoms</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">dihedral</span><span class="o">.</span><span class="n">atomids</span><span class="p">),</span> <span class="o">**</span><span class="n">dihedral_data</span>
+                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">improper</span> <span class="ow">in</span> <span class="n">qforce_terms</span><span class="p">[</span><span class="s2">&quot;dihedral&quot;</span><span class="p">][</span><span class="s2">&quot;improper&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">round</span><span class="p">(</span><span class="n">improper</span><span class="o">.</span><span class="n">fconst</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">ImproperTorsionForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span>
+                    <span class="n">atoms</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">improper</span><span class="o">.</span><span class="n">atomids</span><span class="p">),</span> <span class="n">k2</span><span class="o">=</span><span class="n">improper</span><span class="o">.</span><span class="n">fconst</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">inversion</span> <span class="ow">in</span> <span class="n">qforce_terms</span><span class="p">[</span><span class="s2">&quot;dihedral&quot;</span><span class="p">][</span><span class="s2">&quot;inversion&quot;</span><span class="p">]:</span>
+            <span class="c1"># use the RB torsion type to model the inversion dihedrals</span>
+            <span class="c1"># get the parameters in RB form</span>
+            <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">convert_to_inversion_rb</span><span class="p">(</span><span class="n">inversion</span><span class="o">.</span><span class="n">fconst</span><span class="p">,</span> <span class="n">inversion</span><span class="o">.</span><span class="n">equ</span><span class="p">)</span>
+            <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">round</span><span class="p">(</span><span class="n">c0</span><span class="p">,</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+                <span class="nb">round</span><span class="p">(</span><span class="n">c1</span><span class="p">,</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+                <span class="nb">round</span><span class="p">(</span><span class="n">c2</span><span class="p">,</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">inversion_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;c0&quot;</span><span class="p">:</span> <span class="n">c0</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">:</span> <span class="n">c1</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">:</span> <span class="n">c2</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">check_proper_torsion</span><span class="p">(</span>
+                <span class="n">torsion</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">inversion</span><span class="o">.</span><span class="n">atomids</span><span class="p">),</span> <span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span>
+            <span class="p">):</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">RBTorsionForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span>
+                    <span class="n">atoms</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">inversion</span><span class="o">.</span><span class="n">atomids</span><span class="p">),</span> <span class="o">**</span><span class="n">inversion_data</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">improper</span> <span class="o">=</span> <span class="n">check_improper_torsion</span><span class="p">(</span>
+                    <span class="n">improper</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">inversion</span><span class="o">.</span><span class="n">atomids</span><span class="p">),</span> <span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span>
+                <span class="p">)</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">ImproperRBTorsionForce</span><span class="o">.</span><span class="n">create_parameter</span><span class="p">(</span>
+                    <span class="n">atoms</span><span class="o">=</span><span class="n">improper</span><span class="p">,</span> <span class="o">**</span><span class="n">inversion_data</span>
+                <span class="p">)</span>
+
+        <span class="c1"># now add back the flexible torsions</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">TorsionForce</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">flexible_torsions</span><span class="p">)</span>
+
+<div class="viewcode-block" id="QForceHessianFitting.run"><a class="viewcode-back" href="../../../classes/bonded/qforce.html#qubekit.bonded.QForceHessianFitting.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The main worker method of the class, this will take the ligand and fit the hessian using qforce and then return ligand with the optimized parameters.</span>
+<span class="sd">        The ligand must contain some qm coordinates, a hessian matrix and wbo matrix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">qforce</span> <span class="kn">import</span> <span class="n">run_hessian_fitting_for_external</span>
+
+        <span class="n">qm_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_qm_data_dictionary</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">)</span>
+        <span class="n">atom_types</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_atom_types</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">)</span>
+        <span class="n">qforce_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_settings</span><span class="p">()</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">run_hessian_fitting_for_external</span><span class="p">(</span>
+            <span class="n">molecule</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">qm_data</span><span class="o">=</span><span class="n">qm_data</span><span class="p">,</span> <span class="n">ext_lj</span><span class="o">=</span><span class="n">atom_types</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">qforce_settings</span>
+        <span class="p">)</span>
+        <span class="c1"># now we need to get the terms back into the molecule</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_parameters</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">,</span> <span class="n">qforce_terms</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">molecule</span></div>
+
+    <span class="k">def</span> <span class="nf">_create_qm_data_dictionary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create the QForce QM data dictionary required to run the hessian fitting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># try and get the point charges from AIM first, as virtual sites are not supported in qforce</span>
+        <span class="c1"># we need to use the raw aim data</span>
+        <span class="n">point_charges</span> <span class="o">=</span> <span class="p">[</span><span class="n">atom</span><span class="o">.</span><span class="n">aim</span><span class="o">.</span><span class="n">charge</span> <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">point_charges</span><span class="p">):</span>
+            <span class="c1"># if we have no aim data there should be no sites so use the forcefield data</span>
+            <span class="n">point_charges</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">NonbondedForce</span><span class="p">[(</span><span class="n">i</span><span class="p">,)]</span><span class="o">.</span><span class="n">charge</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="n">qm_data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">n_atoms</span><span class="o">=</span><span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">,</span>
+            <span class="n">charge</span><span class="o">=</span><span class="n">molecule</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span>
+            <span class="n">multiplicity</span><span class="o">=</span><span class="n">molecule</span><span class="o">.</span><span class="n">multiplicity</span><span class="p">,</span>
+            <span class="n">elements</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">atom</span><span class="o">.</span><span class="n">atomic_number</span> <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">]),</span>
+            <span class="n">coords</span><span class="o">=</span><span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span><span class="p">,</span>
+            <span class="n">hessian</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_hessian_triangle</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">hessian</span><span class="p">),</span>
+            <span class="n">n_bonds</span><span class="o">=</span><span class="p">[</span><span class="n">atom</span><span class="o">.</span><span class="n">GetTotalValence</span><span class="p">()</span> <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="n">molecule</span><span class="o">.</span><span class="n">to_rdkit</span><span class="p">()</span><span class="o">.</span><span class="n">GetAtoms</span><span class="p">()],</span>
+            <span class="n">b_orders</span><span class="o">=</span><span class="n">molecule</span><span class="o">.</span><span class="n">wbo</span><span class="p">,</span>
+            <span class="n">lone_e</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">],</span>
+            <span class="n">point_charges</span><span class="o">=</span><span class="n">point_charges</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">qm_data</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
