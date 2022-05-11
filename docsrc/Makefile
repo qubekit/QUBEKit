@@ -10,11 +10,18 @@ BUILDDIR      = ../docs
 
 # Put it first so that "make" without argument is like "make help".
 defhtml:
+	# remove the previous files
 	@$(SPHINXBUILD) -b html "$(SOURCEDIR)" "$(BUILDDIR)" 
+	touch "$(BUILDDIR)/.nojekyll"
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: defhtml help Makefile
+clean:
+	rm -r $(BUILDDIR)/*
+
+fresh: clean defhtml
+
+.PHONY: fresh defhtml help Makefile
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
