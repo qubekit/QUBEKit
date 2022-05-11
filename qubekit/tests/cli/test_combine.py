@@ -91,7 +91,7 @@ def test_find_molecules_and_rfree(acetone, tmpdir, rdkit_workflow):
             1,
             False,
             "C",
-            f"epsilon=(46.6)/(128*PARM['CElement/cfree']**6)*{constants.EPSILON_CONVERSION}, sigma=2**(5/6)*(21.129491/34.4)**(1/3)*PARM['CElement/cfree']*{constants.SIGMA_CONVERSION}",
+            f"epsilon=(1.32*46.6*(21.129491/34.4)**0.469)/(128*PARM['CElement/cfree']**6)*{constants.EPSILON_CONVERSION}, sigma=2**(5/6)*(21.129491/34.4)**(1/3)*PARM['CElement/cfree']*{constants.SIGMA_CONVERSION}",
             id="No AB Rfree",
         ),
         pytest.param(
@@ -105,7 +105,7 @@ def test_find_molecules_and_rfree(acetone, tmpdir, rdkit_workflow):
             1,
             False,
             None,
-            f"epsilon=(46.6)/(128*2**6)*{constants.EPSILON_CONVERSION}, sigma=2**(5/6)*(21.129491/34.4)**(1/3)*2*{constants.SIGMA_CONVERSION}",
+            f"epsilon=(1.32*46.6*(21.129491/34.4)**0.469)/(128*2**6)*{constants.EPSILON_CONVERSION}, sigma=2**(5/6)*(21.129491/34.4)**(1/3)*2*{constants.SIGMA_CONVERSION}",
             id="No AB No Rfree",
         ),
     ],
@@ -121,8 +121,10 @@ def test_get_eval_string(atom, a_and_b, rfree_code, expected, coumarin):
         rfree_data=rfree_data,
         a_and_b=a_and_b,
         rfree_code=rfree_code,
+        alpha_ref="1.32",
+        beta_ref="0.469",
     )
-    assert eval_string == expected
+    assert eval_string == expected, print(eval_string)
 
 
 def test_combine_molecules_deepdiff(acetone, openff, coumarin, tmpdir, rfree_data):
