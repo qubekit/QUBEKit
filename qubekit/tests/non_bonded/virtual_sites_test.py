@@ -264,6 +264,10 @@ def test_vsite_frozen_angles(methanol, vs, tmpdir):
         cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
         assert pytest.approx(90) == np.degrees(np.arccos(cosine_angle))
 
+        # work out the distance this should be around 1
+        for site in sites:
+            assert np.linalg.norm(center_atom - site) == pytest.approx(0.95, abs=0.01)
+
 
 def test_vsite_opt_angles(methanol, vs, tmpdir):
     """
@@ -287,4 +291,28 @@ def test_vsite_opt_angles(methanol, vs, tmpdir):
         # work out the angle
         b1, b2 = sites[0] - center_atom, sites[1] - center_atom
         cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
-        assert pytest.approx(110.1, abs=0.1) == np.degrees(np.arccos(cosine_angle))
+        assert pytest.approx(110.6, abs=1) == np.degrees(np.arccos(cosine_angle))
+
+
+def test_vsite_reg(methanol, vs, tmpdir):
+    """
+    Make the regularisation is correctly turned on when requested.
+    """
+    with tmpdir.as_cwd():
+        vs.freeze_site_angles = True
+        vs.regularisation_epsilon = 0.1
+        vs.run(molecule=methanol)
+        assert methanol.extra_sites.n_sites == 2
+
+        # check the total distance the site is from the parent
+        sites = []
+        center_atom = None
+        with open("xyz_with_extra_point_charges.xyz") as xyz:
+            for line in xyz.readlines():
+                if line.startswith("X"):
+                    sites.append(np.array([float(x) for x in line.split()[1:4]]))
+                elif line.startswith("O"):
+                    center_atom = np.array([float(x) for x in line.split()[1:4]])
+        # work out the distance
+        for site in sites:
+            assert np.linalg.norm(center_atom - site) == pytest.approx(0.29, abs=0.01)
