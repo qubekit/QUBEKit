@@ -67,7 +67,8 @@ class VirtualSites(StageBase):
     )
 
     regularisation_epsilon: float = Field(
-        0.0, description="The regularisation constrining the distance between the virtual site to the parent atom."
+        0.0,
+        description="The regularisation constraining the distance between the virtual site to the parent atom.",
     )
 
     # only for debugging so not exposed
@@ -719,7 +720,7 @@ class VirtualSites(StageBase):
         site_esps = self._symm_esp_from_lambdas_and_charges(
             atom_index, *q_lama, vec_a, vec_b
         )
-        mean_abs_diff = np.mean(np.abs(self._no_site_esps - site_esps))
+        mean_abs_diff = np.mean(abs(self._no_site_esps - site_esps))
         regularisation = abs(q_lama[1]) * self.regularisation_epsilon
         return mean_abs_diff + regularisation
 
@@ -796,7 +797,6 @@ class VirtualSites(StageBase):
         )
         error = one_site_fit.fun
         q, lam = one_site_fit.x
-        print(f'1 VS, lam q error: {lam} {q} {error}')
         one_site_coords = [((vec * lam) + self._coords[atom_index], q, atom_index)]
 
         return error, one_site_coords
@@ -882,7 +882,6 @@ class VirtualSites(StageBase):
                 if two_site_fit.fun < error:
                     error = two_site_fit.fun
                     q, lam = two_site_fit.x
-                    print(f'Symmetric 2 VS lam q error {lam} {q} {error}')
                     q_a = q_b = q
                     lam_a = lam_b = lam
                     (
@@ -910,7 +909,6 @@ class VirtualSites(StageBase):
                     error = two_site_fit.fun
                     q, lam_a, lam_b = two_site_fit.x
                     q_a = q_b = q
-                    print(f'2 VS: lama lamb q_a q_b error: {lam_a} {lam_b} {q_a} {q_b} {error}')
                     # lam_a = lam_b = lam
                     (
                         site_a_coords,
