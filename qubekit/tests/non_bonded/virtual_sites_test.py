@@ -238,3 +238,53 @@ def test_refit(mol, vs, tmpdir):
         assert ref.NonbondedForce[(1,)].charge == mol.NonbondedForce[(1,)].charge
         # make sure the aim data was not changed
         assert ref.atoms[1].aim.charge == mol.atoms[1].aim.charge
+
+
+def test_vsite_frozen_angles(methanol, vs, tmpdir):
+    """
+    Test fitting vsites with the angle between 2 sites frozen
+    """
+
+    with tmpdir.as_cwd():
+        vs.freeze_site_angles = True
+        vs.run(molecule=methanol)
+        assert methanol.extra_sites.n_sites == 2
+
+        # check the angle between the sites is 90 degrees
+        sites = []
+        center_atom = None
+        with open("xyz_with_extra_point_charges.xyz") as xyz:
+            for line in xyz.readlines():
+                if line.startswith("X"):
+                    sites.append(np.array([float(x) for x in line.split()[1:4]]))
+                elif line.startswith("O"):
+                    center_atom = np.array([float(x) for x in line.split()[1:4]])
+        # work out the angle
+        b1, b2 = sites[0] - center_atom, sites[1] - center_atom
+        cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
+        assert pytest.approx(90) == np.degrees(np.arccos(cosine_angle))
+
+
+def test_vsite_opt_angles(methanol, vs, tmpdir):
+    """
+    Test fitting vsites with the angle between 2 sites frozen
+    """
+
+    with tmpdir.as_cwd():
+        vs.freeze_site_angles = False
+        vs.run(molecule=methanol)
+        assert methanol.extra_sites.n_sites == 2
+
+        # check the angle between the sites is 90 degrees
+        sites = []
+        center_atom = None
+        with open("xyz_with_extra_point_charges.xyz") as xyz:
+            for line in xyz.readlines():
+                if line.startswith("X"):
+                    sites.append(np.array([float(x) for x in line.split()[1:4]]))
+                elif line.startswith("O"):
+                    center_atom = np.array([float(x) for x in line.split()[1:4]])
+        # work out the angle
+        b1, b2 = sites[0] - center_atom, sites[1] - center_atom
+        cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
+        assert pytest.approx(110.1, abs=0.1) == np.degrees(np.arccos(cosine_angle))

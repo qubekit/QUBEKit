@@ -67,3 +67,8 @@ def rfree_data():
         "alpha": 1,
         "beta": 0.5,
     }
+
+
+@pytest.fixture()
+def methanol():
+    return Ligand.parse_file(get_data("methanol.json"))
