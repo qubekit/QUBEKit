@@ -61,6 +61,10 @@ class VirtualSites(StageBase):
     site_error_threshold: float = Field(
         1.0, description="The ESP error threshold to start fitting virtual sites.", gt=0
     )
+    freeze_site_angles: bool = Field(
+        True,
+        description="If the angle between 2 sites should be held fix if ``True`` or optimised during fitting ``False``.",
+    )
 
     # only for debugging so not exposed
     _enable_symmetry: bool = PrivateAttr(default=True)
@@ -613,6 +617,34 @@ class VirtualSites(StageBase):
         self,
         atom_index: int,
         q: float,
+        lam: float,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Symmetric version of the above. Charges and scale factors are the same for both virtual sites.
+        Place v-sites at the correct positions along the vectors by scaling according to the lambdas
+        calculate the esp from the atom and the v-sites.
+        :param atom_index: The index of the atom being analysed.
+        :param q: charge of v-sites a and b
+        :param lam: scale factors for vecs a and b
+        :param vec_a: vector deciding virtual site position
+        :param vec_b: vector deciding virtual site position
+        :return: Ordered list of esp values at each sample point
+        """
+
+        site_a_coords, site_b_coords = self._sites_coords_from_vecs_and_lams(
+            atom_index, lam, lam, vec_a, vec_b
+        )
+
+        return self._generate_atom_mono_esp_three_charges(
+            atom_index, q, q, site_a_coords, site_b_coords
+        )
+
+    def _symm_esp_from_lambdas_and_charges_with_angles(
+        self,
+        atom_index: int,
+        q: float,
         lama: float,
         lamb: float,
         vec_a: np.ndarray,
@@ -666,7 +698,7 @@ class VirtualSites(StageBase):
 
     def _symm_two_sites_objective_function(
         self,
-        q_lama_lamb: Tuple[float, float, float],
+        q_lama: Tuple[float, float],
         atom_index: int,
         vec_a: np.ndarray,
         vec_b: np.ndarray,
@@ -677,7 +709,24 @@ class VirtualSites(StageBase):
         return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
         """
         site_esps = self._symm_esp_from_lambdas_and_charges(
-            atom_index, *q_lama_lamb, vec_a, vec_b
+            atom_index, *q_lama, vec_a, vec_b
+        )
+        return sum(abs(self._no_site_esps - site_esps))
+
+    def _symm_two_sites_objective_function_with_angles(
+        self,
+        q_lama_lama: Tuple[float, float, float],
+        atom_index: int,
+        vec_a: np.ndarray,
+        vec_b: np.ndarray,
+    ) -> float:
+        """
+        Add two sites with charge q along vectors vec_a, vec_b scaled by lam.
+        This is the symmetric case since the charges and scale factors are the same for each site.
+        return the sum of differences at each sample point between the ideal ESP and the calculated ESP.
+        """
+        site_esps = self._symm_esp_from_lambdas_and_charges_with_angles(
+            atom_index, *q_lama_lama, vec_a, vec_b
         )
         return sum(abs(self._no_site_esps - site_esps))
 
@@ -805,11 +854,39 @@ class VirtualSites(StageBase):
             # charge, charge, lambda, lambda
             bounds = ((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0))
             vec_a, vec_b = self._get_vector_from_coords(atom_index, n_sites=2, alt=alt)
-            if self._enable_symmetry:
-                print("running special case")
+            # if self._enable_symmetry:
+            if self.freeze_site_angles:
+                print("running old case")
                 two_site_fit = minimize(
                     self._symm_two_sites_objective_function,
-                    np.array([0.0, 1.0, 0]),
+                    np.array([0.0, 1.0]),
+                    args=(atom_index, vec_a, vec_b),
+                    bounds=bounds[1:3],
+                    constraints={
+                        "type": "ineq",
+                        "fun": VirtualSites._two_site_two_bond_constraint,
+                    },
+                )
+                if (two_site_fit.fun / len(self._sample_points)) < error:
+                    error = two_site_fit.fun / len(self._sample_points)
+                    q, lam = two_site_fit.x
+                    q_a = q_b = q
+                    lam_a = lam_b = lam
+                    (
+                        site_a_coords,
+                        site_b_coords,
+                    ) = self._sites_coords_from_vecs_and_lams(
+                        atom_index, lam_a, lam_b, vec_a, vec_b
+                    )
+                    two_site_coords = [
+                        (site_a_coords, q_a, atom_index),
+                        (site_b_coords, q_b, atom_index),
+                    ]
+            else:
+                print("running special case")
+                two_site_fit = minimize(
+                    self._symm_two_sites_objective_function_with_angles,
+                    np.array([0.0, 1.0, 0.0]),
                     args=(atom_index, vec_a, vec_b),
                     bounds=bounds[:3],
                     constraints={
@@ -832,31 +909,31 @@ class VirtualSites(StageBase):
                         (site_a_coords, q_a, atom_index),
                         (site_b_coords, q_b, atom_index),
                     ]
-            else:
-                two_site_fit = minimize(
-                    self._two_sites_objective_function,
-                    np.array([0.0, 0.0, 1.0, 1.0]),
-                    args=(atom_index, vec_a, vec_b),
-                    bounds=bounds,
-                    constraints={
-                        "type": "ineq",
-                        "fun": VirtualSites._two_site_two_bond_constraint,
-                    },
-                )
-                if (two_site_fit.fun / len(self._sample_points)) < error:
-                    error = two_site_fit.fun / len(self._sample_points)
-                    print(two_site_fit.x)
-                    q_a, q_b, lam_a, lam_b = two_site_fit.x
-                    (
-                        site_a_coords,
-                        site_b_coords,
-                    ) = self._sites_coords_from_vecs_and_lams(
-                        atom_index, lam_a, lam_b, vec_a, vec_b
-                    )
-                    two_site_coords = [
-                        (site_a_coords, q_a, atom_index),
-                        (site_b_coords, q_b, atom_index),
-                    ]
+            # else:
+            #     two_site_fit = minimize(
+            #         self._two_sites_objective_function,
+            #         np.array([0.0, 0.0, 1.0, 1.0]),
+            #         args=(atom_index, vec_a, vec_b),
+            #         bounds=bounds,
+            #         constraints={
+            #             "type": "ineq",
+            #             "fun": VirtualSites._two_site_two_bond_constraint,
+            #         },
+            #     )
+            #     if (two_site_fit.fun / len(self._sample_points)) < error:
+            #         error = two_site_fit.fun / len(self._sample_points)
+            #         print(two_site_fit.x)
+            #         q_a, q_b, lam_a, lam_b = two_site_fit.x
+            #         (
+            #             site_a_coords,
+            #             site_b_coords,
+            #         ) = self._sites_coords_from_vecs_and_lams(
+            #             atom_index, lam_a, lam_b, vec_a, vec_b
+            #         )
+            #         two_site_coords = [
+            #             (site_a_coords, q_a, atom_index),
+            #             (site_b_coords, q_b, atom_index),
+            #         ]
         return error, two_site_coords
 
     def _fit(self, atom_index: int):
