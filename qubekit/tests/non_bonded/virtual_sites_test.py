@@ -291,7 +291,7 @@ def test_vsite_opt_angles(methanol, vs, tmpdir):
         # work out the angle
         b1, b2 = sites[0] - center_atom, sites[1] - center_atom
         cosine_angle = np.dot(b1, b2) / (np.linalg.norm(b1) * np.linalg.norm(b2))
-        assert pytest.approx(110.6, abs=0.1) == np.degrees(np.arccos(cosine_angle))
+        assert pytest.approx(110.6, abs=1) == np.degrees(np.arccos(cosine_angle))
 
 
 def test_vsite_reg(methanol, vs, tmpdir):
