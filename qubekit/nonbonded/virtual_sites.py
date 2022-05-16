@@ -856,7 +856,6 @@ class VirtualSites(StageBase):
             vec_a, vec_b = self._get_vector_from_coords(atom_index, n_sites=2, alt=alt)
             # if self._enable_symmetry:
             if self.freeze_site_angles:
-                print("running old case")
                 two_site_fit = minimize(
                     self._symm_two_sites_objective_function,
                     np.array([0.0, 1.0]),
@@ -864,7 +863,7 @@ class VirtualSites(StageBase):
                     bounds=bounds[1:3],
                     constraints={
                         "type": "ineq",
-                        "fun": VirtualSites._two_site_two_bond_constraint,
+                        "fun": VirtualSites._symm_two_site_two_bond_constraint,
                     },
                 )
                 if (two_site_fit.fun / len(self._sample_points)) < error:
@@ -883,7 +882,6 @@ class VirtualSites(StageBase):
                         (site_b_coords, q_b, atom_index),
                     ]
             else:
-                print("running special case")
                 two_site_fit = minimize(
                     self._symm_two_sites_objective_function_with_angles,
                     np.array([0.0, 1.0, 0.0]),
