@@ -3,5 +3,5 @@ AnteChamber
 
 .. currentmodule:: qubekit.parametrisation
 
-.. autoclass:: AnteChamber
-   :members:
+.. autopydantic_model:: AnteChamber
+   :model-show-json: True

@@ -3,5 +3,5 @@ MBIS
 
 .. currentmodule:: qubekit.charges
 
-.. autoclass:: MBISCharges
-   :members:
+.. autopydantic_model:: MBISCharges
+   :model-show-json: True

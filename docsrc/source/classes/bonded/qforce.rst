@@ -3,5 +3,5 @@ QForceHessianFitting
 
 .. currentmodule:: qubekit.bonded
 
-.. autoclass:: QForceHessianFitting
-   :members:
+.. autopydantic_model:: QForceHessianFitting
+   :model-show-json: True

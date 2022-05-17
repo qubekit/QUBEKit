@@ -3,5 +3,5 @@ Optimiser
 
 .. currentmodule:: qubekit.workflow.helper_stages
 
-.. autoclass:: Optimiser
-   :members:
+.. autopydantic_model:: Optimiser
+   :model-show-json: True

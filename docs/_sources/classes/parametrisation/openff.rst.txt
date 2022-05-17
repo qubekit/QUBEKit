@@ -3,5 +3,5 @@ OpenFF
 
 .. currentmodule:: qubekit.parametrisation
 
-.. autoclass:: OpenFF
-   :members:
+.. autopydantic_model:: OpenFF
+   :model-show-json: True

@@ -3,5 +3,5 @@ XML
 
 .. currentmodule:: qubekit.parametrisation
 
-.. autoclass:: XML
-   :members:
+.. autopydantic_model:: XML
+   :model-show-json: True

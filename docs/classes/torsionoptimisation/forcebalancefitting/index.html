@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ForceBalanceFitting &mdash; QUBEKit 2.1.1+10.g127b9f1.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <title>ForceBalanceFitting &mdash; QUBEKit 2.1.1+11.gd603cab.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/autodoc_pydantic.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -83,9 +83,9 @@
              
   <div class="section" id="forcebalancefitting">
 <h1>ForceBalanceFitting<a class="headerlink" href="#forcebalancefitting" title="Permalink to this headline">¶</a></h1>
-<dl class="py class">
+<dl class="py class pydantic_model">
 <dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting">
-<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.torsions.fitting.forcebalance_wrapper.</span></code><code class="sig-name descname"><span class="pre">ForceBalanceFitting</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting"><span class="pre">ForceBalanceFitting</span></a><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'ForceBalanceFitting'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">penalty_type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><span class="pre">L1</span><span class="p"><span class="pre">,</span> </span><span class="pre">L2</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'L1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">job_type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'optimize'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iterations</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveInt</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">convergence_step_criteria</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">convergence_objective_criteria</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">convergence_gradient_criteria</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_criteria</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveInt</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eig_lowerbound</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finite_difference_h</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">penalty_additive</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constrain_charge</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_trust_radius</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">float</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">-</span> <span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimum_trust_radius</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">float</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_tolerance</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adaptive_factor</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adaptive_damping</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">pydantic.types.PositiveFloat</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normalize_weights</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extras</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">priors</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">qubekit.torsions.fitting.forcebalance_wrapper.Priors</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">Priors(Proper_k=6.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">targets</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">qubekit.torsions.fitting.forcebalance_wrapper.TorsionProfile</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{'TorsionProfile_OpenMM':</span> <span class="pre">TorsionProfile(target_name='TorsionProfile_OpenMM',</span> <span class="pre">description='Relaxed</span> <span class="pre">energy</span> <span class="pre">and</span> <span class="pre">RMSD</span> <span class="pre">fitting</span> <span class="pre">for</span> <span class="pre">torsion</span> <span class="pre">drives</span> <span class="pre">only.',</span> <span class="pre">writelevel=2,</span> <span class="pre">keywords={'pdb':</span> <span class="pre">'molecule.pdb',</span> <span class="pre">'coords':</span> <span class="pre">'scan.xyz'},</span> <span class="pre">openmm_platform='Reference',</span> <span class="pre">energy_denom=1.0,</span> <span class="pre">energy_upper=10.0,</span> <span class="pre">attenuate=False,</span> <span class="pre">restrain_k=1.0)}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/qubekit/torsions/fitting/forcebalance_wrapper/#ForceBalanceFitting"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">pydantic</span> <span class="pre">model</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.torsions.fitting.forcebalance_wrapper.</span></code><code class="sig-name descname"><span class="pre">ForceBalanceFitting</span></code><a class="reference internal" href="../../../_modules/qubekit/torsions/fitting/forcebalance_wrapper/#ForceBalanceFitting"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting" title="Permalink to this definition">¶</a></dt>
 <dd><p>This class interfaces with forcebalance &lt;<a class="reference external" href="https://github.com/leeping/forcebalance">https://github.com/leeping/forcebalance</a>&gt; and allows users to fit multiple force field parameters
 to multiple different targets such as optimised geometries vibration frequencies and relaxed torsion profiles.</p>
 <dl class="simple">
@@ -93,6 +93,465 @@ to multiple different targets such as optimised geometries vibration frequencies
 All targets are fitted using OpenMM.</p>
 </dd>
 </dl>
+<p><details  class="autodoc_pydantic_collapsable_json">
+<summary>Show JSON schema</summary><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ForceBalanceFitting&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;This class interfaces with forcebalance &lt;https://github.com/leeping/forcebalance&gt; and allows users to fit multiple force field parameters\nto multiple different targets such as optimised geometries vibration frequencies and relaxed torsion profiles.\n\nNote:\n    We only support relaxed torsion profile fitting so far.\n    All targets are fitted using OpenMM.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Type&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ForceBalanceFitting&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;ForceBalanceFitting&quot;</span><span class="w"></span>
+<span class="w">         </span><span class="p">],</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;penalty_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Penalty Type&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;L1&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;L1&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;L2&quot;</span><span class="w"></span>
+<span class="w">         </span><span class="p">],</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;job_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Job Type&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;optimize&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;max_iterations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Max Iterations&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;integer&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;convergence_step_criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Convergence Step Criteria&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;convergence_objective_criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Convergence Objective Criteria&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;convergence_gradient_criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Convergence Gradient Criteria&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;n_criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;N Criteria&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;integer&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;eig_lowerbound&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Eig Lowerbound&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;finite_difference_h&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Finite Difference H&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;penalty_additive&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Penalty Additive&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;constrain_charge&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Constrain Charge&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;boolean&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;initial_trust_radius&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Initial Trust Radius&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.25</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;minimum_trust_radius&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Minimum Trust Radius&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.05</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;error_tolerance&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Error Tolerance&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;adaptive_factor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Adaptive Factor&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;adaptive_damping&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Adaptive Damping&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;normalize_weights&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Normalize Weights&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;boolean&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;extras&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Extras&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;priors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Priors&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;Proper_k&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">6.0</span><span class="w"></span>
+<span class="w">         </span><span class="p">},</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;allOf&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">            </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;$ref&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#/definitions/Priors&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">}</span><span class="w"></span>
+<span class="w">         </span><span class="p">]</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;targets&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Targets&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;TorsionProfile_OpenMM&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;target_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TorsionProfile_OpenMM&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Relaxed energy and RMSD fitting for torsion drives only.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;writelevel&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;keywords&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                  </span><span class="nt">&quot;pdb&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;molecule.pdb&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">                  </span><span class="nt">&quot;coords&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;scan.xyz&quot;</span><span class="w"></span>
+<span class="w">               </span><span class="p">},</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;openmm_platform&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Reference&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;energy_denom&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;energy_upper&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;attenuate&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;restrain_k&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="w"></span>
+<span class="w">            </span><span class="p">}</span><span class="w"></span>
+<span class="w">         </span><span class="p">},</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;additionalProperties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;$ref&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#/definitions/TorsionProfile&quot;</span><span class="w"></span>
+<span class="w">         </span><span class="p">}</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">   </span><span class="p">},</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;definitions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;Priors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Priors&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;A class which controls the forcebalance force field prior values.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;Proper_k&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Proper K&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The initial prior for the proper torsion k values.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">6.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">}</span><span class="w"></span>
+<span class="w">         </span><span class="p">}</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;TorsionProfile&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TorsionProfile&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;This helps set up the files required to perform the torsion profile fitting target in forcebalance.\nFor each ligand passed the input files are prepared for each target torsion, the optimize in file is also updated with the target info.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;target_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Target Name&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The name of the forcebalance target to be fit&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TorsionProfile_OpenMM&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="s2">&quot;TorsionProfile_OpenMM&quot;</span><span class="w"></span>
+<span class="w">               </span><span class="p">],</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Description&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Relaxed energy and RMSD fitting for torsion drives only.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;writelevel&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Writelevel&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The write level controls the types of intermedate information which is saved from an optimisation.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;integer&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;keywords&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Keywords&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Any keyword information which should be passed to forcebalance as a run time setting.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                  </span><span class="nt">&quot;pdb&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;molecule.pdb&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">                  </span><span class="nt">&quot;coords&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;scan.xyz&quot;</span><span class="w"></span>
+<span class="w">               </span><span class="p">},</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;openmm_platform&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Openmm Platform&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The openmm platform that should be used in the fitting.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Reference&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="s2">&quot;Reference&quot;</span><span class="w"></span>
+<span class="w">               </span><span class="p">],</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;energy_denom&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Energy Denom&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The energy denominator used by forcebalance to weight the energies contribution to the objective function.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;energy_upper&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Energy Upper&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The upper limit for energy differences in kcal/mol which are included in fitting. Relative energies above this value do not contribute to the objective.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;attenuate&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Attenuate&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;If the weights should be attenuated as a function of the energy above the minimum.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;boolean&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;restrain_k&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Restrain K&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The strength of the harmonic restraint in kcal/mol used in the mm relaxation on all non-torsion atoms.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">               </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">}</span><span class="w"></span>
+<span class="w">         </span><span class="p">}</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">   </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</details></p><dl class="field-list simple">
+<dt class="field-odd">Config</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arbitrary_types_allowed</strong>: <em>bool = True</em></p></li>
+<li><p><strong>validate_assignment</strong>: <em>bool = True</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Fields</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.adaptive_damping" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.adaptive_damping"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adaptive_damping</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.adaptive_factor" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.adaptive_factor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adaptive_factor</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.constrain_charge" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.constrain_charge"><code class="xref py py-obj docutils literal notranslate"><span class="pre">constrain_charge</span> <span class="pre">(bool)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_gradient_criteria" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_gradient_criteria"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convergence_gradient_criteria</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_objective_criteria" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_objective_criteria"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convergence_objective_criteria</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_step_criteria" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_step_criteria"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convergence_step_criteria</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.eig_lowerbound" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.eig_lowerbound"><code class="xref py py-obj docutils literal notranslate"><span class="pre">eig_lowerbound</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.error_tolerance" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.error_tolerance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">error_tolerance</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.extras" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.extras"><code class="xref py py-obj docutils literal notranslate"><span class="pre">extras</span> <span class="pre">(Dict[str,</span> <span class="pre">Any])</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.finite_difference_h" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.finite_difference_h"><code class="xref py py-obj docutils literal notranslate"><span class="pre">finite_difference_h</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.initial_trust_radius" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.initial_trust_radius"><code class="xref py py-obj docutils literal notranslate"><span class="pre">initial_trust_radius</span> <span class="pre">(float)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.job_type" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.job_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">job_type</span> <span class="pre">(str)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.max_iterations" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.max_iterations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">max_iterations</span> <span class="pre">(pydantic.types.PositiveInt)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.minimum_trust_radius" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.minimum_trust_radius"><code class="xref py py-obj docutils literal notranslate"><span class="pre">minimum_trust_radius</span> <span class="pre">(float)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.n_criteria" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.n_criteria"><code class="xref py py-obj docutils literal notranslate"><span class="pre">n_criteria</span> <span class="pre">(pydantic.types.PositiveInt)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.normalize_weights" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.normalize_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">normalize_weights</span> <span class="pre">(bool)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.penalty_additive" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.penalty_additive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">penalty_additive</span> <span class="pre">(pydantic.types.PositiveFloat)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.penalty_type" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.penalty_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">penalty_type</span> <span class="pre">(typing_extensions.Literal[L1,</span> <span class="pre">L2])</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.priors" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.priors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">priors</span> <span class="pre">(qubekit.torsions.fitting.forcebalance_wrapper.Priors)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.targets" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.targets"><code class="xref py py-obj docutils literal notranslate"><span class="pre">targets</span> <span class="pre">(Dict[str,</span> <span class="pre">qubekit.torsions.fitting.forcebalance_wrapper.TorsionProfile])</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.type" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">type</span> <span class="pre">(typing_extensions.Literal[ForceBalanceFitting])</span></code></a></p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.adaptive_damping">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">adaptive_damping</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">1.0</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.adaptive_damping" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.adaptive_factor">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">adaptive_factor</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">0.2</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.adaptive_factor" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.constrain_charge">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">constrain_charge</span></code><em class="property"><span class="pre">:</span> <span class="pre">bool</span></em><em class="property"> <span class="pre">=</span> <span class="pre">False</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.constrain_charge" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_gradient_criteria">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">convergence_gradient_criteria</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">0.01</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_gradient_criteria" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_objective_criteria">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">convergence_objective_criteria</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">0.01</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_objective_criteria" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_step_criteria">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">convergence_step_criteria</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">0.01</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.convergence_step_criteria" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.eig_lowerbound">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">eig_lowerbound</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">0.01</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.eig_lowerbound" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.error_tolerance">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">error_tolerance</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">1.0</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.error_tolerance" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.extras">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">extras</span></code><em class="property"><span class="pre">:</span> <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">=</span> <span class="pre">{}</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.extras" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.finite_difference_h">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">finite_difference_h</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">0.01</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.finite_difference_h" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.initial_trust_radius">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">initial_trust_radius</span></code><em class="property"><span class="pre">:</span> <span class="pre">float</span></em><em class="property"> <span class="pre">=</span> <span class="pre">-0.25</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.initial_trust_radius" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.job_type">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">job_type</span></code><em class="property"><span class="pre">:</span> <span class="pre">str</span></em><em class="property"> <span class="pre">=</span> <span class="pre">'optimize'</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.job_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.max_iterations">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">max_iterations</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveInt</span></em><em class="property"> <span class="pre">=</span> <span class="pre">10</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.max_iterations" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.minimum_trust_radius">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">minimum_trust_radius</span></code><em class="property"><span class="pre">:</span> <span class="pre">float</span></em><em class="property"> <span class="pre">=</span> <span class="pre">0.05</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.minimum_trust_radius" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.n_criteria">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">n_criteria</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveInt</span></em><em class="property"> <span class="pre">=</span> <span class="pre">1</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.n_criteria" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.normalize_weights">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">normalize_weights</span></code><em class="property"><span class="pre">:</span> <span class="pre">bool</span></em><em class="property"> <span class="pre">=</span> <span class="pre">False</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.normalize_weights" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.penalty_additive">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">penalty_additive</span></code><em class="property"><span class="pre">:</span> <span class="pre">pydantic.types.PositiveFloat</span></em><em class="property"> <span class="pre">=</span> <span class="pre">0.1</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.penalty_additive" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.penalty_type">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">penalty_type</span></code><em class="property"><span class="pre">:</span> <span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><span class="pre">L1</span><span class="p"><span class="pre">,</span> </span><span class="pre">L2</span><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">=</span> <span class="pre">'L1'</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.penalty_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.priors">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">priors</span></code><em class="property"><span class="pre">:</span> <span class="pre">qubekit.torsions.fitting.forcebalance_wrapper.Priors</span></em><em class="property"> <span class="pre">=</span> <span class="pre">Priors(Proper_k=6.0)</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.priors" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.targets">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">targets</span></code><em class="property"><span class="pre">:</span> <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">qubekit.torsions.fitting.forcebalance_wrapper.TorsionProfile</span><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">=</span> <span class="pre">{'TorsionProfile_OpenMM':</span> <span class="pre">TorsionProfile(target_name='TorsionProfile_OpenMM',</span> <span class="pre">description='Relaxed</span> <span class="pre">energy</span> <span class="pre">and</span> <span class="pre">RMSD</span> <span class="pre">fitting</span> <span class="pre">for</span> <span class="pre">torsion</span> <span class="pre">drives</span> <span class="pre">only.',</span> <span class="pre">writelevel=2,</span> <span class="pre">keywords={'pdb':</span> <span class="pre">'molecule.pdb',</span> <span class="pre">'coords':</span> <span class="pre">'scan.xyz'},</span> <span class="pre">openmm_platform='Reference',</span> <span class="pre">energy_denom=1.0,</span> <span class="pre">energy_upper=10.0,</span> <span class="pre">attenuate=False,</span> <span class="pre">restrain_k=1.0)}</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.targets" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.type">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">type</span></code><em class="property"><span class="pre">:</span> <span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting" title="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting"><span class="pre">ForceBalanceFitting</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">=</span> <span class="pre">'ForceBalanceFitting'</span></em><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt id="qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.add_target">
 <code class="sig-name descname"><span class="pre">add_target</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">qubekit.torsions.fitting.forcebalance_wrapper.TargetBase</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../../../_modules/qubekit/torsions/fitting/forcebalance_wrapper/#ForceBalanceFitting.add_target"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.add_target" title="Permalink to this definition">¶</a></dt>

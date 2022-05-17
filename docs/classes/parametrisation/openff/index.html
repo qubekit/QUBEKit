@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenFF &mdash; QUBEKit 2.1.1+10.g127b9f1.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <title>OpenFF &mdash; QUBEKit 2.1.1+11.gd603cab.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/autodoc_pydantic.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -85,11 +85,71 @@
              
   <div class="section" id="openff">
 <h1>OpenFF<a class="headerlink" href="#openff" title="Permalink to this headline">¶</a></h1>
-<dl class="py class">
+<dl class="py class pydantic_model">
 <dt id="qubekit.parametrisation.OpenFF">
-<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.parametrisation.</span></code><code class="sig-name descname"><span class="pre">OpenFF</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#qubekit.parametrisation.OpenFF" title="qubekit.parametrisation.OpenFF"><span class="pre">OpenFF</span></a><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'OpenFF'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_field</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'openff_unconstrained-1.3.0.offxml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/qubekit/parametrisation/openff/#OpenFF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.parametrisation.OpenFF" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">pydantic</span> <span class="pre">model</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.parametrisation.</span></code><code class="sig-name descname"><span class="pre">OpenFF</span></code><a class="reference internal" href="../../../_modules/qubekit/parametrisation/openff/#OpenFF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.parametrisation.OpenFF" title="Permalink to this definition">¶</a></dt>
 <dd><p>This class uses the OpenFFtoolkit to parametrise a molecule and load an OpenMM simulation.
 A serialised XML is then stored in the parameter dictionaries.</p>
+<p><details  class="autodoc_pydantic_collapsable_json">
+<summary>Show JSON schema</summary><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenFF&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;This class uses the OpenFFtoolkit to parametrise a molecule and load an OpenMM simulation.\nA serialised XML is then stored in the parameter dictionaries.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Type&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenFF&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;OpenFF&quot;</span><span class="w"></span>
+<span class="w">         </span><span class="p">],</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;force_field&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Force Field&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;openff_unconstrained-1.3.0.offxml&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">   </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</details></p><dl class="field-list simple">
+<dt class="field-odd">Config</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arbitrary_types_allowed</strong>: <em>bool = True</em></p></li>
+<li><p><strong>json_encoders</strong>: <em>dict = {&lt;class ‘numpy.ndarray’&gt;: &lt;function SchemaBase.Config.&lt;lambda&gt; at 0x7fd69c361440&gt;}</em></p></li>
+<li><p><strong>validate_assignment</strong>: <em>bool = True</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Fields</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">force_field</span> <span class="pre">(str)</span></code></p></li>
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">type</span> <span class="pre">(typing_extensions.Literal[OpenFF])</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-odd">Validators</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">_check_forcefield</span></code> » <code class="xref py py-obj docutils literal notranslate"><span class="pre">force_field</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.parametrisation.OpenFF.force_field">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">force_field</span></code><em class="property"><span class="pre">:</span> <span class="pre">str</span></em><em class="property"> <span class="pre">=</span> <span class="pre">'openff_unconstrained-1.3.0.offxml'</span></em><a class="headerlink" href="#qubekit.parametrisation.OpenFF.force_field" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Validated by</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">_check_forcefield</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.parametrisation.OpenFF.type">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">type</span></code><em class="property"><span class="pre">:</span> <span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#qubekit.parametrisation.OpenFF" title="qubekit.parametrisation.OpenFF"><span class="pre">OpenFF</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">=</span> <span class="pre">'OpenFF'</span></em><a class="headerlink" href="#qubekit.parametrisation.OpenFF.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt id="qubekit.parametrisation.OpenFF.is_available">
 <em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">is_available</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <span class="pre">bool</span><a class="reference internal" href="../../../_modules/qubekit/parametrisation/openff/#OpenFF.is_available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.parametrisation.OpenFF.is_available" title="Permalink to this definition">¶</a></dt>

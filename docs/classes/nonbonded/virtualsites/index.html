@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Virtual Sites &mdash; QUBEKit 2.1.1+10.g127b9f1.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <title>Virtual Sites &mdash; QUBEKit 2.1.1+11.gd603cab.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/autodoc_pydantic.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -83,9 +83,9 @@
              
   <div class="section" id="virtual-sites">
 <h1>Virtual Sites<a class="headerlink" href="#virtual-sites" title="Permalink to this headline">¶</a></h1>
-<dl class="py class">
+<dl class="py class pydantic_model">
 <dt id="qubekit.nonbonded.VirtualSites">
-<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.nonbonded.</span></code><code class="sig-name descname"><span class="pre">VirtualSites</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#qubekit.nonbonded.VirtualSites" title="qubekit.nonbonded.VirtualSites"><span class="pre">VirtualSites</span></a><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'VirtualSites'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site_error_factor</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">qubekit.nonbonded.virtual_sites.ConstrainedFloatValue</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">1.005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site_error_threshold</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">qubekit.nonbonded.virtual_sites.ConstrainedFloatValue</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/qubekit/nonbonded/virtual_sites/#VirtualSites"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.nonbonded.VirtualSites" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">pydantic</span> <span class="pre">model</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.nonbonded.</span></code><code class="sig-name descname"><span class="pre">VirtualSites</span></code><a class="reference internal" href="../../../_modules/qubekit/nonbonded/virtual_sites/#VirtualSites"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.nonbonded.VirtualSites" title="Permalink to this definition">¶</a></dt>
 <dd><ul class="simple">
 <li><p>Identify atoms which need a v-site.</p></li>
 <li><p>Generate sample points in shells around that atom (shells are 1.4-2.0x the vdW radius).</p></li>
@@ -99,6 +99,85 @@
 * Store the final locations and charges of the virtual sites, as well as the errors.
 * Plot the results</p>
 <p>Numpy arrays are used throughout for faster calculation of esp values.</p>
+<p><details  class="autodoc_pydantic_collapsable_json">
+<summary>Show JSON schema</summary><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;VirtualSites&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;* Identify atoms which need a v-site.\n* Generate sample points in shells around that atom (shells are 1.4-2.0x the vdW radius).\n* Calculate the multipole expansion esp at all of those sample points.\n* Identify the vectors along which a single virtual site would sit, and two virtual sites would sit.\n* Move the virtual sites along this vector and vary the charges.\n* Calculate the monopole esp at all the sample points with each move.\n* Fit the positions and charges of the virtual sites, minimising the difference between the\nfull multipole esp and the monopole esp with a virtual site.\n* Store the final locations and charges of the virtual sites, as well as the errors.\n* Plot the results\n\nNumpy arrays are used throughout for faster calculation of esp values.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Type&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;VirtualSites&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;VirtualSites&quot;</span><span class="w"></span>
+<span class="w">         </span><span class="p">],</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;site_error_factor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Site Error Factor&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The factor by which a site must reduce the error before being accepted.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.005</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;site_error_threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Site Error Threshold&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The ESP error threshold to start fitting virtual sites.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;number&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">   </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</details></p><dl class="field-list simple">
+<dt class="field-odd">Config</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arbitrary_types_allowed</strong>: <em>bool = True</em></p></li>
+<li><p><strong>json_encoders</strong>: <em>dict = {&lt;class ‘numpy.ndarray’&gt;: &lt;function SchemaBase.Config.&lt;lambda&gt; at 0x7fd69c361440&gt;}</em></p></li>
+<li><p><strong>validate_assignment</strong>: <em>bool = True</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Fields</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">site_error_factor</span> <span class="pre">(float)</span></code></p></li>
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">site_error_threshold</span> <span class="pre">(float)</span></code></p></li>
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">type</span> <span class="pre">(typing_extensions.Literal[VirtualSites])</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.nonbonded.VirtualSites.site_error_factor">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">site_error_factor</span></code><em class="property"><span class="pre">:</span> <span class="pre">float</span></em><em class="property"> <span class="pre">=</span> <span class="pre">1.005</span></em><a class="headerlink" href="#qubekit.nonbonded.VirtualSites.site_error_factor" title="Permalink to this definition">¶</a></dt>
+<dd><p>The factor by which a site must reduce the error before being accepted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.nonbonded.VirtualSites.site_error_threshold">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">site_error_threshold</span></code><em class="property"><span class="pre">:</span> <span class="pre">float</span></em><em class="property"> <span class="pre">=</span> <span class="pre">1.0</span></em><a class="headerlink" href="#qubekit.nonbonded.VirtualSites.site_error_threshold" title="Permalink to this definition">¶</a></dt>
+<dd><p>The ESP error threshold to start fitting virtual sites.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.nonbonded.VirtualSites.type">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">type</span></code><em class="property"><span class="pre">:</span> <span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#qubekit.nonbonded.VirtualSites" title="qubekit.nonbonded.VirtualSites"><span class="pre">VirtualSites</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">=</span> <span class="pre">'VirtualSites'</span></em><a class="headerlink" href="#qubekit.nonbonded.VirtualSites.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt id="qubekit.nonbonded.VirtualSites.finish_message">
 <code class="sig-name descname"><span class="pre">finish_message</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">str</span><a class="reference internal" href="../../../_modules/qubekit/nonbonded/virtual_sites/#VirtualSites.finish_message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.nonbonded.VirtualSites.finish_message" title="Permalink to this definition">¶</a></dt>

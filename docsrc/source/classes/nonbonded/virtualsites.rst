@@ -3,5 +3,5 @@ Virtual Sites
 
 .. currentmodule:: qubekit.nonbonded
 
-.. autoclass:: VirtualSites
-   :members:
+.. autopydantic_model:: VirtualSites
+   :model-show-json: True

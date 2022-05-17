@@ -3,5 +3,5 @@ DDEC
 
 .. currentmodule:: qubekit.charges
 
-.. autoclass:: DDECCharges
-   :members:
+.. autopydantic_model:: DDECCharges
+   :model-show-json: True

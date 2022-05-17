@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Optimiser &mdash; QUBEKit 2.1.1+10.g127b9f1.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <title>Optimiser &mdash; QUBEKit 2.1.1+11.gd603cab.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/autodoc_pydantic.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -83,9 +83,9 @@
              
   <div class="section" id="optimiser">
 <h1>Optimiser<a class="headerlink" href="#optimiser" title="Permalink to this headline">¶</a></h1>
-<dl class="py class">
+<dl class="py class pydantic_model">
 <dt id="qubekit.workflow.helper_stages.Optimiser">
-<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.workflow.helper_stages.</span></code><code class="sig-name descname"><span class="pre">Optimiser</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="pre">*</span></em>, <em class="sig-param"><span class="pre">type:</span> <span class="pre">typing_extensions.Literal[Optimiser]</span> <span class="pre">=</span> <span class="pre">'Optimiser'</span></em>, <em class="sig-param"><span class="pre">pre_optimisation_method:</span> <span class="pre">typing_extensions.Literal[mmff94</span></em>, <em class="sig-param"><span class="pre">mmff94s</span></em>, <em class="sig-param"><span class="pre">uff</span></em>, <em class="sig-param"><span class="pre">gfn1xtb</span></em>, <em class="sig-param"><span class="pre">gfn2xtb</span></em>, <em class="sig-param"><span class="pre">gfn0xtb</span></em>, <em class="sig-param"><span class="pre">gaff-2.11</span></em>, <em class="sig-param"><span class="pre">ani1x</span></em>, <em class="sig-param"><span class="pre">ani1ccx</span></em>, <em class="sig-param"><span class="pre">ani2x</span></em>, <em class="sig-param"><span class="pre">openff-1.3.0]</span> <span class="pre">=</span> <span class="pre">'gfn2xtb'</span></em>, <em class="sig-param"><span class="pre">seed_conformers:</span> <span class="pre">qubekit.workflow.helper_stages.ConstrainedIntValue</span> <span class="pre">=</span> <span class="pre">40</span></em>, <em class="sig-param"><span class="pre">maxiter:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">350</span></em>, <em class="sig-param"><span class="pre">convergence_criteria:</span> <span class="pre">typing_extensions.Literal[GAU_TIGHT</span></em>, <em class="sig-param"><span class="pre">GAU</span></em>, <em class="sig-param"><span class="pre">GAU_VERYTIGHT]</span> <span class="pre">=</span> <span class="pre">'GAU_TIGHT'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/qubekit/workflow/helper_stages/#Optimiser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.workflow.helper_stages.Optimiser" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">pydantic</span> <span class="pre">model</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.workflow.helper_stages.</span></code><code class="sig-name descname"><span class="pre">Optimiser</span></code><a class="reference internal" href="../../../_modules/qubekit/workflow/helper_stages/#Optimiser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.workflow.helper_stages.Optimiser" title="Permalink to this definition">¶</a></dt>
 <dd><p>A helper class to run the QM optimisation stage and any pre-optimisations.</p>
 <dl class="simple">
 <dt>Important:</dt><dd><p>This stage will run a pre optimisation to the GAU convergence for each seed conformer.
@@ -97,6 +97,121 @@ If no conformer can be converged we raise an error.</p>
 <dt>Note:</dt><dd><p>By default psi4/gaussian calculations us an UltraFine integration grid to help with tight convergence criteria.</p>
 </dd>
 </dl>
+<p><details  class="autodoc_pydantic_collapsable_json">
+<summary>Show JSON schema</summary><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Optimiser&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;A helper class to run the QM optimisation stage and any pre-optimisations.\n\nImportant:\n    This stage will run a pre optimisation to the GAU convergence for each seed conformer.\n    Then we attempt to optimise each seed conformer to GAU_TIGHT(or other criteria) using full QM.\n    If the conformer does not converge in 50 steps we randomly bum the coordinates and restart for another 50 steps before\n    moving to the next conformer.\n    If no conformer can be converged we raise an error.\n\nNote:\n    By default psi4/gaussian calculations us an UltraFine integration grid to help with tight convergence criteria.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">   </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Type&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Optimiser&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;Optimiser&quot;</span><span class="w"></span>
+<span class="w">         </span><span class="p">],</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;pre_optimisation_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Pre Optimisation Method&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The pre-optimisation method that should be used before full QM.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gfn2xtb&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;mmff94&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;mmff94s&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;uff&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;gfn1xtb&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;gfn2xtb&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;gfn0xtb&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;gaff-2.11&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;ani1x&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;ani1ccx&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;ani2x&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;openff-1.3.0&quot;</span><span class="w"></span>
+<span class="w">         </span><span class="p">],</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;seed_conformers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Seed Conformers&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The number of seed conformers that we should attempt to generate to find the QM minimum.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;exclusiveMinimum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;integer&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;maxiter&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Maxiter&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The maximum number of optimisation steps allowed before failing the molecule.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">350</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;integer&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;convergence_criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Convergence Criteria&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The convergence criteria for the optimisation.&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GAU_TIGHT&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;GAU_TIGHT&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;GAU&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="s2">&quot;GAU_VERYTIGHT&quot;</span><span class="w"></span>
+<span class="w">         </span><span class="p">],</span><span class="w"></span>
+<span class="w">         </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">   </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</details></p><dl class="field-list simple">
+<dt class="field-odd">Config</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arbitrary_types_allowed</strong>: <em>bool = True</em></p></li>
+<li><p><strong>json_encoders</strong>: <em>dict = {&lt;class ‘numpy.ndarray’&gt;: &lt;function SchemaBase.Config.&lt;lambda&gt; at 0x7fd69c361440&gt;}</em></p></li>
+<li><p><strong>validate_assignment</strong>: <em>bool = True</em></p></li>
+</ul>
+</dd>
+<dt class="field-even">Fields</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="#qubekit.workflow.helper_stages.Optimiser.convergence_criteria" title="qubekit.workflow.helper_stages.Optimiser.convergence_criteria"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convergence_criteria</span> <span class="pre">(typing_extensions.Literal[GAU_TIGHT,</span> <span class="pre">GAU,</span> <span class="pre">GAU_VERYTIGHT])</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.workflow.helper_stages.Optimiser.maxiter" title="qubekit.workflow.helper_stages.Optimiser.maxiter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">maxiter</span> <span class="pre">(int)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.workflow.helper_stages.Optimiser.pre_optimisation_method" title="qubekit.workflow.helper_stages.Optimiser.pre_optimisation_method"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pre_optimisation_method</span> <span class="pre">(Optional[typing_extensions.Literal[mmff94,</span> <span class="pre">mmff94s,</span> <span class="pre">uff,</span> <span class="pre">gfn1xtb,</span> <span class="pre">gfn2xtb,</span> <span class="pre">gfn0xtb,</span> <span class="pre">gaff-2.11,</span> <span class="pre">ani1x,</span> <span class="pre">ani1ccx,</span> <span class="pre">ani2x,</span> <span class="pre">openff-1.3.0]])</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.workflow.helper_stages.Optimiser.seed_conformers" title="qubekit.workflow.helper_stages.Optimiser.seed_conformers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">seed_conformers</span> <span class="pre">(int)</span></code></a></p></li>
+<li><p><a class="reference internal" href="#qubekit.workflow.helper_stages.Optimiser.type" title="qubekit.workflow.helper_stages.Optimiser.type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">type</span> <span class="pre">(typing_extensions.Literal[Optimiser])</span></code></a></p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.workflow.helper_stages.Optimiser.convergence_criteria">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">convergence_criteria</span></code><em class="property"><span class="pre">:</span> <span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><span class="pre">GAU_TIGHT</span><span class="p"><span class="pre">,</span> </span><span class="pre">GAU</span><span class="p"><span class="pre">,</span> </span><span class="pre">GAU_VERYTIGHT</span><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">=</span> <span class="pre">'GAU_TIGHT'</span></em><a class="headerlink" href="#qubekit.workflow.helper_stages.Optimiser.convergence_criteria" title="Permalink to this definition">¶</a></dt>
+<dd><p>The convergence criteria for the optimisation.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.workflow.helper_stages.Optimiser.maxiter">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">maxiter</span></code><em class="property"><span class="pre">:</span> <span class="pre">int</span></em><em class="property"> <span class="pre">=</span> <span class="pre">350</span></em><a class="headerlink" href="#qubekit.workflow.helper_stages.Optimiser.maxiter" title="Permalink to this definition">¶</a></dt>
+<dd><p>The maximum number of optimisation steps allowed before failing the molecule.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.workflow.helper_stages.Optimiser.pre_optimisation_method">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">pre_optimisation_method</span></code><em class="property"><span class="pre">:</span> <span class="pre">Optional[typing_extensions.Literal[mmff94,</span> <span class="pre">mmff94s,</span> <span class="pre">uff,</span> <span class="pre">gfn1xtb,</span> <span class="pre">gfn2xtb,</span> <span class="pre">gfn0xtb,</span> <span class="pre">gaff-2.11,</span> <span class="pre">ani1x,</span> <span class="pre">ani1ccx,</span> <span class="pre">ani2x,</span> <span class="pre">openff-1.3.0]]</span></em><em class="property"> <span class="pre">=</span> <span class="pre">'gfn2xtb'</span></em><a class="headerlink" href="#qubekit.workflow.helper_stages.Optimiser.pre_optimisation_method" title="Permalink to this definition">¶</a></dt>
+<dd><p>The pre-optimisation method that should be used before full QM.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.workflow.helper_stages.Optimiser.seed_conformers">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">seed_conformers</span></code><em class="property"><span class="pre">:</span> <span class="pre">int</span></em><em class="property"> <span class="pre">=</span> <span class="pre">40</span></em><a class="headerlink" href="#qubekit.workflow.helper_stages.Optimiser.seed_conformers" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of seed conformers that we should attempt to generate to find the QM minimum.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Constraints</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exclusiveMinimum</strong> = 0</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt id="qubekit.workflow.helper_stages.Optimiser.type">
+<em class="property"><span class="pre">field</span> </em><code class="sig-name descname"><span class="pre">type</span></code><em class="property"><span class="pre">:</span> <span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#qubekit.workflow.helper_stages.Optimiser" title="qubekit.workflow.helper_stages.Optimiser"><span class="pre">Optimiser</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">=</span> <span class="pre">'Optimiser'</span></em><a class="headerlink" href="#qubekit.workflow.helper_stages.Optimiser.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt id="qubekit.workflow.helper_stages.Optimiser.convert_pre_opt">
 <em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">convert_pre_opt</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">qubekit.utils.datastructures.QCOptions</span><a class="reference internal" href="../../../_modules/qubekit/workflow/helper_stages/#Optimiser.convert_pre_opt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.workflow.helper_stages.Optimiser.convert_pre_opt" title="Permalink to this definition">¶</a></dt>
