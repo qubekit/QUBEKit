@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation &mdash; QUBEKit 2.1.1+9.g9ccefd7.dirty documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex/" />
+    <link rel="search" title="Search" href="../search/" />
+    <link rel="next" title="Documentation" href="../documentation/" />
+    <link rel="prev" title="QUBEKit" href="../qubekit/" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../" class="icon icon-home"> QUBEKit
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search/" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../qubekit/">QUBEKit</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#linux-macos">Linux / MacOS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#developer-installation">Developer Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../documentation/">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/">Staging Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../acknowledgments/">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license/">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../">QUBEKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../" class="icon icon-home"></a> &raquo;</li>
+      <li>Installation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/installation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="linux-macos">
+<h2>Linux / MacOS<a class="headerlink" href="#linux-macos" title="Permalink to this headline">¶</a></h2>
+<p>QUBEKit is available through conda-forge; this is the recommended installation method.
+Github has our latest version which will likely have newer features but may not be stable.</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Recommended</span>
+conda install -c conda-forge qubekit
+</pre></div>
+</div>
+<p>Alternatively, you can install the dependencies manually in the env.yml and use pip to install the package:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/qubekit/qubekit.git
+<span class="nb">cd</span> qubekit
+python install .
+</pre></div>
+</div>
+<blockquote>
+<div><p>WARNING: Note the issue with PSI4 as the clash between the conda channels defaults and conda-forge.</p>
+</div></blockquote>
+</div>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>We recommend using conda (<a class="reference external" href="https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html">https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html</a>)
+to manage the dependencies.</p>
+<p>TODO - PSI?
+Optionally, you may choose to use Gaussian (<a class="reference external" href="http://gaussian.com/">http://gaussian.com/</a>) and Chargemol.
+Gaussian is an option for QM optimisations, hessian calculations and density calculations.
+Chargemol is an option for charge partitioning.
+QUBEKit contains alternative approaches for these calculations.</p>
+<p>Minimal conda packages are included in the conda-forge install with all optional
+engine packages left to the user to install. If there are dependency issues or
+version conflicts in your environment, packages can be installed individually.</p>
+<p>The following table details some optional calculation engine packages
+which are not included in the QUBEKit conda package and how to install them.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 76%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Package</p></th>
+<th class="head"><p>Output</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>PSI4 &gt;=1.4.1</p></td>
+<td><p>conda install -c psi4 psi4</p></td>
+</tr>
+<tr class="row-odd"><td><p>Chargemol</p></td>
+<td><p>conda install -c conda-forge chargemol</p></td>
+</tr>
+<tr class="row-even"><td><p>xtb-python</p></td>
+<td><p>conda install -c conda-forge xtb-python</p></td>
+</tr>
+<tr class="row-odd"><td><p>torchani</p></td>
+<td><p>conda install -c conda-forge torchani</p></td>
+</tr>
+</tbody>
+</table>
+<p>Adding lots of packages can be a headache. If possible, install using Anaconda through the terminal.
+This is generally safest, as Anaconda should deal with versions and conflicts in your environment.
+Generally, conda packages will have the conda install command on their website or github.
+As a last resort, either git clone them and install:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>pip install git+https://github.com/qubekit/qubekit.git
+</pre></div>
+</div>
+<p>or follow the described steps in the respective documentation.</p>
+</div>
+<div class="section" id="developer-installation">
+<h2>Developer Installation<a class="headerlink" href="#developer-installation" title="Permalink to this headline">¶</a></h2>
+<p>If downloading QUBEKit to edit the latest version of the source code,
+the easiest method is to install via conda, then remove the conda version
+of qubekit and git clone. This is accomplished with a few simple commands:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Install QUBEKit as normal</span>
+conda install -c conda-forge qubekit
+
+<span class="c1"># Remove ONLY the QUBEKit package itself, leaving all dependencies installed</span>
+<span class="c1"># and on the correct version</span>
+conda remove --force qubekit
+
+<span class="c1"># Re-download the latest QUBEKit through github</span>
+git clone https://github.com/qubekit/qubekit.git
+
+<span class="c1"># Re-install QUBEKit</span>
+<span class="nb">cd</span> qubekit
+pip install .
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../qubekit/" class="btn btn-neutral float-left" title="QUBEKit" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../documentation/" class="btn btn-neutral float-right" title="Documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

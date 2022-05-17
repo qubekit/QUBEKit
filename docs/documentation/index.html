@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentation &mdash; QUBEKit 2.1.1+9.g9ccefd7.dirty documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex/" />
+    <link rel="search" title="Search" href="../search/" />
+    <link rel="next" title="Staging Classes" href="../api/" />
+    <link rel="prev" title="Installation" href="../installation/" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../" class="icon icon-home"> QUBEKit
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search/" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../qubekit/">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation/">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#running-jobs">Running Jobs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#config-files">Config files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#custom-start-and-end-points">Custom Start and End Points</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#single-molecule">Single molecule</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multiple-molecules">Multiple molecules</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#checking-progress">Checking Progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#high-throughput">High Throughput</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#other">Other</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#help">Help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/">Staging Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../acknowledgments/">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license/">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../">QUBEKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../" class="icon icon-home"></a> &raquo;</li>
+      <li>Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/documentation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="documentation">
+<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h1>
+<p>QUBEKit’s primary interface is the command line.</p>
+<p>Here we present some examples.</p>
+<div class="section" id="running-jobs">
+<h2>Running Jobs<a class="headerlink" href="#running-jobs" title="Permalink to this headline">¶</a></h2>
+<p>A single molecule job can be executed with the <cite>run</cite> command.</p>
+<p>Some form of molecule input must also be supplied; either a file
+(designated with the <cite>–input-file</cite> or <cite>-i</cite> flag), or a smiles string (<cite>–smiles</cite> or <cite>-sm</cite>).</p>
+<p>In the case of a smiles string, the molecule must also be named with the <cite>–name</cite> or <cite>-n</cite> flag.</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>qubekit run -i methane.pdb
+
+qubekit run -i ethane.mol2
+
+qubekit run -sm CO -n methanol
+</pre></div>
+</div>
+</div>
+<div class="section" id="config-files">
+<h2>Config files<a class="headerlink" href="#config-files" title="Permalink to this headline">¶</a></h2>
+<p>QUBEKit has a lot of familiar settings which are used in production and changing
+these can result in very different force field parameters. The settings are
+controlled using json style config files which are easy to edit.</p>
+<p>QUBEKit does have a full suite of defaults built in. To create a config file
+template with the name “example”, containing default options, run the command:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>qubekit config create example.json
+</pre></div>
+</div>
+<p>Simply edit the sections as desired to change the method, basis set, memory etc.</p>
+<p>This config file can then be used to execute a QUBEKit job using the <cite>–config</cite> or <cite>-c</cite>
+flag in the run command.</p>
+</div>
+<div class="section" id="custom-start-and-end-points">
+<h2>Custom Start and End Points<a class="headerlink" href="#custom-start-and-end-points" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="single-molecule">
+<h3>Single molecule<a class="headerlink" href="#single-molecule" title="Permalink to this headline">¶</a></h3>
+<p>QUBEKit also has the ability to run partial analyses, or redo certain parts of an analysis.
+For a single molecule analysis, this is achieved with the <cite>–end</cite> (<cite>-e</cite>) and <cite>restart</cite> commands.</p>
+<p>The stages are:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 76%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Stage</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>parametrisation</p></td>
+<td><div class="line-block">
+<div class="line">The molecule is parametrised using OpenFF, AnteChamber or an xml file.</div>
+<div class="line">This step also loads in the molecule and extracts key information like</div>
+<div class="line">the atoms and their coordinates.</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>optimisation</p></td>
+<td><div class="line-block">
+<div class="line">There is a quick, preliminary optimisation which speeds up the</div>
+<div class="line">following QM optimisation.</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p>hessian</p></td>
+<td><div class="line-block">
+<div class="line">This uses the same QM engine as the prior optimisation to calculate</div>
+<div class="line">the Hessian matrix which is needed for calculating bonding parameters.</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>charges</p></td>
+<td><div class="line-block">
+<div class="line">The electron density is calculated. This is where the solvent is</div>
+<div class="line">applied as well (if configured). Next, the charges are partitioned</div>
+<div class="line">and calculated.</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p>virtual_sites</p></td>
+<td><div class="line-block">
+<div class="line">Virtual sites are added where the error in ESP would be large</div>
+<div class="line">without them.</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>non_bonded</p></td>
+<td><div class="line-block">
+<div class="line">Lennard-Jones parameters (sigma and epsilon values) are calculated.</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p>bonded_parameters</p></td>
+<td><div class="line-block">
+<div class="line">Using the Hessian matrix, the bond lengths, angles and force constants</div>
+<div class="line">are calculated with the Modified Seminario Method.</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>torsion_scanner</p></td>
+<td><div class="line-block">
+<div class="line">Using the molecule’s geometry, a torsion scan is performed. The molecule</div>
+<div class="line">can then be optimised with respect to these parameters.</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p>torsion_optimisation</p></td>
+<td><div class="line-block">
+<div class="line">The fitting and optimisation step for the torsional analysis.</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<p>In a normal run, all of these stages are executed sequentially,
+but with <cite>–end</cite>, <cite>restart</cite> and <cite>–skip-stages</cite> you are free to run <em>from</em> any step <em>to</em> any step
+inclusively while skipping any non-essential steps.</p>
+<p>When using <cite>–end</cite> (or <cite>-e</cite>), specify the end-point in the proceeding command.</p>
+<p>When using <cite>restart</cite>, specify the start-point in the proceeding command.</p>
+<p>When using <cite>–skip-stages</cite> (or <cite>-s</cite>), specify any stage(s) which you needn’t run. Be aware some stages
+depend on one another and cannot necessarily be skipped.</p>
+</div>
+<div class="section" id="multiple-molecules">
+<h3>Multiple molecules<a class="headerlink" href="#multiple-molecules" title="Permalink to this headline">¶</a></h3>
+<p>When using custom start and/or end points with bulk commands, the stages are written to the csv file, rather than the terminal.
+If no start point is specified, a new working directory be created and QUBEKit will run as normal.
+Otherwise, QUBEKit will find the correct directory based on the molecule name.</p>
+</div>
+</div>
+<div class="section" id="checking-progress">
+<h2>Checking Progress<a class="headerlink" href="#checking-progress" title="Permalink to this headline">¶</a></h2>
+<p>Throughout an analysis, key information will be added to the run directory.
+This information can be quickly parsed by QUBEKit’s <cite>progress</cite> command</p>
+<p>To display the progress of all analyses in your current directory and below, use the command:</p>
+<blockquote>
+<div><p>qubekit progress</p>
+</div></blockquote>
+<p>QUBEKit will use the <cite>workflow_result.json</cite> which is in all QUBEKit directories and display a colour-coded table of the progress.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Indicator</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>✓</p></td>
+<td><p>Completed successfully</p></td>
+</tr>
+<tr class="row-odd"><td><p>~</p></td>
+<td><p>Neither finished nor errored</p></td>
+</tr>
+<tr class="row-even"><td><p>S</p></td>
+<td><p>Skipped</p></td>
+</tr>
+<tr class="row-odd"><td><p>E</p></td>
+<td><p>Started and failed for some reason</p></td>
+</tr>
+</tbody>
+</table>
+<p>Viewing the QUBEKit.err file will give more information as to <strong>why</strong> it failed.</p>
+</div>
+<div class="section" id="high-throughput">
+<h2>High Throughput<a class="headerlink" href="#high-throughput" title="Permalink to this headline">¶</a></h2>
+<p>Bulk commands are for high throughput analyses; they are invoked with the bulk keyword.
+A csv must be used when running a bulk analysis. If you would like to generate a
+blank csv file, simply run the command:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>qubekit bulk create example.csv
+</pre></div>
+</div>
+<p>where example.csv is the name of the file you want to create.
+This will automatically generate a csv file with the appropriate column headers.
+When writing to the csv file, simply append rows after the header row with the
+relevant information required.*</p>
+<p>Importantly, different config files can be supplied for each molecule in each row.</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>name,smiles,multiplicity,config_file,restart,end
+</pre></div>
+</div>
+<p><a href="#id1"><span class="problematic" id="id2">*</span></a>Only the name column needs to be filled (which is filled automatically with the generated csv),
+any empty columns will simply use the default values:</p>
+<ul class="simple">
+<li><p>The smiles string column only needs to be filled if a file is not supplied;</p></li>
+<li><p>If the multiplicity column is empty, multiplicity will be set to 1;</p></li>
+<li><p>If the config column is empty, the default config is used;</p></li>
+<li><p>Leaving the restart column empty will start the program from the beginning;</p></li>
+<li><p>Leaving the end column empty will end the program after a full analysis.</p></li>
+</ul>
+<p>A bulk analysis is called with the run command, followed by the name of the csv file:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>qubekit bulk run example.csv
+</pre></div>
+</div>
+<p>Any necessary files should all be in the same place: where you’re running QUBEKit from.
+Upon executing this bulk command, QUBEKit will work through the rows in the csv file.
+Each molecule will be given its own directory (the same as single molecule analyses).</p>
+<p>Be aware that the names of the files are used as keys to find the configs.
+So, each molecule file being analysed should have a corresponding row in
+the csv file with the correct name (if using smiles strings, the name
+column will just be the name given to the created file).</p>
+<p>For example (barring the header, csv row order does not matter, and you do not
+need to include smiles strings when a file is provided; column order does matter):</p>
+<blockquote>
+<div><dl class="simple">
+<dt>&lt;location/&gt;:</dt><dd><p>benzene.pdb
+ethane.mol2
+bulk_example.csv</p>
+</dd>
+<dt>bulk_example.csv:</dt><dd><p>name,smiles,multiplicity,config_file,restart,end
+methane,C,,default_config.json,,
+benzene,,,default_config.json,,
+ethane,,,default_config.json,,</p>
+</dd>
+</dl>
+</div></blockquote>
+</div>
+<div class="section" id="other">
+<h2>Other<a class="headerlink" href="#other" title="Permalink to this headline">¶</a></h2>
+<p>You cannot run multiple kinds of analysis at once. For example:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>qubekit bulk run example.csv run -i methane.pdb
+</pre></div>
+</div>
+<p>is not a valid command. These should be performed separately:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>qubekit bulk run example.csv
+qubekit run -i methane.pdb
+</pre></div>
+</div>
+<p>Be wary of running QUBEKit concurrently through different terminal windows.
+The programs QUBEKit calls often just try to use however much memory is assigned in the config files;
+this means they may try to take more than is available, leading to a hang-up, or a crash.</p>
+</div>
+<div class="section" id="help">
+<h2>Help<a class="headerlink" href="#help" title="Permalink to this headline">¶</a></h2>
+<p>Below is general help for most of the commands available in QUBEKit.
+There is some short help available through the terminal (invoked with <cite>–help</cite>).
+<cite>–help</cite> may be called for any command you are unsure of:</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span>qubekit --help
+qubekit bulk run --help
+qubekit config create --help
+</pre></div>
+</div>
+<p>All necessary long-form help is within this document.</p>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../installation/" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/" class="btn btn-neutral float-right" title="Staging Classes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

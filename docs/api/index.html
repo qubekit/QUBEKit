@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Staging Classes &mdash; QUBEKit 2.1.1+9.g9ccefd7.dirty documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex/" />
+    <link rel="search" title="Search" href="../search/" />
+    <link rel="next" title="OpenFF" href="../classes/parametrisation/openff/" />
+    <link rel="prev" title="Documentation" href="../documentation/" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../" class="icon icon-home"> QUBEKit
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search/" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../qubekit/">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation/">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../documentation/">Documentation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Staging Classes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#parametrisation">Parametrisation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../classes/parametrisation/openff/">OpenFF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../classes/parametrisation/antechamber/">AnteChamber</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../classes/parametrisation/xml/">XML</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#optimisation">Optimisation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../classes/optimisation/optimiser/">Optimiser</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#charges">Charges</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../classes/charges/ddec/">DDEC</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../classes/charges/mbis/">MBIS</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#virtual-sites">Virtual Sites</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../classes/nonbonded/virtualsites/">Virtual Sites</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#bonded-modules">Bonded Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../classes/bonded/modseminario/">ModSeminario</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../classes/bonded/qforce/">QForceHessianFitting</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#torsion-scanner">Torsion Scanner</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../classes/torsionscanner/torsionscan1D/">TorsionScan1D</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#torsion-optimisation">Torsion Optimisation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../classes/torsionoptimisation/forcebalancefitting/">ForceBalanceFitting</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../acknowledgments/">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license/">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../">QUBEKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../" class="icon icon-home"></a> &raquo;</li>
+      <li>Staging Classes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="staging-classes">
+<h1>Staging Classes<a class="headerlink" href="#staging-classes" title="Permalink to this headline">¶</a></h1>
+<p>Here we present in the correct order the different stages which QUBEKit executes. In each stage only one of the available tools can be use to carry out the main operation. For example, for parametrisation either AnteChamber of OpenFF can be utilised. Each of these can be imported and used on its, which is why we provide here the API for each of the classes.</p>
+<div class="section" id="parametrisation">
+<h2>Parametrisation<a class="headerlink" href="#parametrisation" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/parametrisation/openff/">OpenFF</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/parametrisation/antechamber/">AnteChamber</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/parametrisation/xml/">XML</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="optimisation">
+<h2>Optimisation<a class="headerlink" href="#optimisation" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/optimisation/optimiser/">Optimiser</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="charges">
+<h2>Charges<a class="headerlink" href="#charges" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/charges/ddec/">DDEC</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/charges/mbis/">MBIS</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="virtual-sites">
+<h2>Virtual Sites<a class="headerlink" href="#virtual-sites" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/nonbonded/virtualsites/">Virtual Sites</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="bonded-modules">
+<h2>Bonded Modules<a class="headerlink" href="#bonded-modules" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/bonded/modseminario/">ModSeminario</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../classes/bonded/qforce/">QForceHessianFitting</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="torsion-scanner">
+<h2>Torsion Scanner<a class="headerlink" href="#torsion-scanner" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/torsionscanner/torsionscan1D/">TorsionScan1D</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="torsion-optimisation">
+<h2>Torsion Optimisation<a class="headerlink" href="#torsion-optimisation" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes/torsionoptimisation/forcebalancefitting/">ForceBalanceFitting</a></li>
+</ul>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../documentation/" class="btn btn-neutral float-left" title="Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../classes/parametrisation/openff/" class="btn btn-neutral float-right" title="OpenFF" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
