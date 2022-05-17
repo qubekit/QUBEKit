@@ -5,3 +5,7 @@ ModSeminario
 
 .. autoclass:: ModSeminario
    :members:
+
+
+.. autopydantic_model:: ModSeminario
+   :model-show-json: True
