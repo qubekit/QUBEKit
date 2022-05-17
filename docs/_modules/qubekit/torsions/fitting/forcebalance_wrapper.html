@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qubekit.torsions.fitting.forcebalance_wrapper &mdash; QUBEKit 2.1.1+8.gdacd2f4.dirty documentation</title><link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../../index.html" class="icon icon-home"> QUBEKit
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../qubekit.html">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api.html">Staging Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../acknowledgments.html">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">QUBEKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../../index.html">Module code</a> &raquo;</li>
+      <li>qubekit.torsions.fitting.forcebalance_wrapper</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qubekit.torsions.fitting.forcebalance_wrapper</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Classes that help with parameter fitting using ForceBalance.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">PositiveFloat</span><span class="p">,</span> <span class="n">PositiveInt</span>
+<span class="kn">from</span> <span class="nn">qcelemental.util</span> <span class="kn">import</span> <span class="n">which_import</span>
+<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span> <span class="nn">qubekit.molecules</span> <span class="kn">import</span> <span class="n">Ligand</span><span class="p">,</span> <span class="n">TorsionDriveData</span>
+<span class="kn">from</span> <span class="nn">qubekit.torsions.utils</span> <span class="kn">import</span> <span class="n">forcebalance_setup</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.datastructures</span> <span class="kn">import</span> <span class="n">StageBase</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.exceptions</span> <span class="kn">import</span> <span class="n">ForceBalanceError</span><span class="p">,</span> <span class="n">MissingReferenceData</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.file_handling</span> <span class="kn">import</span> <span class="n">get_data</span><span class="p">,</span> <span class="n">make_and_change_into</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.helpers</span> <span class="kn">import</span> <span class="n">export_torsiondrive_data</span>
+
+
+<span class="k">class</span> <span class="nc">Priors</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A class which controls the forcebalance force field prior values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">Proper_k</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mf">6.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The initial prior for the proper torsion k values.&quot;</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">format_priors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            A formatted dict version of the prior that can be consumed by forcebalance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">prior</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">prior</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
+            <span class="n">prior</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prior</span><span class="p">)</span>
+            <span class="n">data</span><span class="p">[</span><span class="n">prior</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+
+<span class="k">class</span> <span class="nc">TargetBase</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">,</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A base class which each forcebalnce target should overwrite.</span>
+<span class="sd">    This should control the run time settings used during fitting and implement a file setup method which is called before fitting.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">target_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">writelevel</span><span class="p">:</span> <span class="n">PositiveInt</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">keywords</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">openmm_platform</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;Reference&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Reference&quot;</span>
+
+    <span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
+        <span class="n">validate_assignment</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;target_name&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;The name of the forcebalance target to be fit&quot;</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;entries&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;a list of target entries to be optimised.&quot;</span><span class="p">},</span>
+            <span class="s2">&quot;writelevel&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;The write level controls the types of intermedate information which is saved from an optimisation.&quot;</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;keywords&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Any keyword information which should be passed to forcebalance as a run time setting.&quot;</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;openmm_platform&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;The openmm platform that should be used in the fitting.&quot;</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">prep_for_fitting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The target will need to convert the input reference data to some format ready for fitting, this method should be implimented to take</span>
+<span class="sd">        each molecule and assume it has the correct reference data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">fb_options</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Format the target class run time options into a dict that can be consumed by forcebalance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;target_name&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="s2">&quot;keywords&quot;</span><span class="p">})</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keywords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+
+<span class="k">class</span> <span class="nc">TorsionProfile</span><span class="p">(</span><span class="n">TargetBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This helps set up the files required to perform the torsion profile fitting target in forcebalance.</span>
+<span class="sd">    For each ligand passed the input files are prepared for each target torsion, the optimize in file is also updated with the target info.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">target_name</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;TorsionProfile_OpenMM&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;TorsionProfile_OpenMM&quot;</span>
+    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Relaxed energy and RMSD fitting for torsion drives only.&quot;</span>
+    <span class="n">energy_denom</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The energy denominator used by forcebalance to weight the energies contribution to the objective function.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">energy_upper</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The upper limit for energy differences in kcal/mol which are included in fitting. Relative energies above this value do not contribute to the objective.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">attenuate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">False</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;If the weights should be attenuated as a function of the energy above the minimum.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">restrain_k</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The strength of the harmonic restraint in kcal/mol used in the mm relaxation on all non-torsion atoms.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">keywords</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pdb&quot;</span><span class="p">:</span> <span class="s2">&quot;molecule.pdb&quot;</span><span class="p">,</span> <span class="s2">&quot;coords&quot;</span><span class="p">:</span> <span class="s2">&quot;scan.xyz&quot;</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">prep_for_fitting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the given ligand prep the input files ready for torsion profile fitting.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            molecule: The molecule object that we need to prep for fitting, this should have qm reference data stored in molecule.qm_scans.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            We assume we are already in the targets folder.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list of target folder names made by this target.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            MissingReferenceData: If the molecule does not have any torsion drive reference data saved in molecule.qm_scans.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># make sure we have data</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">molecule</span><span class="o">.</span><span class="n">qm_scans</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MissingReferenceData</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Can not prepare a forcebalance fitting target for </span><span class="si">{</span><span class="n">molecule</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> as the reference data is missing!&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># write out the qdata and other input files for each scan</span>
+        <span class="n">target_folders</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># keep track of where we start</span>
+        <span class="n">base_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+
+        <span class="c1"># loop over each scanned bond and make a target folder</span>
+        <span class="k">for</span> <span class="n">scan</span> <span class="ow">in</span> <span class="n">molecule</span><span class="o">.</span><span class="n">qm_scans</span><span class="p">:</span>
+            <span class="n">task_name</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">target_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">scan</span><span class="o">.</span><span class="n">central_bond</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">scan</span><span class="o">.</span><span class="n">central_bond</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">target_folders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task_name</span><span class="p">)</span>
+            <span class="n">make_and_change_into</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">task_name</span><span class="p">)</span>
+            <span class="c1"># make the pdb topology file</span>
+            <span class="k">if</span> <span class="n">molecule</span><span class="o">.</span><span class="n">has_ub_terms</span><span class="p">():</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">_to_ub_pdb</span><span class="p">(</span><span class="n">file_name</span><span class="o">=</span><span class="s2">&quot;molecule&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">molecule</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">file_name</span><span class="o">=</span><span class="s2">&quot;molecule.pdb&quot;</span><span class="p">)</span>
+            <span class="c1"># write the qdata file</span>
+            <span class="n">export_torsiondrive_data</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">,</span> <span class="n">tdrive_data</span><span class="o">=</span><span class="n">scan</span><span class="p">)</span>
+            <span class="c1"># make the metadata</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">make_metadata</span><span class="p">(</span><span class="n">torsiondrive_data</span><span class="o">=</span><span class="n">scan</span><span class="p">)</span>
+            <span class="c1"># now move back to the base</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">base_folder</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">target_folders</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">make_metadata</span><span class="p">(</span><span class="n">torsiondrive_data</span><span class="p">:</span> <span class="n">TorsionDriveData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create the metadata.json required to run a torsion profile target, this details the constrained optimisations to be done.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            torsiondrive_data: Create the torsion metadata file which describes the angle to be scanned and the dihedral grid points.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">json</span>
+
+        <span class="n">json_data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;dihedrals&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">torsiondrive_data</span><span class="o">.</span><span class="n">dihedral</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;grid_spacing&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">torsiondrive_data</span><span class="o">.</span><span class="n">grid_spacing</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;dihedral_ranges&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">torsiondrive_data</span><span class="o">.</span><span class="n">torsion_drive_range</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;torsion_grid_ids&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">[</span>
+                    <span class="n">data</span><span class="o">.</span><span class="n">angle</span><span class="p">,</span>
+                <span class="p">]</span>
+                <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">torsiondrive_data</span><span class="o">.</span><span class="n">reference_data</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="p">],</span>
+        <span class="p">}</span>
+        <span class="c1"># now dump to file</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;metadata.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">meta</span><span class="p">:</span>
+            <span class="n">meta</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">json_data</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="ForceBalanceFitting"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting">[docs]</a><span class="k">class</span> <span class="nc">ForceBalanceFitting</span><span class="p">(</span><span class="n">StageBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class interfaces with forcebalance &lt;https://github.com/leeping/forcebalance&gt; and allows users to fit multiple force field parameters</span>
+<span class="sd">    to multiple different targets such as optimised geometries vibration frequencies and relaxed torsion profiles.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        We only support relaxed torsion profile fitting so far.</span>
+<span class="sd">        All targets are fitted using OpenMM.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
+        <span class="n">validate_assignment</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">arbitrary_types_allowed</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;ForceBalanceFitting&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;ForceBalanceFitting&quot;</span>
+    <span class="n">penalty_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;L1&quot;</span><span class="p">,</span> <span class="s2">&quot;L2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;L1&quot;</span>
+    <span class="n">job_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;optimize&quot;</span>
+    <span class="n">max_iterations</span><span class="p">:</span> <span class="n">PositiveInt</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">convergence_step_criteria</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">convergence_objective_criteria</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">convergence_gradient_criteria</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">n_criteria</span><span class="p">:</span> <span class="n">PositiveInt</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">eig_lowerbound</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">finite_difference_h</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">penalty_additive</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">0.1</span>
+    <span class="n">constrain_charge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">initial_trust_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.25</span>
+    <span class="n">minimum_trust_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>
+    <span class="n">error_tolerance</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">adaptive_factor</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">0.2</span>
+    <span class="n">adaptive_damping</span><span class="p">:</span> <span class="n">PositiveFloat</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">normalize_weights</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">extras</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">priors</span><span class="p">:</span> <span class="n">Priors</span> <span class="o">=</span> <span class="n">Priors</span><span class="p">()</span>
+    <span class="n">targets</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TorsionProfile</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;TorsionProfile_OpenMM&quot;</span><span class="p">:</span> <span class="n">TorsionProfile</span><span class="p">()}</span>
+
+<div class="viewcode-block" id="ForceBalanceFitting.start_message"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.start_message">[docs]</a>    <span class="k">def</span> <span class="nf">start_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Performing torsion optimisations using ForceBalance.&quot;</span></div>
+
+<div class="viewcode-block" id="ForceBalanceFitting.finish_message"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.finish_message">[docs]</a>    <span class="k">def</span> <span class="nf">finish_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Torsion optimisation complete.&quot;</span></div>
+
+<div class="viewcode-block" id="ForceBalanceFitting.is_available"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.is_available">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_available</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Make sure forcebalance can be imported.&quot;&quot;&quot;</span>
+        <span class="n">fb</span> <span class="o">=</span> <span class="n">which_import</span><span class="p">(</span>
+            <span class="s2">&quot;forcebalance&quot;</span><span class="p">,</span>
+            <span class="n">return_bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_msg</span><span class="o">=</span><span class="s2">&quot;Please install via `conda install forcebalance -c conda-forge`.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">openmm</span> <span class="o">=</span> <span class="n">which_import</span><span class="p">(</span>
+            <span class="s2">&quot;.openmm&quot;</span><span class="p">,</span>
+            <span class="n">return_bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">package</span><span class="o">=</span><span class="s2">&quot;simtk&quot;</span><span class="p">,</span>
+            <span class="n">raise_msg</span><span class="o">=</span><span class="s2">&quot;Please install via `conda install openmm -c conda-forge`.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">fb</span> <span class="ow">and</span> <span class="n">openmm</span></div>
+
+<div class="viewcode-block" id="ForceBalanceFitting.run"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The main run method of the ForceBalance torsion optimisation stage.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            molecule: The molecule that should be optimised with its QM reference data.</span>
+
+<span class="sd">        Important:</span>
+<span class="sd">            We work on a copy of the molecule as we have to change some parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># check we have targets to fit</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ForceBalanceError</span><span class="p">(</span>
+                <span class="s2">&quot;No fitting targets have been set for forcebalance, please set at least one target.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># now we have validated the data run the optimiser</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimise</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ForceBalanceFitting.add_target"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.add_target">[docs]</a>    <span class="k">def</span> <span class="nf">add_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="n">TargetBase</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Try and add the given target class to the forcebalance optimiser to be executed when optimise is called.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            target: The ForceBalance optimisation target that should be added.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">target</span><span class="p">),</span> <span class="n">TargetBase</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="p">[</span><span class="n">target</span><span class="o">.</span><span class="n">target_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">target</span></div>
+
+    <span class="k">def</span> <span class="nf">_optimise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ligand</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the given input molecule run the forcebalance fitting for the list of targets and run time settings.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The list of optimisation targets should be set before running.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># set up the master fitting folder</span>
+        <span class="k">with</span> <span class="n">forcebalance_setup</span><span class="p">(</span><span class="n">folder_name</span><span class="o">=</span><span class="s2">&quot;ForceBalance&quot;</span><span class="p">):</span>
+            <span class="n">fitting_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+            <span class="n">fitting_targets</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="c1"># prep the target folders</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="s2">&quot;targets&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="n">target_folders</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">prep_for_fitting</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">)</span>
+                <span class="n">fitting_targets</span><span class="p">[</span><span class="n">target</span><span class="o">.</span><span class="n">target_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_folders</span>
+
+            <span class="c1"># back to fitting folder</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">fitting_folder</span><span class="p">)</span>
+            <span class="c1"># now we can make the optimize in file</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">generate_optimise_in</span><span class="p">(</span><span class="n">target_data</span><span class="o">=</span><span class="n">fitting_targets</span><span class="p">)</span>
+            <span class="c1"># now make the forcefield file</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">generate_forcefield</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">)</span>
+
+            <span class="c1"># now execute forcebalance</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;log.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">log</span><span class="p">:</span>
+                <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                    <span class="s2">&quot;ForceBalance optimize.in&quot;</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">log</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">log</span>
+                <span class="p">)</span>
+
+            <span class="n">result_ligand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_results</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result_ligand</span>
+
+<div class="viewcode-block" id="ForceBalanceFitting.generate_forcefield"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.generate_forcefield">[docs]</a>    <span class="k">def</span> <span class="nf">generate_forcefield</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the given molecule generate the fitting forcefield with the target torsion terms tagged with the parameterize keyword.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            molecule: The molecule whose torsion parameters should be optimised.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            We currently hard code to only fit dihedrals that pass through the targeted rotatable bond.</span>
+
+<span class="sd">        Important:</span>
+<span class="sd">            We work with a copy of the molecule here as we add attributes to the forcefield and change default values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">copy_mol</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">molecule</span><span class="p">)</span>
+        <span class="c1"># now we need to find all of the dihedrals for a central bond which should be optimised</span>
+        <span class="k">for</span> <span class="n">torsiondrive_data</span> <span class="ow">in</span> <span class="n">copy_mol</span><span class="o">.</span><span class="n">qm_scans</span><span class="p">:</span>
+            <span class="n">central_bond</span> <span class="o">=</span> <span class="n">torsiondrive_data</span><span class="o">.</span><span class="n">central_bond</span>
+            <span class="c1"># now we can get all dihedrals for this bond</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">dihedrals</span> <span class="o">=</span> <span class="n">copy_mol</span><span class="o">.</span><span class="n">dihedrals</span><span class="p">[</span><span class="n">central_bond</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="n">dihedrals</span> <span class="o">=</span> <span class="n">copy_mol</span><span class="o">.</span><span class="n">dihedrals</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">central_bond</span><span class="p">))]</span>
+
+            <span class="n">dihedral_groups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_by_symmetry</span><span class="p">(</span>
+                <span class="n">molecule</span><span class="o">=</span><span class="n">copy_mol</span><span class="p">,</span> <span class="n">dihedrals</span><span class="o">=</span><span class="n">dihedrals</span>
+            <span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">dihedral_group</span> <span class="ow">in</span> <span class="n">dihedral_groups</span><span class="p">:</span>
+                <span class="c1"># add parametrise flags for forcebalance to one dihedral in the group</span>
+                <span class="c1"># the rest get parameter eval tags referenced to this master dihedral</span>
+                <span class="n">master_dihedral</span> <span class="o">=</span> <span class="n">dihedral_group</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">master_parameter</span> <span class="o">=</span> <span class="n">copy_mol</span><span class="o">.</span><span class="n">TorsionForce</span><span class="p">[</span><span class="n">master_dihedral</span><span class="p">]</span>
+                <span class="c1"># use the parameter atom order to be consistent</span>
+                <span class="n">dihedral_string</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">master_parameter</span><span class="o">.</span><span class="n">atoms</span><span class="p">)</span>
+                <span class="n">eval_tags</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;k</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">=PARM[&#39;Proper/k</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dihedral_string</span><span class="si">}</span><span class="s2">&#39;]&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+                <span class="p">]</span>
+
+                <span class="c1"># we need to make sure all parameters are bigger than 0 to be loaded into an OpenMM system</span>
+                <span class="n">parameter_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;attributes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;k1&quot;</span><span class="p">,</span> <span class="s2">&quot;k2&quot;</span><span class="p">,</span> <span class="s2">&quot;k3&quot;</span><span class="p">,</span> <span class="s2">&quot;k4&quot;</span><span class="p">}}</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;k1&quot;</span><span class="p">,</span> <span class="s2">&quot;k2&quot;</span><span class="p">,</span> <span class="s2">&quot;k3&quot;</span><span class="p">,</span> <span class="s2">&quot;k4&quot;</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">master_parameter</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">parameter_data</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-6</span>
+                <span class="n">master_parameter</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">parameter_data</span><span class="p">)</span>
+
+                <span class="c1"># now add parameter evals</span>
+                <span class="k">for</span> <span class="n">dihedral</span> <span class="ow">in</span> <span class="n">dihedral_group</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">copy_mol</span><span class="o">.</span><span class="n">TorsionForce</span><span class="p">[</span><span class="n">dihedral</span><span class="p">]</span>
+                    <span class="n">parameter</span><span class="o">.</span><span class="n">parameter_eval</span> <span class="o">=</span> <span class="n">eval_tags</span>
+
+        <span class="c1"># now we have all of the dihedrals build the force field</span>
+        <span class="n">copy_mol</span><span class="o">.</span><span class="n">write_parameters</span><span class="p">(</span><span class="n">file_name</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;forcefield&quot;</span><span class="p">,</span> <span class="s2">&quot;bespoke.xml&quot;</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="ForceBalanceFitting.group_by_symmetry"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.group_by_symmetry">[docs]</a>    <span class="k">def</span> <span class="nf">group_by_symmetry</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="n">dihedrals</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For a list of target dihedrals to be optimised group them by symmetry type.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Dihedrals not in the target bond but in the same symmetry group are also included.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dihedral_types</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">dihedral_types</span>
+        <span class="n">atom_types</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">atom_types</span>
+        <span class="n">dihedral_groups</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">dihedral</span> <span class="ow">in</span> <span class="n">dihedrals</span><span class="p">:</span>
+            <span class="c1"># get the dihedral type</span>
+            <span class="n">dihedral_type</span> <span class="o">=</span> <span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">atom_types</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dihedral</span><span class="p">)</span>
+            <span class="c1"># now get all dihedrals of this type</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">dihedral_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dihedral_groups</span>
+                <span class="ow">and</span> <span class="n">dihedral_type</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dihedral_groups</span>
+            <span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">dihedral_groups</span><span class="p">[</span><span class="n">dihedral_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">dihedral_types</span><span class="p">[</span><span class="n">dihedral_type</span><span class="p">]</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="n">dihedral_groups</span><span class="p">[</span><span class="n">dihedral_type</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">dihedral_types</span><span class="p">[</span>
+                        <span class="n">dihedral_type</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="p">]</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">dihedral_groups</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="ForceBalanceFitting.generate_optimise_in"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.generate_optimise_in">[docs]</a>    <span class="k">def</span> <span class="nf">generate_optimise_in</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For the given list of targets and entries produce an optimize.in file which contains all of the run time settings to be used in the optimization.</span>
+<span class="sd">        this uses jinja templates to generate the required file from the template distributed with qubekit.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            target_data: A dictionary mapping the target name to the target folders that have been created.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">jinja2</span> <span class="kn">import</span> <span class="n">Template</span>
+
+        <span class="n">template_file</span> <span class="o">=</span> <span class="n">get_data</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;templates&quot;</span><span class="p">,</span> <span class="s2">&quot;optimize.txt&quot;</span><span class="p">))</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">template_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">template</span> <span class="o">=</span> <span class="n">Template</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;targets&quot;</span><span class="p">,</span> <span class="s2">&quot;priors&quot;</span><span class="p">})</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;priors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">priors</span><span class="o">.</span><span class="n">format_priors</span><span class="p">()</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;fitting_targets&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_data</span>
+        <span class="n">target_options</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">target_options</span><span class="p">[</span><span class="n">target</span><span class="o">.</span><span class="n">target_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">fb_options</span><span class="p">()</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;target_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_options</span>
+
+        <span class="n">rendered_template</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;optimize.in&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">opt_in</span><span class="p">:</span>
+            <span class="n">opt_in</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">rendered_template</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ForceBalanceFitting.check_converged"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.check_converged">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">check_converged</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read the output from a forcebalance run to determine the exit status of the optimisation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `True` if the optimisation has converged else `False`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;optimize.out&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">log</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">log</span><span class="o">.</span><span class="n">readlines</span><span class="p">():</span>
+                <span class="k">if</span> <span class="s2">&quot;optimization converged&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                    <span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">break</span>
+                <span class="k">elif</span> <span class="s2">&quot;convergence failure&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                    <span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="k">break</span>
+
+            <span class="k">return</span> <span class="n">converged</span></div>
+
+<div class="viewcode-block" id="ForceBalanceFitting.collect_results"><a class="viewcode-back" href="../../../../classes/torsionoptimisation/forcebalancefitting.html#qubekit.torsions.fitting.forcebalance_wrapper.ForceBalanceFitting.collect_results">[docs]</a>    <span class="k">def</span> <span class="nf">collect_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ligand</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Collect the results of an optimisation by checking the exit status and then transferring the optimised parameters from the final</span>
+<span class="sd">        xml forcefield back into the ligand.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            molecule: The molecule that was optimised and where the parameters should be stored.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The input molecule with the optimised parameters saved.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ForceBalanceError: If the optimisation did not converge or exit properly.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># first check the exit status</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_converged</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">status</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ForceBalanceError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The optimisation for molecule </span><span class="si">{</span><span class="n">molecule</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> did not converge so the parameters could not be updated.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="kn">from</span> <span class="nn">qubekit.parametrisation</span> <span class="kn">import</span> <span class="n">XML</span>
+
+            <span class="c1"># load the new parameters into the ligand</span>
+            <span class="c1"># xml needs a pdb file</span>
+            <span class="n">xml</span> <span class="o">=</span> <span class="n">XML</span><span class="p">()</span>
+            <span class="n">xml</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">,</span>
+                <span class="n">input_files</span><span class="o">=</span><span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">job_type</span><span class="p">,</span> <span class="s2">&quot;bespoke.xml&quot;</span><span class="p">)],</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">molecule</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

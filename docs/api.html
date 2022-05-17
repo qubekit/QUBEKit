@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>API &mdash; QUBEKit 2.1.1+6.g07bff89.dirty documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <title>Staging Classes &mdash; QUBEKit 2.1.1+8.gdacd2f4.dirty documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
@@ -15,8 +15,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="mod_seminario" href="classes/bonded/mod_seminario.html" />
-    <link rel="prev" title="Tutorial" href="tutorial.html" /> 
+    <link rel="next" title="OpenFF" href="classes/parametrisation/openff.html" />
+    <link rel="prev" title="Documentation" href="documentation.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -37,16 +37,38 @@
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="qubekit.html">QUBEKit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#bonded-modules">Bonded Modules</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="classes/bonded/mod_seminario.html">mod_seminario</a></li>
-<li class="toctree-l3"><a class="reference internal" href="classes/bonded/qforce.html">QForceHessianFitting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="documentation.html">Documentation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Staging Classes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#parametrisation">Parametrisation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="classes/parametrisation/openff.html">OpenFF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="classes/parametrisation/antechamber.html">AnteChamber</a></li>
+<li class="toctree-l3"><a class="reference internal" href="classes/parametrisation/xml.html">XML</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#optimisation">Optimisation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="classes/optimisation/optimiser.html">Optimiser</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#charges">Charges</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="classes/charges/ddec.html">DDEC</a></li>
 <li class="toctree-l3"><a class="reference internal" href="classes/charges/mbis.html">MBIS</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#virtual-sites">Virtual Sites</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="classes/nonbonded/virtualsites.html">Virtual Sites</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#bonded-modules">Bonded Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="classes/bonded/modseminario.html">ModSeminario</a></li>
+<li class="toctree-l3"><a class="reference internal" href="classes/bonded/qforce.html">QForceHessianFitting</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#torsion-scanner">Torsion Scanner</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="classes/torsionscanner/torsionscan1D.html">TorsionScan1D</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#torsion-optimisation">Torsion Optimisation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="classes/torsionoptimisation/forcebalancefitting.html">ForceBalanceFitting</a></li>
 </ul>
 </li>
 </ul>
@@ -69,7 +91,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>API</li>
+      <li>Staging Classes</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -79,16 +101,24 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="api">
-<h1>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h1>
-<p>Here is the Application Programming Interface</p>
-<p>A list of classes. Will have to decide which ones.</p>
-<div class="section" id="bonded-modules">
-<h2>Bonded Modules<a class="headerlink" href="#bonded-modules" title="Permalink to this headline">¶</a></h2>
+  <div class="section" id="staging-classes">
+<h1>Staging Classes<a class="headerlink" href="#staging-classes" title="Permalink to this headline">¶</a></h1>
+<p>Here we present in the correct order the different stages which QUBEKit executes. In each stage only one of the available tools can be use to carry out the main operation. For example, for parametrisation either AnteChamber of OpenFF can be utilised. Each of these can be imported and used on its, which is why we provide here the API for each of the classes.</p>
+<div class="section" id="parametrisation">
+<h2>Parametrisation<a class="headerlink" href="#parametrisation" title="Permalink to this headline">¶</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="classes/bonded/mod_seminario.html">mod_seminario</a></li>
-<li class="toctree-l1"><a class="reference internal" href="classes/bonded/qforce.html">QForceHessianFitting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classes/parametrisation/openff.html">OpenFF</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classes/parametrisation/antechamber.html">AnteChamber</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classes/parametrisation/xml.html">XML</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="optimisation">
+<h2>Optimisation<a class="headerlink" href="#optimisation" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classes/optimisation/optimiser.html">Optimiser</a></li>
 </ul>
 </div>
 </div>
@@ -101,14 +131,47 @@
 </ul>
 </div>
 </div>
+<div class="section" id="virtual-sites">
+<h2>Virtual Sites<a class="headerlink" href="#virtual-sites" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classes/nonbonded/virtualsites.html">Virtual Sites</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="bonded-modules">
+<h2>Bonded Modules<a class="headerlink" href="#bonded-modules" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classes/bonded/modseminario.html">ModSeminario</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classes/bonded/qforce.html">QForceHessianFitting</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="torsion-scanner">
+<h2>Torsion Scanner<a class="headerlink" href="#torsion-scanner" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classes/torsionscanner/torsionscan1D.html">TorsionScan1D</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="torsion-optimisation">
+<h2>Torsion Optimisation<a class="headerlink" href="#torsion-optimisation" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classes/torsionoptimisation/forcebalancefitting.html">ForceBalanceFitting</a></li>
+</ul>
+</div>
+</div>
 </div>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="tutorial.html" class="btn btn-neutral float-left" title="Tutorial" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="classes/bonded/mod_seminario.html" class="btn btn-neutral float-right" title="mod_seminario" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="documentation.html" class="btn btn-neutral float-left" title="Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="classes/parametrisation/openff.html" class="btn btn-neutral float-right" title="OpenFF" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qubekit.nonbonded.virtual_sites &mdash; QUBEKit 2.1.1+8.gdacd2f4.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> QUBEKit
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../qubekit.html">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">Staging Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../acknowledgments.html">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">QUBEKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>qubekit.nonbonded.virtual_sites</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qubekit.nonbonded.virtual_sites</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">For each atom with fewer than four bonds, generate a list of sample points in a spherical volume around the atoms.</span>
+<span class="sd">Compare the change in ESP at each of these points for the QM-calculated ESP and the ESP with a v-site.</span>
+<span class="sd">The v-site can be moved along pre-defined vectors; another v-site can also be added.</span>
+<span class="sd">If the error is significantly reduced with one or two v-sites, then it is saved for the xml and written to an xyz.</span>
+<span class="sd">See VirtualSites.fit() for fitting details.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">decimal</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">from</span> <span class="nn">matplotlib.cm</span> <span class="kn">import</span> <span class="n">ScalarMappable</span>
+
+<span class="c1"># DO NOT REMOVE THIS IMPORT. ALTHOUGH IT IS NOT EXPLICITLY CALLED, IT IS NEEDED FOR 3D PLOTTING.</span>
+<span class="kn">from</span> <span class="nn">mpl_toolkits.mplot3d</span> <span class="kn">import</span> <span class="n">Axes3D</span>
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">PrivateAttr</span>
+<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">minimize</span>
+<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span> <span class="nn">qubekit.utils.constants</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ANGS_TO_NM</span><span class="p">,</span>
+    <span class="n">BOHR_TO_ANGS</span><span class="p">,</span>
+    <span class="n">ELECTRON_CHARGE</span><span class="p">,</span>
+    <span class="n">J_TO_KCAL_P_MOL</span><span class="p">,</span>
+    <span class="n">M_TO_ANGS</span><span class="p">,</span>
+    <span class="n">PI</span><span class="p">,</span>
+    <span class="n">VACUUM_PERMITTIVITY</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.datastructures</span> <span class="kn">import</span> <span class="n">StageBase</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">qubekit.molecules</span> <span class="kn">import</span> <span class="n">Ligand</span>
+
+
+<div class="viewcode-block" id="VirtualSites"><a class="viewcode-back" href="../../../classes/nonbonded/virtualsites.html#qubekit.nonbonded.VirtualSites">[docs]</a><span class="k">class</span> <span class="nc">VirtualSites</span><span class="p">(</span><span class="n">StageBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    * Identify atoms which need a v-site.</span>
+<span class="sd">    * Generate sample points in shells around that atom (shells are 1.4-2.0x the vdW radius).</span>
+<span class="sd">    * Calculate the multipole expansion esp at all of those sample points.</span>
+<span class="sd">    * Identify the vectors along which a single virtual site would sit, and two virtual sites would sit.</span>
+<span class="sd">    * Move the virtual sites along this vector and vary the charges.</span>
+<span class="sd">    * Calculate the monopole esp at all the sample points with each move.</span>
+<span class="sd">    * Fit the positions and charges of the virtual sites, minimising the difference between the</span>
+<span class="sd">    full multipole esp and the monopole esp with a virtual site.</span>
+<span class="sd">    * Store the final locations and charges of the virtual sites, as well as the errors.</span>
+<span class="sd">    * Plot the results</span>
+
+<span class="sd">    Numpy arrays are used throughout for faster calculation of esp values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;VirtualSites&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;VirtualSites&quot;</span>
+    <span class="n">site_error_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mf">1.005</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The factor by which a site must reduce the error before being accepted.&quot;</span><span class="p">,</span>
+        <span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">site_error_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mf">1.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The ESP error threshold to start fitting virtual sites.&quot;</span><span class="p">,</span> <span class="n">gt</span><span class="o">=</span><span class="mi">0</span>
+    <span class="p">)</span>
+
+    <span class="c1"># only for debugging so not exposed</span>
+    <span class="n">_enable_symmetry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">_vdw_radii</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;H&quot;</span><span class="p">:</span> <span class="mf">1.44</span><span class="p">,</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="mf">2.04</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="mf">1.93</span><span class="p">,</span>
+        <span class="s2">&quot;N&quot;</span><span class="p">:</span> <span class="mf">1.83</span><span class="p">,</span>
+        <span class="s2">&quot;O&quot;</span><span class="p">:</span> <span class="mf">1.75</span><span class="p">,</span>
+        <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="mf">1.68</span><span class="p">,</span>
+        <span class="s2">&quot;P&quot;</span><span class="p">:</span> <span class="mf">2.07</span><span class="p">,</span>
+        <span class="s2">&quot;S&quot;</span><span class="p">:</span> <span class="mf">2.02</span><span class="p">,</span>
+        <span class="s2">&quot;Cl&quot;</span><span class="p">:</span> <span class="mf">1.97</span><span class="p">,</span>
+        <span class="s2">&quot;Br&quot;</span><span class="p">:</span> <span class="mf">2.10</span><span class="p">,</span>
+        <span class="s2">&quot;I&quot;</span><span class="p">:</span> <span class="mf">2.25</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">_scale_factor</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;H&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;N&quot;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>
+        <span class="s2">&quot;O&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;S&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;Cl&quot;</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span>
+        <span class="s2">&quot;Br&quot;</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span>
+        <span class="s2">&quot;I&quot;</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span>
+        <span class="c1"># May require additional</span>
+    <span class="p">}</span>
+
+    <span class="n">_coords</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="c1"># List of tuples where each tuple is the xyz coords of the v-site(s),</span>
+    <span class="c1"># followed by their charge and index of the parent atom.</span>
+    <span class="c1"># This list is extended with each atom which has (a) virtual site(s).</span>
+    <span class="c1"># [((x, y, z), q, atom_index), ... ]</span>
+    <span class="n">_v_sites_coords</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="p">[])</span>
+    <span class="n">_sample_points</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">_no_site_esps</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">_molecule</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Ligand&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<div class="viewcode-block" id="VirtualSites.is_available"><a class="viewcode-back" href="../../../classes/nonbonded/virtualsites.html#qubekit.nonbonded.VirtualSites.is_available">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_available</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;This class should always be available with qubekit&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="VirtualSites.start_message"><a class="viewcode-back" href="../../../classes/nonbonded/virtualsites.html#qubekit.nonbonded.VirtualSites.start_message">[docs]</a>    <span class="k">def</span> <span class="nf">start_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Fitting virtual site positions and charges.&quot;</span></div>
+
+<div class="viewcode-block" id="VirtualSites.finish_message"><a class="viewcode-back" href="../../../classes/nonbonded/virtualsites.html#qubekit.nonbonded.VirtualSites.finish_message">[docs]</a>    <span class="k">def</span> <span class="nf">finish_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Virtual sites optimised and saved.&quot;</span></div>
+
+<div class="viewcode-block" id="VirtualSites.run"><a class="viewcode-back" href="../../../classes/nonbonded/virtualsites.html#qubekit.nonbonded.VirtualSites.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Using the aim reference data stored in the ligand calculate virtual sites and add them to the ligand.</span>
+<span class="sd">        Main worker method.</span>
+<span class="sd">        Loop over all atoms in the molecule and decide which may need v-sites.</span>
+<span class="sd">        Fit the ESP accordingly and store v-sites if they improve error.</span>
+<span class="sd">        If any v-sites are found to be useful, write them to an xyz and store them in the Ligand object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># remove any old sites</span>
+        <span class="n">molecule</span><span class="o">.</span><span class="n">extra_sites</span><span class="o">.</span><span class="n">clear_sites</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">):</span>
+            <span class="n">atom</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">molecule</span><span class="o">.</span><span class="n">NonbondedForce</span><span class="p">[(</span><span class="n">i</span><span class="p">,)]</span><span class="o">.</span><span class="n">charge</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">aim</span><span class="o">.</span><span class="n">charge</span>
+
+        <span class="c1"># if we have used chargemol the dipole and quad values are for a new orientation so we must use those coords</span>
+        <span class="c1"># else use QM</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">molecule</span><span class="o">.</span><span class="n">chargemol_coords</span>
+            <span class="k">if</span> <span class="n">molecule</span><span class="o">.</span><span class="n">chargemol_coords</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span> <span class="o">=</span> <span class="n">molecule</span>
+        <span class="k">for</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">atom</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">atom</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_sample_points_atom</span><span class="p">(</span><span class="n">atom_index</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_no_site_esps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_esp_atom</span><span class="p">(</span><span class="n">atom_index</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_fit</span><span class="p">(</span><span class="n">atom_index</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_sites_coords</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_save_virtual_sites</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_xyz</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">fix_net_charge</span><span class="p">()</span>
+
+        <span class="c1"># clear any cache variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clear_cache</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">molecule</span></div>
+
+    <span class="k">def</span> <span class="nf">_clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove any molecule specific values in the cache.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_v_sites_coords</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_no_site_esps</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_spherical_to_cartesian</span><span class="p">(</span><span class="n">spherical_coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: Cartesian (x, y, z) coords from the spherical (r, theta, phi) coords.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">r</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">phi</span> <span class="o">=</span> <span class="n">spherical_coords</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span>
+                <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span>
+                <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_xyz_distance</span><span class="p">(</span><span class="n">point1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">point2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param point1: coordinates of a point</span>
+<span class="sd">        :param point2: coordinates of another point</span>
+<span class="sd">        :return: distance between the two points</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">point1</span> <span class="o">-</span> <span class="n">point2</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_monopole_esp_one_charge</span><span class="p">(</span><span class="n">charge</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the esp from a monopole at a given distance</span>
+<span class="sd">        :param charge: charge at atom centre</span>
+<span class="sd">        :param dist: distance from sample_coords to atom_coords</span>
+<span class="sd">                    (provided as argument to prevent repeated calculation)</span>
+<span class="sd">        :return: monopole esp value</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">charge</span> <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span> <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="mi">4</span> <span class="o">*</span> <span class="n">PI</span> <span class="o">*</span> <span class="n">VACUUM_PERMITTIVITY</span> <span class="o">*</span> <span class="n">dist</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_monopole_esp_two_charges</span><span class="p">(</span>
+        <span class="n">charge1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">charge2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dist1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dist2</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the esp from a monopole with two charges, each a different distance from the point of measurement</span>
+<span class="sd">        :return: monopole esp value</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">ELECTRON_CHARGE</span> <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">PI</span> <span class="o">*</span> <span class="n">VACUUM_PERMITTIVITY</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">charge1</span> <span class="o">/</span> <span class="n">dist1</span> <span class="o">+</span> <span class="n">charge2</span> <span class="o">/</span> <span class="n">dist2</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_monopole_esp_three_charges</span><span class="p">(</span>
+        <span class="n">charge1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">charge2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">charge3</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">dist1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">dist2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">dist3</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the esp from a monopole with three charges, each a different distance from the point of measurement</span>
+<span class="sd">        :return: monopole esp value</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">ELECTRON_CHARGE</span> <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">PI</span> <span class="o">*</span> <span class="n">VACUUM_PERMITTIVITY</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">charge1</span> <span class="o">/</span> <span class="n">dist1</span> <span class="o">+</span> <span class="n">charge2</span> <span class="o">/</span> <span class="n">dist2</span> <span class="o">+</span> <span class="n">charge3</span> <span class="o">/</span> <span class="n">dist3</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_dipole_esp</span><span class="p">(</span>
+        <span class="n">dist_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dipole_moment</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the esp from a dipole at a given sample point.</span>
+<span class="sd">        :param dist_vector: atom_coords - sample_coords</span>
+<span class="sd">        :param dipole_moment: dipole moment xyz components from Chargemol output</span>
+<span class="sd">        :param dist: distance from sample_coords to atom_coords</span>
+<span class="sd">                    (provided as argument to prevent repeated calculation)</span>
+<span class="sd">        :return: dipole esp value</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">dipole_moment</span> <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span> <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">dist_vector</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="mi">4</span> <span class="o">*</span> <span class="n">PI</span> <span class="o">*</span> <span class="n">VACUUM_PERMITTIVITY</span> <span class="o">*</span> <span class="n">dist</span><span class="o">**</span><span class="mi">3</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_quadrupole_esp</span><span class="p">(</span>
+        <span class="n">dist_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">m_tensor</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the esp from a quadrupole at a given distance.</span>
+<span class="sd">        :param dist_vector: atom_coords - sample_coords</span>
+<span class="sd">        :param m_tensor: quadrupole moment tensor calculated from Chargemol output</span>
+<span class="sd">        :param dist: distance from sample_coords to atom_coords</span>
+<span class="sd">                    (provided as argument to prevent repeated calculation)</span>
+<span class="sd">        :return: quadrupole esp value</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="mi">3</span>
+            <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span>
+            <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span>
+            <span class="o">*</span> <span class="n">dist_vector</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">m_tensor</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">dist_vector</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="n">PI</span> <span class="o">*</span> <span class="n">VACUUM_PERMITTIVITY</span> <span class="o">*</span> <span class="n">dist</span><span class="o">**</span><span class="mi">5</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_cloud_penetration</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the cloud penetration at a given distance from the atom centre.</span>
+<span class="sd">        :param a: unitless quantity from DDEC output</span>
+<span class="sd">        :param b: quantity from DDEC output in units 1/length</span>
+<span class="sd">        :param dist: distance from sample_coords to atom_coords</span>
+<span class="sd">        :return: cloud penetration term in SI units</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">ELECTRON_CHARGE</span>
+                <span class="o">*</span> <span class="n">ELECTRON_CHARGE</span>
+                <span class="o">/</span> <span class="p">(</span><span class="n">VACUUM_PERMITTIVITY</span> <span class="o">*</span> <span class="n">BOHR_TO_ANGS</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span> <span class="o">*</span> <span class="n">dist</span><span class="p">)</span>
+            <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span> <span class="n">dist</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="o">/</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span> <span class="n">b</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_generate_sample_points_relative</span><span class="p">(</span>
+        <span class="n">vdw_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">shells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">min_points_per_shell</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate evenly distributed points in a series of shells around the point (0, 0, 0)</span>
+<span class="sd">        This uses fibonacci spirals to produce an even spacing of points on a sphere.</span>
+
+<span class="sd">        radius of points are between 1.4-2.0x the vdW radius</span>
+<span class="sd">        :return: list of numpy arrays where each array is the xyz coordinates of a sample point.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">phi</span> <span class="o">=</span> <span class="n">PI</span> <span class="o">*</span> <span class="p">(</span><span class="mf">3.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">5.0</span><span class="p">))</span>
+
+        <span class="n">relative_sample_points</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">shell</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">shells</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">points_in_shell</span> <span class="o">=</span> <span class="n">min_points_per_shell</span> <span class="o">*</span> <span class="n">shell</span> <span class="o">*</span> <span class="n">shell</span>
+            <span class="c1"># 1.4-2.0x the vdw_radius</span>
+            <span class="n">shell_radius</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.4</span> <span class="o">+</span> <span class="p">((</span><span class="mf">2.0</span> <span class="o">-</span> <span class="mf">1.4</span><span class="p">)</span> <span class="o">/</span> <span class="n">shells</span><span class="p">)</span> <span class="o">*</span> <span class="n">shell</span><span class="p">)</span> <span class="o">*</span> <span class="n">vdw_radius</span>
+
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">points_in_shell</span><span class="p">):</span>
+                <span class="n">y</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="p">(</span><span class="n">points_in_shell</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">2</span>
+                <span class="n">y_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">y</span> <span class="o">*</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">shell_radius</span>
+                <span class="n">y</span> <span class="o">*=</span> <span class="n">shell_radius</span>
+
+                <span class="n">theta</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">phi</span>
+
+                <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">y_rad</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">y_rad</span>
+
+                <span class="n">relative_sample_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">]))</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">relative_sample_points</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_generate_sample_points_atom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        * Get the vdw radius of the atom which is being analysed</span>
+<span class="sd">        * Using the relative sample points generated from generate_sample_points_relative():</span>
+<span class="sd">            * Offset all of the points by the position of the atom coords</span>
+<span class="sd">        :param atom_index: index of the atom around which a v-site will be fit</span>
+<span class="sd">        :return: list of numpy arrays where each array is the xyz coordinates of a sample point.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">atom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+        <span class="n">atom_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+        <span class="n">vdw_radius</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vdw_radii</span><span class="p">[</span><span class="n">atom</span><span class="o">.</span><span class="n">atomic_symbol</span><span class="p">]</span>
+
+        <span class="n">sample_points</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_generate_sample_points_relative</span><span class="p">(</span><span class="n">vdw_radius</span><span class="p">)</span> <span class="o">+</span> <span class="n">atom_coords</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sample_points</span>
+
+    <span class="k">def</span> <span class="nf">_generate_esp_atom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Using the multipole expansion, calculate the esp at each sample point around an atom.</span>
+<span class="sd">        :param atom_index: The index of the atom being analysed.</span>
+<span class="sd">        :return: Ordered list of esp values at each sample point around the atom.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">atom_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+        <span class="n">charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">aim</span><span class="o">.</span><span class="n">charge</span>
+
+        <span class="c1"># get reference values and convert to angs</span>
+        <span class="n">dipole_moment</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">dipole</span><span class="o">.</span><span class="n">to_array</span><span class="p">()</span> <span class="o">*</span> <span class="n">BOHR_TO_ANGS</span>
+        <span class="p">)</span>
+        <span class="n">m_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">quadrupole</span><span class="o">.</span><span class="n">to_array</span><span class="p">()</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="n">BOHR_TO_ANGS</span><span class="o">**</span><span class="mi">2</span>
+        <span class="p">)</span>
+
+        <span class="c1"># this term is not available via MBIS or onetep</span>
+        <span class="n">cloud_pen_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">cloud_pen</span>
+        <span class="k">if</span> <span class="n">cloud_pen_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">cloud_pen_data</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="n">cloud_pen_data</span><span class="o">.</span><span class="n">b</span>
+            <span class="n">b</span> <span class="o">/=</span> <span class="n">BOHR_TO_ANGS</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+        <span class="n">no_site_esps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">:</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_xyz_distance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">atom_coords</span><span class="p">)</span>
+            <span class="n">dist_vector</span> <span class="o">=</span> <span class="n">point</span> <span class="o">-</span> <span class="n">atom_coords</span>
+
+            <span class="n">mono_esp</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_monopole_esp_one_charge</span><span class="p">(</span><span class="n">charge</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+            <span class="n">dipo_esp</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_dipole_esp</span><span class="p">(</span><span class="n">dist_vector</span><span class="p">,</span> <span class="n">dipole_moment</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+            <span class="n">quad_esp</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_quadrupole_esp</span><span class="p">(</span><span class="n">dist_vector</span><span class="p">,</span> <span class="n">m_tensor</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">cloud_pen</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_cloud_penetration</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cloud_pen</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="n">v_total</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">mono_esp</span> <span class="o">+</span> <span class="n">dipo_esp</span> <span class="o">+</span> <span class="n">quad_esp</span> <span class="o">+</span> <span class="n">cloud_pen</span><span class="p">)</span>
+                <span class="o">*</span> <span class="n">M_TO_ANGS</span>
+                <span class="o">*</span> <span class="n">J_TO_KCAL_P_MOL</span>
+            <span class="p">)</span>
+            <span class="n">no_site_esps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v_total</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">no_site_esps</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_generate_atom_mono_esp_two_charges</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">site_charge</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">site_coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        With a virtual site, calculate the monopole esp at each sample point around an atom.</span>
+<span class="sd">        :param atom_index: The index of the atom being analysed.</span>
+<span class="sd">        :param site_charge: The charge of the virtual site.</span>
+<span class="sd">        :param site_coords: numpy array of the xyz position of the virtual site.</span>
+<span class="sd">        :return: Ordered list of esp values at each sample point around the atom.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">atom_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+        <span class="c1"># New charge of the atom, having removed the v-site&#39;s charge.</span>
+        <span class="n">atom_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">aim</span><span class="o">.</span><span class="n">charge</span> <span class="o">-</span> <span class="n">site_charge</span>
+
+        <span class="n">v_site_esps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">:</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_xyz_distance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">atom_coords</span><span class="p">)</span>
+            <span class="n">site_dist</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_xyz_distance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">site_coords</span><span class="p">)</span>
+
+            <span class="n">mono_esp</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_monopole_esp_two_charges</span><span class="p">(</span>
+                <span class="n">atom_charge</span><span class="p">,</span> <span class="n">site_charge</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">site_dist</span>
+            <span class="p">)</span>
+            <span class="n">v_site_esps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mono_esp</span> <span class="o">*</span> <span class="n">M_TO_ANGS</span> <span class="o">*</span> <span class="n">J_TO_KCAL_P_MOL</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">v_site_esps</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_generate_atom_mono_esp_three_charges</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">q_a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">q_b</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">site_a_coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">site_b_coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the esp at each sample point when two virtual sites are placed around an atom.</span>
+<span class="sd">        :param atom_index: The index of the atom being analysed.</span>
+<span class="sd">        :param q_a: charge of v-site a</span>
+<span class="sd">        :param q_b: charge of v-site b</span>
+<span class="sd">        :param site_a_coords: coords of v-site a</span>
+<span class="sd">        :param site_b_coords: coords of v-site b</span>
+<span class="sd">        :return: ordered list of esp values at each sample point</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">atom_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+        <span class="c1"># New charge of the atom, having removed the v-sites&#39; charges.</span>
+        <span class="n">atom_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">aim</span><span class="o">.</span><span class="n">charge</span> <span class="o">-</span> <span class="p">(</span><span class="n">q_a</span> <span class="o">+</span> <span class="n">q_b</span><span class="p">)</span>
+
+        <span class="n">v_site_esps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">:</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_xyz_distance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">atom_coords</span><span class="p">)</span>
+            <span class="n">site_a_dist</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_xyz_distance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">site_a_coords</span><span class="p">)</span>
+            <span class="n">site_b_dist</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_xyz_distance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">site_b_coords</span><span class="p">)</span>
+
+            <span class="n">mono_esp</span> <span class="o">=</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_monopole_esp_three_charges</span><span class="p">(</span>
+                <span class="n">atom_charge</span><span class="p">,</span> <span class="n">q_a</span><span class="p">,</span> <span class="n">q_b</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">site_a_dist</span><span class="p">,</span> <span class="n">site_b_dist</span>
+            <span class="p">)</span>
+            <span class="n">v_site_esps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mono_esp</span> <span class="o">*</span> <span class="n">M_TO_ANGS</span> <span class="o">*</span> <span class="n">J_TO_KCAL_P_MOL</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">v_site_esps</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_vector_from_coords</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_sites</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">alt</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Given the coords of the atom which will have a v-site and its neighbouring atom(s) coords,</span>
+<span class="sd">        calculate the vector along which the virtual site will sit.</span>
+<span class="sd">        :param atom_index: The index of the atom being analysed.</span>
+<span class="sd">        :param n_sites: The number of virtual sites being placed around the atom.</span>
+<span class="sd">        :param alt: When placing two sites on an atom with two bonds, there are two placements.</span>
+<span class="sd">            Is this the usual placement, or the alternative (rotated 90 degrees around the bisecting vector).</span>
+<span class="sd">        :return Vector(s) along which the v-site will sit. (np array)</span>
+<span class="sd">            These vectors are scaled dependent on the site&#39;s parent atom (see dict below)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">atom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+        <span class="n">atom_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+
+        <span class="c1"># Vary max distance between virtual site and atom coords.</span>
+        <span class="n">scale_factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scale_factor</span><span class="p">[</span><span class="n">atom</span><span class="o">.</span><span class="n">atomic_symbol</span><span class="p">]</span>
+
+        <span class="c1"># TODO Differentiate between halogens and carbonyls for 2 site case</span>
+        <span class="c1">#   (error currently low enough to be irrelevant)</span>
+        <span class="c1"># e.g. halogens / carbonyls</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">atom</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">bonded_index</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">bonds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># [0] is used since bonds is a one item list</span>
+            <span class="n">bonded_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bonded_index</span><span class="p">]</span>
+            <span class="n">r_ab</span> <span class="o">=</span> <span class="n">atom_coords</span> <span class="o">-</span> <span class="n">bonded_coords</span>
+            <span class="k">if</span> <span class="n">n_sites</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">r_ab</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_ab</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">r_ab</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_ab</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">r_ab</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_ab</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># e.g. oxygen</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">atom</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">bonded_index_b</span><span class="p">,</span> <span class="n">bonded_index_c</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">bonds</span>
+            <span class="n">bonded_coords_b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bonded_index_b</span><span class="p">]</span>
+            <span class="n">bonded_coords_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bonded_index_c</span><span class="p">]</span>
+            <span class="n">r_ab</span> <span class="o">=</span> <span class="n">atom_coords</span> <span class="o">-</span> <span class="n">bonded_coords_b</span>
+            <span class="n">r_ac</span> <span class="o">=</span> <span class="n">atom_coords</span> <span class="o">-</span> <span class="n">bonded_coords_c</span>
+            <span class="k">if</span> <span class="n">n_sites</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">vec</span> <span class="o">=</span> <span class="n">r_ab</span> <span class="o">+</span> <span class="n">r_ac</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">vec</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vec</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span>
+            <span class="n">vec_a</span> <span class="o">=</span> <span class="n">r_ab</span> <span class="o">+</span> <span class="n">r_ac</span>
+            <span class="k">if</span> <span class="n">alt</span><span class="p">:</span>
+                <span class="n">vec_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">r_ab</span><span class="p">,</span> <span class="n">r_ac</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vec_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">((</span><span class="n">r_ab</span> <span class="o">+</span> <span class="n">r_ac</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">r_ab</span><span class="p">,</span> <span class="n">r_ac</span><span class="p">))</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">vec_a</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vec_a</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">vec_b</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vec_b</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># e.g. nitrogen</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">atom</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">bonded_index_b</span><span class="p">,</span> <span class="n">bonded_index_c</span><span class="p">,</span> <span class="n">bonded_index_d</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">bonds</span>
+            <span class="n">bonded_coords_b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bonded_index_b</span><span class="p">]</span>
+            <span class="n">bonded_coords_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bonded_index_c</span><span class="p">]</span>
+            <span class="n">bonded_coords_d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bonded_index_d</span><span class="p">]</span>
+            <span class="n">r_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">bonded_coords_b</span> <span class="o">-</span> <span class="n">bonded_coords_c</span><span class="p">),</span> <span class="p">(</span><span class="n">bonded_coords_d</span> <span class="o">-</span> <span class="n">bonded_coords_c</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">n_sites</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">r_vec</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_vec</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">atom</span><span class="o">.</span><span class="n">atomic_symbol</span> <span class="o">==</span> <span class="s2">&quot;N&quot;</span><span class="p">:</span>
+                    <span class="n">h_s</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">for</span> <span class="n">atom_index</span> <span class="ow">in</span> <span class="n">atom</span><span class="o">.</span><span class="n">bonds</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">atomic_symbol</span> <span class="o">==</span> <span class="s2">&quot;H&quot;</span><span class="p">:</span>
+                            <span class="n">h_s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atom_index</span><span class="p">)</span>
+                    <span class="c1"># Special case (amine group); position is slightly different</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">h_s</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">h_a_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">h_s</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+                        <span class="n">h_b_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">h_s</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+                        <span class="n">r_ha</span> <span class="o">=</span> <span class="n">atom_coords</span> <span class="o">-</span> <span class="n">h_a_coords</span>
+                        <span class="n">r_hb</span> <span class="o">=</span> <span class="n">atom_coords</span> <span class="o">-</span> <span class="n">h_b_coords</span>
+
+                        <span class="k">return</span> <span class="p">(</span>
+                            <span class="p">(</span><span class="n">r_vec</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_vec</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+                            <span class="p">((</span><span class="n">r_ha</span> <span class="o">+</span> <span class="n">r_hb</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_ha</span> <span class="o">+</span> <span class="n">r_hb</span><span class="p">))</span>
+                            <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+                        <span class="p">)</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="n">r_vec</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_vec</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">r_vec</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r_vec</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_esp_from_lambda_and_charge</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">lam</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">vec</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Place a v-site at the correct position along the vector by scaling according to the lambda</span>
+<span class="sd">        calculate the esp from the atom and the v-site.</span>
+<span class="sd">        :param atom_index: index of the atom with a virtual site to be fit to</span>
+<span class="sd">        :param q: charge of the virtual site</span>
+<span class="sd">        :param lam: scaling of the vector along which the v-site sits</span>
+<span class="sd">        :param vec: the vector along which the v-site sits</span>
+<span class="sd">        :return: Ordered list of esp values at each sample point</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># This is the current position of the v-site (moved by the fit() method)</span>
+        <span class="n">site_coords</span> <span class="o">=</span> <span class="p">(</span><span class="n">vec</span> <span class="o">*</span> <span class="n">lam</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_atom_mono_esp_two_charges</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">site_coords</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_sites_coords_from_vecs_and_lams</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">lam_a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">lam_b</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">vec_a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">vec_b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the two virtual site coordinates from the vectors they sit along and the atom they are attached to.</span>
+<span class="sd">        :param atom_index: The index of the atom being analysed.</span>
+<span class="sd">        :param lam_a: scale factor for vec_a</span>
+<span class="sd">        :param lam_b: scale factor for vec_b</span>
+<span class="sd">        :param vec_a: vector deciding virtual site position</span>
+<span class="sd">        :param vec_b: vector deciding virtual site position</span>
+<span class="sd">        :return: tuple of np arrays which are the xyz coordinates of the v-sites</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">site_a_coords</span> <span class="o">=</span> <span class="p">(</span><span class="n">vec_a</span> <span class="o">*</span> <span class="n">lam_a</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">vec_b</span> <span class="o">*</span> <span class="n">lam_b</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+            <span class="n">site_b_coords</span> <span class="o">=</span> <span class="p">(</span><span class="n">vec_a</span> <span class="o">*</span> <span class="n">lam_a</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">vec_b</span> <span class="o">*</span> <span class="n">lam_b</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">site_a_coords</span> <span class="o">=</span> <span class="p">(</span><span class="n">vec_a</span> <span class="o">*</span> <span class="n">lam_a</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+            <span class="n">site_b_coords</span> <span class="o">=</span> <span class="p">(</span><span class="n">vec_b</span> <span class="o">*</span> <span class="n">lam_b</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">site_a_coords</span><span class="p">,</span> <span class="n">site_b_coords</span>
+
+    <span class="k">def</span> <span class="nf">_esp_from_lambdas_and_charges</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">q_a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">q_b</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">lam_a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">lam_b</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">vec_a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">vec_b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Place v-sites at the correct positions along the vectors by scaling according to the lambdas</span>
+<span class="sd">        calculate the esp from the atom and the v-sites.</span>
+<span class="sd">        :param atom_index: The index of the atom being analysed.</span>
+<span class="sd">        :param q_a: charge of v-site a</span>
+<span class="sd">        :param q_b: charge of v-site b</span>
+<span class="sd">        :param lam_a: scale factor for vec_a</span>
+<span class="sd">        :param lam_b: scale factor for vec_b</span>
+<span class="sd">        :param vec_a: vector deciding virtual site position</span>
+<span class="sd">        :param vec_b: vector deciding virtual site position</span>
+<span class="sd">        :return: Ordered list of esp values at each sample point</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">site_a_coords</span><span class="p">,</span> <span class="n">site_b_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sites_coords_from_vecs_and_lams</span><span class="p">(</span>
+            <span class="n">atom_index</span><span class="p">,</span> <span class="n">lam_a</span><span class="p">,</span> <span class="n">lam_b</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_atom_mono_esp_three_charges</span><span class="p">(</span>
+            <span class="n">atom_index</span><span class="p">,</span> <span class="n">q_a</span><span class="p">,</span> <span class="n">q_b</span><span class="p">,</span> <span class="n">site_a_coords</span><span class="p">,</span> <span class="n">site_b_coords</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_symm_esp_from_lambdas_and_charges</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">q</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">lam</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">vec_a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">vec_b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Symmetric version of the above. Charges and scale factors are the same for both virtual sites.</span>
+<span class="sd">        Place v-sites at the correct positions along the vectors by scaling according to the lambdas</span>
+<span class="sd">        calculate the esp from the atom and the v-sites.</span>
+<span class="sd">        :param atom_index: The index of the atom being analysed.</span>
+<span class="sd">        :param q: charge of v-sites a and b</span>
+<span class="sd">        :param lam: scale factors for vecs a and b</span>
+<span class="sd">        :param vec_a: vector deciding virtual site position</span>
+<span class="sd">        :param vec_b: vector deciding virtual site position</span>
+<span class="sd">        :return: Ordered list of esp values at each sample point</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">site_a_coords</span><span class="p">,</span> <span class="n">site_b_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sites_coords_from_vecs_and_lams</span><span class="p">(</span>
+            <span class="n">atom_index</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_atom_mono_esp_three_charges</span><span class="p">(</span>
+            <span class="n">atom_index</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">site_a_coords</span><span class="p">,</span> <span class="n">site_b_coords</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_one_site_objective_function</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">q_lam</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">vec</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add one site with charge q along vector vec, scaled by lam.</span>
+<span class="sd">        return the sum of differences at each sample point between the ideal ESP and the calculated ESP.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">site_esps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_esp_from_lambda_and_charge</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="o">*</span><span class="n">q_lam</span><span class="p">,</span> <span class="n">vec</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_no_site_esps</span> <span class="o">-</span> <span class="n">site_esps</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_two_sites_objective_function</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">qa_qb_lama_lamb</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">vec_a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">vec_b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add two sites with charges qa, qb along vectors vec_a, vec_b, scaled by lama, lamb.</span>
+<span class="sd">        return the sum of differences at each sample point between the ideal ESP and the calculated ESP.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">site_esps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_esp_from_lambdas_and_charges</span><span class="p">(</span>
+            <span class="n">atom_index</span><span class="p">,</span> <span class="o">*</span><span class="n">qa_qb_lama_lamb</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_no_site_esps</span> <span class="o">-</span> <span class="n">site_esps</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_symm_two_sites_objective_function</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">q_lam</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">vec_a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">vec_b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add two sites with charge q along vectors vec_a, vec_b scaled by lam.</span>
+<span class="sd">        This is the symmetric case since the charges and scale factors are the same for each site.</span>
+<span class="sd">        return the sum of differences at each sample point between the ideal ESP and the calculated ESP.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">site_esps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symm_esp_from_lambdas_and_charges</span><span class="p">(</span>
+            <span class="n">atom_index</span><span class="p">,</span> <span class="o">*</span><span class="n">q_lam</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_no_site_esps</span> <span class="o">-</span> <span class="n">site_esps</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_two_site_one_or_three_bond_constraint_charge</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In the case of a halogen atom being given two virtual sites,</span>
+<span class="sd">        mimicking the chemistry would imply a positive and negative charge either side of the atom.</span>
+<span class="sd">        This constraint forces a negative and a positive charge.</span>
+<span class="sd">        The result of this is usually both charges lying on the C-Halo bond.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_two_site_one_or_three_bond_constraint_lambda</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In the case of a halogen atom being given two virtual sites,</span>
+<span class="sd">        mimicking the chemistry would imply a positive and negative charge either side of the atom.</span>
+<span class="sd">        This constraint forces a negative and a positive lambda.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_two_site_two_bond_constraint</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In the case of two sites and two bonds, the vectors are added or subtracted together,</span>
+<span class="sd">        rather than one vector per site.</span>
+<span class="sd">        This constraint ensures the max scaling factor of the vectors combined is less than 1.</span>
+<span class="sd">        NB They can then be scaled to be up to 1.5 by the scale factor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_symm_two_site_two_bond_constraint</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In the case of two sites and two bonds, the vectors are added or subtracted together,</span>
+<span class="sd">        rather than one vector per site.</span>
+<span class="sd">        This constraint ensures the max scaling factor of the vectors combined is less than 1.</span>
+<span class="sd">        NB They can then be scaled to be up to 1.5 by the scale factor.</span>
+<span class="sd">        When the sites are symmetric, they are stored under the same parameters, x[1]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span>
+
+    <span class="k">def</span> <span class="nf">_fit_one_site</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fit method for one site whose parent is &lt;atom_index&gt;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_vector_from_coords</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">n_sites</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="p">((</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+        <span class="n">one_site_fit</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_one_site_objective_function</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
+            <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">vec</span><span class="p">),</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="n">one_site_fit</span><span class="o">.</span><span class="n">fun</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">)</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">lam</span> <span class="o">=</span> <span class="n">one_site_fit</span><span class="o">.</span><span class="n">x</span>
+        <span class="n">one_site_coords</span> <span class="o">=</span> <span class="p">[((</span><span class="n">vec</span> <span class="o">*</span> <span class="n">lam</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">atom_index</span><span class="p">],</span> <span class="n">q</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">)]</span>
+
+        <span class="k">return</span> <span class="n">error</span><span class="p">,</span> <span class="n">one_site_coords</span>
+
+    <span class="k">def</span> <span class="nf">_fit_two_sites</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fit method for two sites whose parent is &lt;atom_index&gt;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">,</span> <span class="n">site_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_two_sites_one_or_three_bonds</span><span class="p">(</span><span class="n">atom_index</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">,</span> <span class="n">site_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_two_sites_two_bonds</span><span class="p">(</span><span class="n">atom_index</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">error</span><span class="p">,</span> <span class="n">site_coords</span>
+
+    <span class="k">def</span> <span class="nf">_fit_two_sites_one_or_three_bonds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fit method for two sites whose parent, &lt;atom_index&gt; has one or three bonds</span>
+<span class="sd">        e.g. uncharged halogens, carbonyls and nitrogens</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_vector_from_coords</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">n_sites</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="p">((</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+
+        <span class="c1"># dummy variables to be overwritten</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="mi">10000</span>
+        <span class="n">two_site_coords</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">constraints</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ineq&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fun&quot;</span><span class="p">:</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_two_site_one_or_three_bond_constraint_charge</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ineq&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fun&quot;</span><span class="p">:</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_two_site_one_or_three_bond_constraint_lambda</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">constraints</span><span class="p">:</span>
+            <span class="n">two_site_fit</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_two_sites_objective_function</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]),</span>
+                <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span><span class="p">),</span>
+                <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+                <span class="n">constraints</span><span class="o">=</span><span class="n">constraint</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">two_site_fit</span><span class="o">.</span><span class="n">fun</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">error</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="n">two_site_fit</span><span class="o">.</span><span class="n">fun</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">)</span>
+
+                <span class="n">q_a</span><span class="p">,</span> <span class="n">q_b</span><span class="p">,</span> <span class="n">lam_a</span><span class="p">,</span> <span class="n">lam_b</span> <span class="o">=</span> <span class="n">two_site_fit</span><span class="o">.</span><span class="n">x</span>
+                <span class="n">site_a_coords</span><span class="p">,</span> <span class="n">site_b_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sites_coords_from_vecs_and_lams</span><span class="p">(</span>
+                    <span class="n">atom_index</span><span class="p">,</span> <span class="n">lam_a</span><span class="p">,</span> <span class="n">lam_b</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span>
+                <span class="p">)</span>
+                <span class="n">two_site_coords</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="p">(</span><span class="n">site_a_coords</span><span class="p">,</span> <span class="n">q_a</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">),</span>
+                    <span class="p">(</span><span class="n">site_b_coords</span><span class="p">,</span> <span class="n">q_b</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">),</span>
+                <span class="p">]</span>
+        <span class="k">return</span> <span class="n">error</span><span class="p">,</span> <span class="n">two_site_coords</span>
+
+    <span class="k">def</span> <span class="nf">_fit_two_sites_two_bonds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fit method for two sites whose parent, &lt;atom_index&gt; has two bonds</span>
+<span class="sd">        e.g. uncharged oxygens</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Dummy error value to be overwritten</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="mi">10000</span>
+        <span class="n">two_site_coords</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">alt</span> <span class="ow">in</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]:</span>
+            <span class="c1"># charge, charge, lambda, lambda</span>
+            <span class="n">bounds</span> <span class="o">=</span> <span class="p">((</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+            <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_vector_from_coords</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">n_sites</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">alt</span><span class="o">=</span><span class="n">alt</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enable_symmetry</span><span class="p">:</span>
+                <span class="n">two_site_fit</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_symm_two_sites_objective_function</span><span class="p">,</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]),</span>
+                    <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span><span class="p">),</span>
+                    <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">],</span>
+                    <span class="n">constraints</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ineq&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;fun&quot;</span><span class="p">:</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_symm_two_site_two_bond_constraint</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">two_site_fit</span><span class="o">.</span><span class="n">fun</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">error</span><span class="p">:</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="n">two_site_fit</span><span class="o">.</span><span class="n">fun</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">)</span>
+                    <span class="n">q</span><span class="p">,</span> <span class="n">lam</span> <span class="o">=</span> <span class="n">two_site_fit</span><span class="o">.</span><span class="n">x</span>
+                    <span class="n">q_a</span> <span class="o">=</span> <span class="n">q_b</span> <span class="o">=</span> <span class="n">q</span>
+                    <span class="n">lam_a</span> <span class="o">=</span> <span class="n">lam_b</span> <span class="o">=</span> <span class="n">lam</span>
+                    <span class="p">(</span>
+                        <span class="n">site_a_coords</span><span class="p">,</span>
+                        <span class="n">site_b_coords</span><span class="p">,</span>
+                    <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sites_coords_from_vecs_and_lams</span><span class="p">(</span>
+                        <span class="n">atom_index</span><span class="p">,</span> <span class="n">lam_a</span><span class="p">,</span> <span class="n">lam_b</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span>
+                    <span class="p">)</span>
+                    <span class="n">two_site_coords</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="p">(</span><span class="n">site_a_coords</span><span class="p">,</span> <span class="n">q_a</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">),</span>
+                        <span class="p">(</span><span class="n">site_b_coords</span><span class="p">,</span> <span class="n">q_b</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">),</span>
+                    <span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">two_site_fit</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_two_sites_objective_function</span><span class="p">,</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]),</span>
+                    <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span><span class="p">),</span>
+                    <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+                    <span class="n">constraints</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ineq&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;fun&quot;</span><span class="p">:</span> <span class="n">VirtualSites</span><span class="o">.</span><span class="n">_two_site_two_bond_constraint</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">two_site_fit</span><span class="o">.</span><span class="n">fun</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">error</span><span class="p">:</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="n">two_site_fit</span><span class="o">.</span><span class="n">fun</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">)</span>
+                    <span class="n">q_a</span><span class="p">,</span> <span class="n">q_b</span><span class="p">,</span> <span class="n">lam_a</span><span class="p">,</span> <span class="n">lam_b</span> <span class="o">=</span> <span class="n">two_site_fit</span><span class="o">.</span><span class="n">x</span>
+                    <span class="p">(</span>
+                        <span class="n">site_a_coords</span><span class="p">,</span>
+                        <span class="n">site_b_coords</span><span class="p">,</span>
+                    <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sites_coords_from_vecs_and_lams</span><span class="p">(</span>
+                        <span class="n">atom_index</span><span class="p">,</span> <span class="n">lam_a</span><span class="p">,</span> <span class="n">lam_b</span><span class="p">,</span> <span class="n">vec_a</span><span class="p">,</span> <span class="n">vec_b</span>
+                    <span class="p">)</span>
+                    <span class="n">two_site_coords</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="p">(</span><span class="n">site_a_coords</span><span class="p">,</span> <span class="n">q_a</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">),</span>
+                        <span class="p">(</span><span class="n">site_b_coords</span><span class="p">,</span> <span class="n">q_b</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">),</span>
+                    <span class="p">]</span>
+        <span class="k">return</span> <span class="n">error</span><span class="p">,</span> <span class="n">two_site_coords</span>
+
+    <span class="k">def</span> <span class="nf">_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The error for the objective functions is defined as the sum of differences at each sample point</span>
+<span class="sd">        between the ideal ESP and the ESP with and without sites.</span>
+
+<span class="sd">        * The ESP is first calculated without any virtual sites, if the error is below 1.0, no fitting</span>
+<span class="sd">        is carried out.</span>
+<span class="sd">        * Virtual sites are added along pre-defined vectors, and the charges and scale factors of the vectors</span>
+<span class="sd">        are fit to give the lowest errors.</span>
+<span class="sd">        * This is done for single sites and two sites (sometimes in two orientations).</span>
+<span class="sd">        * The two sites may be placed symmetrically, using the bool molecule.symmetry argument.</span>
+<span class="sd">        * The errors from the sites are printed to terminal, and a plot is produced showing the positions,</span>
+<span class="sd">        sample points, and charges.</span>
+<span class="sd">        :param atom_index: The index of the atom being analysed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Calc error in esp when no sites are present</span>
+        <span class="n">vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_vector_from_coords</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">n_sites</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">no_site_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_one_site_objective_function</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">vec</span><span class="p">)</span>
+        <span class="n">no_site_error</span> <span class="o">/=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">)</span>
+
+        <span class="c1"># Error in esp is sufficiently low to not require virtual sites.</span>
+        <span class="k">if</span> <span class="n">no_site_error</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">site_error_threshold</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">one_site_error</span><span class="p">,</span> <span class="n">one_site_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_one_site</span><span class="p">(</span><span class="n">atom_index</span><span class="p">)</span>
+
+        <span class="n">two_site_error</span><span class="p">,</span> <span class="n">two_site_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_two_sites</span><span class="p">(</span><span class="n">atom_index</span><span class="p">)</span>
+
+        <span class="n">site_errors</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">0</span><span class="p">:</span> <span class="n">no_site_error</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="n">one_site_error</span><span class="p">,</span>
+            <span class="mi">2</span><span class="p">:</span> <span class="n">two_site_error</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;site_results.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;a+&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">site_file</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="n">one_site_error</span> <span class="o">&lt;</span> <span class="n">two_site_error</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">site_error_factor</span><span class="p">:</span>
+                <span class="n">site_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;One virtual site has been added to atom </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">atom_name</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;No site error: </span><span class="si">{</span><span class="n">site_errors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .4f</span><span class="si">}</span><span class="s2">    One site error: </span><span class="si">{</span><span class="n">site_errors</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .4f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_v_sites_coords</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">one_site_coords</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">NonbondedForce</span><span class="p">[(</span><span class="n">atom_index</span><span class="p">,)]</span><span class="o">.</span><span class="n">charge</span> <span class="o">-=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span>
+                    <span class="n">one_site_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">site_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Two virtual sites have been added to atom </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">atom_name</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;No site error: </span><span class="si">{</span><span class="n">site_errors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .4f</span><span class="si">}</span><span class="s2">    Two sites error: </span><span class="si">{</span><span class="n">site_errors</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2"> .4f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_v_sites_coords</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">two_site_coords</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">NonbondedForce</span><span class="p">[(</span><span class="n">atom_index</span><span class="p">,)]</span><span class="o">.</span><span class="n">charge</span> <span class="o">-=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span>
+                    <span class="n">two_site_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">two_site_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plot</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">site_errors</span><span class="p">,</span> <span class="n">one_site_coords</span><span class="p">,</span> <span class="n">two_site_coords</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_plot</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">atom_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">errors</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">one_site_coords</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">two_site_coords</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Figure with three subplots.</span>
+<span class="sd">        All plots show the atoms and bonds as balls and sticks; virtual sites are x&#39;s; sample points are dots.</span>
+<span class="sd">            * Plot showing the positions of the sample points.</span>
+<span class="sd">            * Plot showing the position of a single virtual site.</span>
+<span class="sd">            * Plot showing the positions of two virtual sites.</span>
+<span class="sd">        Errors are included to show the impact of virtual site placements.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">figaspect</span><span class="p">(</span><span class="mf">0.33</span><span class="p">),</span> <span class="n">tight_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span><span class="n">vmin</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="s2">&quot;cool&quot;</span>
+
+        <span class="n">samp_plt</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s2">&quot;3d&quot;</span><span class="p">)</span>
+        <span class="n">one_plt</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s2">&quot;3d&quot;</span><span class="p">)</span>
+        <span class="n">two_plt</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s2">&quot;3d&quot;</span><span class="p">)</span>
+
+        <span class="n">plots</span> <span class="o">=</span> <span class="p">[</span><span class="n">samp_plt</span><span class="p">,</span> <span class="n">one_plt</span><span class="p">,</span> <span class="n">two_plt</span><span class="p">]</span>
+
+        <span class="c1"># List of tuples where each tuple is the xyz atom coords, followed by their partial charge</span>
+        <span class="n">atom_points</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span>
+                <span class="n">coord</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">NonbondedForce</span><span class="p">[(</span><span class="n">atom</span><span class="o">.</span><span class="n">atom_index</span><span class="p">,)]</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span>
+            <span class="p">)</span>  <span class="c1"># [((x, y, z), q), ... ]</span>
+            <span class="k">for</span> <span class="n">coord</span><span class="p">,</span> <span class="n">atom</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Add atom positions to all subplots</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plot</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plots</span><span class="p">):</span>
+            <span class="n">plot</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+                <span class="n">xs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">atom_points</span><span class="p">],</span>
+                <span class="n">ys</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">atom_points</span><span class="p">],</span>
+                <span class="n">zs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">atom_points</span><span class="p">],</span>
+                <span class="n">c</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">atom_points</span><span class="p">],</span>
+                <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;o&quot;</span><span class="p">,</span>
+                <span class="n">s</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+                <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+                <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Plot the bonds as connecting lines</span>
+            <span class="k">for</span> <span class="n">bond</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">bonds</span><span class="p">:</span>
+                <span class="n">plot</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+                    <span class="n">xs</span><span class="o">=</span><span class="p">[</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bond</span><span class="o">.</span><span class="n">atom1_index</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bond</span><span class="o">.</span><span class="n">atom2_index</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="p">],</span>
+                    <span class="n">ys</span><span class="o">=</span><span class="p">[</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bond</span><span class="o">.</span><span class="n">atom1_index</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bond</span><span class="o">.</span><span class="n">atom2_index</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="p">],</span>
+                    <span class="n">zs</span><span class="o">=</span><span class="p">[</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bond</span><span class="o">.</span><span class="n">atom1_index</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">bond</span><span class="o">.</span><span class="n">atom2_index</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
+                    <span class="p">],</span>
+                    <span class="n">c</span><span class="o">=</span><span class="s2">&quot;darkslategrey&quot;</span><span class="p">,</span>
+                    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Left subplot contains the sample point positions</span>
+        <span class="n">samp_plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">xs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">],</span>
+            <span class="n">ys</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">],</span>
+            <span class="n">zs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_points</span><span class="p">],</span>
+            <span class="n">c</span><span class="o">=</span><span class="s2">&quot;darkslategrey&quot;</span><span class="p">,</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;o&quot;</span><span class="p">,</span>
+            <span class="n">s</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">samp_plt</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sample Points Positions</span><span class="se">\n</span><span class="s2">Error: </span><span class="si">{</span><span class="n">errors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .5</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Centre subplot contains the single v-site</span>
+        <span class="n">one_plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">xs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">one_site_coords</span><span class="p">],</span>
+            <span class="n">ys</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">one_site_coords</span><span class="p">],</span>
+            <span class="n">zs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">one_site_coords</span><span class="p">],</span>
+            <span class="n">c</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">one_site_coords</span><span class="p">],</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="n">s</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+            <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">one_plt</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;One Site Position</span><span class="se">\n</span><span class="s2">Error: </span><span class="si">{</span><span class="n">errors</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .5</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Right subplot contains the two v-sites</span>
+        <span class="n">two_plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">xs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">two_site_coords</span><span class="p">],</span>
+            <span class="n">ys</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">two_site_coords</span><span class="p">],</span>
+            <span class="n">zs</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">two_site_coords</span><span class="p">],</span>
+            <span class="n">c</span><span class="o">=</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">two_site_coords</span><span class="p">],</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="n">s</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+            <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">two_plt</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Two Sites Positions</span><span class="se">\n</span><span class="s2">Error: </span><span class="si">{</span><span class="n">errors</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2"> .5</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">sm</span> <span class="o">=</span> <span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+        <span class="n">sm</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]))</span>
+        <span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">sm</span><span class="p">)</span>
+        <span class="n">cbar</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;charge&quot;</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+        <span class="n">atomic_symbol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">atomic_symbol</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">atomic_symbol</span><span class="si">}{</span><span class="n">atom_index</span><span class="si">}</span><span class="s2">_virtual_sites.png&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Prevent memory leaks</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_write_xyz</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write an xyz file containing the atom and virtual site coordinates.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;xyz_with_extra_point_charges.xyz&quot;</span><span class="p">,</span> <span class="s2">&quot;w+&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">xyz_file</span><span class="p">:</span>
+            <span class="n">xyz_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_v_sites_coords</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;xyz file generated with QUBEKit.</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">atom</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">):</span>
+                <span class="n">xyz_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span><span class="o">.</span><span class="n">atomic_symbol</span><span class="si">}</span><span class="s2">       </span><span class="si">{</span><span class="n">atom</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .10f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">atom</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .10f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">atom</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2"> .10f</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;   </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">NonbondedForce</span><span class="p">[(</span><span class="n">atom_index</span><span class="p">,</span> <span class="p">)]</span><span class="o">.</span><span class="n">charge</span><span class="si">:</span><span class="s2"> .6f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_sites_coords</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">site</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">atom_index</span><span class="p">:</span>
+                        <span class="n">xyz_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;X       </span><span class="si">{</span><span class="n">site</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .10f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">site</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .10f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">site</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2"> .10f</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">site</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .6f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_save_virtual_sites</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Take the v_site_coords generated and insert them into the Ligand object as molecule.extra_sites.</span>
+
+<span class="sd">        Uses the coordinates to generate the necessary position vectors to be used in the xml.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Prevent duplication of sites.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">extra_sites</span><span class="o">.</span><span class="n">clear_sites</span><span class="p">()</span>
+
+        <span class="n">topology</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">to_topology</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">site_number</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_v_sites_coords</span><span class="p">):</span>
+
+            <span class="n">site_data</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="n">site_coords</span><span class="p">,</span> <span class="n">site_charge</span><span class="p">,</span> <span class="n">parent</span> <span class="o">=</span> <span class="n">site</span>
+            <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;parent_index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parent</span>
+            <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;charge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">site_charge</span>
+
+            <span class="n">closest_atoms</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">topology</span><span class="o">.</span><span class="n">neighbors</span><span class="p">(</span><span class="n">parent</span><span class="p">))</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">closest_atoms</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">parent</span><span class="p">]</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span>
+            <span class="p">):</span>
+                <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">topology</span><span class="o">.</span><span class="n">neighbors</span><span class="p">(</span><span class="n">closest_atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+                    <span class="k">if</span> <span class="n">atom</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">closest_atoms</span> <span class="ow">and</span> <span class="n">atom</span> <span class="o">!=</span> <span class="n">parent</span><span class="p">:</span>
+                        <span class="n">closest_atoms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atom</span><span class="p">)</span>
+                        <span class="k">break</span>
+
+            <span class="c1"># Get the xyz coordinates of the reference atoms</span>
+            <span class="n">parent_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">parent</span><span class="p">]</span>
+            <span class="n">close_a_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">closest_atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="n">close_b_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">closest_atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+            <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;closest_a_index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">closest_atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;closest_b_index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">closest_atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="n">parent_atom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">[</span><span class="n">parent</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">parent_atom</span><span class="o">.</span><span class="n">atomic_symbol</span> <span class="o">==</span> <span class="s2">&quot;N&quot;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parent_atom</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">close_c_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coords</span><span class="p">[</span><span class="n">closest_atoms</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;closest_c_index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">closest_atoms</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+                <span class="n">x_dir</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="n">close_a_coords</span> <span class="o">+</span> <span class="n">close_b_coords</span> <span class="o">+</span> <span class="n">close_c_coords</span><span class="p">)</span> <span class="o">/</span> <span class="mi">3</span>
+                <span class="p">)</span> <span class="o">-</span> <span class="n">parent_coords</span>
+                <span class="n">x_dir</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_dir</span><span class="p">)</span>
+
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;p2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;p3&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;o_weights&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>  <span class="c1"># SUM MUST BE 1.0</span>
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;x_weights&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.33333333</span><span class="p">,</span> <span class="mf">0.33333333</span><span class="p">,</span> <span class="mf">0.33333333</span><span class="p">]</span>
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;y_weights&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x_dir</span> <span class="o">=</span> <span class="n">close_a_coords</span> <span class="o">-</span> <span class="n">parent_coords</span>
+                <span class="n">x_dir</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_dir</span><span class="p">)</span>
+
+                <span class="n">z_dir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">close_a_coords</span> <span class="o">-</span> <span class="n">parent_coords</span><span class="p">),</span> <span class="p">(</span><span class="n">close_b_coords</span> <span class="o">-</span> <span class="n">parent_coords</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">z_dir</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">z_dir</span><span class="p">)</span>
+
+                <span class="n">y_dir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">z_dir</span><span class="p">,</span> <span class="n">x_dir</span><span class="p">)</span>
+
+                <span class="n">p2</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">((</span><span class="n">site_coords</span> <span class="o">-</span> <span class="n">parent_coords</span><span class="p">),</span> <span class="n">y_dir</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+                    <span class="o">*</span> <span class="n">ANGS_TO_NM</span>
+                <span class="p">)</span>
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;p2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">p2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+                <span class="n">p3</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">((</span><span class="n">site_coords</span> <span class="o">-</span> <span class="n">parent_coords</span><span class="p">),</span> <span class="n">z_dir</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+                    <span class="o">*</span> <span class="n">ANGS_TO_NM</span>
+                <span class="p">)</span>
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;p3&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">p3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;o_weights&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>  <span class="c1"># SUM MUST BE 1.0</span>
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;x_weights&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+                <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;y_weights&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>
+
+            <span class="c1"># Get the local coordinate positions</span>
+            <span class="n">p1</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">((</span><span class="n">site_coords</span> <span class="o">-</span> <span class="n">parent_coords</span><span class="p">),</span> <span class="n">x_dir</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">ANGS_TO_NM</span>
+            <span class="p">)</span>
+            <span class="n">site_data</span><span class="p">[</span><span class="s2">&quot;p1&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">extra_sites</span><span class="o">.</span><span class="n">create_site</span><span class="p">(</span><span class="o">**</span><span class="n">site_data</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_molecule</span><span class="o">.</span><span class="n">extra_sites</span><span class="o">.</span><span class="n">n_sites</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_v_sites_coords</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

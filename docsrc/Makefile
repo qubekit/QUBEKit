@@ -11,13 +11,15 @@ BUILDDIR      = ../docs
 # Put it first so that "make" without argument is like "make help".
 defhtml:
 	# remove the previous files
-	@$(SPHINXBUILD) -b html "$(SOURCEDIR)" "$(BUILDDIR)" 
+	@$(SPHINXBUILD) -E -b html "$(SOURCEDIR)" "$(BUILDDIR)" 
 	touch "$(BUILDDIR)/.nojekyll"
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 clean:
+	rm -r $(BUILDDIR)/.doctrees
 	rm -r $(BUILDDIR)/*
+	sleep 0.2
 
 fresh: clean defhtml
 

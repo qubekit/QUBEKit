@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>qubekit.bonded.mod_seminario &mdash; QUBEKit 2.1.1+6.g07bff89.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <title>qubekit.bonded.mod_seminario &mdash; QUBEKit 2.1.1+8.gdacd2f4.dirty documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../../../_static/js/html5shiv.min.js"></script>
@@ -36,7 +36,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../qubekit.html">QUBEKit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorial.html">Tutorial</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">Staging Classes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../acknowledgments.html">Acknowledgments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
 </ul>
@@ -258,7 +258,7 @@
         <span class="k">return</span> <span class="n">k_theta</span><span class="p">,</span> <span class="n">theta_0</span>
 
 
-<div class="viewcode-block" id="ModSeminario"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario">[docs]</a><span class="k">class</span> <span class="nc">ModSeminario</span><span class="p">(</span><span class="n">StageBase</span><span class="p">):</span>
+<div class="viewcode-block" id="ModSeminario"><a class="viewcode-back" href="../../../classes/bonded/modseminario.html#qubekit.bonded.ModSeminario">[docs]</a><span class="k">class</span> <span class="nc">ModSeminario</span><span class="p">(</span><span class="n">StageBase</span><span class="p">):</span>
 
     <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;ModSeminario&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;ModSeminario&quot;</span>
     <span class="n">vibrational_scaling</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
@@ -266,18 +266,18 @@
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The vibration scaling that should be used to correct the reference DFT frequencies.&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-<div class="viewcode-block" id="ModSeminario.is_available"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.is_available">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="ModSeminario.is_available"><a class="viewcode-back" href="../../../classes/bonded/modseminario.html#qubekit.bonded.ModSeminario.is_available">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">is_available</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;This class is part of qubekit and always available.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="kc">True</span></div>
 
-<div class="viewcode-block" id="ModSeminario.start_message"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.start_message">[docs]</a>    <span class="k">def</span> <span class="nf">start_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<div class="viewcode-block" id="ModSeminario.start_message"><a class="viewcode-back" href="../../../classes/bonded/modseminario.html#qubekit.bonded.ModSeminario.start_message">[docs]</a>    <span class="k">def</span> <span class="nf">start_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;Calculating new bond and angle parameters with the modified Seminario method.&quot;</span></div>
 
-<div class="viewcode-block" id="ModSeminario.finish_message"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.finish_message">[docs]</a>    <span class="k">def</span> <span class="nf">finish_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<div class="viewcode-block" id="ModSeminario.finish_message"><a class="viewcode-back" href="../../../classes/bonded/modseminario.html#qubekit.bonded.ModSeminario.finish_message">[docs]</a>    <span class="k">def</span> <span class="nf">finish_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;Bond and angle parameters calculated.&quot;</span></div>
 
-<div class="viewcode-block" id="ModSeminario.run"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ligand</span><span class="p">:</span>
+<div class="viewcode-block" id="ModSeminario.run"><a class="viewcode-back" href="../../../classes/bonded/modseminario.html#qubekit.bonded.ModSeminario.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ligand</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The main worker stage which takes the molecule and its hessian and calculates the modified seminario method.</span>
 
@@ -332,7 +332,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">calculate_angles</span><span class="p">(</span><span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="p">,</span> <span class="n">bond_lens</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">molecule</span>
 
-<div class="viewcode-block" id="ModSeminario.calculate_angles"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.calculate_angles">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_angles</span><span class="p">(</span>
+<div class="viewcode-block" id="ModSeminario.calculate_angles"><a class="viewcode-back" href="../../../classes/bonded/modseminario.html#qubekit.bonded.ModSeminario.calculate_angles">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_angles</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="n">bond_lengths</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -485,7 +485,7 @@
                     <span class="n">k</span><span class="o">=</span><span class="n">k_theta</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">conversion</span><span class="p">,</span>
                 <span class="p">)</span></div>
 
-<div class="viewcode-block" id="ModSeminario.calculate_bonds"><a class="viewcode-back" href="../../../classes/bonded/mod_seminario.html#qubekit.bonded.ModSeminario.calculate_bonds">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_bonds</span><span class="p">(</span>
+<div class="viewcode-block" id="ModSeminario.calculate_bonds"><a class="viewcode-back" href="../../../classes/bonded/modseminario.html#qubekit.bonded.ModSeminario.calculate_bonds">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_bonds</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">eigenvals</span><span class="p">,</span> <span class="n">eigenvecs</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="n">Ligand</span><span class="p">,</span> <span class="n">bond_lengths</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>

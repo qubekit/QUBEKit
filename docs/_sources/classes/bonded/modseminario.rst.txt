@@ -1,5 +1,5 @@
-mod_seminario
-=============
+ModSeminario
+============
 
 .. currentmodule:: qubekit.bonded
 

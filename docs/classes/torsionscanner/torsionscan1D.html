@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TorsionScan1D &mdash; QUBEKit 2.1.1+8.gdacd2f4.dirty documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="ForceBalanceFitting" href="../torsionoptimisation/forcebalancefitting.html" />
+    <link rel="prev" title="QForceHessianFitting" href="../bonded/qforce.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> QUBEKit
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../qubekit.html">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../documentation.html">Documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../api.html">Staging Classes</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#parametrisation">Parametrisation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#optimisation">Optimisation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#charges">Charges</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#virtual-sites">Virtual Sites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#bonded-modules">Bonded Modules</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../../api.html#torsion-scanner">Torsion Scanner</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">TorsionScan1D</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../api.html#torsion-optimisation">Torsion Optimisation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../acknowledgments.html">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">QUBEKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../api.html">Staging Classes</a> &raquo;</li>
+      <li>TorsionScan1D</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/classes/torsionscanner/torsionscan1D.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="torsionscan1d">
+<h1>TorsionScan1D<a class="headerlink" href="#torsionscan1d" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">qubekit.torsions.scanning.torsion_scanner.</span></code><code class="sig-name descname"><span class="pre">TorsionScan1D</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">typing_extensions.Literal</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D" title="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D"><span class="pre">TorsionScan1D</span></a><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'TorsionScan1D'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">special_torsions</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">qubekit.torsions.utils.TargetTorsion</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_scan_range</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">(-</span> <span class="pre">165,</span> <span class="pre">180)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">avoided_torsions</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">qubekit.torsions.utils.AvoidedTorsion</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">[AvoidedTorsion(smirks='[*:1]-[CH3:2]'),</span> <span class="pre">AvoidedTorsion(smirks='[*:1]-[NH2:2]')]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">torsion_driver</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">qubekit.engines.torsiondrive.TorsionDriver</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">TorsionDriver(type='torsiondriver',</span> <span class="pre">n_workers=1,</span> <span class="pre">grid_spacing=15,</span> <span class="pre">energy_decrease_thresh=None,</span> <span class="pre">energy_upper_limit=None,</span> <span class="pre">starting_conformations=4)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D" title="Permalink to this definition">¶</a></dt>
+<dd><p>A 1D torsion scanner.</p>
+<dl class="simple">
+<dt>Note:</dt><dd><p>By default this will scan all rotatable bonds not involving methyl or amine terminal groups.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.add_avoided_torsion">
+<code class="sig-name descname"><span class="pre">add_avoided_torsion</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">smirks</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D.add_avoided_torsion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.add_avoided_torsion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a new torsion pattern to avoid scanning.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>smirks: The valid smirks pattern which describes a torsion not to be scanned.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.add_special_torsion">
+<code class="sig-name descname"><span class="pre">add_special_torsion</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">smirks</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_range</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">(-</span> <span class="pre">165,</span> <span class="pre">180)</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D.add_special_torsion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.add_special_torsion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a new allowed torsion scan.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>smirks: The smirks pattern that should be used to identify the torsion.
+scan_range: The scan range for this type of dihedral.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.clear_avoided_torsions">
+<code class="sig-name descname"><span class="pre">clear_avoided_torsions</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D.clear_avoided_torsions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.clear_avoided_torsions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove all avoided torsions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.clear_special_torsions">
+<code class="sig-name descname"><span class="pre">clear_special_torsions</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D.clear_special_torsions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.clear_special_torsions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove all allowed torsion scans.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.finish_message">
+<code class="sig-name descname"><span class="pre">finish_message</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">str</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D.finish_message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.finish_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>A friendly message to let users know that the stage is complete and any checks that have been performed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.is_available">
+<em class="property"><span class="pre">classmethod</span> </em><code class="sig-name descname"><span class="pre">is_available</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <span class="pre">bool</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D.is_available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.is_available" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make sure geometric and torsiondrive are installed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.run">
+<code class="sig-name descname"><span class="pre">run</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">molecule</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Ligand</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">Ligand</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run any possible torsiondrives for this molecule given the list of allowed and disallowed torsion patterns.</p>
+<dl class="simple">
+<dt>Note:</dt><dd><p>This function just validates the molecule and builds a list of torsions to scan before passing to the main method.</p>
+</dd>
+<dt>Important:</dt><dd><p>We work with a copy of the input molecule as we change the coordinates throughout the calculation.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.start_message">
+<code class="sig-name descname"><span class="pre">start_message</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">str</span><a class="reference internal" href="../../_modules/qubekit/torsions/scanning/torsion_scanner.html#TorsionScan1D.start_message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.start_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>A friendly message to let users know that stage is starting with any important options.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../bonded/qforce.html" class="btn btn-neutral float-left" title="QForceHessianFitting" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../torsionoptimisation/forcebalancefitting.html" class="btn btn-neutral float-right" title="ForceBalanceFitting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

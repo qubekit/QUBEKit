@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qubekit.torsions.scanning.torsion_scanner &mdash; QUBEKit 2.1.1+8.gdacd2f4.dirty documentation</title><link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/underscore.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../../index.html" class="icon icon-home"> QUBEKit
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../qubekit.html">QUBEKit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api.html">Staging Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../acknowledgments.html">Acknowledgments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">QUBEKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../../index.html">Module code</a> &raquo;</li>
+      <li>qubekit.torsions.scanning.torsion_scanner</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qubekit.torsions.scanning.torsion_scanner</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">Field</span>
+<span class="kn">from</span> <span class="nn">qcelemental.util</span> <span class="kn">import</span> <span class="n">which_import</span>
+<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span> <span class="nn">qubekit.engines</span> <span class="kn">import</span> <span class="n">TorsionDriver</span>
+<span class="kn">from</span> <span class="nn">qubekit.torsions.utils</span> <span class="kn">import</span> <span class="n">AvoidedTorsion</span><span class="p">,</span> <span class="n">TargetTorsion</span><span class="p">,</span> <span class="n">find_heavy_torsion</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.datastructures</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">LocalResource</span><span class="p">,</span>
+    <span class="n">QCOptions</span><span class="p">,</span>
+    <span class="n">StageBase</span><span class="p">,</span>
+    <span class="n">TorsionScan</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">qubekit.utils.file_handling</span> <span class="kn">import</span> <span class="n">folder_setup</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">qubekit.molecules</span> <span class="kn">import</span> <span class="n">Bond</span><span class="p">,</span> <span class="n">Ligand</span>
+
+
+<div class="viewcode-block" id="TorsionScan1D"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D">[docs]</a><span class="k">class</span> <span class="nc">TorsionScan1D</span><span class="p">(</span><span class="n">StageBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A 1D torsion scanner.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        By default this will scan all rotatable bonds not involving methyl or amine terminal groups.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">special_torsions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TargetTorsion</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="p">[],</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;A list of special target torsions to be scanned and their scan range.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">default_scan_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="p">(</span><span class="o">-</span><span class="mi">165</span><span class="p">,</span> <span class="mi">180</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The default scan range for any torsions not covered by a special rule.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">avoided_torsions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AvoidedTorsion</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">AvoidedTorsion</span><span class="p">(</span><span class="n">smirks</span><span class="o">=</span><span class="s2">&quot;[*:1]-[CH3:2]&quot;</span><span class="p">),</span>
+            <span class="n">AvoidedTorsion</span><span class="p">(</span><span class="n">smirks</span><span class="o">=</span><span class="s2">&quot;[*:1]-[NH2:2]&quot;</span><span class="p">),</span>
+        <span class="p">],</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The list of torsion patterns that should be avoided.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">torsion_driver</span><span class="p">:</span> <span class="n">TorsionDriver</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">TorsionDriver</span><span class="p">(),</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The torsion drive engine used to compute the reference data.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;TorsionScan1D&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;TorsionScan1D&quot;</span>
+
+<div class="viewcode-block" id="TorsionScan1D.start_message"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.start_message">[docs]</a>    <span class="k">def</span> <span class="nf">start_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Performing QM-constrained optimisation with Torsiondrive and </span><span class="si">{</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;qc_spec&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">program</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+<div class="viewcode-block" id="TorsionScan1D.finish_message"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.finish_message">[docs]</a>    <span class="k">def</span> <span class="nf">finish_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;Torsiondrive finished and QM results saved.&quot;</span></div>
+
+<div class="viewcode-block" id="TorsionScan1D.is_available"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.is_available">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_available</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Make sure geometric and torsiondrive are installed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">geo</span> <span class="o">=</span> <span class="n">which_import</span><span class="p">(</span>
+            <span class="s2">&quot;geometric&quot;</span><span class="p">,</span>
+            <span class="n">return_bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_msg</span><span class="o">=</span><span class="s2">&quot;Please install via `conda install geometric -c conda-forge`.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">tdrive</span> <span class="o">=</span> <span class="n">which_import</span><span class="p">(</span>
+            <span class="s2">&quot;torsiondrive&quot;</span><span class="p">,</span>
+            <span class="n">return_bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_msg</span><span class="o">=</span><span class="s2">&quot;Please install via `conda install torsiondrive -c conda-forge`.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">which_import</span><span class="p">(</span>
+            <span class="s2">&quot;qcengine&quot;</span><span class="p">,</span>
+            <span class="n">return_bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">raise_msg</span><span class="o">=</span><span class="s2">&quot;Please install via `conda install qcengine -c conda-forge`.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">geo</span> <span class="ow">and</span> <span class="n">tdrive</span> <span class="ow">and</span> <span class="n">engine</span></div>
+
+<div class="viewcode-block" id="TorsionScan1D.run"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run any possible torsiondrives for this molecule given the list of allowed and disallowed torsion patterns.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This function just validates the molecule and builds a list of torsions to scan before passing to the main method.</span>
+<span class="sd">        Important:</span>
+<span class="sd">            We work with a copy of the input molecule as we change the coordinates throughout the calculation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">molecule</span><span class="o">.</span><span class="n">qm_scans</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># work with a copy as we change coordinates from the qm a lot!</span>
+        <span class="n">drive_mol</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">molecule</span><span class="p">)</span>
+        <span class="c1"># first find all rotatable bonds, while removing the unwanted scans</span>
+        <span class="n">bonds</span> <span class="o">=</span> <span class="n">drive_mol</span><span class="o">.</span><span class="n">find_rotatable_bonds</span><span class="p">(</span>
+            <span class="n">smirks_to_remove</span><span class="o">=</span><span class="p">[</span><span class="n">torsion</span><span class="o">.</span><span class="n">smirks</span> <span class="k">for</span> <span class="n">torsion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">avoided_torsions</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">bonds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No rotatable bonds found to scan!&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">molecule</span>
+
+        <span class="c1"># remove symmetry duplicates</span>
+        <span class="n">bonds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_symmetry_unique_bonds</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">drive_mol</span><span class="p">,</span> <span class="n">bonds</span><span class="o">=</span><span class="n">bonds</span><span class="p">)</span>
+
+        <span class="n">torsion_scans</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">bond</span> <span class="ow">in</span> <span class="n">bonds</span><span class="p">:</span>
+            <span class="c1"># get the scan range and a torsion for the bond</span>
+            <span class="n">torsion</span> <span class="o">=</span> <span class="n">find_heavy_torsion</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">drive_mol</span><span class="p">,</span> <span class="n">bond</span><span class="o">=</span><span class="n">bond</span><span class="p">)</span>
+            <span class="n">scan_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_scan_range</span><span class="p">(</span><span class="n">molecule</span><span class="o">=</span><span class="n">drive_mol</span><span class="p">,</span> <span class="n">bond</span><span class="o">=</span><span class="n">bond</span><span class="p">)</span>
+            <span class="n">torsion_scans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TorsionScan</span><span class="p">(</span><span class="n">torsion</span><span class="o">=</span><span class="n">torsion</span><span class="p">,</span> <span class="n">scan_range</span><span class="o">=</span><span class="n">scan_range</span><span class="p">))</span>
+
+        <span class="n">result_mol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_torsion_drives</span><span class="p">(</span>
+            <span class="n">molecule</span><span class="o">=</span><span class="n">drive_mol</span><span class="p">,</span>
+            <span class="n">torsion_scans</span><span class="o">=</span><span class="n">torsion_scans</span><span class="p">,</span>
+            <span class="n">qc_spec</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;qc_spec&quot;</span><span class="p">],</span>
+            <span class="n">local_options</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;local_options&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="c1"># make sure we preserve the input coords</span>
+        <span class="n">result_mol</span><span class="o">.</span><span class="n">coordinates</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">coordinates</span><span class="p">)</span>
+        <span class="c1"># make sure we have all of the scans we expect</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">result_mol</span><span class="o">.</span><span class="n">qm_scans</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">bonds</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result_mol</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_symmetry_unique_bonds</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span> <span class="n">bonds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;Bond&quot;</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;Bond&quot;</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For a list of central torsion bonds deduplicate the list by bond symmetry types.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">atom_types</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">atom_types</span>
+        <span class="n">unique_bonds</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">bond</span> <span class="ow">in</span> <span class="n">bonds</span><span class="p">:</span>
+            <span class="n">bond_type</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">atom_types</span><span class="p">[</span><span class="n">bond</span><span class="o">.</span><span class="n">atom1_index</span><span class="p">]</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">atom_types</span><span class="p">[</span><span class="n">bond</span><span class="o">.</span><span class="n">atom2_index</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">bond_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unique_bonds</span> <span class="ow">and</span> <span class="n">bond_type</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unique_bonds</span><span class="p">:</span>
+                <span class="n">unique_bonds</span><span class="p">[</span><span class="n">bond_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">bond</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">unique_bonds</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">_get_scan_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span> <span class="n">bond</span><span class="p">:</span> <span class="s2">&quot;Bond&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the scan range for the target bond based on the allowed substructure list.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            We loop over the list of targets checking each meaning that the last match in the list will be applied to substructure.</span>
+<span class="sd">            So generic matches should be placed at the start of the list with more specific ones at the end.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scan_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_scan_range</span>
+        <span class="k">for</span> <span class="n">target_torsion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">special_torsions</span><span class="p">:</span>
+            <span class="n">matches</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">get_smarts_matches</span><span class="p">(</span><span class="n">smirks</span><span class="o">=</span><span class="n">target_torsion</span><span class="o">.</span><span class="n">smirks</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">matches</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">match</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="n">atoms</span> <span class="o">=</span> <span class="n">match</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">atoms</span> <span class="o">=</span> <span class="n">match</span>
+
+                <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">bond</span><span class="o">.</span><span class="n">indices</span><span class="p">):</span>
+                    <span class="n">scan_range</span> <span class="o">=</span> <span class="n">target_torsion</span><span class="o">.</span><span class="n">scan_range</span>
+
+        <span class="k">return</span> <span class="n">scan_range</span>
+
+    <span class="k">def</span> <span class="nf">_run_torsion_drives</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">molecule</span><span class="p">:</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">,</span>
+        <span class="n">torsion_scans</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TorsionScan</span><span class="p">],</span>
+        <span class="n">qc_spec</span><span class="p">:</span> <span class="n">QCOptions</span><span class="p">,</span>
+        <span class="n">local_options</span><span class="p">:</span> <span class="n">LocalResource</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Ligand&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run the list of validated torsion drives.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            We do not change the initial coordinates passed at this point.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            molecule: The molecule to be scanned.</span>
+<span class="sd">            torsion_scans: A list of TorsionScan jobs to perform detailing the dihedral and the scan range.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The updated molecule object with the scan results.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">torsion_scan</span> <span class="ow">in</span> <span class="n">torsion_scans</span><span class="p">:</span>
+            <span class="c1"># make a folder and move into to run the calculation</span>
+            <span class="n">folder</span> <span class="o">=</span> <span class="s2">&quot;SCAN_&quot;</span>
+            <span class="n">folder</span> <span class="o">+=</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">torsion_scan</span><span class="o">.</span><span class="n">torsion</span><span class="p">])</span>
+            <span class="k">with</span> <span class="n">folder_setup</span><span class="p">(</span><span class="n">folder</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Running scan for dihedral: </span><span class="si">{</span><span class="n">torsion_scan</span><span class="o">.</span><span class="n">torsion</span><span class="si">}</span><span class="s2"> with range: </span><span class="si">{</span><span class="n">torsion_scan</span><span class="o">.</span><span class="n">scan_range</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">result_mol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">torsion_driver</span><span class="o">.</span><span class="n">run_torsiondrive</span><span class="p">(</span>
+                    <span class="n">molecule</span><span class="o">=</span><span class="n">molecule</span><span class="p">,</span>
+                    <span class="n">dihedral_data</span><span class="o">=</span><span class="n">torsion_scan</span><span class="p">,</span>
+                    <span class="n">qc_spec</span><span class="o">=</span><span class="n">qc_spec</span><span class="p">,</span>
+                    <span class="n">local_options</span><span class="o">=</span><span class="n">local_options</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result_mol</span>
+
+<div class="viewcode-block" id="TorsionScan1D.add_special_torsion"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.add_special_torsion">[docs]</a>    <span class="k">def</span> <span class="nf">add_special_torsion</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">smirks</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scan_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">165</span><span class="p">,</span> <span class="mi">180</span><span class="p">)</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a new allowed torsion scan.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            smirks: The smirks pattern that should be used to identify the torsion.</span>
+<span class="sd">            scan_range: The scan range for this type of dihedral.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">TargetTorsion</span><span class="p">(</span><span class="n">smirks</span><span class="o">=</span><span class="n">smirks</span><span class="p">,</span> <span class="n">scan_range</span><span class="o">=</span><span class="n">scan_range</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">special_torsions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TorsionScan1D.clear_special_torsions"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.clear_special_torsions">[docs]</a>    <span class="k">def</span> <span class="nf">clear_special_torsions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Remove all allowed torsion scans.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">special_torsions</span> <span class="o">=</span> <span class="p">[]</span></div>
+
+<div class="viewcode-block" id="TorsionScan1D.add_avoided_torsion"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.add_avoided_torsion">[docs]</a>    <span class="k">def</span> <span class="nf">add_avoided_torsion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">smirks</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a new torsion pattern to avoid scanning.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            smirks: The valid smirks pattern which describes a torsion not to be scanned.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">torsion</span> <span class="o">=</span> <span class="n">AvoidedTorsion</span><span class="p">(</span><span class="n">smirks</span><span class="o">=</span><span class="n">smirks</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">avoided_torsions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torsion</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TorsionScan1D.clear_avoided_torsions"><a class="viewcode-back" href="../../../../classes/torsionscanner/torsionscan1D.html#qubekit.torsions.scanning.torsion_scanner.TorsionScan1D.clear_avoided_torsions">[docs]</a>    <span class="k">def</span> <span class="nf">clear_avoided_torsions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Remove all avoided torsions.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">avoided_torsions</span> <span class="o">=</span> <span class="p">[]</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel J Cole.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
