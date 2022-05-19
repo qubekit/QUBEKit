@@ -32,6 +32,8 @@ cite the following references (also given in the `CITATION.cff` file):
     DOI: 10.1021/acs.jctc.7b00785 <https://pubs.acs.org/doi/10.1021/acs.jctc.7b00785>`_
 
 
+GitHub: https://github.com/qubekit/QUBEKit
+
 In Development
 --------------
 
