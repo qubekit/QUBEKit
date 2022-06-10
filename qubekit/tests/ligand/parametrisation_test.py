@@ -560,3 +560,15 @@ def test_offxml_sites(xml, tmpdir):
 
         with pytest.raises(NotImplementedError):
             mol.to_offxml("test.offxml")
+
+
+def test_rb_offxml(tmpdir):
+    """Make sure an error is raised if we try to create an offxml with a RB torsion."""
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(file_name=get_data("cyclohexane.sdf"))
+        XML().run(molecule=mol, input_files=[get_data("cyclohexane.xml")])
+        # there should be 6 RB terms
+        assert mol.RBTorsionForce.n_parameters == 6
+
+        with pytest.raises(NotImplementedError):
+            mol.to_offxml("test.offxml")

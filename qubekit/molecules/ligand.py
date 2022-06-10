@@ -1359,6 +1359,13 @@ class Ligand(Molecule):
             raise NotImplementedError(
                 "Virtual sites can not be safely converted into offxml format yet."
             )
+        if (
+            self.RBTorsionForce.n_parameters > 0
+            or self.ImproperRBTorsionForce.n_parameters > 0
+        ):
+            raise NotImplementedError(
+                "RBTorsions can not yet be safely converted into offxml format yet."
+            )
 
         try:
             from chemper.graphs.cluster_graph import ClusterGraph
