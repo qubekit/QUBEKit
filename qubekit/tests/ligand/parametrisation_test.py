@@ -1,4 +1,9 @@
+import openmm
 import pytest
+import xmltodict
+from deepdiff import DeepDiff
+from openff.toolkit.topology import Molecule
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from parmed.openmm import energy_decomposition_system, load_topology
 from pydantic.error_wrappers import ValidationError
 from simtk.openmm import XmlSerializer, app
@@ -476,3 +481,82 @@ def test_rb_energy_round_trip(tmpdir):
             for qube_force, qube_e in qube_energy:
                 if force_group == qube_force:
                     assert energy == pytest.approx(qube_e, abs=2e-3)
+
+
+@pytest.mark.parametrize(
+    "molecule",
+    [
+        pytest.param("bace0.sdf", id="bace"),
+        pytest.param("benzene.sdf", id="benzene"),
+        pytest.param("acetone.sdf", id="acetone"),
+        pytest.param("pyridine.sdf", id="pyridine"),
+    ],
+)
+def test_offxml_round_trip(tmpdir, openff, molecule):
+    """
+    Test round tripping offxml parameters through qubekit
+    """
+
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data(molecule))
+        offmol = Molecule.from_file(get_data(molecule))
+        openff.run(mol)
+        mol.to_offxml("test.offxml")
+        # build another openmm system and serialise to compare with deepdiff
+        offxml = ForceField("test.offxml")
+        assert offxml.author == f"QUBEKit_version_{qubekit.__version__}"
+        qubekit_system = offxml.create_openmm_system(topology=offmol.to_topology())
+        qubekit_xml = xmltodict.parse(openmm.XmlSerializer.serialize(qubekit_system))
+        with open("qubekit_xml", "w") as output:
+            output.write(openmm.XmlSerializer.serialize(qubekit_system))
+        openff_system = xmltodict.parse(open("serialised.xml").read())
+
+        offxml_diff = DeepDiff(
+            qubekit_xml,
+            openff_system,
+            ignore_order=True,
+            significant_digits=6,
+        )
+        # the only difference should be in torsions with a 0 barrier height which are excluded from an offxml
+        for item in offxml_diff["iterable_item_removed"].values():
+            assert item["@k"] == "0"
+
+        # load both systems and compute the energy
+        qubekit_top = load_topology(
+            mol.to_openmm_topology(),
+            system=qubekit_system,
+            xyz=mol.openmm_coordinates(),
+        )
+        qubekit_energy = energy_decomposition_system(
+            qubekit_top, qubekit_system, platform="Reference"
+        )
+
+        ref_system = XmlSerializer.deserializeSystem(open("serialised.xml").read())
+        parm_top = load_topology(
+            mol.to_openmm_topology(), system=ref_system, xyz=mol.openmm_coordinates()
+        )
+        ref_energy = energy_decomposition_system(
+            parm_top, ref_system, platform="Reference"
+        )
+        # compare the decomposed energies of the groups
+        for force_group, energy in ref_energy:
+            for qube_force, qube_e in qubekit_energy:
+                if force_group == qube_force:
+                    assert energy == pytest.approx(qube_e, abs=2e-3)
+
+
+def test_offxml_sites(xml, tmpdir):
+    """Make sure an error is raised when we try to create an offxml for a molecule with a virtual site"""
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data("pyridine.pdb"))
+        xml.run(
+            mol,
+            input_files=[
+                get_data("pyridine.xml"),
+            ],
+        )
+
+        assert mol.extra_sites.n_sites == 1
+
+        with pytest.raises(NotImplementedError):
+            mol.to_offxml("test.offxml")

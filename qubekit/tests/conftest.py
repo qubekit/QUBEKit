@@ -27,7 +27,7 @@ def antechamber():
 
 @pytest.fixture()
 def openff():
-    return OpenFF(force_field="openff_unconstrained-1.3.0.offxml")
+    return OpenFF(force_field="openff_unconstrained-2.0.0.offxml")
 
 
 @pytest.fixture()

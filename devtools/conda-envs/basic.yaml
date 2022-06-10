@@ -35,3 +35,4 @@ dependencies:
   - torchani
   - ambertools
   - optking
+  - chemper
