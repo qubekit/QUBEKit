@@ -12,6 +12,7 @@ from qubekit.cli.combine import (
     _combine_molecules,
     _find_molecules_and_rfrees,
     _get_eval_string,
+    _get_eval_string_offxml,
     _get_parameter_code,
     _update_increment,
     combine,
@@ -117,6 +118,56 @@ def test_get_eval_string(atom, a_and_b, rfree_code, expected, coumarin):
     rfree_data = {"v_free": 34.4, "b_free": 46.6, "r_free": 2}  # carbon
 
     eval_string = _get_eval_string(
+        atom=coumarin.atoms[atom],
+        rfree_data=rfree_data,
+        a_and_b=a_and_b,
+        rfree_code=rfree_code,
+        alpha_ref="1.32",
+        beta_ref="0.469",
+    )
+    assert eval_string == expected, print(eval_string)
+
+
+@pytest.mark.parametrize(
+    "atom, a_and_b, rfree_code, expected",
+    [
+        pytest.param(
+            1,
+            True,
+            "C",
+            f"epsilon=(PARM['vdW/alpha']*46.6*(21.129491/34.4)**PARM['vdW/beta'])/(128*PARM['vdW/cfree']**6)*{constants.EPSILON_CONVERSION}, sigma=2**(5/6)*(21.129491/34.4)**(1/3)*PARM['vdW/cfree']*{constants.SIGMA_CONVERSION}",
+            id="AB Rfree",
+        ),
+        pytest.param(
+            1,
+            False,
+            "C",
+            f"epsilon=(1.32*46.6*(21.129491/34.4)**0.469)/(128*PARM['vdW/cfree']**6)*{constants.EPSILON_CONVERSION}, sigma=2**(5/6)*(21.129491/34.4)**(1/3)*PARM['vdW/cfree']*{constants.SIGMA_CONVERSION}",
+            id="No AB Rfree",
+        ),
+        pytest.param(
+            1,
+            True,
+            None,
+            f"epsilon=(PARM['vdW/alpha']*46.6*(21.129491/34.4)**PARM['vdW/beta'])/(128*2**6)*{constants.EPSILON_CONVERSION}, sigma=2**(5/6)*(21.129491/34.4)**(1/3)*2*{constants.SIGMA_CONVERSION}",
+            id="AB No Rfree",
+        ),
+        pytest.param(
+            1,
+            False,
+            None,
+            f"epsilon=(1.32*46.6*(21.129491/34.4)**0.469)/(128*2**6)*{constants.EPSILON_CONVERSION}, sigma=2**(5/6)*(21.129491/34.4)**(1/3)*2*{constants.SIGMA_CONVERSION}",
+            id="No AB No Rfree",
+        ),
+    ],
+)
+def test_get_eval_string_offxml(atom, a_and_b, rfree_code, expected, coumarin):
+    """
+    Test generating the eval string for an offxml with different settings.
+    """
+    rfree_data = {"v_free": 34.4, "b_free": 46.6, "r_free": 2}  # carbon
+
+    eval_string = _get_eval_string_offxml(
         atom=coumarin.atoms[atom],
         rfree_data=rfree_data,
         a_and_b=a_and_b,

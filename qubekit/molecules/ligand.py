@@ -832,6 +832,9 @@ class Molecule(SchemaBase):
     def improper_types(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
         """Using the atom symmetry types work out the improper types."""
 
+        if self.n_improper_torsions == 0:
+            return {}
+
         atom_types = self.atom_types
         improper_symmetry_classes = {}
         for dihedral in self.improper_torsions:
@@ -1353,6 +1356,13 @@ class Ligand(Molecule):
         Note:
             There are a limited number of currently supported potentials in openff without using smirnoff-plugins.
         """
+        offxml = self._build_offxml()
+        offxml.to_file(filename=file_name)
+
+    def _build_offxml(self):
+        """
+        Build the offxml force field from the molecule parameters.
+        """
         from openff.toolkit.typing.engines.smirnoff import ForceField
 
         if self.extra_sites.n_sites > 0:
@@ -1452,7 +1462,7 @@ class Ligand(Molecule):
                 mols=[rdkit_mol], smirks_atoms_lists=[impropers], layers="all"
             )
             qube_improper = self.ImproperTorsionForce[torsions[0]]
-            # we need to divide each k value by as they will be applied as trefoil see
+            # we need to multiply each k value by as they will be applied as trefoil see
             # <https://openforcefield.github.io/standards/standards/smirnoff/#impropertorsions> for more details
             # we assume we only have a k2 term for improper torsions via a periodic term
             improper_torsions.add_parameter(
@@ -1492,4 +1502,4 @@ class Ligand(Molecule):
         charge_data["smirks"] = self.to_smiles(mapped=True)
         library_charges.add_parameter(parameter_kwargs=charge_data)
 
-        offxml.to_file(filename=file_name)
+        return offxml

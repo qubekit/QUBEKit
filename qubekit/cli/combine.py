@@ -38,8 +38,18 @@ parameters_to_fit = click.Choice(
     default=False,
     help="If the xmls should be combined with no optimisation targets, this option is useful for Forcebalance single point evaluations.",
 )
+@click.option(
+    "-offxml",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Make an offxml style force field if possible.",
+)
 def combine(
-    filename: str, parameters: Optional[List[str]] = None, no_targets: bool = False
+    filename: str,
+    parameters: Optional[List[str]] = None,
+    no_targets: bool = False,
+    offxml: bool = False,
 ):
     """
     Combine a list of molecules together and create a single master XML force field file.
@@ -56,15 +66,250 @@ def combine(
     elif no_targets:
         parameters = []
 
-    xml_data = _combine_molecules(
-        molecules=molecules, rfree_data=rfrees, parameters=parameters
-    ).getroot()
-    messy = ET.tostring(xml_data, "utf-8")
+    if offxml:
+        _combine_molecules_offxml(
+            molecules, rfree_data=rfrees, parameters=parameters, filename=filename
+        )
 
-    pretty_xml = parseString(messy).toprettyxml(indent="")
+    else:
+        xml_data = _combine_molecules(
+            molecules=molecules, rfree_data=rfrees, parameters=parameters
+        ).getroot()
+        messy = ET.tostring(xml_data, "utf-8")
 
-    with open(filename, "w") as xml_doc:
-        xml_doc.write(pretty_xml)
+        pretty_xml = parseString(messy).toprettyxml(indent="")
+
+        with open(filename, "w") as xml_doc:
+            xml_doc.write(pretty_xml)
+
+
+def _get_eval_string_offxml(
+    atom: "Atom",
+    rfree_data: Dict[str, str],
+    a_and_b: bool,
+    alpha_ref: str,
+    beta_ref: str,
+    rfree_code: Optional[str] = None,
+) -> str:
+    """
+    Create the parameter eval string used by ForceBalance to calculate the sigma and epsilon parameters.
+    """
+
+    if a_and_b:
+        alpha = "PARM['vdW/alpha']"
+        beta = "PARM['vdW/beta']"
+    else:
+        alpha, beta = alpha_ref, beta_ref
+    if rfree_code is not None:
+        rfree = f"PARM['vdW/{rfree_code.lower()}free']"
+    else:
+        rfree = f"{rfree_data['r_free']}"
+
+    eval_string = (
+        f"epsilon=({alpha}*{rfree_data['b_free']}*({atom.aim.volume}/{rfree_data['v_free']})**{beta})/(128*{rfree}**6)*{constants.EPSILON_CONVERSION}, "
+        f"sigma=2**(5/6)*({atom.aim.volume}/{rfree_data['v_free']})**(1/3)*{rfree}*{constants.SIGMA_CONVERSION}"
+    )
+
+    return eval_string
+
+
+def _combine_molecules_offxml(
+    molecules: List["Ligand"],
+    parameters: List[str],
+    rfree_data: Dict[str, Dict[str, Union[str, float]]],
+    filename: str,
+):
+    """
+    Main worker function to build the combined offxmls.
+    """
+    from openff.toolkit.typing.engines.smirnoff import ForceField
+    from openmm import unit  # make openmm imports consistent
+
+    if sum([molecule.extra_sites.n_sites for molecule in molecules]) > 0:
+        raise NotImplementedError(
+            "Virtual sites can not be safely converted into offxml format yet."
+        )
+
+    if sum([molecule.RBTorsionForce.n_parameters for molecule in molecules]) > 0:
+        raise NotImplementedError(
+            "RBTorsions can not yet be safely converted into offxml format yet."
+        )
+
+    try:
+        from chemper.graphs.cluster_graph import ClusterGraph
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "chemper is required to make an offxml, please install with `conda install chemper -c conda-forge`."
+        )
+
+    fit_ab = False
+    # if alpha and beta should be fit
+    if "AB" in parameters:
+        fit_ab = True
+
+    rfree_codes = set()  # keep track of all rfree codes used by these molecules
+    # create the master ff
+    offxml = ForceField(allow_cosmetic_attributes=True)
+    offxml.author = f"QUBEKit_version_{qubekit.__version__}"
+    offxml.date = datetime.now().strftime("%Y_%m_%d")
+    # get all of the handlers
+    bond_handler = offxml.get_parameter_handler("Bonds")
+    angle_handler = offxml.get_parameter_handler("Angles")
+    proper_torsions = offxml.get_parameter_handler("ProperTorsions")
+    improper_torsions = offxml.get_parameter_handler("ImproperTorsions")
+    _ = offxml.get_parameter_handler(
+        "Electrostatics", handler_kwargs={"scale14": 0.8333333333, "version": 0.3}
+    )
+    # we need cosmetic terms to hide our Rfrees
+    vdw_handler = offxml.get_parameter_handler("vdW", allow_cosmetic_attributes=True)
+    library_charges = offxml.get_parameter_handler("LibraryCharges")
+
+    for molecule in molecules:
+        rdkit_mol = molecule.to_rdkit()
+        bond_types = molecule.bond_types
+        # for each bond type collection create a single smirks pattern
+        for bonds in bond_types.values():
+            graph = ClusterGraph(
+                mols=[rdkit_mol], smirks_atoms_lists=[bonds], layers="all"
+            )
+            qube_bond = molecule.BondForce[bonds[0]]
+            bond_handler.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "length": qube_bond.length * unit.nanometers,
+                    "k": qube_bond.k * unit.kilojoule_per_mole / unit.nanometers**2,
+                }
+            )
+
+        angle_types = molecule.angle_types
+        for angles in angle_types.values():
+            graph = ClusterGraph(
+                mols=[rdkit_mol],
+                smirks_atoms_lists=[angles],
+                layers="all",
+            )
+            qube_angle = molecule.AngleForce[angles[0]]
+            angle_handler.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "angle": qube_angle.angle * unit.radian,
+                    "k": qube_angle.k * unit.kilojoule_per_mole / unit.radians**2,
+                }
+            )
+
+        torsion_types = molecule.dihedral_types
+        for dihedrals in torsion_types.values():
+            graph = ClusterGraph(
+                mols=[rdkit_mol],
+                smirks_atoms_lists=[dihedrals],
+                layers="all",
+            )
+            qube_dihedral = molecule.TorsionForce[dihedrals[0]]
+            proper_torsions.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
+                    "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
+                    "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
+                    "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
+                    "periodicity1": qube_dihedral.periodicity1,
+                    "periodicity2": qube_dihedral.periodicity2,
+                    "periodicity3": qube_dihedral.periodicity3,
+                    "periodicity4": qube_dihedral.periodicity4,
+                    "phase1": qube_dihedral.phase1 * unit.radians,
+                    "phase2": qube_dihedral.phase2 * unit.radians,
+                    "phase3": qube_dihedral.phase3 * unit.radians,
+                    "phase4": qube_dihedral.phase4 * unit.radians,
+                    "idivf1": 1,
+                    "idivf2": 1,
+                    "idivf3": 1,
+                    "idivf4": 1,
+                }
+            )
+
+        improper_types = molecule.improper_types
+        for torsions in improper_types.values():
+            impropers = [
+                (improper[1], improper[0], *improper[2:]) for improper in torsions
+            ]
+            graph = ClusterGraph(
+                mols=[rdkit_mol], smirks_atoms_lists=[impropers], layers="all"
+            )
+            qube_improper = molecule.ImproperTorsionForce[torsions[0]]
+            # we need to multiply each k value by as they will be applied as trefoil see
+            # <https://openforcefield.github.io/standards/standards/smirnoff/#impropertorsions> for more details
+            # we assume we only have a k2 term for improper torsions via a periodic term
+            improper_torsions.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "k1": qube_improper.k2 * 3 * unit.kilojoule_per_mole,
+                    "periodicity1": qube_improper.periodicity2,
+                    "phase1": qube_improper.phase2 * unit.radians,
+                }
+            )
+
+        atom_types = {}
+        for atom_index, cip_type in molecule.atom_types.items():
+            atom_types.setdefault(cip_type, []).append((atom_index,))
+        for sym_set in atom_types.values():
+            graph = ClusterGraph(
+                mols=[rdkit_mol], smirks_atoms_lists=[sym_set], layers="all"
+            )
+            qube_non_bond = molecule.NonbondedForce[sym_set[0]]
+            rfree_code = _get_parameter_code(
+                molecule=molecule, atom_index=sym_set[0][0]
+            )
+            atom_data = {
+                "smirks": graph.as_smirks(),
+                "epsilon": qube_non_bond.epsilon * unit.kilojoule_per_mole,
+                "sigma": qube_non_bond.sigma * unit.nanometers,
+            }
+
+            if rfree_code in parameters or fit_ab:
+                # keep track of present codes to optimise
+                rfree_codes.add(rfree_code)
+                # this is to be refit
+                atom = molecule.atoms[qube_non_bond.atoms[0]]
+                eval_string = _get_eval_string_offxml(
+                    atom=atom,
+                    rfree_data=rfree_data[rfree_code],
+                    a_and_b=fit_ab,
+                    alpha_ref=rfree_data["alpha"],
+                    beta_ref=rfree_data["beta"],
+                    rfree_code=rfree_code if rfree_code in parameters else None,
+                )
+                atom_data["parameter_eval"] = eval_string
+                atom_data["volume"] = str(atom.aim.volume)
+                atom_data["bfree"] = str(rfree_data[rfree_code]["b_free"])
+                atom_data["vfree"] = str(rfree_data[rfree_code]["v_free"])
+                atom_data["allow_cosmetic_attributes"] = True
+
+            vdw_handler.add_parameter(parameter_kwargs=atom_data)
+
+        charge_data = dict(
+            (f"charge{param.atoms[0] + 1}", param.charge * unit.elementary_charge)
+            for param in molecule.NonbondedForce
+        )
+        charge_data["smirks"] = molecule.to_smiles(mapped=True)
+        library_charges.add_parameter(parameter_kwargs=charge_data)
+
+    # now loop over all the parameters to be fit and add them as cosmetic attributes
+    to_parameterize = []
+    for parameter_to_fit in parameters:
+        if parameter_to_fit != "AB" and parameter_to_fit in rfree_codes:
+            vdw_handler.add_cosmetic_attribute(
+                f"{parameter_to_fit.lower()}free",
+                rfree_data[parameter_to_fit]["r_free"],
+            )
+            to_parameterize.append(f"{parameter_to_fit.lower()}free")
+    if fit_ab:
+        vdw_handler.add_cosmetic_attribute("alpha", str(rfree_data["alpha"]))
+        vdw_handler.add_cosmetic_attribute("beta", str(rfree_data["beta"]))
+        to_parameterize.extend(["alpha", "beta"])
+    if to_parameterize:
+        vdw_handler.add_cosmetic_attribute("parameterize", ", ".join(to_parameterize))
+
+    offxml.to_file(filename=filename)
 
 
 def _combine_molecules(
