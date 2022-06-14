@@ -547,7 +547,9 @@ class Molecule(SchemaBase):
         for parameter_key in parameter_keys:
             force_group.create_parameter(atoms=parameter_key, **raw_parameter_values)
 
-    def measure_dihedrals(self) -> Optional[Dict[Tuple[int, int, int, int], float]]:
+    def measure_dihedrals(
+        self,
+    ) -> Optional[Dict[Tuple[int, int, int, int], np.ndarray]]:
         """
         For the given conformation measure the dihedrals in the topology in degrees.
         """
@@ -568,7 +570,7 @@ class Molecule(SchemaBase):
 
         return dih_phis
 
-    def measure_angles(self) -> Optional[Dict[Tuple[int, int, int], float]]:
+    def measure_angles(self) -> Optional[Dict[Tuple[int, int, int], np.ndarray]]:
         """
         For the given conformation measure the angles in the topology in degrees.
         """
@@ -829,6 +831,9 @@ class Molecule(SchemaBase):
     @property
     def improper_types(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
         """Using the atom symmetry types work out the improper types."""
+
+        if self.n_improper_torsions == 0:
+            return {}
 
         atom_types = self.atom_types
         improper_symmetry_classes = {}
@@ -1342,3 +1347,159 @@ class Ligand(Molecule):
             else:
                 coords = input_data.coords
         self.coordinates = coords
+
+    def to_offxml(self, file_name: str):
+        """
+        Build an offxml for the molecule and raise an error if we do not think this will be possible due to the presence
+        of v-sites or if the potential can not be accurately transferred to an equivalent openff potential.
+
+        Note:
+            There are a limited number of currently supported potentials in openff without using smirnoff-plugins.
+        """
+        offxml = self._build_offxml()
+        offxml.to_file(filename=file_name)
+
+    def _build_offxml(self):
+        """
+        Build the offxml force field from the molecule parameters.
+        """
+        from openff.toolkit.typing.engines.smirnoff import ForceField
+
+        if self.extra_sites.n_sites > 0:
+            raise NotImplementedError(
+                "Virtual sites can not be safely converted into offxml format yet."
+            )
+        if (
+            self.RBTorsionForce.n_parameters > 0
+            or self.ImproperRBTorsionForce.n_parameters > 0
+        ):
+            raise NotImplementedError(
+                "RBTorsions can not yet be safely converted into offxml format yet."
+            )
+
+        try:
+            from chemper.graphs.cluster_graph import ClusterGraph
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "chemper is required to make an offxml, please install with `conda install chemper -c conda-forge`."
+            )
+
+        offxml = ForceField(allow_cosmetic_attributes=True)
+        offxml.author = f"QUBEKit_version_{qubekit.__version__}"
+        offxml.date = datetime.now().strftime("%Y_%m_%d")
+        rdkit_mol = self.to_rdkit()
+        # Now loop over each potential function and translate the terms to the openff format
+        bond_handler = offxml.get_parameter_handler("Bonds")
+        bond_types = self.bond_types
+        # for each bond type collection create a single smirks pattern
+        for bonds in bond_types.values():
+            graph = ClusterGraph(
+                mols=[rdkit_mol], smirks_atoms_lists=[bonds], layers="all"
+            )
+            qube_bond = self.BondForce[bonds[0]]
+            bond_handler.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "length": qube_bond.length * unit.nanometers,
+                    "k": qube_bond.k * unit.kilojoule_per_mole / unit.nanometers**2,
+                }
+            )
+
+        angle_handler = offxml.get_parameter_handler("Angles")
+        angle_types = self.angle_types
+        for angles in angle_types.values():
+            graph = ClusterGraph(
+                mols=[rdkit_mol],
+                smirks_atoms_lists=[angles],
+                layers="all",
+            )
+            qube_angle = self.AngleForce[angles[0]]
+            angle_handler.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "angle": qube_angle.angle * unit.radian,
+                    "k": qube_angle.k * unit.kilojoule_per_mole / unit.radians**2,
+                }
+            )
+
+        proper_torsions = offxml.get_parameter_handler("ProperTorsions")
+        torsion_types = self.dihedral_types
+        for dihedrals in torsion_types.values():
+            graph = ClusterGraph(
+                mols=[rdkit_mol],
+                smirks_atoms_lists=[dihedrals],
+                layers="all",
+            )
+            qube_dihedral = self.TorsionForce[dihedrals[0]]
+            proper_torsions.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
+                    "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
+                    "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
+                    "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
+                    "periodicity1": qube_dihedral.periodicity1,
+                    "periodicity2": qube_dihedral.periodicity2,
+                    "periodicity3": qube_dihedral.periodicity3,
+                    "periodicity4": qube_dihedral.periodicity4,
+                    "phase1": qube_dihedral.phase1 * unit.radians,
+                    "phase2": qube_dihedral.phase2 * unit.radians,
+                    "phase3": qube_dihedral.phase3 * unit.radians,
+                    "phase4": qube_dihedral.phase4 * unit.radians,
+                    "idivf1": 1,
+                    "idivf2": 1,
+                    "idivf3": 1,
+                    "idivf4": 1,
+                }
+            )
+        improper_torsions = offxml.get_parameter_handler("ImproperTorsions")
+        improper_types = self.improper_types
+        for torsions in improper_types.values():
+            impropers = [
+                (improper[1], improper[0], *improper[2:]) for improper in torsions
+            ]
+            graph = ClusterGraph(
+                mols=[rdkit_mol], smirks_atoms_lists=[impropers], layers="all"
+            )
+            qube_improper = self.ImproperTorsionForce[torsions[0]]
+            # we need to multiply each k value by as they will be applied as trefoil see
+            # <https://openforcefield.github.io/standards/standards/smirnoff/#impropertorsions> for more details
+            # we assume we only have a k2 term for improper torsions via a periodic term
+            improper_torsions.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "k1": qube_improper.k2 * 3 * unit.kilojoule_per_mole,
+                    "periodicity1": qube_improper.periodicity2,
+                    "phase1": qube_improper.phase2 * unit.radians,
+                }
+            )
+
+        # add a standard Electrostatic tag
+        _ = offxml.get_parameter_handler(
+            "Electrostatics", handler_kwargs={"scale14": 0.8333333333, "version": 0.3}
+        )
+        vdw_handler = offxml.get_parameter_handler("vdW")
+        atom_types = {}
+        for atom_index, cip_type in self.atom_types.items():
+            atom_types.setdefault(cip_type, []).append((atom_index,))
+        for sym_set in atom_types.values():
+            graph = ClusterGraph(
+                mols=[rdkit_mol], smirks_atoms_lists=[sym_set], layers="all"
+            )
+            qube_non_bond = self.NonbondedForce[sym_set[0]]
+            vdw_handler.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "epsilon": qube_non_bond.epsilon * unit.kilojoule_per_mole,
+                    "sigma": qube_non_bond.sigma * unit.nanometers,
+                }
+            )
+        library_charges = offxml.get_parameter_handler("LibraryCharges")
+        charge_data = dict(
+            (f"charge{param.atoms[0] + 1}", param.charge * unit.elementary_charge)
+            for param in self.NonbondedForce
+        )
+        charge_data["smirks"] = self.to_smiles(mapped=True)
+        library_charges.add_parameter(parameter_kwargs=charge_data)
+
+        return offxml
