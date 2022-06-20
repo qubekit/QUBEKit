@@ -96,12 +96,12 @@ def _get_eval_string_offxml(
     """
 
     if a_and_b:
-        alpha = "PARM['/vdW/alpha']"
-        beta = "PARM['/vdW/beta']"
+        alpha = "PARM['/QUBEKitvdW/alpha']"
+        beta = "PARM['/QUBEKitvdW/beta']"
     else:
         alpha, beta = alpha_ref, beta_ref
     if rfree_code is not None:
-        rfree = f"PARM['/vdW/{rfree_code.lower()}free']"
+        rfree = f"PARM['/QUBEKitvdW/{rfree_code.lower()}free']"
     else:
         rfree = f"{rfree_data['r_free']}"
 
