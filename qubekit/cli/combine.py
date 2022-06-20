@@ -160,8 +160,15 @@ def _combine_molecules_offxml(
     _ = offxml.get_parameter_handler(
         "Electrostatics", handler_kwargs={"scale14": 0.8333333333, "version": 0.3}
     )
-    # we need cosmetic terms to hide our Rfrees
-    vdw_handler = offxml.get_parameter_handler("vdW", allow_cosmetic_attributes=True)
+    if parameters:
+        # if we want to optimise the Rfree we need our custom handler
+        vdw_handler = offxml.get_parameter_handler(
+            "QUBEKitvdW", allow_cosmetic_attributes=True
+        )
+    else:
+        vdw_handler = offxml.get_parameter_handler(
+            "vdW", allow_cosmetic_attributes=True
+        )
     library_charges = offxml.get_parameter_handler("LibraryCharges")
 
     for molecule in molecules:
@@ -297,14 +304,15 @@ def _combine_molecules_offxml(
     to_parameterize = []
     for parameter_to_fit in parameters:
         if parameter_to_fit != "AB" and parameter_to_fit in rfree_codes:
-            vdw_handler.add_cosmetic_attribute(
+            setattr(
+                vdw_handler,
                 f"{parameter_to_fit.lower()}free",
-                rfree_data[parameter_to_fit]["r_free"],
+                rfree_data[parameter_to_fit]["r_free"] * unit.angstroms,
             )
             to_parameterize.append(f"{parameter_to_fit.lower()}free")
     if fit_ab:
-        vdw_handler.add_cosmetic_attribute("alpha", str(rfree_data["alpha"]))
-        vdw_handler.add_cosmetic_attribute("beta", str(rfree_data["beta"]))
+        vdw_handler.alpha = rfree_data["alpha"] * unit.angstroms
+        vdw_handler.beta = rfree_data["beta"] * unit.angstroms
         to_parameterize.extend(["alpha", "beta"])
     if to_parameterize:
         vdw_handler.add_cosmetic_attribute("parameterize", ", ".join(to_parameterize))
