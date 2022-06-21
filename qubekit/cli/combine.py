@@ -149,7 +149,7 @@ def _combine_molecules_offxml(
 
     rfree_codes = set()  # keep track of all rfree codes used by these molecules
     # create the master ff
-    offxml = ForceField(allow_cosmetic_attributes=True)
+    offxml = ForceField(allow_cosmetic_attributes=True, load_plugins=True)
     offxml.author = f"QUBEKit_version_{qubekit.__version__}"
     offxml.date = datetime.now().strftime("%Y_%m_%d")
     # get all of the handlers
@@ -268,8 +268,6 @@ def _combine_molecules_offxml(
             )
             atom_data = {
                 "smirks": graph.as_smirks(),
-                "epsilon": qube_non_bond.epsilon * unit.kilojoule_per_mole,
-                "sigma": qube_non_bond.sigma * unit.nanometers,
             }
 
             if rfree_code in parameters or fit_ab:
@@ -277,19 +275,22 @@ def _combine_molecules_offxml(
                 rfree_codes.add(rfree_code)
                 # this is to be refit
                 atom = molecule.atoms[qube_non_bond.atoms[0]]
-                eval_string = _get_eval_string_offxml(
-                    atom=atom,
-                    rfree_data=rfree_data[rfree_code],
-                    a_and_b=fit_ab,
-                    alpha_ref=rfree_data["alpha"],
-                    beta_ref=rfree_data["beta"],
-                    rfree_code=rfree_code if rfree_code in parameters else None,
-                )
-                atom_data["parameter_eval"] = eval_string
-                atom_data["volume"] = str(atom.aim.volume)
-                atom_data["bfree"] = str(rfree_data[rfree_code]["b_free"])
-                atom_data["vfree"] = str(rfree_data[rfree_code]["v_free"])
-                atom_data["allow_cosmetic_attributes"] = True
+                # eval_string = _get_eval_string_offxml(
+                #     atom=atom,
+                #     rfree_data=rfree_data[rfree_code],
+                #     a_and_b=fit_ab,
+                #     alpha_ref=rfree_data["alpha"],
+                #     beta_ref=rfree_data["beta"],
+                #     rfree_code=rfree_code if rfree_code in parameters else None,
+                # )
+                # atom_data["parameter_eval"] = eval_string
+                atom_data["volume"] = atom.aim.volume * unit.angstroms**3
+                # atom_data["bfree"] = str(rfree_data[rfree_code]["b_free"])
+                # atom_data["vfree"] = str(rfree_data[rfree_code]["v_free"])
+                # atom_data["allow_cosmetic_attributes"] = True
+            else:
+                atom_data["epsilon"] = qube_non_bond.epsilon * unit.kilojoule_per_mole
+                atom_data["sigma"] = qube_non_bond.sigma * unit.nanometers
 
             vdw_handler.add_parameter(parameter_kwargs=atom_data)
 
@@ -311,8 +312,8 @@ def _combine_molecules_offxml(
             )
             to_parameterize.append(f"{parameter_to_fit.lower()}free")
     if fit_ab:
-        vdw_handler.alpha = rfree_data["alpha"] * unit.angstroms
-        vdw_handler.beta = rfree_data["beta"] * unit.angstroms
+        vdw_handler.alpha = rfree_data["alpha"]
+        vdw_handler.beta = rfree_data["beta"]
         to_parameterize.extend(["alpha", "beta"])
     if to_parameterize:
         vdw_handler.add_cosmetic_attribute("parameterize", ", ".join(to_parameterize))
