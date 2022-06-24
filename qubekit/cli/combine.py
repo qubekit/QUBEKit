@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 from xml.dom.minidom import parseString
 
 import click
+from openff.toolkit.typing.engines.smirnoff import ForceField
+from openmm import unit
+from typing_extensions import Literal
 
 import qubekit
 from qubekit.utils import constants
@@ -19,6 +22,8 @@ parameters_to_fit = click.Choice(
     elements,
     case_sensitive=True,
 )
+water_models = ["tip3p"]
+water_options = click.Choice(water_models, case_sensitive=True)
 
 
 @click.command()
@@ -45,11 +50,20 @@ parameters_to_fit = click.Choice(
     show_default=True,
     help="Make an offxml style force field if possible.",
 )
+@click.option(
+    "-w",
+    "--water-model",
+    type=water_options,
+    help="The name of the water model to include in an offxml.",
+    show_default=True,
+    default="tip3p",
+)
 def combine(
     filename: str,
     parameters: Optional[List[str]] = None,
     no_targets: bool = False,
     offxml: bool = False,
+    water_model: str = "tip3p",
 ):
     """
     Combine a list of molecules together and create a single master XML force field file.
@@ -68,7 +82,11 @@ def combine(
 
     if offxml:
         _combine_molecules_offxml(
-            molecules, rfree_data=rfrees, parameters=parameters, filename=filename
+            molecules,
+            rfree_data=rfrees,
+            parameters=parameters,
+            filename=filename,
+            water_model=water_model,
         )
 
     else:
@@ -83,34 +101,85 @@ def combine(
             xml_doc.write(pretty_xml)
 
 
-def _get_eval_string_offxml(
-    atom: "Atom",
-    rfree_data: Dict[str, str],
-    a_and_b: bool,
-    alpha_ref: str,
-    beta_ref: str,
-    rfree_code: Optional[str] = None,
-) -> str:
-    """
-    Create the parameter eval string used by ForceBalance to calculate the sigma and epsilon parameters.
-    """
-
-    if a_and_b:
-        alpha = "PARM['/QUBEKitvdW/alpha']"
-        beta = "PARM['/QUBEKitvdW/beta']"
-    else:
-        alpha, beta = alpha_ref, beta_ref
-    if rfree_code is not None:
-        rfree = f"PARM['/QUBEKitvdW/{rfree_code.lower()}free']"
-    else:
-        rfree = f"{rfree_data['r_free']}"
-
-    eval_string = (
-        f"epsilon=({alpha}*{rfree_data['b_free']}*({atom.aim.volume}/{rfree_data['v_free']})**{beta})/(128*{rfree}**6)*{constants.EPSILON_CONVERSION}, "
-        f"sigma=2**(5/6)*({atom.aim.volume}/{rfree_data['v_free']})**(1/3)*{rfree}*{constants.SIGMA_CONVERSION}"
+def _add_water_model(
+    force_field: ForceField, using_plugin: bool, water_model: Literal["tip3p"] = "tip3p"
+):
+    """Add a water model to an offxml force field"""
+    # add generic bond and angle smirks which will only hit water
+    bond_handler = force_field.get_parameter_handler("Bonds")
+    bond_handler.add_parameter(
+        parameter_kwargs={
+            "smirks": "[#1:1]-[#8X2H2+0:2]-[#1]",
+            "k": 1087.053566377 * unit.kilocalorie_per_mole / unit.angstroms**2,
+            "length": 0.9572 * unit.angstroms,
+        }
+    )
+    angle_handler = force_field.get_parameter_handler("Angles")
+    angle_handler.add_parameter(
+        parameter_kwargs={
+            "smirks": "[#1:1]-[#8X2H2+0:2]-[#1:3]",
+            "k": 130.181232192 * unit.kilocalorie_per_mole / unit.radian**2,
+            "angle": 110.3538806181 * unit.degree,
+        }
     )
 
-    return eval_string
+    if water_model == "tip3p":
+        constrains = force_field.get_parameter_handler("Constraints")
+        constrains.add_parameter(
+            parameter_kwargs={
+                "smirks": "[#1:1]-[#8X2H2+0:2]-[#1]",
+                "id": "c-tip3p-H-O",
+                "distance": 0.9572 * unit.angstroms,
+            }
+        )
+        constrains.add_parameter(
+            parameter_kwargs={
+                "smirks": "[#1:1]-[#8X2H2+0]-[#1:2]",
+                "id": "c-tip3p-H-O-H",
+                "distance": 1.5139006545247014 * unit.angstroms,
+            }
+        )
+        if using_plugin:
+            # if we are using the pluing to optimise the molecule we need a secial vdw handler
+            vdw_handler = force_field.get_parameter_handler("QUBEKitvdW")
+        else:
+            vdw_handler = force_field.get_parameter_handler("vdW")
+
+        vdw_handler.add_parameter(
+            parameter_kwargs={
+                "smirks": "[#1]-[#8X2H2+0:1]-[#1]",
+                "epsilon": 0.1521 * unit.kilocalorie_per_mole,
+                "id": "n-tip3p-O",
+                "sigma": 3.1507 * unit.angstroms,
+            }
+        )
+        vdw_handler.add_parameter(
+            parameter_kwargs={
+                "smirks": "[#1:1]-[#8X2H2+0]-[#1]",
+                "epsilon": 0 * unit.kilocalorie_per_mole,
+                "id": "n-tip3p-H",
+                "sigma": 1 * unit.angstroms,
+            }
+        )
+        library_charges = force_field.get_parameter_handler("LibraryCharges")
+        library_charges.add_parameter(
+            parameter_kwargs={
+                "smirks": "[#1]-[#8X2H2+0:1]-[#1]",
+                "charge1": -0.834 * unit.elementary_charge,
+                "id": "q-tip3p-O",
+            }
+        )
+        library_charges.add_parameter(
+            parameter_kwargs={
+                "smirks": "[#1:1]-[#8X2H2+0]-[#1]",
+                "charge1": 0.417 * unit.elementary_charge,
+                "id": "q-tip3p-H",
+            }
+        )
+    else:
+        raise NotImplementedError(
+            "Only the tip3p water model is support for offxmls so far."
+        )
 
 
 def _combine_molecules_offxml(
@@ -118,12 +187,11 @@ def _combine_molecules_offxml(
     parameters: List[str],
     rfree_data: Dict[str, Dict[str, Union[str, float]]],
     filename: str,
+    water_model: Literal["tip3p"] = "tip3p",
 ):
     """
     Main worker function to build the combined offxmls.
     """
-    from openff.toolkit.typing.engines.smirnoff import ForceField
-    from openmm import unit  # make openmm imports consistent
 
     if sum([molecule.extra_sites.n_sites for molecule in molecules]) > 0:
         raise NotImplementedError(
@@ -153,6 +221,7 @@ def _combine_molecules_offxml(
     offxml.author = f"QUBEKit_version_{qubekit.__version__}"
     offxml.date = datetime.now().strftime("%Y_%m_%d")
     # get all of the handlers
+    _ = offxml.get_parameter_handler("Constraints")
     bond_handler = offxml.get_parameter_handler("Bonds")
     angle_handler = offxml.get_parameter_handler("Angles")
     proper_torsions = offxml.get_parameter_handler("ProperTorsions")
@@ -160,11 +229,13 @@ def _combine_molecules_offxml(
     _ = offxml.get_parameter_handler(
         "Electrostatics", handler_kwargs={"scale14": 0.8333333333, "version": 0.3}
     )
+    using_plugin = False
     if parameters:
         # if we want to optimise the Rfree we need our custom handler
         vdw_handler = offxml.get_parameter_handler(
-            "QUBEKitvdW", allow_cosmetic_attributes=True
+            "QUBEKitvdWTS", allow_cosmetic_attributes=True
         )
+        using_plugin = True
     else:
         vdw_handler = offxml.get_parameter_handler(
             "vdW", allow_cosmetic_attributes=True
@@ -273,21 +344,10 @@ def _combine_molecules_offxml(
             if rfree_code in parameters or fit_ab:
                 # keep track of present codes to optimise
                 rfree_codes.add(rfree_code)
+            if using_plugin:
                 # this is to be refit
                 atom = molecule.atoms[qube_non_bond.atoms[0]]
-                # eval_string = _get_eval_string_offxml(
-                #     atom=atom,
-                #     rfree_data=rfree_data[rfree_code],
-                #     a_and_b=fit_ab,
-                #     alpha_ref=rfree_data["alpha"],
-                #     beta_ref=rfree_data["beta"],
-                #     rfree_code=rfree_code if rfree_code in parameters else None,
-                # )
-                # atom_data["parameter_eval"] = eval_string
                 atom_data["volume"] = atom.aim.volume * unit.angstroms**3
-                # atom_data["bfree"] = str(rfree_data[rfree_code]["b_free"])
-                # atom_data["vfree"] = str(rfree_data[rfree_code]["v_free"])
-                # atom_data["allow_cosmetic_attributes"] = True
             else:
                 atom_data["epsilon"] = qube_non_bond.epsilon * unit.kilojoule_per_mole
                 atom_data["sigma"] = qube_non_bond.sigma * unit.nanometers
@@ -308,7 +368,9 @@ def _combine_molecules_offxml(
             setattr(
                 vdw_handler,
                 f"{parameter_to_fit.lower()}free",
-                rfree_data[parameter_to_fit]["r_free"] * unit.angstroms,
+                unit.Quantity(
+                    rfree_data[parameter_to_fit]["r_free"], unit=unit.angstroms
+                ),
             )
             to_parameterize.append(f"{parameter_to_fit.lower()}free")
     if fit_ab:
@@ -318,6 +380,10 @@ def _combine_molecules_offxml(
     if to_parameterize:
         vdw_handler.add_cosmetic_attribute("parameterize", ", ".join(to_parameterize))
 
+    # now add a water model to the force field
+    _add_water_model(
+        force_field=offxml, water_model=water_model, using_plugin=using_plugin
+    )
     offxml.to_file(filename=filename)
 
 

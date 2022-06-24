@@ -31,7 +31,8 @@ setup(
             "QUBEKit-pro = qubekit.proteins.protein_run:main",
         ],
         "openff.toolkit.plugins.handlers": [
-            "QUBEKitvdW = qubekit.cli.utils:QUBEKitHandler"
+            "QUBEKitvdWTS = qubekit.cli.utils:QUBEKitHandler",
+            "QUBEKitvdW = qubekit.cli.utils:QUBEKitvdWHandler"
         ]
     },
     version=versioneer.get_version(),
