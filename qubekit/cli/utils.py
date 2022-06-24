@@ -121,7 +121,7 @@ class QUBEKitHandler(vdWHandler):
             if ref_mol == water:
                 continue
 
-            # if the molecule is water skip it
+            # if the molecule has no conformer generate one
             if ref_mol.n_conformers == 0:
                 ref_mol.generate_conformers(n_conformers=1)
 

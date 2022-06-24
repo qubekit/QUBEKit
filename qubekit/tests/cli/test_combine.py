@@ -12,6 +12,7 @@ from openmm import XmlSerializer, app, openmm, unit
 import qubekit
 from qubekit.charges import MBISCharges
 from qubekit.cli.combine import (
+    _add_water_model,
     _combine_molecules,
     _combine_molecules_offxml,
     _find_molecules_and_rfrees,
@@ -440,14 +441,32 @@ def test_combine_molecules_deepdiff_offxml(
             assert item["@k"] == "0"
 
 
-def test_molecule_and_water_offxml(coumarin, water, tmpdir, rfree_data):
+@pytest.mark.parametrize(
+    "parameters",
+    [pytest.param([], id="No parameters"), pytest.param(elements, id="All parameters")],
+)
+def test_molecule_and_water_offxml(coumarin, water, tmpdir, rfree_data, parameters):
     """Test that an offxml can parameterize a molecule and water mixture."""
+
+    coumarin_copy = coumarin.copy(deep=True)
+    MBISCharges.apply_symmetrisation(coumarin_copy)
 
     with tmpdir.as_cwd():
 
+        # run the lj method to make sure the parameters match
+        alpha = rfree_data.pop("alpha")
+        beta = rfree_data.pop("beta")
+        lj = LennardJones612(free_parameters=rfree_data, alpha=alpha, beta=beta)
+        # get new Rfree data
+        lj.run(coumarin_copy)
+
+        # remake rfree
+        rfree_data["alpha"] = alpha
+        rfree_data["beta"] = beta
+
         _combine_molecules_offxml(
-            molecules=[coumarin],
-            parameters=[],
+            molecules=[coumarin_copy],
+            parameters=parameters,
             rfree_data=rfree_data,
             filename="combined.offxml",
             water_model="tip3p",
@@ -459,7 +478,7 @@ def test_molecule_and_water_offxml(coumarin, water, tmpdir, rfree_data):
         mixed_top = Topology.from_molecules(
             molecules=[
                 Molecule.from_rdkit(water.to_rdkit()),
-                Molecule.from_rdkit(coumarin.to_rdkit()),
+                Molecule.from_rdkit(coumarin_copy.to_rdkit()),
             ]
         )
         system = combinded_ff.create_openmm_system(topology=mixed_top)
@@ -508,8 +527,8 @@ def test_molecule_and_water_offxml(coumarin, water, tmpdir, rfree_data):
             )
 
         # now check coumarin
-        for i in range(coumarin.n_atoms):
-            ref_params = coumarin.NonbondedForce[(i,)]
+        for i in range(coumarin_copy.n_atoms):
+            ref_params = coumarin_copy.NonbondedForce[(i,)]
             charge, sigma, epsilon = nonbonded_force.getParticleParameters(i + 3)
             assert charge.value_in_unit(unit.elementary_charge) == float(
                 ref_params.charge
@@ -576,3 +595,14 @@ def test_combine_molecules_offxml_plugin_deepdiff(tmpdir, coumarin, rfree_data):
         assert len(coumarin_diff) == 1
         for item in coumarin_diff["iterable_item_added"].values():
             assert item["@k"] == "0"
+
+
+def test_get_water_fail():
+    """Make sure an error is rasied if we requested a non-supported water model"""
+
+    with pytest.raises(NotImplementedError):
+        _add_water_model(
+            ForceField("openff_unconstrained-2.0.0.offxml"),
+            water_model="tip4p",
+            using_plugin=True,
+        )
