@@ -70,7 +70,7 @@ class Hessian(StageBase):
         np.savetxt("hessian.txt", result.return_result)
         molecule.hessian = result.return_result
         if "qcvars" in result.extras:
-            molecule.wbo = result.extras["qcvars"]["WIBERG_LOWDIN_INDICES"]
+            molecule.wbo = result.extras["qcvars"]["WIBERG LOWDIN INDICES"]
         check_symmetry(molecule.hessian)
         return molecule
 
