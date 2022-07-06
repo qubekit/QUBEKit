@@ -140,7 +140,7 @@ def _add_water_model(
             }
         )
         if using_plugin:
-            # if we are using the pluing to optimise the molecule we need a secial vdw handler
+            # if we are using the plugin to optimise the molecule we need a special vdw handler
             vdw_handler = force_field.get_parameter_handler("QUBEKitvdW")
         else:
             vdw_handler = force_field.get_parameter_handler("vdW")
