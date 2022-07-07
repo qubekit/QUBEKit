@@ -1036,7 +1036,7 @@ class Ligand(Molecule):
     wbo: Optional[Array[float]] = Field(
         None, description="The WBO matrix calculated at the QM optimised geometry."
     )
-    fragments: Optional[Dict[Molecule, Tuple[int, int]]] = Field(
+    fragments: Optional[Dict[str, Tuple[int, int]]] = Field(
         None,
         description="Fragments in the molecule with the bonds around which the fragments were built.",
     )
