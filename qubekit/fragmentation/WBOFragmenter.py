@@ -44,21 +44,23 @@ class WBOFragmenter(StageBase):
 
         fragmenter = WBOFragmenter()
 
+        # convert to an OpenFF Molecule
         mapped_smiles = molecule.to_smiles(mapped=True)
         off_molecule: OFFMolecule = OFFMolecule.from_mapped_smiles(mapped_smiles)
 
+        # fragment
         result = fragmenter.fragment(
             off_molecule, target_bond_smarts=self.rotatable_smirks
         )
 
         # deduplicated_result = _deduplicate_fragments(result).json()
 
+        # simpler representation of the fragments
         molecule.fragments = {
-            fragment.smiles: fragment.bond_indices
-            for fragment in result.fragments
+            fragment.smiles: fragment.bond_indices for fragment in result.fragments
         }
 
-        # visualise results
+        # visualise results in a file
         depict_fragmentation_result(result=result, output_file="fragments.html")
 
         return molecule
