@@ -37,6 +37,7 @@ class WBOFragmenter(StageBase):
 
     def run(self, molecule: Ligand, **kwargs) -> Ligand:
         from openff.toolkit.topology import Molecule
+
         # from openff.bespokefit.executor.services.fragmenter.worker import _deduplicate_fragments
         from openff.fragmenter.depiction import depict_fragmentation_result
         from openff.fragmenter.fragment import WBOFragmenter
@@ -46,13 +47,16 @@ class WBOFragmenter(StageBase):
         mapped_smiles = molecule.to_smiles(mapped=True)
         off_molecule: Molecule = Molecule.from_mapped_smiles(mapped_smiles)
 
-        result = fragmenter.fragment(off_molecule, target_bond_smarts=self.rotatable_smirks)
+        result = fragmenter.fragment(
+            off_molecule, target_bond_smarts=self.rotatable_smirks
+        )
 
         # deduplicated_result = _deduplicate_fragments(result).json()
 
-        molecule.fragments = {Ligand.from_smiles(fragment.smiles, 'fragment'): fragment.bond_indices
-                              for fragment
-                              in result.fragments}
+        molecule.fragments = {
+            Ligand.from_smiles(fragment.smiles, "fragment"): fragment.bond_indices
+            for fragment in result.fragments
+        }
 
         # visualise results
         depict_fragmentation_result(result=result, output_file="fragments.html")
