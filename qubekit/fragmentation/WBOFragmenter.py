@@ -26,14 +26,7 @@ class WBOFragmenter(StageBase):
             raise_msg="Please install via `conda install -c conda-forge openff-fragmenter`.",
         )
 
-        bespokefit = which_import(
-            "openff.bespokefit",
-            return_bool=True,
-            raise_error=True,
-            raise_msg="Please install via `conda install -c conda-forge openff-bespokefit`.",
-        )
-
-        return fragmenter and bespokefit
+        return fragmenter
 
     def run(self, molecule: Ligand, **kwargs) -> Ligand:
         from openff.toolkit.topology import Molecule as OFFMolecule
