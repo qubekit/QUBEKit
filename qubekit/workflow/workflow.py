@@ -8,6 +8,7 @@ from typing_extensions import Literal
 import qubekit
 from qubekit.bonded import ModSeminario, QForceHessianFitting
 from qubekit.charges import DDECCharges, MBISCharges
+from qubekit.fragmentation import WBOFragmenter
 from qubekit.molecules import Ligand
 from qubekit.nonbonded import LennardJones612, VirtualSites, get_protocol
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
@@ -29,6 +30,10 @@ class WorkFlow(SchemaBase):
     local_resources: LocalResource = Field(
         LocalResource(),
         description="The local resource options for the workflow like total memory and cores available.",
+    )
+    fragmentation: WBOFragmenter = Field(
+        WBOFragmenter(),
+        description="The fragmenter.",
     )
     parametrisation: Union[OpenFF, XML, AnteChamber] = Field(
         OpenFF(),
@@ -138,6 +143,7 @@ class WorkFlow(SchemaBase):
             A list of stage names in the order they will be ran in.
         """
         normal_workflow = [
+            "fragmentation",
             "parametrisation",
             "optimisation",
             "hessian",
