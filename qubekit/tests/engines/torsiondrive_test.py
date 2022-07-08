@@ -5,11 +5,17 @@ from typing import Any, Dict
 
 import numpy as np
 import pytest
+from torsiondrive import td_api
 
 from qubekit.engines import TorsionDriver, optimise_grid_point
 from qubekit.molecules import Ligand
 from qubekit.utils import constants
-from qubekit.utils.datastructures import LocalResource, QCOptions, TorsionScan
+from qubekit.utils.datastructures import (
+    LocalResource,
+    QCOptions,
+    TDSettings,
+    TorsionScan,
+)
 from qubekit.utils.file_handling import get_data
 
 
@@ -127,7 +133,7 @@ def test_optimise_grid_point_and_update(tmpdir, ethane_state):
 @pytest.mark.parametrize(
     "workers", [pytest.param(1, id="1 worker"), pytest.param(2, id="2 workers")]
 )
-def test_full_tdrive(tmpdir, workers):
+def test_full_tdrive(tmpdir, workers, capsys):
     """
     Try and run a full torsiondrive for ethane with a cheap rdkit method.
     """
@@ -149,6 +155,99 @@ def test_full_tdrive(tmpdir, workers):
             dihedral_data=dihedral_data,
             qc_spec=qc_spec,
             local_options=local_ops,
+        )
+        captured = capsys.readouterr()
+        # make sure a fresh torsiondrive is run
+        assert "Starting new torsiondrive" in captured.out
+
+
+@pytest.mark.parametrize(
+    "qc_options, compatible",
+    [
+        pytest.param(
+            QCOptions(program="rdkit", method="uff", basis=None, td_settings=None),
+            True,
+            id="Compatible",
+        ),
+        pytest.param(
+            QCOptions(program="xtb", method="gfn2xtb", basis=None, td_settings=None),
+            False,
+            id="Wrong program",
+        ),
+        pytest.param(
+            QCOptions(
+                program="rdkit",
+                method="uff",
+                basis=None,
+                td_settings=TDSettings(n_states=3),
+            ),
+            False,
+            id="TD settings",
+        ),
+    ],
+)
+def test_load_old_state(tmpdir, ethane_state, qc_options, compatible):
+    """
+    Make sure we can load and cross-check torsiondrive state files.
+    """
+    with tmpdir.as_cwd():
+        # dump the basic ethane result to file
+        td_api.current_state_json_dump(
+            current_state=ethane_state, jsonfilename="torsiondrive_state.json"
+        )
+        td = TorsionDriver()
+        state = td._load_state(qc_spec=qc_options)
+        if compatible:
+            assert state is not None
+        else:
+            assert state is None
+
+
+def test_tdrive_restarts(capsys, ethane_state, tmpdir):
+    """
+    Make sure that an old torsiondrive is continued when possible from the current state file.
+    """
+    with tmpdir.as_cwd():
+        ethane_state["grid_spacing"] = [
+            60,
+        ]
+        mol = Ligand.from_file(get_data("ethane.sdf"))
+        tdriver = TorsionDriver(n_workers=1, grid_spacing=60)
+        qc_spec = QCOptions(program="rdkit", basis=None, method="uff")
+        local_ops = LocalResource(cores=1, memory=1)
+        geo_opt = tdriver._build_geometry_optimiser()
+        # get the job inputs
+        new_jobs = tdriver._get_new_jobs(td_state=ethane_state)
+        coords = new_jobs["-60"][0]
+        result = optimise_grid_point(
+            geometry_optimiser=geo_opt,
+            qc_spec=qc_spec,
+            local_options=local_ops,
+            molecule=mol,
+            coordinates=coords,
+            dihedral=ethane_state["dihedrals"][0],
+            dihedral_angle=-60,
+            job_id=0,
+        )
+        _ = tdriver._update_state(
+            td_state=ethane_state,
+            result_data=[
+                result,
+            ],
+        )
+        # now start a run and make sure it continues
+        _ = tdriver.run_torsiondrive(
+            molecule=mol,
+            dihedral_data=TorsionScan(
+                torsion=ethane_state["dihedrals"][0], scan_range=(-165, 180)
+            ),
+            qc_spec=qc_spec,
+            local_options=local_ops,
+        )
+        capture = capsys.readouterr()
+        assert (
+            "Compatible TorsionDrive state found restarting torsiondrive!"
+            in capture.out
         )
 
 

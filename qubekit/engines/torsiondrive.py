@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import shutil
 from multiprocessing import Pool
@@ -6,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import tqdm
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 from torsiondrive import td_api
 from typing_extensions import Literal
 
@@ -46,6 +47,50 @@ class TorsionDriver(SchemaBase):
         4,
         description="The number of starting conformations that should be used in the torsiondrive. Note for a molecule with multipule flexible bonds you may need to sample them all.",
     )
+    _td_state_file = PrivateAttr("torsiondrive_state.json")
+
+    def _load_state(self, qc_spec: "QCOptions") -> Optional[Dict[str, Any]]:
+        """
+        Check if there is a compatible td_state file that can be restarted.
+        """
+        if self._td_state_file in os.listdir("."):
+            td_state = json.load(open(self._td_state_file))
+            # now check that the config matches
+            old_spec = td_state["spec"]
+            current_spec = {
+                "program": qc_spec.program.lower(),
+                "method": qc_spec.method.lower(),
+                "basis": None if qc_spec.basis is None else qc_spec.basis.lower(),
+                "td": None
+                if qc_spec.td_settings is None
+                else qc_spec.td_settings.dict(),
+            }
+            if old_spec == current_spec:
+                print("Compatible TorsionDrive state found restarting torsiondrive!")
+                # format the state file and return
+                n_atoms = len(td_state["elements"])
+                format_state = td_state.copy()
+                format_state["init_coords"] = [
+                    np.array(coords).reshape(n_atoms, 3)
+                    for coords in td_state["init_coords"]
+                ]
+                format_state["grid_status"] = dict()
+                for grid_id, grid_jobs in td_state["grid_status"].items():
+                    new_jobs = []
+                    for start_geo, end_geo, final_energy in grid_jobs:
+                        new_jobs.append(
+                            [
+                                np.array(start_geo).reshape(n_atoms, 3),
+                                np.array(end_geo).reshape(n_atoms, 3),
+                                final_energy,
+                            ]
+                        )
+                    format_state["grid_status"][grid_id] = new_jobs
+
+                return format_state
+
+        print("Starting new torsiondrive")
+        return None
 
     def run_torsiondrive(
         self,
@@ -68,12 +113,16 @@ class TorsionDriver(SchemaBase):
         """
         # validate the qc spec
         qc_spec.validate_specification()
-        td_state = self._create_initial_state(
-            molecule=molecule,
-            dihedral_data=dihedral_data,
-            qc_spec=qc_spec,
-            seed_coordinates=seed_coordinates,
-        )
+        # check for an old td_state file to restart
+        td_state = self._load_state(qc_spec=qc_spec)
+        if td_state is None:
+            # no file found so start again
+            td_state = self._create_initial_state(
+                molecule=molecule,
+                dihedral_data=dihedral_data,
+                qc_spec=qc_spec,
+                seed_coordinates=seed_coordinates,
+            )
         return self._run_torsiondrive(
             td_state=td_state,
             molecule=molecule,
@@ -223,7 +272,7 @@ class TorsionDriver(SchemaBase):
         # save to mol
         molecule.add_qm_scan(scan_data=torsion_data)
         # dump the torsiondrive state to file
-        td_api.current_state_json_dump(td_state, "torsiondrive_state.json")
+        self._dump_state(td_state=td_state)
         # now remove all temp folders
         for f in os.listdir("."):
             if os.path.isdir(f):
@@ -285,12 +334,16 @@ class TorsionDriver(SchemaBase):
             energy_decrease_thresh=self.energy_decrease_thresh,
             energy_upper_limit=self.energy_upper_limit,
         )
+        td_dependent_settings = (
+            None if qc_spec.td_settings is None else qc_spec.td_settings.dict()
+        )
         td_state["spec"] = {
             "program": qc_spec.program.lower(),
             "method": qc_spec.method.lower(),
             "basis": qc_spec.basis.lower()
             if qc_spec.basis is not None
             else qc_spec.basis,
+            "td": td_dependent_settings,
         }
         return td_state
 
@@ -345,9 +398,28 @@ class TorsionDriver(SchemaBase):
         # now update the state with results
         td_api.update_state(td_state=td_state, job_results=job_results)
         # save to file
-        td_api.current_state_json_dump(td_state, "torsiondrive_state.json")
+        self._dump_state(td_state=td_state)
 
         return td_state
+
+    def _dump_state(self, td_state: Dict):
+        """
+        Dump the current torsion drive state to json file
+        """
+        dump_state = td_state.copy()
+        dump_state["init_coords"] = [
+            coords.ravel().tolist() for coords in td_state["init_coords"]
+        ]
+        dump_state["grid_status"] = dict()
+        for grid_id, grid_jobs in td_state["grid_status"].items():
+            new_jobs = []
+            for start_geo, end_geo, final_energy in grid_jobs:
+                new_jobs.append(
+                    [start_geo.ravel().tolist(), end_geo.ravel().tolist(), final_energy]
+                )
+            dump_state["grid_status"][grid_id] = new_jobs
+        with open(self._td_state_file, "w") as outfile:
+            json.dump(dump_state, outfile, indent=2)
 
 
 def _build_optimiser_settings(
