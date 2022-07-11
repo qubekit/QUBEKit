@@ -162,15 +162,17 @@ def test_full_tdrive(tmpdir, workers, capsys):
 
 
 @pytest.mark.parametrize(
-    "qc_options, compatible",
+    "qc_options, scan_range, compatible",
     [
         pytest.param(
             QCOptions(program="rdkit", method="uff", basis=None, td_settings=None),
+            (-165, 180),
             True,
             id="Compatible",
         ),
         pytest.param(
             QCOptions(program="xtb", method="gfn2xtb", basis=None, td_settings=None),
+            (-165, 180),
             False,
             id="Wrong program",
         ),
@@ -181,12 +183,19 @@ def test_full_tdrive(tmpdir, workers, capsys):
                 basis=None,
                 td_settings=TDSettings(n_states=3),
             ),
+            (-165, 180),
             False,
             id="TD settings",
         ),
+        pytest.param(
+            QCOptions(program="rdkit", method="uff", basis=None),
+            (0, 180),
+            False,
+            id="Wrong torsion range",
+        ),
     ],
 )
-def test_load_old_state(tmpdir, ethane_state, qc_options, compatible):
+def test_load_old_state(tmpdir, ethane_state, qc_options, scan_range, compatible):
     """
     Make sure we can load and cross-check torsiondrive state files.
     """
@@ -196,7 +205,12 @@ def test_load_old_state(tmpdir, ethane_state, qc_options, compatible):
             current_state=ethane_state, jsonfilename="torsiondrive_state.json"
         )
         td = TorsionDriver()
-        state = td._load_state(qc_spec=qc_options)
+        state = td._load_state(
+            qc_spec=qc_options,
+            torsion_scan=TorsionScan(
+                ethane_state["dihedrals"][0], scan_range=scan_range
+            ),
+        )
         if compatible:
             assert state is not None
         else:

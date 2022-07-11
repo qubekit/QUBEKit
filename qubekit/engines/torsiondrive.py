@@ -49,7 +49,9 @@ class TorsionDriver(SchemaBase):
     )
     _td_state_file = PrivateAttr("torsiondrive_state.json")
 
-    def _load_state(self, qc_spec: "QCOptions") -> Optional[Dict[str, Any]]:
+    def _load_state(
+        self, qc_spec: "QCOptions", torsion_scan: "TorsionScan"
+    ) -> Optional[Dict[str, Any]]:
         """
         Check if there is a compatible td_state file that can be restarted.
         """
@@ -65,7 +67,12 @@ class TorsionDriver(SchemaBase):
                 if qc_spec.td_settings is None
                 else qc_spec.td_settings.dict(),
             }
-            if old_spec == current_spec:
+            # make sure the settings which change the outcome of the scan all match
+            if (
+                old_spec == current_spec
+                and td_state["grid_spacing"][0] == self.grid_spacing
+                and td_state["dihedral_ranges"][0] == list(torsion_scan.scan_range)
+            ):
                 print("Compatible TorsionDrive state found restarting torsiondrive!")
                 # format the state file and return
                 n_atoms = len(td_state["elements"])
@@ -114,7 +121,7 @@ class TorsionDriver(SchemaBase):
         # validate the qc spec
         qc_spec.validate_specification()
         # check for an old td_state file to restart
-        td_state = self._load_state(qc_spec=qc_spec)
+        td_state = self._load_state(qc_spec=qc_spec, torsion_scan=dihedral_data)
         if td_state is None:
             # no file found so start again
             td_state = self._create_initial_state(
