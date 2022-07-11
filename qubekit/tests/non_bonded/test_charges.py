@@ -160,7 +160,7 @@ def test_gaussian_no_solvent_template(tmpdir, water):
         )
         # we need the harness as this will render the template
         gaussian_harness = GaussianHarness()
-        config = get_config(local_options={"ncores": 1, "memory": 1})
+        config = get_config(task_config={"ncores": 1, "memory": 1})
         job_inputs = gaussian_harness.build_input(task, config)
         with open(get_data("gaussian_gas_example.com")) as g_out:
             assert g_out.read() == job_inputs["infiles"]["gaussian.com"]

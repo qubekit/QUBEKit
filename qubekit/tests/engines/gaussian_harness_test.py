@@ -141,7 +141,7 @@ def test_gaussian_nbo_input_file(tmpdir, water):
         )
         # we need the harness as this will render the template
         gaussian_harness = GaussianHarness()
-        config = qcng.config.get_config(local_options={"ncores": 1, "memory": 1})
+        config = qcng.config.get_config(task_config={"ncores": 1, "memory": 1})
         job_inputs = gaussian_harness.build_input(task, config)
         # make sure the job file matches or expected reference
         with open(get_data("gaussian_nbo_example.com")) as g_out:
