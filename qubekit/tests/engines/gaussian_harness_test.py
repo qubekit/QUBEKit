@@ -119,7 +119,7 @@ def test_gaussian_td_settings(tmpdir, water, use_tda, theory):
             keywords={"tdscf_states": 10, "tdscf_tda": use_tda},
         )
         gaussian_harness = GaussianHarness()
-        config = qcng.config.get_config(local_options={"ncores": 1, "memory": 1})
+        config = qcng.config.get_config(task_config={"ncores": 1, "memory": 1})
         job_inputs = gaussian_harness.build_input(task, config)
         job_script = job_inputs["infiles"]["gaussian.com"]
         if use_tda:
