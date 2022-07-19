@@ -42,4 +42,4 @@ dependencies:
   - chemper
 
   - pip:
-      - qforce=0.6.7
+      - qforce==0.6.7
