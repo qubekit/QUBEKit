@@ -9,7 +9,7 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - deepdiff
+  - deepdiff >=5.8.0
 
   # Core deps
   - openff-toolkit-base >=0.10.6

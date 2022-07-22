@@ -1,6 +1,5 @@
 name: test
 channels:
-  - psi4
   - conda-forge
 dependencies:
     # Base deps
@@ -10,7 +9,7 @@ dependencies:
   # Testing
   - pytest
   - pytest-cov
-  - deepdiff
+  - deepdiff >=5.8.0
 
     # Core deps
   - openff-toolkit-base >=0.10.6
@@ -38,6 +37,7 @@ dependencies:
   - libint2=*=hc9558a2_9
   - dftd3
   - intel-openmp!=2019.5
+  - msgpack-python
   - chemper
 
   - pip:
