@@ -1,7 +1,6 @@
 name: test
 channels:
   - conda-forge
-  - psi4
   - defaults
 dependencies:
     # Base deps
@@ -35,10 +34,6 @@ dependencies:
   # Optional
   - xtb-python
   - torchani
-  - psi4
-  - gau2grid
-  - dftd3
-  - gcp
   - chemper
 
   - pip:
