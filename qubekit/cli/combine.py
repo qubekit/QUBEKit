@@ -10,6 +10,7 @@ from openmm import unit
 from typing_extensions import Literal
 
 import qubekit
+from qubekit.cli.water_models import water_models
 from qubekit.utils import constants
 from qubekit.workflow import WorkFlowResult
 
@@ -22,8 +23,7 @@ parameters_to_fit = click.Choice(
     elements,
     case_sensitive=True,
 )
-water_models = ["tip3p"]
-water_options = click.Choice(water_models, case_sensitive=True)
+water_options = click.Choice(list(water_models.keys()), case_sensitive=True)
 
 
 @click.command()
@@ -102,83 +102,28 @@ def combine(
 
 
 def _add_water_model(
-    force_field: ForceField, using_plugin: bool, water_model: Literal["tip3p"] = "tip3p"
+    force_field: ForceField,
+    using_plugin: bool,
+    water_model: Literal["tip3p", "tip4p-fb"] = "tip3p",
 ):
     """Add a water model to an offxml force field"""
-    # add generic bond and angle smirks which will only hit water
-    bond_handler = force_field.get_parameter_handler("Bonds")
-    bond_handler.add_parameter(
-        parameter_kwargs={
-            "smirks": "[#1:1]-[#8X2H2+0:2]-[#1]",
-            "k": 1087.053566377 * unit.kilocalorie_per_mole / unit.angstroms**2,
-            "length": 0.9572 * unit.angstroms,
-        }
-    )
-    angle_handler = force_field.get_parameter_handler("Angles")
-    angle_handler.add_parameter(
-        parameter_kwargs={
-            "smirks": "[#1:1]-[#8X2H2+0:2]-[#1:3]",
-            "k": 130.181232192 * unit.kilocalorie_per_mole / unit.radian**2,
-            "angle": 110.3538806181 * unit.degree,
-        }
-    )
 
-    if water_model == "tip3p":
-        constrains = force_field.get_parameter_handler("Constraints")
-        constrains.add_parameter(
-            parameter_kwargs={
-                "smirks": "[#1:1]-[#8X2H2+0:2]-[#1]",
-                "id": "c-tip3p-H-O",
-                "distance": 0.9572 * unit.angstroms,
-            }
-        )
-        constrains.add_parameter(
-            parameter_kwargs={
-                "smirks": "[#1:1]-[#8X2H2+0]-[#1:2]",
-                "id": "c-tip3p-H-O-H",
-                "distance": 1.5139006545247014 * unit.angstroms,
-            }
-        )
-        if using_plugin:
-            # if we are using the plugin to optimise the molecule we need a special vdw handler
-            vdw_handler = force_field.get_parameter_handler("QUBEKitvdW")
-        else:
-            vdw_handler = force_field.get_parameter_handler("vdW")
-
-        vdw_handler.add_parameter(
-            parameter_kwargs={
-                "smirks": "[#1]-[#8X2H2+0:1]-[#1]",
-                "epsilon": 0.1521 * unit.kilocalorie_per_mole,
-                "id": "n-tip3p-O",
-                "sigma": 3.1507 * unit.angstroms,
-            }
-        )
-        vdw_handler.add_parameter(
-            parameter_kwargs={
-                "smirks": "[#1:1]-[#8X2H2+0]-[#1]",
-                "epsilon": 0 * unit.kilocalorie_per_mole,
-                "id": "n-tip3p-H",
-                "sigma": 1 * unit.angstroms,
-            }
-        )
-        library_charges = force_field.get_parameter_handler("LibraryCharges")
-        library_charges.add_parameter(
-            parameter_kwargs={
-                "smirks": "[#1]-[#8X2H2+0:1]-[#1]",
-                "charge1": -0.834 * unit.elementary_charge,
-                "id": "q-tip3p-O",
-            }
-        )
-        library_charges.add_parameter(
-            parameter_kwargs={
-                "smirks": "[#1:1]-[#8X2H2+0]-[#1]",
-                "charge1": 0.417 * unit.elementary_charge,
-                "id": "q-tip3p-H",
-            }
-        )
+    if water_model in water_models:
+        water_parameters = water_models[water_model]
+        for parameter_handler, parameters in water_parameters.items():
+            if parameter_handler == "Nonbonded":
+                if using_plugin:
+                    # if we are using the plugin to optimise the molecule we need a special vdw handler
+                    handler = force_field.get_parameter_handler("QUBEKitvdW")
+                else:
+                    handler = force_field.get_parameter_handler("vdW")
+            else:
+                handler = force_field.get_parameter_handler(parameter_handler)
+            for parameter in parameters:
+                handler.add_parameter(parameter_kwargs=parameter)
     else:
         raise NotImplementedError(
-            "Only the tip3p water model is support for offxmls so far."
+            f"Only the {list(water_models.keys())} water models are support for offxmls so far."
         )
 
 
