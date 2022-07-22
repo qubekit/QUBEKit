@@ -17,6 +17,7 @@ dependencies:
   - ambertools
   - pydantic
   - forcebalance
+  - pymbar=3.0.7
   - rdkit
   - tqdm
   - torsiondrive
