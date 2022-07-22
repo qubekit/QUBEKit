@@ -42,7 +42,6 @@ def test_local_options():
     "optimiser",
     [
         pytest.param("geometric", id="geometric"),
-        pytest.param("optking", id="optking"),
     ],
 )
 def test_optimiser_keywords(optimiser):
@@ -230,8 +229,3 @@ def test_optking_fail():
     with pytest.raises(SpecificationError):
         mol = Ligand.from_file(file_name=get_data("water.pdb"))
         g = GeometryOptimiser(optimiser="optking")
-        g.optimise(
-            molecule=mol,
-            qc_spec=QCOptions(program="rdkit", basis=None, method="uff"),
-            local_options=LocalResource(cores=1, memory=1),
-        )
