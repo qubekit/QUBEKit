@@ -437,7 +437,6 @@ class ForceBalanceFitting(StageBase):
         converged = False
         with open("optimize.out") as log:
             for line in log.readlines():
-                print(line)
                 if "optimization converged" in line.lower():
                     converged = True
                     break
