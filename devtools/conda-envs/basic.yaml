@@ -1,7 +1,6 @@
 name: test
 channels:
   - conda-forge
-  - psi4/label/dev
 dependencies:
     # Base deps
   - python
@@ -34,5 +33,4 @@ dependencies:
   - xtb-python
   - torchani
   - ambertools
-  - optking
   - chemper

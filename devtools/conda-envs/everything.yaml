@@ -39,7 +39,6 @@ dependencies:
   - gau2grid
   - dftd3
   - gcp
-  - optking
   - chemper
 
   - pip:
