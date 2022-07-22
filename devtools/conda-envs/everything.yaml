@@ -1,5 +1,6 @@
 name: test
 channels:
+  - psi4
   - conda-forge
 dependencies:
     # Base deps
