@@ -293,7 +293,7 @@ class GaussianHarness(ProgramHarness):
 
         # parse scf_properties
         if "scf_properties" in input_model.keywords:
-            qcvars["WIBERG_LOWDIN_INDICES"] = self.parse_wbo(
+            qcvars["WIBERG LOWDIN INDICES"] = self.parse_wbo(
                 logfile=outfiles["gaussian.log"],
                 natoms=len(input_model.molecule.symbols),
             )
