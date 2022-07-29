@@ -1033,9 +1033,14 @@ class Ligand(Molecule):
     wbo: Optional[Array[float]] = Field(
         None, description="The WBO matrix calculated at the QM optimised geometry."
     )
-    fragments: Optional[Dict[str, Tuple[int, int]]] = Field(
+    fragments: Optional[List["Ligand"]] = Field(
         None,
         description="Fragments in the molecule with the bonds around which the fragments were built.",
+    )
+    bond_indices: Tuple[int, int] = Field(
+        None,
+        description="The map indices of the atoms involved in the bond that the "
+        "fragment was built around.",
     )
 
     def __init__(
