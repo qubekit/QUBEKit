@@ -537,6 +537,109 @@ def test_molecule_and_water_offxml(coumarin, water, tmpdir, rfree_data, paramete
             assert epsilon.value_in_unit(unit.kilojoule_per_mole) == ref_params.epsilon
 
 
+def test_molecule_and_vsite_water(coumarin, tmpdir, water, rfree_data):
+    """
+    Make sure a v-site water model is correctly loaded from and offxml
+    """
+    coumarin_copy = coumarin.copy(deep=True)
+    MBISCharges.apply_symmetrisation(coumarin_copy)
+
+    with tmpdir.as_cwd():
+
+        # run the lj method to make sure the parameters match
+        alpha = rfree_data.pop("alpha")
+        beta = rfree_data.pop("beta")
+        lj = LennardJones612(free_parameters=rfree_data, alpha=alpha, beta=beta)
+        # get new Rfree data
+        lj.run(coumarin_copy)
+
+        # remake rfree
+        rfree_data["alpha"] = alpha
+        rfree_data["beta"] = beta
+
+        _combine_molecules_offxml(
+            molecules=[coumarin_copy],
+            parameters=elements,
+            rfree_data=rfree_data,
+            filename="combined.offxml",
+            water_model="tip4p-fb",
+        )
+
+        combinded_ff = ForceField(
+            "combined.offxml", load_plugins=True, allow_cosmetic_attributes=True
+        )
+        mixed_top = Topology.from_molecules(
+            molecules=[
+                Molecule.from_rdkit(water.to_rdkit()),
+                Molecule.from_rdkit(coumarin_copy.to_rdkit()),
+            ]
+        )
+        system = combinded_ff.create_openmm_system(topology=mixed_top)
+        # make sure we have 3 constraints
+        assert system.getNumConstraints() == 3
+        # check each constraint
+        reference_constraints = [
+            [0, 1, unit.Quantity(0.9572, unit=unit.angstroms)],
+            [0, 2, unit.Quantity(0.9572, unit=unit.angstroms)],
+            [1, 2, unit.Quantity(1.5139006545247014, unit=unit.angstroms)],
+        ]
+        for i in range(3):
+            a, b, constraint = system.getConstraintParameters(i)
+            assert a == reference_constraints[i][0]
+            assert b == reference_constraints[i][1]
+            assert constraint == reference_constraints[i][2].in_units_of(
+                unit.nanometers
+            )
+        # now loop over the forces and make sure water was correctly parameterised
+        forces = dict((force.__class__.__name__, force) for force in system.getForces())
+        nonbonded_force: openmm.NonbondedForce = forces["NonbondedForce"]
+        # first check water has the correct parameters
+        water_reference = [
+            [
+                unit.Quantity(0.0, unit.elementary_charge),
+                unit.Quantity(3.1655, unit=unit.angstroms),
+                unit.Quantity(0.179082, unit=unit.kilocalorie_per_mole),
+            ],
+            [
+                unit.Quantity(0.52587, unit.elementary_charge),
+                unit.Quantity(1, unit=unit.angstroms),
+                unit.Quantity(0, unit=unit.kilocalorie_per_mole),
+            ],
+            [
+                unit.Quantity(0.52587, unit.elementary_charge),
+                unit.Quantity(1, unit=unit.angstroms),
+                unit.Quantity(0, unit=unit.kilocalorie_per_mole),
+            ],
+        ]
+        for i in range(3):
+            charge, sigma, epsilon = nonbonded_force.getParticleParameters(i)
+            assert charge == water_reference[i][0]
+            assert sigma.in_units_of(unit.nanometer) == water_reference[i][
+                1
+            ].in_units_of(unit.nanometer)
+            assert (
+                epsilon.in_units_of(unit.kilocalorie_per_mole) == water_reference[i][2]
+            )
+
+        # now check coumarin
+        for i in range(coumarin_copy.n_atoms):
+            ref_params = coumarin_copy.NonbondedForce[(i,)]
+            charge, sigma, epsilon = nonbonded_force.getParticleParameters(i + 3)
+            assert charge.value_in_unit(unit.elementary_charge) == float(
+                ref_params.charge
+            )
+            assert sigma.value_in_unit(unit.nanometers) == ref_params.sigma
+            assert epsilon.value_in_unit(unit.kilojoule_per_mole) == ref_params.epsilon
+
+        # now check the vsite which should be last
+        charge, sigma, epsilon = nonbonded_force.getParticleParameters(
+            coumarin_copy.n_atoms + 3
+        )
+        assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
+        assert sigma == unit.Quantity(0.0, unit.nanometer)
+        assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
+
+
 def test_combine_molecules_offxml_plugin_deepdiff(tmpdir, coumarin, rfree_data):
     """Make sure that systems made from molecules using the xml method match offxmls with plugins"""
 

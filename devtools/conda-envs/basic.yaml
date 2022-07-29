@@ -1,7 +1,6 @@
 name: test
 channels:
   - conda-forge
-  - psi4/label/dev
 dependencies:
     # Base deps
   - python
@@ -10,10 +9,10 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - deepdiff
+  - deepdiff >=5.8.0
 
   # Core deps
-  - openff-toolkit-base >=0.9.2
+  - openff-toolkit-base >=0.10.6
   - openff-fragmenter
   - pydantic
   - rdkit
@@ -27,6 +26,7 @@ dependencies:
   - chargemol
   - qcelemental >=0.19.0
   - forcebalance
+  - pymbar=3.0.7
   - jinja2
   - typing-extensions
   - tqdm
@@ -35,5 +35,4 @@ dependencies:
   - xtb-python
   - torchani
   - ambertools
-  - optking
   - chemper

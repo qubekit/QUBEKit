@@ -1,20 +1,19 @@
 cff-version: 1.1.0
 message: "If you use this software, please cite it as below."
 authors:
+  - family-names: Ringrose
+    given-names: Chris
   - family-names: Horton
     given-names: Joshua
     orcid: https://orcid.org/0000-0001-8694-7200
-  - family-names: Allen
-    given-names: Alice
-    orcid: https://orcid.org/0000-0002-8727-8333
-  - family-names: Dodda
-    given-names: Leela
-    orcid: https://orcid.org/0000-0002-3584-1729
+  - family-names: Wang
+    given-names: Lee-Ping
+    orcid: https://orcid.org/0000-0003-3072-9946
   - family-names: Cole
     given-names: Daniel
     orcid: https://orcid.org/0000-0003-2933-0719
-title: "QUBEKit: Automating the Derivation of Force Field Parameters from Quantum Mechanics Joshua"
-version: 2.0.0
-doi: 10.1021/acs.jcim.8b00767
-date-released: 2020-02-27
+title: "Exploration and validation of force field desig protocols through QM-to-MM mapping"
+version: 2.1.0
+doi: https://doi.org/10.1039/D2CP02864F
+date-released: 2022-06-29
 url: "https://github.com/qubekit/QUBEKit"

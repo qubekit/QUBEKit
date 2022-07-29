@@ -46,7 +46,7 @@ def call_qcengine(
     )
 
     result = qcng.compute(
-        task, qc_spec.program, local_options=local_options.local_options
+        task, qc_spec.program, task_config=local_options.local_options
     )
     with open("qcengine_result.json", "w") as output:
         output.write(result.json())

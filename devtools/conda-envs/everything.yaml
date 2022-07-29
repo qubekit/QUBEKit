@@ -1,7 +1,7 @@
 name: test
 channels:
+  - psi4
   - conda-forge
-  - psi4/label/dev
 dependencies:
     # Base deps
   - python
@@ -10,14 +10,15 @@ dependencies:
   # Testing
   - pytest
   - pytest-cov
-  - deepdiff
+  - deepdiff >=5.8.0
 
     # Core deps
-  - openff-toolkit-base >=0.9.2
+  - openff-toolkit-base >=0.10.6
   - openff-fragmenter
   - ambertools
   - pydantic
   - forcebalance
+  - pymbar=3.0.7
   - rdkit
   - tqdm
   - torsiondrive
@@ -35,12 +36,12 @@ dependencies:
   # Optional
   - xtb-python
   - torchani
-  - psi4 =1.4a2.dev1058+670a850
-  - gau2grid =2.0.3
+  - psi4=1.5
+  - libint2=*=hc9558a2_9
   - dftd3
-  - gcp
-  - optking
+  - intel-openmp!=2019.5
+  - msgpack-python
   - chemper
 
   - pip:
-      - qforce
+      - qforce==0.6.3
