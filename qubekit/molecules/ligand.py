@@ -1042,9 +1042,15 @@ class Ligand(Molecule):
     )
     bond_indices: Tuple[int, int] = Field(
         None,
-        description="The map indices of the atoms involved in the bond that the "
+        description="The map indices of the atoms involved in the bond (in the parent molecule) that the "
         "fragment was built around.",
     )
+    atom_idx_map: Optional[Dict[int, int]] = Field(
+        None,
+        description="Parent case: atom ID mapping used along the fragments {atom_id_now: atom_id_used_in_fragmentation}."
+                    "This remaps the parent indices. "
+    )
+
 
     def __init__(
         self,
