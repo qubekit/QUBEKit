@@ -157,6 +157,11 @@ class Atom(BaseModel):
     cloud_pen: Optional[CloudPen] = Field(
         None,
     )
+    map_index: Optional[int] = Field(
+        None,
+        description="An alternative index. Initially made necessary by the WBOFragmenter which uses its own separate "
+                    "indexing for the molecule and the produced fragments. "
+    )
 
     @classmethod
     def from_rdkit(cls, rd_atom: Chem.Atom) -> "Atom":

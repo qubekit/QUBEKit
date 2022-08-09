@@ -4,6 +4,8 @@ from typing_extensions import Literal
 
 from pydantic import Field
 from qcelemental.util import which_import
+from openff.toolkit.topology import Molecule as OFFMolecule
+from rdkit import Chem
 
 from qubekit.molecules import Ligand
 from qubekit.utils.datastructures import StageBase
@@ -42,38 +44,101 @@ class WBOFragmenter(StageBase):
 
         return fragmenter and rdkit
 
-    def run(self, molecule: Ligand, **kwargs) -> Ligand:
-        from openff.toolkit.topology import Molecule as OFFMolecule
-
-        from openff.fragmenter.depiction import depict_fragmentation_result
-        from openff.fragmenter.fragment import WBOFragmenter
-
-        fragmenter = WBOFragmenter()
-
-        # convert to an OpenFF Molecule
+    def _prepare_fragment_input(self, molecule: Ligand):
+        """
+        TODO
+        """
+        # convert to OFF molecule
         mapped_smiles = molecule.to_smiles(mapped=True)
         off_molecule: OFFMolecule = OFFMolecule.from_mapped_smiles(mapped_smiles)
 
-        # fragment
-        fragmentation = fragmenter.fragment(
+        # remember the atom names
+        for off_atom, lig_atom in zip(off_molecule.atoms, molecule.atoms):
+            assert off_atom.atomic_number == lig_atom.atomic_number
+            off_atom.name = lig_atom.atom_name
+
+        # convert to the canonical order which will be used by the fragmenter
+        return off_molecule.canonical_order_atoms()
+
+    def _create_ligand(self, semi_mapped_smile, name, bond_indices=None):
+        """
+        TODO
+        """
+        # sanitize is off to keep the "atom_map" property
+        rdmol = Chem.MolFromSmiles(semi_mapped_smile, sanitize=False)
+
+        # add at least one conformer
+        Chem.AllChem.EmbedMolecule(rdmol)
+
+        # Chem.SanitizeMol calls updatePropertyCache so we don't need to call it ourselves
+        # https://www.rdkit.org/docs/cppapi/namespaceRDKit_1_1MolOps.html#a8d831787aaf2d65d9920c37b25b476f5
+        Chem.SanitizeMol(
+            rdmol,
+            Chem.SANITIZE_ALL ^ Chem.SANITIZE_ADJUSTHS ^ Chem.SANITIZE_SETAROMATICITY,
+        )
+        Chem.SetAromaticity(rdmol, Chem.AromaticityModel.AROMATICITY_MDL)
+
+        # Chem.MolFromSmiles adds bond directions (i.e. ENDDOWNRIGHT/ENDUPRIGHT), but
+        # doesn't set bond.GetStereo(). We need to call AssignStereochemistry for that.
+        Chem.AssignStereochemistry(rdmol)
+
+        # convert the rdmol to the qubekit Ligand
+        molecule = Ligand.from_rdkit(rdmol, name)
+
+        # attach the fragments as their own ligands
+        if bond_indices is not None:
+            molecule.bond_indices = bond_indices
+
+        # ensure that the atoms are ordered the same way
+        for atom, rdkit_atom in zip(molecule.atoms, rdmol.GetAtoms()):
+            if not rdkit_atom.GetAtomicNum() == atom.atomic_number:
+                raise Exception(f'Ligand created from an rdkit molecule should have the same atom order: rdkit {rdkit_atom.GetAtomMapNum()}, ligand {atom.atomic_number}')
+            atom.map_index = rdkit_atom.GetAtomMapNum()
+
+        return molecule
+
+    def _results_to_ligand(self, fragmentation):
+        """
+        TODO
+        """
+        # copy the fragmentation-relevant indices
+        molecule = self._create_ligand(fragmentation.parent_smiles, 'molecule')
+
+        molecule.fragments = []
+        for fragment in fragmentation.fragments:
+            # verify that the fragments can still be mapped to the
+            atoms = [a for a in molecule.atoms if a.map_index in fragment.bond_indices]
+            if len(atoms) != 2:
+                raise Exception('The index used in the fragment to map to the parent could not be found in the parent.')
+
+            # copy the fragmentation-relevant indices
+            fragment_molecule = self._create_ligand(fragment.smiles, 'fragment', bond_indices=fragment.bond_indices)
+
+            molecule.fragments.append(fragment_molecule)
+
+        return molecule
+
+    def run(self, molecule: Ligand, **kwargs) -> Ligand:
+        from openff.fragmenter.depiction import depict_fragmentation_result
+        from openff.fragmenter.fragment import WBOFragmenter
+
+        # convert to an OpenFF Molecule (canonical order)
+        off_molecule: OFFMolecule = self._prepare_fragment_input(molecule)
+
+        fragmentation = WBOFragmenter().fragment(
             off_molecule, target_bond_smarts=self.rotatable_smirks
         )
 
         # remove duplicates
         fragmentation = self._deduplicate_fragments(fragmentation)
 
-        # save the fragments in the molecule as ligand objects
-        fragments = []
-        for fragment in fragmentation.fragments:
-            ligand = Ligand.from_smiles(fragment.smiles, "fragment")
-            ligand.bond_indices = fragment.bond_indices
-            fragments.append(ligand)
-        molecule.fragments = fragments
-
         # visualise results in a file
         depict_fragmentation_result(result=fragmentation, output_file="fragments.html")
 
-        return molecule
+        # convert the results to QUBEKit Ligand
+        qk_molecule = self._results_to_ligand(fragmentation)
+
+        return qk_molecule
 
     def _deduplicate_fragments(
         self, fragmentation_result: "FragmentationResult"
