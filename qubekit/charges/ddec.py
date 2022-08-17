@@ -147,7 +147,7 @@ class DDECCharges(ChargeBase):
         )
         return extras
 
-    def _run(
+    def _execute(
         self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
     ) -> "Ligand":
         """

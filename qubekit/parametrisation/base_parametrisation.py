@@ -45,9 +45,7 @@ class Parametrisation(StageBase, abc.ABC):
         """Return the improper torsion ordering this parametrisation method uses."""
         ...
 
-    def run(
-        self, molecule: "Ligand", input_files: Optional[List[str]] = None, **kwargs
-    ) -> "Ligand":
+    def run(self, molecule: "Ligand", input_files: Optional[List[str]] = None, **kwargs) -> "Ligand":
         """
         Parametrise the ligand using the current engine.
 
@@ -59,14 +57,20 @@ class Parametrisation(StageBase, abc.ABC):
             A parameterised molecule.
         """
         system = self._build_system(molecule=molecule, input_files=input_files)
-        self._serialise_system(system=system)
-        self._gather_parameters(molecule=molecule)
+
+        # pass the indices of the bonded atoms around which the fragment was built
+        filename = f'fragment_{molecule.bond_indices[0]}-{molecule.bond_indices[1]}.xml' \
+            if 'fragment' in kwargs \
+            else 'serialized.xml'
+
+        self._serialise_system(system=system, filename=filename)
+        self._gather_parameters(molecule=molecule, filename=filename)
         # only reset the ordering if it is default else this might have been set by another stage
         if molecule.TorsionForce.ordering == "default":
             molecule.TorsionForce.ordering = self._improper_torsion_ordering()
         return molecule
 
-    def _serialise_system(self, system: System) -> None:
+    def _serialise_system(self, system: System, filename: str="serialised.xml") -> None:
         """
         Serialise a openMM system to file so that the parameters can be gathered.
 
@@ -74,10 +78,10 @@ class Parametrisation(StageBase, abc.ABC):
             system: A parameterised OpenMM system.
         """
         xml = XmlSerializer.serializeSystem(system)
-        with open("serialised.xml", "w+") as out:
+        with open(filename, "w+") as out:
             out.write(xml)
 
-    def _gather_parameters(self, molecule: "Ligand") -> "Ligand":
+    def _gather_parameters(self, molecule: "Ligand", filename: str="serialised.xml") -> "Ligand":
         """
         This method parses the serialised xml file and collects the parameters and
         stores them back into the correct force group in the ligand.
@@ -92,7 +96,7 @@ class Parametrisation(StageBase, abc.ABC):
         sites = {}
 
         try:
-            in_root = ET.parse("serialised.xml").getroot()
+            in_root = ET.parse(filename).getroot()
             forces = dict((f.get("type"), f) for f in in_root.iter("Force"))
 
             # Extract any virtual site data only supports local coords atm, charges are added later

@@ -125,11 +125,15 @@ class Optimiser(StageBase):
         local_options = kwargs["local_options"]
         qm_spec: QCOptions = kwargs["qc_spec"]
 
+        # maybe a property? this way it'd be uniform across all places?
+        fragment_suffix = f"_fragment_{molecule.bond_indices[0]}-{molecule.bond_indices[1]}" if \
+            molecule.bond_indices is not None else ''
+
         # first run the pre_opt method
         if self.pre_optimisation_method is not None:
             pre_opt_spec = self.convert_pre_opt(method=self.pre_optimisation_method)
             preopt_geometries = self._pre_opt(
-                molecule=molecule, qc_spec=pre_opt_spec, local_options=local_options
+                molecule=molecule, qc_spec=pre_opt_spec, fragment_suffix=fragment_suffix, local_options=local_options
             )
         else:
             # just generate the seed conformers
@@ -145,6 +149,7 @@ class Optimiser(StageBase):
         return self._run_qm_opt(
             molecule=molecule,
             conformers=preopt_geometries,
+            fragment_suffix=fragment_suffix,
             qc_spec=qm_spec,
             local_options=local_options,
         )
@@ -153,6 +158,7 @@ class Optimiser(StageBase):
         self,
         molecule: "Ligand",
         conformers: List[np.array],
+        fragment_suffix: str,
         qc_spec: QCOptions,
         local_options: LocalResource,
     ) -> "Ligand":
@@ -173,7 +179,7 @@ class Optimiser(StageBase):
                 conformers, desc="Optimising conformer", total=len(conformers), ncols=80
             )
         ):
-            with folder_setup(folder_name=f"conformer_{i}"):
+            with folder_setup(folder_name=f"conformer_{i}" + fragment_suffix):
                 # set the coords
                 opt_mol.coordinates = conformer
                 # errors are auto raised from the class so catch the result, and write to file
@@ -210,7 +216,7 @@ class Optimiser(StageBase):
         return qm_result
 
     def _pre_opt(
-        self, molecule: "Ligand", qc_spec: QCOptions, local_options: LocalResource
+        self, molecule: "Ligand", qc_spec: QCOptions, fragment_suffix: str, local_options: LocalResource
     ) -> List[np.array]:
         """Run the pre optimisation stage and return the optimised conformers ready for QM optimisation.
 
@@ -227,10 +233,12 @@ class Optimiser(StageBase):
         # generate the input conformations, number will include the input conform if provided
         geometries = molecule.generate_conformers(n_conformers=self.seed_conformers)
         molecule.to_multiconformer_file(
-            file_name="starting_coords.xyz", positions=geometries
+            file_name=f"starting_coords{fragment_suffix}.xyz", positions=geometries
         )
         opt_list = []
+
         with Pool(processes=local_options.cores) as pool:
+            results = []
             for confomer in geometries:
                 opt_mol = deepcopy(molecule)
                 opt_mol.coordinates = confomer
@@ -248,6 +256,7 @@ class Optimiser(StageBase):
                 ncols=80,
             ):
                 # errors are auto raised from the class so catch the result, and write to file
+                # fixme: this is where it gets stuck
                 result_mol, opt_result = result.get()
                 if opt_result.success:
                     # save the final energy and molecule
@@ -261,7 +270,7 @@ class Optimiser(StageBase):
         final_geometries = [re[0].coordinates for re in results]
         # write all conformers out
         molecule.to_multiconformer_file(
-            file_name="final_pre_opt_coords.xyz", positions=final_geometries
+            file_name=f"final_pre_opt_coords{fragment_suffix}.xyz", positions=final_geometries
         )
         return final_geometries
 

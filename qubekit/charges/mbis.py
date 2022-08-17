@@ -55,7 +55,7 @@ class MBISCharges(ChargeBase):
     def _gas_calculation_settings(self) -> Dict[str, Any]:
         return {"scf_properties": ["MBIS_CHARGES"]}
 
-    def _run(
+    def _execute(
         self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
     ) -> "Ligand":
         """
