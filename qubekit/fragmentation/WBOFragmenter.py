@@ -106,7 +106,7 @@ class WBOFragmenter(StageBase):
 
         molecule.fragments = []
         for fragment in fragmentation.fragments:
-            # verify that the fragments can still be mapped to the
+            # partly verify that the fragments can still be mapped to the parent molecule
             atoms = [a for a in molecule.atoms if a.map_index in fragment.bond_indices]
             if len(atoms) != 2:
                 raise Exception('The index used in the fragment to map to the parent could not be found in the parent.')
@@ -117,6 +117,9 @@ class WBOFragmenter(StageBase):
             molecule.fragments.append(fragment_molecule)
 
         return molecule
+
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
+        return self.run(molecule, *args, **kwargs)
 
     def run(self, molecule: Ligand, **kwargs) -> Ligand:
         from openff.fragmenter.depiction import depict_fragmentation_result

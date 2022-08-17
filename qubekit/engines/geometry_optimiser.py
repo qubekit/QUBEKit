@@ -112,7 +112,7 @@ class GeometryOptimiser(SchemaBase):
             qc_spec:
                 The QCOptions object which describes the program, basis and method to use.
             local_options:
-                The loacl options including cores and memory.
+                The local options including cores and memory.
             allow_fail:
                 If we should not raise an error if the molecule fails to be optimised, this will extract the last geometry
                 from the trajectory and return it.

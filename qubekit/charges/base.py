@@ -91,7 +91,7 @@ class ChargeBase(StageBase):
         local_options = kwargs.get("local_options")
         # use the alternative or if not the provided spec
         qc_spec = self._get_qc_options() or kwargs.get("qc_spec")
-        molecule = self._run(molecule, local_options=local_options, qc_spec=qc_spec)
+        molecule = self._execute(molecule, local_options=local_options, qc_spec=qc_spec)
         # apply symmetry to the charge parameters
         molecule = self.apply_symmetrisation(molecule=molecule)
         # now store the reference values into the nonbonded force as a parameter
@@ -120,7 +120,7 @@ class ChargeBase(StageBase):
             return self._gas_calculation_settings()
 
     @abc.abstractmethod
-    def _run(
+    def _execute(
         self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
     ) -> "Ligand":
         """
