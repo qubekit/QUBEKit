@@ -4,9 +4,9 @@ import xmltodict
 from deepdiff import DeepDiff
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
+from openmm import XmlSerializer, app
 from parmed.openmm import energy_decomposition_system, load_topology
 from pydantic.error_wrappers import ValidationError
-from simtk.openmm import XmlSerializer, app
 
 import qubekit
 from qubekit.molecules import Ligand

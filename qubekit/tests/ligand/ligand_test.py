@@ -7,9 +7,9 @@ import networkx as nx
 import numpy as np
 import pytest
 from openff.toolkit.topology import Molecule as OFFMolecule
+from openmm import unit
 from rdkit.Chem import rdMolTransforms
 from rdkit.Chem.rdchem import AtomValenceException
-from simtk import unit
 
 from qubekit.charges import ExtractChargeData
 from qubekit.molecules import Ligand

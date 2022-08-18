@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, List, Optional
 
-from simtk.openmm import System, app
+from openmm import System, app
 from typing_extensions import Literal
 
 from qubekit.parametrisation.base_parametrisation import Parametrisation
