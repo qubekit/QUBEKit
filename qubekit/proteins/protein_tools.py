@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import simtk.openmm as mm
+import openmm as mm
 
 
 def apply_opls_combo(system, switching_distance=None):

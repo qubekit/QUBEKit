@@ -5,11 +5,7 @@ from copy import deepcopy
 
 import networkx as nx
 import numpy as np
-from simtk import (  # Ignore unit import warnings, blame rampant misuse of import * in OpenMM
-    openmm,
-    unit,
-)
-from simtk.openmm import app
+from openmm import app, openmm, unit
 
 from qubekit.engines.base_engine import Engines
 from qubekit.utils import constants

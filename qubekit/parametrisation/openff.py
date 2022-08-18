@@ -1,9 +1,8 @@
 from typing import TYPE_CHECKING, List, Optional
 
+from openmm import System, unit
 from pydantic import validator
 from qcelemental.util import which_import
-from simtk import unit
-from simtk.openmm import System
 from typing_extensions import Literal
 
 from qubekit.parametrisation.base_parametrisation import Parametrisation

@@ -246,10 +246,9 @@ class ForceBalanceFitting(StageBase):
             raise_msg="Please install via `conda install forcebalance -c conda-forge`.",
         )
         openmm = which_import(
-            ".openmm",
+            "openmm",
             return_bool=True,
             raise_error=True,
-            package="simtk",
             raise_msg="Please install via `conda install openmm -c conda-forge`.",
         )
         return fb and openmm

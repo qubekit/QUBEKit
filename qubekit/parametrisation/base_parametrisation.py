@@ -2,7 +2,7 @@ import abc
 import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING, List, Optional
 
-from simtk.openmm import System, XmlSerializer
+from openmm import System, XmlSerializer
 from typing_extensions import Literal
 
 from qubekit.forcefield import VirtualSite3Point, VirtualSite4Point

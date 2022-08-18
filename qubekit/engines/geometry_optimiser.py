@@ -149,7 +149,7 @@ class GeometryOptimiser(SchemaBase):
             input_data=opt_task,
             procedure=self.optimiser,
             raise_error=False,
-            local_options=local_options.local_options,
+            task_config=local_options.local_options,
         )
         # dump info to file
         result_mol = self._handle_output(molecule=molecule, opt_output=opt_result)
