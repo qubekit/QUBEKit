@@ -236,7 +236,15 @@ class Optimiser(StageBase):
                 opt_mol.coordinates = confomer
                 opt_list.append(
                     pool.apply_async(
-                        g_opt.optimise, (opt_mol, qc_spec, local_options, True, True)
+                        # make sure to divide the total resource between the number of workers
+                        g_opt.optimise,
+                        (
+                            opt_mol,
+                            qc_spec,
+                            local_options.divide_resource(n_tasks=local_options.cores),
+                            True,
+                            True,
+                        ),
                     )
                 )
 
