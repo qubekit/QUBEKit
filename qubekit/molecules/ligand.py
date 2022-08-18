@@ -810,6 +810,10 @@ class Molecule(SchemaBase):
         optimised at the same time. dihedral_equiv_classes = {(0, 1, 2 ,3): '1-1-2-1'...} all of the tuples are the
         dihedrals index by topology and the strings are the symmetry equivalent atom combinations.
         """
+
+        if self.n_dihedrals == 0:
+            return {}
+
         atom_types = self.atom_types
         dihedral_symmetry_classes = {}
         for dihedral_set in self.dihedrals.values():

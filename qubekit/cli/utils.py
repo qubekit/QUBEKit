@@ -170,7 +170,7 @@ class QUBEKitHandler(vdWHandler):
                     # Set the nonbonded force parameters
                     force.setParticleParameters(
                         topology_particle_index,
-                        particle_parameters.charge,  # this is a dummy charge which needs to be corrected
+                        particle_parameters.charge,  # this is a dummy charge which needs to be corrected by a libray charge
                         particle_parameters.sigma,
                         particle_parameters.epsilon,
                     )
