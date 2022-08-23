@@ -213,11 +213,11 @@ class StageBase(SchemaBase, abc.ABC):
 
     def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """run it on the molecule and on the fragments """
-        molecule = self.run(molecule, *args, **kwargs)
+        molecule = self._run(molecule, *args, **kwargs)
 
         # run it on the fragments
         if molecule.fragments is not None:
-            molecule.fragments = [self.run(fragment, *args, fragment=True, **kwargs) for fragment in molecule.fragments]
+            molecule.fragments = [self._run(fragment, *args, fragment=True, **kwargs) for fragment in molecule.fragments]
 
         return molecule
 

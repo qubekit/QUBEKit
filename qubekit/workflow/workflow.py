@@ -338,7 +338,7 @@ class WorkFlow(SchemaBase):
         make_and_change_into(name=stage_name)
         try:
             # run the stage and save the result
-            result_mol = stage._run(
+            result_mol = stage.run(
                 molecule=molecule,
                 qc_spec=self.qc_options,
                 local_options=self.local_resources,
