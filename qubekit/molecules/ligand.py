@@ -1362,10 +1362,6 @@ class Ligand(Molecule):
         """
         from openff.toolkit.typing.engines.smirnoff import ForceField
 
-        if self.extra_sites.n_sites > 0:
-            raise NotImplementedError(
-                "Virtual sites can not be safely converted into offxml format yet."
-            )
         if (
             self.RBTorsionForce.n_parameters > 0
             or self.ImproperRBTorsionForce.n_parameters > 0
@@ -1381,7 +1377,7 @@ class Ligand(Molecule):
                 "chemper is required to make an offxml, please install with `conda install chemper -c conda-forge`."
             )
 
-        offxml = ForceField(allow_cosmetic_attributes=True)
+        offxml = ForceField(allow_cosmetic_attributes=True, load_plugins=True)
         offxml.author = f"QUBEKit_version_{qubekit.__version__}"
         offxml.date = datetime.now().strftime("%Y_%m_%d")
         rdkit_mol = self.to_rdkit()
@@ -1498,5 +1494,37 @@ class Ligand(Molecule):
         )
         charge_data["smirks"] = self.to_smiles(mapped=True)
         library_charges.add_parameter(parameter_kwargs=charge_data)
+
+        if self.extra_sites.n_sites > 0:
+            # use our local coordinate vsite plugin
+            local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
+            # we need to work around duplicate smirks patterns so we add them our self
+            for i, site in enumerate(self.extra_sites):
+                graph = ClusterGraph(
+                    mols=[rdkit_mol],
+                    smirks_atoms_lists=[
+                        [
+                            (
+                                site.parent_index,
+                                site.closest_a_index,
+                                site.closest_b_index,
+                            )
+                        ]
+                    ],
+                    layers="all",
+                )
+                vsite_parameter = local_vsites._INFOTYPE(
+                    **{
+                        "smirks": graph.as_smirks(),
+                        "name": f"site_{i}",
+                        "x_local": site.p1 * unit.nanometers,
+                        "y_local": site.p2 * unit.nanometers,
+                        "z_local": site.p3 * unit.nanometers,
+                        "charge": site.charge * unit.elementary_charge,
+                        "epsilon": 0 * unit.kilojoule_per_mole,
+                        "sigma": 1 * unit.nanometer,
+                    }
+                )
+                local_vsites._parameters.append(vsite_parameter)
 
         return offxml
