@@ -45,7 +45,7 @@ class Parametrisation(StageBase, abc.ABC):
         """Return the improper torsion ordering this parametrisation method uses."""
         ...
 
-    def run(self, molecule: "Ligand", input_files: Optional[List[str]] = None, **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", input_files: Optional[List[str]] = None, **kwargs) -> "Ligand":
         """
         Parametrise the ligand using the current engine.
 
@@ -59,9 +59,7 @@ class Parametrisation(StageBase, abc.ABC):
         system = self._build_system(molecule=molecule, input_files=input_files)
 
         # pass the indices of the bonded atoms around which the fragment was built
-        filename = f'fragment_{molecule.bond_indices[0]}-{molecule.bond_indices[1]}.xml' \
-            if 'fragment' in kwargs \
-            else 'serialized.xml'
+        filename = f'serialized{molecule.suffix()}.xml'
 
         self._serialise_system(system=system, filename=filename)
         self._gather_parameters(molecule=molecule, filename=filename)

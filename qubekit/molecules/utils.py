@@ -117,13 +117,13 @@ class RDKit:
             The RDKit molecule
         """
 
-        mol = AllChem.MolFromSmiles(smiles_string)
+        mol = AllChem.MolFromSmiles(smiles_string, sanitize=False)
         if name is None:
             name = input("Please enter a name for the molecule:\n>")
         mol.SetProp("_Name", name)
+        AllChem.SanitizeMol(mol)
         mol_hydrogens = AllChem.AddHs(mol)
         AllChem.EmbedMolecule(mol_hydrogens, randomSeed=1)
-        AllChem.SanitizeMol(mol_hydrogens)
         return mol_hydrogens
 
     @staticmethod

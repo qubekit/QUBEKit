@@ -208,9 +208,9 @@ class GeometryOptimiser(SchemaBase):
         traj = [mol.geometry * constants.BOHR_TO_ANGS for mol in trajectory]
         result_mol.coordinates = traj[-1]
         # write to file
-        result_mol.to_file(file_name="opt.xyz")
+        result_mol.to_file(file_name=f"opt{molecule.suffix()}.xyz")
         result_mol.to_multiconformer_file(
-            file_name="opt_trajectory.xyz", positions=traj
+            file_name=f"opt_trajectory{molecule.suffix()}.xyz", positions=traj
         )
 
         return result_mol

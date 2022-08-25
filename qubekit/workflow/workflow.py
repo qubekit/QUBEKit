@@ -31,7 +31,7 @@ class WorkFlow(SchemaBase):
         LocalResource(),
         description="The local resource options for the workflow like total memory and cores available.",
     )
-    fragmentation: WBOFragmenter = Field(
+    fragmentation: Optional[WBOFragmenter] = Field(
         WBOFragmenter(),
         description="The fragmenter.",
     )

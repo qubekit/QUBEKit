@@ -875,6 +875,10 @@ class Molecule(SchemaBase):
 
         return RDKit.find_symmetry_classes(self.to_rdkit())
 
+    @property
+    def symmetry_classes(self) -> int:
+        return Chem.CanonicalRankAtoms(self.to_rdkit(), breakTies=False)
+
     def to_rdkit(self) -> Chem.Mol:
         """
         Generate an rdkit representation of the QUBEKit ligand object.
@@ -1015,6 +1019,12 @@ class Molecule(SchemaBase):
             last_atom_index = self.n_atoms - 1
             self.NonbondedForce[(last_atom_index,)].charge += extra
 
+    def suffix(self) -> str:
+        """
+        fixme
+        """
+        return ""
+
 
 class Ligand(Molecule):
     """
@@ -1033,21 +1043,10 @@ class Ligand(Molecule):
     wbo: Optional[Array[float]] = Field(
         None, description="The WBO matrix calculated at the QM optimised geometry."
     )
-    fragments: Optional[List["Ligand"]] = Field(
-        None,
+    fragments: Optional[List["Fragment"]] = Field(
+        default_factory=list,
         description="Fragments in the molecule with the bonds around which the fragments were built.",
     )
-    bond_indices: Tuple[int, int] = Field(
-        None,
-        description="The map indices of the atoms involved in the bond (in the parent molecule) that the "
-        "fragment was built around.",
-    )
-    atom_idx_map: Optional[Dict[int, int]] = Field(
-        None,
-        description="Parent case: atom ID mapping used along the fragments {atom_id_now: atom_id_used_in_fragmentation}."
-                    "This remaps the parent indices. "
-    )
-
 
     def __init__(
         self,
@@ -1183,7 +1182,7 @@ class Ligand(Molecule):
 
     @classmethod
     def from_smiles(
-        cls, smiles_string: str, name: str, multiplicity: int = 1
+        cls, smiles_string: str, name: str, multiplicity: int = 1, mapped: bool = False
     ) -> "Ligand":
         """
         Build the ligand molecule directly from a non mapped smiles string.
@@ -1515,3 +1514,24 @@ class Ligand(Molecule):
         library_charges.add_parameter(parameter_kwargs=charge_data)
 
         return offxml
+
+class Fragment(Ligand):
+    """
+
+    fixme: where to put a comment for pydantic to pick it up?
+    """
+    bond_indices: List[Tuple[int, int]] = Field(
+        default_factory=list,
+        description="The map indices of the atoms involved in the bond (in the parent molecule) that the fragment "
+                    "was built around. Note that one fragment might have more than one dihedral bond for "
+                    "performance reasons."
+    )
+
+    def suffix(self) -> str:
+        """
+        A str suffix uniquely identifying this fragment.
+        """
+        return f"_fragment_{self.bond_indices[0][0]}-{self.bond_indices[0][1]}"
+
+
+Ligand.update_forward_refs()
