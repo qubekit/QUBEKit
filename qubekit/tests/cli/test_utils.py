@@ -59,4 +59,25 @@ def test_local_frame_position():
         p2=1 * unit.angstrom,
         p3=0 * unit.angstrom,
     )
+    assert lp.p1 == 0.1 * unit.nanometer
+    assert lp.p2 == 0.1 * unit.nanometer
+    assert lp.p3 == 0 * unit.nanometer
     assert lp.local_frame_position == unit.Quantity([0.1, 0.1, 0], unit=unit.nanometer)
+
+
+def test_local_get_openmm_site():
+    """
+    Make sure we can correctly convert our site to an openmm object.
+    """
+    lp = LocalVirtualSite(
+        name="lp",
+        orientations=[(0, 1, 2)],
+        p1=1 * unit.angstrom,
+        p2=1 * unit.angstrom,
+        p3=2 * unit.angstrom,
+    )
+    openmm_site = lp.get_openmm_virtual_site(atoms=(1, 2, 3))
+    openmm_position = openmm_site.getLocalPosition()
+    assert openmm_position.x == lp.p1.value_in_unit(unit.nanometer)
+    assert openmm_position.y == lp.p2.value_in_unit(unit.nanometer)
+    assert openmm_position.z == lp.p3.value_in_unit(unit.nanometer)
