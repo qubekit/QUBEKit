@@ -45,7 +45,9 @@ class Parametrisation(StageBase, abc.ABC):
         """Return the improper torsion ordering this parametrisation method uses."""
         ...
 
-    def _run(self, molecule: "Ligand", input_files: Optional[List[str]] = None, **kwargs) -> "Ligand":
+    def _run(
+        self, molecule: "Ligand", input_files: Optional[List[str]] = None, **kwargs
+    ) -> "Ligand":
         """
         Parametrise the ligand using the current engine.
 
@@ -59,7 +61,7 @@ class Parametrisation(StageBase, abc.ABC):
         system = self._build_system(molecule=molecule, input_files=input_files)
 
         # pass the indices of the bonded atoms around which the fragment was built
-        filename = f'serialized{molecule.suffix()}.xml'
+        filename = f"serialized{molecule.suffix()}.xml"
 
         self._serialise_system(system=system, filename=filename)
         self._gather_parameters(molecule=molecule, filename=filename)
@@ -68,7 +70,9 @@ class Parametrisation(StageBase, abc.ABC):
             molecule.TorsionForce.ordering = self._improper_torsion_ordering()
         return molecule
 
-    def _serialise_system(self, system: System, filename: str="serialised.xml") -> None:
+    def _serialise_system(
+        self, system: System, filename: str = "serialised.xml"
+    ) -> None:
         """
         Serialise a openMM system to file so that the parameters can be gathered.
 
@@ -79,7 +83,9 @@ class Parametrisation(StageBase, abc.ABC):
         with open(filename, "w+") as out:
             out.write(xml)
 
-    def _gather_parameters(self, molecule: "Ligand", filename: str="serialised.xml") -> "Ligand":
+    def _gather_parameters(
+        self, molecule: "Ligand", filename: str = "serialised.xml"
+    ) -> "Ligand":
         """
         This method parses the serialised xml file and collects the parameters and
         stores them back into the correct force group in the ligand.

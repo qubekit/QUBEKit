@@ -160,7 +160,7 @@ class Atom(BaseModel):
     map_index: Optional[int] = Field(
         None,
         description="An alternative index. Initially made necessary by the WBOFragmenter which uses its own separate "
-                    "indexing for the molecule and the produced fragments. "
+        "indexing for the molecule and the produced fragments. ",
     )
 
     @classmethod
@@ -200,7 +200,7 @@ class Atom(BaseModel):
             aromatic=aromatic,
             stereochemistry=stereo_code,
             bonds=bonds,
-            map_index=map_index
+            map_index=map_index,
         )
 
     @property

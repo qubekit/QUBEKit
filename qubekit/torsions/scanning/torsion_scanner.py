@@ -80,15 +80,16 @@ class TorsionScan1D(StageBase):
 
     def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
-        Skip the stage for the molecule
+        Carry out the torsion scans only on the fragments
         """
-        # carry out the torsion scans only on the fragments
 
         if molecule.fragments is not None:
-            molecule.fragments = [self._run(fragment, *args, **kwargs) for fragment in molecule.fragments]
+            molecule.fragments = [
+                self._run(fragment, *args, **kwargs) for fragment in molecule.fragments
+            ]
 
         # combine the torsions in the parent molecule
-        # fixme - how to recover the torsions here?
+        # todo
 
         return molecule
 
@@ -113,9 +114,14 @@ class TorsionScan1D(StageBase):
             for a1, a2 in drive_mol.bond_indices:
                 bond_atoms = [a for a in drive_mol.atoms if a.map_index in (a1, a2)]
                 # get the bond with the correct atom indices
-                bonds.extend([b for b in drive_mol.bonds if
-                         {b.atom1_index, b.atom2_index} == {b.atom_index for b in bond_atoms}
-                         ])
+                bonds.extend(
+                    [
+                        b
+                        for b in drive_mol.bonds
+                        if {b.atom1_index, b.atom2_index}
+                        == {b.atom_index for b in bond_atoms}
+                    ]
+                )
             print("Torsion scan will be applied on a fragment's bonds", bonds)
         else:
             # first find all rotatable bonds, while removing the unwanted scans
@@ -165,7 +171,7 @@ class TorsionScan1D(StageBase):
         )
         # select only the bond from which the fragment originated
         if bonds is None:
-            raise Exception('Fragment has to have at least one rotatable bond?')
+            raise Exception("Fragment has to have at least one rotatable bond?")
 
         # remove symmetry duplicates
         bonds = self._get_symmetry_unique_bonds(molecule=drive_mol, bonds=bonds)
@@ -249,7 +255,7 @@ class TorsionScan1D(StageBase):
             # make a folder and move into to run the calculation
             folder = "SCAN_"
             folder += "_".join([str(t) for t in torsion_scan.torsion])
-            folder += f"{molecule.suffix()}"    # fragment
+            folder += f"{molecule.suffix()}"  # fragment
 
             with folder_setup(folder):
                 print(

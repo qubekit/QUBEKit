@@ -124,8 +124,8 @@ class Optimiser(StageBase):
         local_options = kwargs["local_options"]
         qm_spec: QCOptions = kwargs["qc_spec"]
 
-        if 'fragment' not in kwargs:
-            print('Ignoring the main molecule')
+        if not isinstance(molecule, Fragment):
+            print("Optimiser: ignoring the main molecule. Applying only to fragments. ")
             return molecule
 
         # first run the pre_opt method
@@ -234,41 +234,18 @@ class Optimiser(StageBase):
         )
         opt_list = []
 
-        with Pool(processes=local_options.cores) as pool:
-            results = []
-            for confomer in geometries:
-                opt_mol = deepcopy(molecule)
-                opt_mol.coordinates = confomer
-                opt_list.append(
-                    pool.apply_async(
-                        # make sure to divide the total resource between the number of workers
-                        g_opt.optimise,
-                        (
-                            opt_mol,
-                            qc_spec,
-                            local_options.divide_resource(n_tasks=local_options.cores),
-                            True,
-                            True,
-                        ),
-                    )
-                )
-
-            results = []
-            for result in tqdm(
-                opt_list,
-                desc=f"Optimising conformers with {self.pre_optimisation_method}",
-                total=len(opt_list),
-                ncols=80,
-            ):
-                # errors are auto raised from the class so catch the result, and write to file
-                # fixme: this is where it gets stuck
-                result_mol, opt_result = result.get()
-                if opt_result.success:
-                    # save the final energy and molecule
-                    results.append((result_mol, opt_result.energies[-1]))
-                else:
-                    # save the molecule and final energy from the last step if it fails
-                    results.append((result_mol, opt_result.input_data["energies"][-1]))
+        # simple loop
+        for confomer in geometries:
+            results=[]
+            opt_mol = deepcopy(molecule)
+            opt_mol.coordinates = confomer
+            result_mol, opt_result = g_opt.optimise(opt_mol, qc_spec, local_options, True, True)
+            if opt_result.success:
+                # save the final energy and molecule
+                results.append((result_mol, opt_result.energies[-1]))
+            else:
+                # save the molecule and final energy from the last step if it fails
+                results.append((result_mol, opt_result.input_data["energies"][-1]))
 
         # sort the results
         results.sort(key=lambda x: x[1])

@@ -875,10 +875,6 @@ class Molecule(SchemaBase):
 
         return RDKit.find_symmetry_classes(self.to_rdkit())
 
-    @property
-    def symmetry_classes(self) -> int:
-        return Chem.CanonicalRankAtoms(self.to_rdkit(), breakTies=False)
-
     def to_rdkit(self) -> Chem.Mol:
         """
         Generate an rdkit representation of the QUBEKit ligand object.
@@ -1021,14 +1017,15 @@ class Molecule(SchemaBase):
 
     def suffix(self) -> str:
         """
-        fixme
+        For inheritance. Allows for unique filenames to be created
+        where more molecules/fragments are scanned or worked on.
         """
         return ""
 
 
 class Ligand(Molecule):
     """
-    The Ligand class seperats from protiens as we add fields to store QM calculations, such as the hessian and add more
+    The Ligand class separates from proteins as we add fields to store QM calculations, such as the hessian and add more
     rdkit support methods.
     """
 
@@ -1182,7 +1179,7 @@ class Ligand(Molecule):
 
     @classmethod
     def from_smiles(
-        cls, smiles_string: str, name: str, multiplicity: int = 1, mapped: bool = False
+        cls, smiles_string: str, name: str, multiplicity: int = 1
     ) -> "Ligand":
         """
         Build the ligand molecule directly from a non mapped smiles string.
@@ -1515,21 +1512,22 @@ class Ligand(Molecule):
 
         return offxml
 
+
 class Fragment(Ligand):
     """
-
-    fixme: where to put a comment for pydantic to pick it up?
+    A special case of a Ligand when it's a "subset" Fragment (potentially with extra hydrogens etc).
     """
+
     bond_indices: List[Tuple[int, int]] = Field(
         default_factory=list,
-        description="The map indices of the atoms involved in the bond (in the parent molecule) that the fragment "
-                    "was built around. Note that one fragment might have more than one dihedral bond for "
-                    "performance reasons."
+        description="The map indices of the atoms in the parent molecule that are involved in the bond. "
+        "The fragment was built around these atoms. Note that one fragment might have more "
+        "than one torsion bond for performance reasons.",
     )
 
     def suffix(self) -> str:
         """
-        A str suffix uniquely identifying this fragment.
+        A string suffix for identifying this fragment
         """
         return f"_fragment_{self.bond_indices[0][0]}-{self.bond_indices[0][1]}"
 

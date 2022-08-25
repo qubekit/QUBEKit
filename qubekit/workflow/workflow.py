@@ -33,7 +33,7 @@ class WorkFlow(SchemaBase):
     )
     fragmentation: Optional[WBOFragmenter] = Field(
         WBOFragmenter(),
-        description="The fragmenter.",
+        description="The fragmenter: mainly affects how the torsions are computed.",
     )
     parametrisation: Union[OpenFF, XML, AnteChamber] = Field(
         OpenFF(),

@@ -13,7 +13,6 @@ from qubekit.molecules import Ligand, Fragment
 from qubekit.utils.datastructures import StageBase
 
 if TYPE_CHECKING:
-    from openff.toolkit.topology import Molecule
     from openff.fragmenter.fragment import (
         FragmentationResult,
     )
@@ -48,18 +47,12 @@ class WBOFragmenter(StageBase, WBOFragmenter):
 
     def _results_to_ligand(self, fragmentation):
         """
-        TODO
+        Repackage the fragmentation results into our data types
         """
-        # create the parent molecule
-        molecule = Ligand.from_smiles(fragmentation.parent_smiles, 'ligand')
+        molecule = Ligand.from_smiles(fragmentation.parent_smiles, "ligand")
 
         for wbo_fragment in fragmentation.fragments:
-            # partly verify that the fragments can still be mapped to the parent molecule
-            atoms = [a for a in molecule.atoms if a.map_index in wbo_fragment.bond_indices]
-            if len(atoms) != 2:
-                raise Exception('The index used in the fragment to map to the parent could not be found in the parent.')
-
-            fragment = Fragment.from_smiles(wbo_fragment.smiles, 'fragment')
+            fragment = Fragment.from_smiles(wbo_fragment.smiles, "fragment")
 
             # attach the fragments as their own ligands
             fragment.bond_indices.append(wbo_fragment.bond_indices)
@@ -79,27 +72,26 @@ class WBOFragmenter(StageBase, WBOFragmenter):
             off_molecule, target_bond_smarts=self.rotatable_smirks
         )
 
-        # visualise results
         depict_fragmentation_result(result=fragmentation, output_file="fragments.html")
 
-        # convert the results to Ligand class
         ligand = self._results_to_ligand(fragmentation)
 
-        # remove duplicates
-        # fixme - fragments with the same smiles should have a list of bond_indices instead
-        fragmentation = self._deduplicate_fragments(ligand)
+        ligand.fragments = self._deduplicate_fragments(ligand.fragments)
 
-        return fragmentation
+        return ligand
 
-    def _deduplicate_fragments(
-        self, ligand: "Ligand"
-    ) -> "Ligand":
-        """Remove symmetry equivalent fragments from the results."""
+    def _deduplicate_fragments(self, fragments: List["Ligand"]) -> List["Ligand"]:
+        """
+        Remove symmetry equivalent fragments from the results. If a bond is the same and appears twice,
+        it has to be computed only once.
+
+        Where fragments are the same but they focus on different bonds, combine them and keep all bonds.
+        """
         unique_fragments = []
 
         # group fragments by smiles
         for smile, fragments in itertools.groupby(
-            ligand.fragments,
+            fragments,
             lambda frag: frag.to_smiles(explicit_hydrogens=False),
         ):
             fragments = list(fragments)
@@ -108,21 +100,34 @@ class WBOFragmenter(StageBase, WBOFragmenter):
                 unique_fragments.extend(fragments)
                 continue
 
+            # filter out symmetrical bonds
             symmetry_groups = set()
+            fragments_assymetry = []
             for fragment in fragments:
                 bond_map = fragment.bond_indices
                 a1, a2 = [a for a in fragment.atoms if a.map_index in bond_map[0]]
 
                 symmetry_classes = fragment.atom_types
-                symmetry_group = frozenset({symmetry_classes[a1.atom_index], symmetry_classes[a2.atom_index]})
+                symmetry_group = frozenset(
+                    {
+                        int(symmetry_classes[a1.atom_index]),
+                        int(symmetry_classes[a2.atom_index]),
+                    }
+                )
 
                 if symmetry_group not in symmetry_groups:
                     symmetry_groups.add(symmetry_group)
-                    unique_fragments.append(fragment)
+                    fragments_assymetry.append(fragment)
 
-        ligand.fragments = unique_fragments
+            # the smiles are the same so
+            # merge into one fragment to compute hessian/charges/etc only once
+            # but keep all the bonds that need scanning
+            fragments_assymetry[0].bond_indices = [
+                f.bond_indices[0] for f in fragments_assymetry
+            ]
+            unique_fragments.append(fragments_assymetry[0])
 
-        return ligand
+        return unique_fragments
 
     def start_message(self, **kwargs) -> str:
         """
