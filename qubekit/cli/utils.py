@@ -39,14 +39,6 @@ from qubekit.nonbonded.protocols import (
 )
 
 
-# hack to work around the use of the default vsite handler to get the parent index
-def type_to_parent_index_hack(*args) -> int:
-    return 0
-
-
-VirtualSiteHandler.VirtualSiteType.type_to_parent_index = type_to_parent_index_hack
-
-
 class QUBEKitHandler(vdWHandler):
     """A plugin handler to enable the fitting of Rfree parameters using evaluator"""
 
@@ -321,6 +313,11 @@ class LocalVirtualSite(VirtualSite):
     def get_openmm_virtual_site(self, atoms: Tuple[int, ...]):
         assert len(atoms) == 3
         return self._openmm_virtual_site(atoms)
+
+    @property
+    def type(self) -> str:
+        """Hack to work around the use of the default vsite handler to get the parent index"""
+        return "DivalentLonePairVirtualSite"
 
 
 class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
