@@ -176,7 +176,7 @@ class Optimiser(StageBase):
                 conformers, desc="Optimising conformer", total=len(conformers), ncols=80
             )
         ):
-            with folder_setup(folder_name=f"conformer_{i}" + molecule.suffix()):
+            with folder_setup(folder_name=f"conformer_{i}{molecule.suffix()}"):
                 # set the coords
                 opt_mol.coordinates = conformer
                 # errors are auto raised from the class so catch the result, and write to file
@@ -232,14 +232,15 @@ class Optimiser(StageBase):
         molecule.to_multiconformer_file(
             file_name=f"starting_coords{molecule.suffix()}.xyz", positions=geometries
         )
-        opt_list = []
 
         # simple loop
+        results = []
         for confomer in geometries:
-            results=[]
             opt_mol = deepcopy(molecule)
             opt_mol.coordinates = confomer
-            result_mol, opt_result = g_opt.optimise(opt_mol, qc_spec, local_options, True, True)
+            result_mol, opt_result = g_opt.optimise(
+                opt_mol, qc_spec, local_options, True, True
+            )
             if opt_result.success:
                 # save the final energy and molecule
                 results.append((result_mol, opt_result.energies[-1]))
@@ -247,12 +248,46 @@ class Optimiser(StageBase):
                 # save the molecule and final energy from the last step if it fails
                 results.append((result_mol, opt_result.input_data["energies"][-1]))
 
+        # with Pool(processes=local_options.cores) as pool:
+        #     for confomer in geometries:
+        #         opt_mol = deepcopy(molecule)
+        #         opt_mol.coordinates = confomer
+        #         opt_list.append(
+        #             pool.apply_async(
+        #                 g_opt.optimise,
+        #                 (
+        #                     opt_mol,
+        #                     qc_spec,
+        #                     local_options.divide_resource(n_tasks=local_options.cores),
+        #                     True,
+        #                     True,
+        #                 ),
+        #             )
+        #         )
+        #
+        #     results = []
+        #     for result in tqdm(
+        #         opt_list,
+        #         desc=f"Optimising conformers with {self.pre_optimisation_method}",
+        #         total=len(opt_list),
+        #         ncols=80,
+        #     ):
+        #         # errors are auto raised from the class so catch the result, and write to file
+        #         result_mol, opt_result = result.get()
+        #         if opt_result.success:
+        #             # save the final energy and molecule
+        #             results.append((result_mol, opt_result.energies[-1]))
+        #         else:
+        #             # save the molecule and final energy from the last step if it fails
+        #             results.append((result_mol, opt_result.input_data["energies"][-1]))
+
         # sort the results
         results.sort(key=lambda x: x[1])
         final_geometries = [re[0].coordinates for re in results]
         # write all conformers out
         molecule.to_multiconformer_file(
-            file_name=f"final_pre_opt_coords{molecule.suffix()}.xyz", positions=final_geometries
+            file_name=f"final_pre_opt_coords{molecule.suffix()}.xyz",
+            positions=final_geometries,
         )
         return final_geometries
 

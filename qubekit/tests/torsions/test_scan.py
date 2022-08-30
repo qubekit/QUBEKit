@@ -127,7 +127,7 @@ def test_single_dihedral(tmpdir):
         )
         t_scan = TorsionScan1D(torsion_driver=tdrive)
         t_scan.clear_avoided_torsions()
-        result_mol = t_scan.run(molecule=mol, qc_spec=qc_spec, local_options=local_ops)
+        result_mol = t_scan._run(molecule=mol, qc_spec=qc_spec, local_options=local_ops)
         assert len(result_mol.qm_scans) == 1
         # make sure input molecule coords were not changed
         assert np.allclose(mol.coordinates, result_mol.coordinates)
@@ -146,7 +146,7 @@ def test_double_dihedral(tmpdir):
         )
         t_scan = TorsionScan1D(torsion_driver=tdrive)
         t_scan.clear_avoided_torsions()
-        result_mol = t_scan.run(molecule=mol, qc_spec=qc_spec, local_options=local_ops)
+        result_mol = t_scan._run(molecule=mol, qc_spec=qc_spec, local_options=local_ops)
         assert len(result_mol.qm_scans) == 2
         # make sure input molecule coords were not changed
         assert np.allclose(mol.coordinates, result_mol.coordinates)

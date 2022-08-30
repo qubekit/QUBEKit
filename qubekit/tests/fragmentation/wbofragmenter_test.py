@@ -10,8 +10,8 @@ def test_generate_fragments():
     molecule = Ligand.from_smiles(Cobimetinib, "Cobimetinib")
 
     fragmenter = WBOFragmenter()
-    result = fragmenter.run(molecule)
+    ligand = fragmenter.run(molecule)
 
     # Cobimetinib has 5 fragments according to the example
     # https://docs.openforcefield.org/projects/fragmenter/en/latest/fragment-molecules.html
-    assert len(result.fragments) == 5
+    assert len(ligand.fragments) == 5
