@@ -61,7 +61,7 @@ class Parametrisation(StageBase, abc.ABC):
         system = self._build_system(molecule=molecule, input_files=input_files)
 
         # pass the indices of the bonded atoms around which the fragment was built
-        filename = f"serialized{molecule.suffix()}.xml"
+        filename = f"serialised{molecule.suffix()}.xml"
 
         self._serialise_system(system=system, filename=filename)
         self._gather_parameters(molecule=molecule, filename=filename)
