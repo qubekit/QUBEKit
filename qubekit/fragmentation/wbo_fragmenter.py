@@ -2,7 +2,6 @@ import itertools
 from typing import List, TYPE_CHECKING
 from typing_extensions import Literal
 
-from rdkit import Chem
 from openff.fragmenter.fragment import WBOFragmenter
 from openff.fragmenter.depiction import depict_fragmentation_result
 from openff.toolkit.topology import Molecule as OFFMolecule

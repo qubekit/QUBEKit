@@ -1,5 +1,5 @@
 import copy
-from typing import TYPE_CHECKING, List, Tuple
+from typing import List, Tuple
 
 from pydantic import Field
 from qcelemental.util import which_import

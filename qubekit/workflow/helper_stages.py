@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 import numpy as np
 from pydantic import Field
