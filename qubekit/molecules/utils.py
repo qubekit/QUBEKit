@@ -122,11 +122,12 @@ class RDKit:
             name = input("Please enter a name for the molecule:\n>")
         mol.SetProp("_Name", name)
 
+        # calculate valence in order to add hydrogens
         # Chem.SanitizeMol calls updatePropertyCache so we don't need to call it ourselves
         # https://www.rdkit.org/docs/cppapi/namespaceRDKit_1_1MolOps.html#a8d831787aaf2d65d9920c37b25b476f5
         Chem.SanitizeMol(
             mol,
-            Chem.SANITIZE_ALL ^ Chem.SANITIZE_ADJUSTHS ^ Chem.SANITIZE_SETAROMATICITY,
+            Chem.SANITIZE_ALL ^ Chem.SANITIZE_SETAROMATICITY,
         )
 
         Chem.SetAromaticity(mol, Chem.AromaticityModel.AROMATICITY_MDL)
@@ -135,11 +136,11 @@ class RDKit:
         # doesn't set bond.GetStereo(). We need to call AssignStereochemistry for that.
         Chem.AssignStereochemistry(mol)
 
+        mol = AllChem.AddHs(mol)
+
         AllChem.EmbedMolecule(mol, randomSeed=1)
 
-        mol_hydrogens = AllChem.AddHs(mol)
-
-        return mol_hydrogens
+        return mol
 
     @staticmethod
     def rdkit_descriptors(rdkit_mol: Chem.Mol) -> Dict[str, float]:
