@@ -74,6 +74,7 @@ def rfree_data():
 def methanol():
     return Ligand.parse_file(get_data("methanol.json"))
 
+
 @pytest.fixture()
 def bace_fragmented(tmpdir):
     bace = "CN1C(=O)C(c2cccc(-c3cccnc3)c2)(C2CC2)[NH+]=C1N"

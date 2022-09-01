@@ -35,8 +35,13 @@ def test_recovering_indices(tmpdir, bace_fragmented):
     for fragment in bace_fragmented.fragments:
         for pair in fragment.bond_indices:
             # find the indices of the correct parent atoms
-            atom_indices = {a.atom_index for a in bace_fragmented.atoms if a.map_index in pair}
+            atom_indices = {
+                a.atom_index for a in bace_fragmented.atoms if a.map_index in pair
+            }
             assert len(atom_indices) == 2
 
             # verify that the two atoms are actually bounded
-            assert any({b.atom1_index, b.atom2_index} == atom_indices for b in bace_fragmented.bonds)
+            assert any(
+                {b.atom1_index, b.atom2_index} == atom_indices
+                for b in bace_fragmented.bonds
+            )
