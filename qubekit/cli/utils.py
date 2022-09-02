@@ -39,6 +39,26 @@ from qubekit.nonbonded.protocols import (
 )
 
 
+def _get_nonbonded_force(
+    system: openmm.System, topology: Topology
+) -> openmm.NonbondedForce:
+    """A workaround calling to the super methods of plugins to get the nonbonded force from an openmm system."""
+    # Get the OpenMM Nonbonded force or add if missing
+    existing = [system.getForce(i) for i in range(system.getNumForces())]
+    existing = [f for f in existing if type(f) == openmm.NonbondedForce]
+
+    # if not present make one and add the particles
+    if len(existing) == 0:
+        force = openmm.NonbondedForce()
+        system.addForce(force)
+        # add all atom particles, Vsites are added later
+        for _ in topology.topology_atoms:
+            force.addParticle(0.0, 1.0, 0.0)
+    else:
+        force = existing[0]
+    return force
+
+
 class QUBEKitHandler(vdWHandler):
     """A plugin handler to enable the fitting of Rfree parameters using evaluator"""
 
@@ -68,23 +88,15 @@ class QUBEKitHandler(vdWHandler):
 
     _TAGNAME = "QUBEKitvdWTS"
     _INFOTYPE = QUBEKitvdWType
-    _DEPENDENCIES = None  # we might need to depend on vdW if present
+    _DEPENDENCIES = [
+        vdWHandler,
+        ElectrostaticsHandler,
+        LibraryChargeHandler,
+    ]  # we might need to depend on vdW if present
 
     def create_force(self, system, topology, **kwargs):
         """over write the force creation to use qubekit"""
-        # Get the OpenMM Nonbonded force or add if missing
-        existing = [system.getForce(i) for i in range(system.getNumForces())]
-        existing = [f for f in existing if type(f) == self._OPENMMTYPE]
-
-        # if not present make one and add the particles
-        if len(existing) == 0:
-            force = self._OPENMMTYPE()
-            system.addForce(force)
-            # add all atom particles, Vsites are added later
-            for _ in topology.topology_atoms:
-                force.addParticle(0.0, 1.0, 0.0)
-        else:
-            force = existing[0]
+        force = _get_nonbonded_force(system=system, topology=topology)
 
         # If we're using PME, then the only possible openMM Nonbonded type is LJPME
         if self.method == "PME":
@@ -200,18 +212,7 @@ class QUBEKitvdWHandler(vdWHandler):
 
     def create_force(self, system, topology, **kwargs):
         # Get the OpenMM Nonbonded force or add if missing
-        existing = [system.getForce(i) for i in range(system.getNumForces())]
-        existing = [f for f in existing if type(f) == self._OPENMMTYPE]
-
-        # if not present make one and add the particles
-        if len(existing) == 0:
-            force = self._OPENMMTYPE()
-            system.addForce(force)
-            # add all atom particles, Vsites are added later
-            for _ in topology.topology_atoms:
-                force.addParticle(0.0, 1.0, 0.0)
-        else:
-            force = existing[0]
+        force = _get_nonbonded_force(system=system, topology=topology)
 
         # If we're using PME, then the only possible openMM Nonbonded type is LJPME
         if self.method == "PME":
@@ -381,17 +382,20 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
         LibraryChargeHandler,
         ChargeIncrementModelHandler,
         ToolkitAM1BCCHandler,
+        QUBEKitHandler,
         vdWHandler,
+        VirtualSiteHandler,
     ]
 
     exclusion_policy = ParameterAttribute(default="parents")
 
     def create_force(self, system: openmm.System, topology: Topology, **kwargs):
 
-        if system.getNumParticles() != topology.n_topology_atoms:
-            raise ValueError("the system does not seem to have any particles in it")
+        # as the normal vsites go first there should be more than topology.n_atoms if we have a 4 site water or more
+        if system.getNumParticles() < topology.n_topology_atoms:
+            raise ValueError("the system does not seem to have enough particles in it")
 
-        force = super(VirtualSiteHandler, self).create_force(system, topology, **kwargs)
+        force = _get_nonbonded_force(system=system, topology=topology)
 
         matches_by_parent = self._find_matches_by_parent(topology)
 

@@ -210,7 +210,6 @@ def test_combine_molecules_sites_deepdiff(openff, xml, acetone, rfree_data, tmpd
         messy = ET.tostring(combined_xml, "utf-8")
 
         pretty_xml = parseString(messy).toprettyxml(indent="")
-        print(pretty_xml)
         with open("combined.xml", "w") as xml_doc:
             xml_doc.write(pretty_xml)
         root = combined_xml.find("QUBEKit")
@@ -346,20 +345,76 @@ def test_combine_cli_all_offxml(
             assert len(vdw_handler.parameters) == 34
 
 
-def test_combine_sites_offxml(xml, tmpdir, rfree_data):
+def test_combine_sites_offxml_deepdiff(
+    xml, tmpdir, rfree_data, methanol, acetone, openff
+):
     """
-    Make sure an error is raised if we try and combine with vsites.
+    Make sure we can create a combined offxml with vsites and get the same system with xml and offxml.
+    Note this is not using the plugin.
     """
     with tmpdir.as_cwd():
-        pyridine = Ligand.from_file(file_name=get_data("pyridine.sdf"))
-        xml.run(molecule=pyridine, input_files=[get_data("pyridine.xml")])
-        with pytest.raises(NotImplementedError):
-            _combine_molecules_offxml(
-                molecules=[pyridine],
-                parameters=elements,
-                rfree_data=rfree_data,
-                filename="test.offxml",
+        openff.run(acetone)
+        off_acetone = Molecule.from_rdkit(acetone.to_rdkit())
+        off_methanol = Molecule.from_rdkit(methanol.to_rdkit())
+        acetone_ref_system = xmltodict.parse(open("serialised.xml").read())
+        methanol.write_parameters("methanol.xml")
+        methanol_ff = app.ForceField("methanol.xml")
+        methanol_mod = app.Modeller(
+            methanol.to_openmm_topology(), methanol.openmm_coordinates()
+        )
+        methanol_mod.addExtraParticles(methanol_ff)
+
+        methanol_system = methanol_ff.createSystem(
+            methanol_mod.topology, nonbondedCutoff=0.9, removeCMMotion=False
+        )
+        methanol_ref_system = xmltodict.parse(XmlSerializer.serialize(methanol_system))
+        # with open("methanol_ref.xml", "w") as out:
+        #     out.write(XmlSerializer.serialize(methanol_system))
+
+        _combine_molecules_offxml(
+            molecules=[methanol, acetone],
+            parameters=[],
+            rfree_data=rfree_data,
+            filename="combined.offxml",
+        )
+
+        combined_offml = ForceField(
+            "combined.offxml", load_plugins=True, allow_cosmetic_attributes=True
+        )
+        acetone_combine_system = xmltodict.parse(
+            XmlSerializer.serialize(
+                combined_offml.create_openmm_system(off_acetone.to_topology())
             )
+        )
+        acetone_diff = DeepDiff(
+            acetone_ref_system,
+            acetone_combine_system,
+            ignore_order=True,
+            significant_digits=6,
+            exclude_regex_paths="mass",
+        )
+        assert len(acetone_diff) == 1
+        for item in acetone_diff["iterable_item_added"].values():
+            assert item["@k"] == "0"
+
+        methanol_combine_system = xmltodict.parse(
+            XmlSerializer.serialize(
+                combined_offml.create_openmm_system(off_methanol.to_topology())
+            )
+        )
+        # with open("methanol_comb.xml", "w") as out:
+        #     out.write(XmlSerializer.serialize(combined_offml.create_openmm_system(off_methanol.to_topology())))
+
+        methanol_diff = DeepDiff(
+            methanol_ref_system,
+            methanol_combine_system,
+            ignore_order=True,
+            significant_digits=6,
+            exclude_regex_paths="mass",
+        )
+        assert len(methanol_diff) == 1
+        for item in acetone_diff["iterable_item_added"].values():
+            assert item["@k"] == "0"
 
 
 def test_combine_rb_offxml(tmpdir, xml, rfree_data):
@@ -638,6 +693,105 @@ def test_molecule_and_vsite_water(coumarin, tmpdir, water, rfree_data):
         assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
         assert sigma == unit.Quantity(0.0, unit.nanometer)
         assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
+
+
+def test_molecule_vsite_and_vsite_water(methanol, tmpdir, water, rfree_data):
+    """
+    Make sure a v-site water model is correctly loaded from and offxml
+    """
+
+    with tmpdir.as_cwd():
+
+        _combine_molecules_offxml(
+            molecules=[methanol],
+            parameters=[],
+            rfree_data=rfree_data,
+            filename="combined.offxml",
+            water_model="tip4p-fb",
+        )
+
+        combinded_ff = ForceField(
+            "combined.offxml", load_plugins=True, allow_cosmetic_attributes=True
+        )
+        mixed_top = Topology.from_molecules(
+            molecules=[
+                Molecule.from_rdkit(water.to_rdkit()),
+                Molecule.from_rdkit(methanol.to_rdkit()),
+            ]
+        )
+        system = combinded_ff.create_openmm_system(topology=mixed_top)
+        # make sure we have 3 constraints
+        assert system.getNumConstraints() == 3
+        # check each constraint
+        reference_constraints = [
+            [0, 1, unit.Quantity(0.9572, unit=unit.angstroms)],
+            [0, 2, unit.Quantity(0.9572, unit=unit.angstroms)],
+            [1, 2, unit.Quantity(1.5139006545247014, unit=unit.angstroms)],
+        ]
+        for i in range(3):
+            a, b, constraint = system.getConstraintParameters(i)
+            assert a == reference_constraints[i][0]
+            assert b == reference_constraints[i][1]
+            assert constraint == reference_constraints[i][2].in_units_of(
+                unit.nanometers
+            )
+        # now loop over the forces and make sure water was correctly parameterised
+        forces = dict((force.__class__.__name__, force) for force in system.getForces())
+        nonbonded_force: openmm.NonbondedForce = forces["NonbondedForce"]
+        # first check water has the correct parameters
+        water_reference = [
+            [
+                unit.Quantity(0.0, unit.elementary_charge),
+                unit.Quantity(3.1655, unit=unit.angstroms),
+                unit.Quantity(0.179082, unit=unit.kilocalorie_per_mole),
+            ],
+            [
+                unit.Quantity(0.52587, unit.elementary_charge),
+                unit.Quantity(1, unit=unit.angstroms),
+                unit.Quantity(0, unit=unit.kilocalorie_per_mole),
+            ],
+            [
+                unit.Quantity(0.52587, unit.elementary_charge),
+                unit.Quantity(1, unit=unit.angstroms),
+                unit.Quantity(0, unit=unit.kilocalorie_per_mole),
+            ],
+        ]
+        for i in range(3):
+            charge, sigma, epsilon = nonbonded_force.getParticleParameters(i)
+            assert charge == water_reference[i][0]
+            assert sigma.in_units_of(unit.nanometer) == water_reference[i][
+                1
+            ].in_units_of(unit.nanometer)
+            assert (
+                epsilon.in_units_of(unit.kilocalorie_per_mole) == water_reference[i][2]
+            )
+
+        # now check methanol
+        for i in range(methanol.n_atoms):
+            ref_params = methanol.NonbondedForce[(i,)]
+            charge, sigma, epsilon = nonbonded_force.getParticleParameters(i + 3)
+            assert charge.value_in_unit(unit.elementary_charge) == float(
+                ref_params.charge
+            )
+            assert sigma.value_in_unit(unit.nanometers) == ref_params.sigma
+            assert epsilon.value_in_unit(unit.kilojoule_per_mole) == ref_params.epsilon
+
+        # now check the water vsite which should be last
+        charge, sigma, epsilon = nonbonded_force.getParticleParameters(
+            methanol.n_atoms + 3
+        )
+        assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
+        assert sigma == unit.Quantity(0.0, unit.nanometer)
+        assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
+
+        # now check the two methanol sites
+        for i, site in enumerate(methanol.extra_sites):
+            charge, sigma, epsilon = nonbonded_force.getParticleParameters(
+                methanol.n_atoms + 4 + i
+            )
+            assert charge == unit.Quantity(float(site.charge), unit.elementary_charge)
+            assert sigma == unit.Quantity(1.0, unit.nanometer)
+            assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
 
 
 def test_combine_molecules_offxml_plugin_deepdiff(tmpdir, coumarin, rfree_data):

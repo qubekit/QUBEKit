@@ -133,15 +133,10 @@ def _combine_molecules_offxml(
     rfree_data: Dict[str, Dict[str, Union[str, float]]],
     filename: str,
     water_model: Literal["tip3p"] = "tip3p",
-):
+) -> None:
     """
     Main worker function to build the combined offxmls.
     """
-
-    if sum([molecule.extra_sites.n_sites for molecule in molecules]) > 0:
-        raise NotImplementedError(
-            "Virtual sites can not be safely converted into offxml format yet."
-        )
 
     if sum([molecule.RBTorsionForce.n_parameters for molecule in molecules]) > 0:
         raise NotImplementedError(
@@ -186,6 +181,8 @@ def _combine_molecules_offxml(
             "vdW", allow_cosmetic_attributes=True
         )
     library_charges = offxml.get_parameter_handler("LibraryCharges")
+    # use our plugin handler
+    local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
 
     for molecule in molecules:
         rdkit_mol = molecule.to_rdkit()
@@ -305,6 +302,34 @@ def _combine_molecules_offxml(
         )
         charge_data["smirks"] = molecule.to_smiles(mapped=True)
         library_charges.add_parameter(parameter_kwargs=charge_data)
+        if molecule.extra_sites.n_sites > 0:
+            for i, site in enumerate(molecule.extra_sites):
+                graph = ClusterGraph(
+                    mols=[rdkit_mol],
+                    smirks_atoms_lists=[
+                        [
+                            (
+                                site.parent_index,
+                                site.closest_a_index,
+                                site.closest_b_index,
+                            )
+                        ]
+                    ],
+                    layers="all",
+                )
+                vsite_parameter = local_vsites._INFOTYPE(
+                    **{
+                        "smirks": graph.as_smirks(),
+                        "name": f"{molecule.name}_{i}",
+                        "x_local": site.p1 * unit.nanometers,
+                        "y_local": site.p2 * unit.nanometers,
+                        "z_local": site.p3 * unit.nanometers,
+                        "charge": site.charge * unit.elementary_charge,
+                        "epsilon": 0 * unit.kilojoule_per_mole,
+                        "sigma": 1 * unit.nanometer,
+                    }
+                )
+                local_vsites._parameters.append(vsite_parameter)
 
     # now loop over all the parameters to be fit and add them as cosmetic attributes
     to_parameterize = []
