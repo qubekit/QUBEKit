@@ -50,15 +50,6 @@ def test_apply_symmetrisation(mol):
     assert mol.atoms[2].aim.volume == mol.atoms[3].aim.volume
 
 
-@pytest.fixture(scope="module")
-def vs(mol):
-    """
-    Initialise the VirtualSites class to be used for the following tests
-    """
-    virtual_sites = VirtualSites()
-    return virtual_sites
-
-
 @pytest.mark.parametrize(
     "input_array, result",
     [

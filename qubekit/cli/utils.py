@@ -88,10 +88,10 @@ class QUBEKitHandler(vdWHandler):
 
     _TAGNAME = "QUBEKitvdWTS"
     _INFOTYPE = QUBEKitvdWType
+    # vdW must go first as we need to overwrite the blank parameters
     _DEPENDENCIES = [
         vdWHandler,
         ElectrostaticsHandler,
-        LibraryChargeHandler,
     ]  # we might need to depend on vdW if present
 
     def create_force(self, system, topology, **kwargs):
@@ -201,54 +201,6 @@ class QUBEKitHandler(vdWHandler):
                         particle_parameters.sigma,
                         particle_parameters.epsilon,
                     )
-
-
-class QUBEKitvdWHandler(vdWHandler):
-    """
-    A subclass of the normal vdWhandler to use for qubekit optimisations so we can mix water models with our custom handler
-    """
-
-    _TAGNAME = "QUBEKitvdW"
-
-    def create_force(self, system, topology, **kwargs):
-        # Get the OpenMM Nonbonded force or add if missing
-        force = _get_nonbonded_force(system=system, topology=topology)
-
-        # If we're using PME, then the only possible openMM Nonbonded type is LJPME
-        if self.method == "PME":
-            # If we're given a nonperiodic box, we always set NoCutoff. Later we'll add support for CutoffNonPeriodic
-            if topology.box_vectors is None:
-                force.setNonbondedMethod(openmm.NonbondedForce.NoCutoff)
-                # if (topology.box_vectors is None):
-                #     raise SMIRNOFFSpecError("If vdW method is  PME, a periodic Topology "
-                #                             "must be provided")
-            else:
-                force.setNonbondedMethod(openmm.NonbondedForce.LJPME)
-                force.setCutoffDistance(self.cutoff)
-                force.setEwaldErrorTolerance(1.0e-4)
-
-        # If method is cutoff, then we currently support openMM's PME for periodic system and NoCutoff for nonperiodic
-        elif self.method == "cutoff":
-            # If we're given a nonperiodic box, we always set NoCutoff. Later we'll add support for CutoffNonPeriodic
-            if topology.box_vectors is None:
-                force.setNonbondedMethod(openmm.NonbondedForce.NoCutoff)
-            else:
-                force.setNonbondedMethod(openmm.NonbondedForce.PME)
-                force.setUseDispersionCorrection(True)
-                force.setCutoffDistance(self.cutoff)
-
-        # Iterate over all defined Lennard-Jones types, allowing later matches to override earlier ones.
-        atom_matches = self.find_matches(topology)
-
-        # Set the particle Lennard-Jones terms.
-        for atom_key, atom_match in atom_matches.items():
-            atom_idx = atom_key[0]
-            ljtype = atom_match.parameter_type
-            if ljtype.sigma is None:
-                sigma = 2.0 * ljtype.rmin_half / (2.0 ** (1.0 / 6.0))
-            else:
-                sigma = ljtype.sigma
-            force.setParticleParameters(atom_idx, 0.0, sigma, ljtype.epsilon)
 
 
 class LocalVirtualSite(VirtualSite):

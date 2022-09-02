@@ -4,7 +4,7 @@ import xmltodict
 from deepdiff import DeepDiff
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
-from openmm import XmlSerializer, app
+from openmm import XmlSerializer, app, unit
 from parmed.openmm import energy_decomposition_system, load_topology
 from pydantic.error_wrappers import ValidationError
 
@@ -502,7 +502,7 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
         mol = Ligand.from_file(get_data(molecule))
         offmol = Molecule.from_file(get_data(molecule))
         openff.run(mol)
-        mol.to_offxml("test.offxml")
+        mol.to_offxml("test.offxml", h_constraints=False)
         # build another openmm system and serialise to compare with deepdiff
         offxml = ForceField("test.offxml")
         assert offxml.author == f"QUBEKit_version_{qubekit.__version__}"
@@ -556,7 +556,7 @@ def test_offxml_sites_energy(xml, tmpdir, methanol):
         assert methanol.extra_sites.n_sites == 2
 
         openff_mol = Molecule.from_rdkit(methanol.to_rdkit())
-        methanol.to_offxml("test.offxml")
+        methanol.to_offxml("test.offxml", h_constraints=False)
         methanol.write_parameters("test.xml")
         ff = ForceField("test.offxml", load_plugins=True)
         # check the site handler has two sites
@@ -640,3 +640,23 @@ def test_rb_offxml(tmpdir):
 
         with pytest.raises(NotImplementedError):
             mol.to_offxml("test.offxml")
+
+
+def test_h_constraints_offxml(methanol, tmpdir):
+    """Make sure constraints are added to an offxml when requested and they are included in an openmm system."""
+
+    with tmpdir.as_cwd():
+
+        methanol.to_offxml(file_name="methanol.offxml", h_constraints=True)
+        methanol_ff = ForceField("methanol.offxml")
+        off_methanol = Molecule.from_rdkit(methanol.to_rdkit())
+        system = methanol_ff.create_openmm_system(topology=off_methanol.to_topology())
+        # make sure all h bonds are constrained
+        assert system.getNumConstraints() == 4
+        for i in range(4):
+            a, b, constraint = system.getConstraintParameters(i)
+            # compare the constraint length with the equilibrium bond length
+            assert (
+                unit.Quantity(methanol.BondForce[(a, b)].length, unit.nanometer)
+                == constraint
+            )

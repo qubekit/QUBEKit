@@ -1345,7 +1345,7 @@ class Ligand(Molecule):
                 coords = input_data.coords
         self.coordinates = coords
 
-    def to_offxml(self, file_name: str):
+    def to_offxml(self, file_name: str, h_constraints: bool = True):
         """
         Build an offxml for the molecule and raise an error if we do not think this will be possible due to the presence
         of v-sites or if the potential can not be accurately transferred to an equivalent openff potential.
@@ -1353,10 +1353,10 @@ class Ligand(Molecule):
         Note:
             There are a limited number of currently supported potentials in openff without using smirnoff-plugins.
         """
-        offxml = self._build_offxml()
+        offxml = self._build_offxml(h_constraints=h_constraints)
         offxml.to_file(filename=file_name)
 
-    def _build_offxml(self):
+    def _build_offxml(self, h_constraints: bool):
         """
         Build the offxml force field from the molecule parameters.
         """
@@ -1382,6 +1382,12 @@ class Ligand(Molecule):
         offxml.date = datetime.now().strftime("%Y_%m_%d")
         rdkit_mol = self.to_rdkit()
         # Now loop over each potential function and translate the terms to the openff format
+        if h_constraints:
+            # add a generic h-bond constraint
+            constraints = offxml.get_parameter_handler("Constraints")
+            constraints.add_parameter(
+                parameter_kwargs={"smirks": "[#1:1]-[*:2]", "id": "h-c1"}
+            )
         bond_handler = offxml.get_parameter_handler("Bonds")
         bond_types = self.bond_types
         # for each bond type collection create a single smirks pattern

@@ -1,6 +1,7 @@
 import pytest
 
 from qubekit.molecules import Ligand
+from qubekit.nonbonded import VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.utils.file_handling import get_data
 from qubekit.workflow.workflow import QCOptions, WorkFlow
@@ -72,3 +73,12 @@ def rfree_data():
 @pytest.fixture()
 def methanol():
     return Ligand.parse_file(get_data("methanol.json"))
+
+
+@pytest.fixture()
+def vs():
+    """
+    Initialise the VirtualSites class to be used for the following tests
+    """
+    virtual_sites = VirtualSites()
+    return virtual_sites
