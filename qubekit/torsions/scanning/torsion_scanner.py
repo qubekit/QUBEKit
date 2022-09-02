@@ -88,9 +88,6 @@ class TorsionScan1D(StageBase):
                 self._run(fragment, *args, **kwargs) for fragment in molecule.fragments
             ]
 
-        # combine the torsions in the parent molecule
-        # todo
-
         return molecule
 
     def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
