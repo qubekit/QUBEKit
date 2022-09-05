@@ -82,3 +82,8 @@ def vs():
     """
     virtual_sites = VirtualSites()
     return virtual_sites
+
+
+@pytest.fixture()
+def ethanol():
+    return Ligand.parse_file(get_data("ethanol_sites.json"))

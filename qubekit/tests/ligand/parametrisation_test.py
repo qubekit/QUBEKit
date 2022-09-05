@@ -547,17 +547,24 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
                     assert energy == pytest.approx(qube_e, abs=2e-3)
 
 
-def test_offxml_sites_energy(xml, tmpdir, methanol):
+@pytest.mark.parametrize(
+    "molecule",
+    [pytest.param("methanol", id="methanol"), pytest.param("ethanol", id="ethanol")],
+)
+def test_offxml_sites_energy(xml, tmpdir, methanol, ethanol, molecule):
     """Make sure virtual sites are correctly written to offxml
     and produce the same energy as an xml system with sites"""
 
+    molecules = {"methanol": methanol, "ethanol": ethanol}
+    mol = molecules[molecule]
+
     with tmpdir.as_cwd():
         # make sure the molecule has extra sites
-        assert methanol.extra_sites.n_sites == 2
+        assert mol.extra_sites.n_sites == 2
 
-        openff_mol = Molecule.from_rdkit(methanol.to_rdkit())
-        methanol.to_offxml("test.offxml", h_constraints=False)
-        methanol.write_parameters("test.xml")
+        openff_mol = Molecule.from_rdkit(mol.to_rdkit())
+        mol.to_offxml("test.offxml", h_constraints=False)
+        mol.write_parameters("test.xml")
         ff = ForceField("test.offxml", load_plugins=True)
         # check the site handler has two sites
         sites = ff.get_parameter_handler("LocalCoordinateVirtualSites")
@@ -581,8 +588,8 @@ def test_offxml_sites_energy(xml, tmpdir, methanol):
         xml_ff = app.ForceField("test.xml")
         # we don't have access to the openmm topology with vsites so make our own
         modeller = app.Modeller(
-            topology=methanol.to_openmm_topology(),
-            positions=methanol.openmm_coordinates(),
+            topology=mol.to_openmm_topology(),
+            positions=mol.openmm_coordinates(),
         )
         modeller.addExtraParticles(xml_ff)
         xml_system = xml_ff.createSystem(
@@ -628,6 +635,7 @@ def test_offxml_sites_energy(xml, tmpdir, methanol):
             for off_force, off_e in off_energy:
                 if force_group == off_force:
                     assert energy == pytest.approx(off_e, abs=2e-3)
+                    print(energy, off_e)
 
 
 def test_rb_offxml(tmpdir):

@@ -345,34 +345,40 @@ def test_combine_cli_all_offxml(
             assert len(vdw_handler.parameters) == 34
 
 
+@pytest.mark.parametrize(
+    "molecule",
+    [pytest.param("methanol", id="methanol"), pytest.param("ethanol", id="ethanol")],
+)
 def test_combine_sites_offxml_deepdiff(
-    xml, tmpdir, rfree_data, methanol, acetone, openff
+    xml, tmpdir, rfree_data, methanol, ethanol, acetone, openff, molecule
 ):
     """
     Make sure we can create a combined offxml with vsites and get the same system with xml and offxml.
     Note this is not using the plugin.
     """
+
+    molecules = {"methanol": methanol, "ethanol": ethanol}
+    mol = molecules[molecule]
+
     with tmpdir.as_cwd():
         openff.run(acetone)
         off_acetone = Molecule.from_rdkit(acetone.to_rdkit())
-        off_methanol = Molecule.from_rdkit(methanol.to_rdkit())
+        off_mol = Molecule.from_rdkit(mol.to_rdkit())
         acetone_ref_system = xmltodict.parse(open("serialised.xml").read())
-        methanol.write_parameters("methanol.xml")
-        methanol_ff = app.ForceField("methanol.xml")
-        methanol_mod = app.Modeller(
-            methanol.to_openmm_topology(), methanol.openmm_coordinates()
-        )
-        methanol_mod.addExtraParticles(methanol_ff)
+        mol.write_parameters("mol.xml")
+        mol_ff = app.ForceField("mol.xml")
+        mol_mod = app.Modeller(mol.to_openmm_topology(), mol.openmm_coordinates())
+        mol_mod.addExtraParticles(mol_ff)
 
-        methanol_system = methanol_ff.createSystem(
-            methanol_mod.topology, nonbondedCutoff=0.9, removeCMMotion=False
+        mol_system = mol_ff.createSystem(
+            mol_mod.topology, nonbondedCutoff=0.9, removeCMMotion=False
         )
-        methanol_ref_system = xmltodict.parse(XmlSerializer.serialize(methanol_system))
+        mol_ref_system = xmltodict.parse(XmlSerializer.serialize(mol_system))
         # with open("methanol_ref.xml", "w") as out:
         #     out.write(XmlSerializer.serialize(methanol_system))
 
         _combine_molecules_offxml(
-            molecules=[methanol, acetone],
+            molecules=[mol, acetone],
             parameters=[],
             rfree_data=rfree_data,
             filename="combined.offxml",
@@ -398,22 +404,22 @@ def test_combine_sites_offxml_deepdiff(
         for item in acetone_diff["iterable_item_added"].values():
             assert item["@k"] == "0"
 
-        methanol_combine_system = xmltodict.parse(
+        mol_combine_system = xmltodict.parse(
             XmlSerializer.serialize(
-                combined_offml.create_openmm_system(off_methanol.to_topology())
+                combined_offml.create_openmm_system(off_mol.to_topology())
             )
         )
         # with open("methanol_comb.xml", "w") as out:
         #     out.write(XmlSerializer.serialize(combined_offml.create_openmm_system(off_methanol.to_topology())))
 
-        methanol_diff = DeepDiff(
-            methanol_ref_system,
-            methanol_combine_system,
+        mol_diff = DeepDiff(
+            mol_ref_system,
+            mol_combine_system,
             ignore_order=True,
             significant_digits=6,
             exclude_regex_paths="mass",
         )
-        assert len(methanol_diff) == 1
+        assert len(mol_diff) == 1
         for item in acetone_diff["iterable_item_added"].values():
             assert item["@k"] == "0"
 
