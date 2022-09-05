@@ -82,7 +82,7 @@ class ChargeBase(StageBase):
             )
         return None
 
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         A template run method which makes sure symmetry is applied when requested.
         """

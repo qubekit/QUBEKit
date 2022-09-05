@@ -1,5 +1,6 @@
 import pytest
 
+from qubekit.fragmentation import WBOFragmenter
 from qubekit.molecules import Ligand
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.utils.file_handling import get_data
@@ -72,3 +73,13 @@ def rfree_data():
 @pytest.fixture()
 def methanol():
     return Ligand.parse_file(get_data("methanol.json"))
+
+
+@pytest.fixture()
+def bace_fragmented(tmpdir):
+    bace = "CN1C(=O)C(c2cccc(-c3cccnc3)c2)(C2CC2)[NH+]=C1N"
+    molecule = Ligand.from_smiles(bace, "bace")
+    fragmenter = WBOFragmenter()
+
+    with tmpdir.as_cwd():
+        return fragmenter.run(molecule)

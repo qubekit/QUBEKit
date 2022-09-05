@@ -217,7 +217,7 @@ class QForceHessianFitting(StageBase):
         # now add back the flexible torsions
         molecule.TorsionForce.parameters.extend(flexible_torsions)
 
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         The main worker method of the class, this will take the ligand and fit the hessian using qforce and then return ligand with the optimized parameters.
         The ligand must contain some qm coordinates, a hessian matrix and wbo matrix.

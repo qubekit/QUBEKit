@@ -31,9 +31,9 @@ class WorkFlow(SchemaBase):
         LocalResource(),
         description="The local resource options for the workflow like total memory and cores available.",
     )
-    fragmentation: WBOFragmenter = Field(
+    fragmentation: Optional[WBOFragmenter] = Field(
         WBOFragmenter(),
-        description="The fragmenter.",
+        description="The fragmenter: mainly affects how the torsions are computed.",
     )
     parametrisation: Union[OpenFF, XML, AnteChamber] = Field(
         OpenFF(),
@@ -338,7 +338,7 @@ class WorkFlow(SchemaBase):
         make_and_change_into(name=stage_name)
         try:
             # run the stage and save the result
-            result_mol = stage._run(
+            result_mol = stage.run(
                 molecule=molecule,
                 qc_spec=self.qc_options,
                 local_options=self.local_resources,

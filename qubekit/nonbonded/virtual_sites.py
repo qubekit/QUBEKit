@@ -121,7 +121,7 @@ class VirtualSites(StageBase):
     def finish_message(self, **kwargs) -> str:
         return "Virtual sites optimised and saved."
 
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         Using the aim reference data stored in the ligand calculate virtual sites and add them to the ligand.
         Main worker method.

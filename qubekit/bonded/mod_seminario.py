@@ -209,7 +209,7 @@ class ModSeminario(StageBase):
     def finish_message(self, **kwargs) -> str:
         return "Bond and angle parameters calculated."
 
-    def run(self, molecule: Ligand, **kwargs) -> Ligand:
+    def _run(self, molecule: Ligand, **kwargs) -> Ligand:
         """
         The main worker stage which takes the molecule and its hessian and calculates the modified seminario method.
 

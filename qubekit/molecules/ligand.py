@@ -27,19 +27,12 @@ from xml.dom.minidom import parseString
 import networkx as nx
 import numpy as np
 import qcelemental as qcel
+from openmm import unit
+from openmm.app import Aromatic, Double, PDBFile, Single, Topology, Triple
+from openmm.app.element import Element
 from pydantic import Field, validator
 from qcelemental.models.types import Array
 from rdkit import Chem
-
-try:
-    # fix for the openmm namechange
-    from openmm import unit
-    from openmm.app import Aromatic, Double, PDBFile, Single, Topology, Triple
-    from openmm.app.element import Element
-except (ModuleNotFoundError, ImportError):
-    from simtk import unit
-    from simtk.openmm.app import Aromatic, Double, Single, Topology, Triple, PDBFile
-    from simtk.openmm.app.element import Element
 
 import qubekit
 from qubekit.forcefield import (
@@ -810,6 +803,10 @@ class Molecule(SchemaBase):
         optimised at the same time. dihedral_equiv_classes = {(0, 1, 2 ,3): '1-1-2-1'...} all of the tuples are the
         dihedrals index by topology and the strings are the symmetry equivalent atom combinations.
         """
+
+        if self.n_dihedrals == 0:
+            return {}
+
         atom_types = self.atom_types
         dihedral_symmetry_classes = {}
         for dihedral_set in self.dihedrals.values():
@@ -1018,10 +1015,17 @@ class Molecule(SchemaBase):
             last_atom_index = self.n_atoms - 1
             self.NonbondedForce[(last_atom_index,)].charge += extra
 
+    def suffix(self) -> str:
+        """
+        For inheritance. Allows for unique filenames to be created
+        where more molecules/fragments are scanned or worked on.
+        """
+        return ""
+
 
 class Ligand(Molecule):
     """
-    The Ligand class seperats from protiens as we add fields to store QM calculations, such as the hessian and add more
+    The Ligand class separates from proteins as we add fields to store QM calculations, such as the hessian and add more
     rdkit support methods.
     """
 
@@ -1036,21 +1040,10 @@ class Ligand(Molecule):
     wbo: Optional[Array[float]] = Field(
         None, description="The WBO matrix calculated at the QM optimised geometry."
     )
-    fragments: Optional[List["Ligand"]] = Field(
-        None,
+    fragments: Optional[List["Fragment"]] = Field(
+        default_factory=list,
         description="Fragments in the molecule with the bonds around which the fragments were built.",
     )
-    bond_indices: Tuple[int, int] = Field(
-        None,
-        description="The map indices of the atoms involved in the bond (in the parent molecule) that the "
-        "fragment was built around.",
-    )
-    atom_idx_map: Optional[Dict[int, int]] = Field(
-        None,
-        description="Parent case: atom ID mapping used along the fragments {atom_id_now: atom_id_used_in_fragmentation}."
-                    "This remaps the parent indices. "
-    )
-
 
     def __init__(
         self,
@@ -1518,3 +1511,25 @@ class Ligand(Molecule):
         library_charges.add_parameter(parameter_kwargs=charge_data)
 
         return offxml
+
+
+class Fragment(Ligand):
+    """
+    A special case of a Ligand when it's a "subset" Fragment (potentially with extra hydrogens etc).
+    """
+
+    bond_indices: List[Tuple[int, int]] = Field(
+        default_factory=list,
+        description="The map indices of the atoms in the parent molecule that are involved in the bond. "
+        "The fragment was built around these atoms. Note that one fragment might have more "
+        "than one torsion bond for performance reasons.",
+    )
+
+    def suffix(self) -> str:
+        """
+        A string suffix for identifying this fragment
+        """
+        return f"_fragment_{self.bond_indices[0][0]}-{self.bond_indices[0][1]}"
+
+
+Ligand.update_forward_refs()

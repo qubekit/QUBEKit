@@ -4,9 +4,9 @@ import xmltodict
 from deepdiff import DeepDiff
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
+from openmm import XmlSerializer, app
 from parmed.openmm import energy_decomposition_system, load_topology
 from pydantic.error_wrappers import ValidationError
-from simtk.openmm import XmlSerializer, app
 
 import qubekit
 from qubekit.molecules import Ligand
@@ -490,6 +490,7 @@ def test_rb_energy_round_trip(tmpdir):
         pytest.param("benzene.sdf", id="benzene"),
         pytest.param("acetone.sdf", id="acetone"),
         pytest.param("pyridine.sdf", id="pyridine"),
+        pytest.param("methane.sdf", id="methane"),
     ],
 )
 def test_offxml_round_trip(tmpdir, openff, molecule):
@@ -518,8 +519,9 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
             significant_digits=6,
         )
         # the only difference should be in torsions with a 0 barrier height which are excluded from an offxml
-        for item in offxml_diff["iterable_item_removed"].values():
-            assert item["@k"] == "0"
+        if "iterable_item_removed" in offxml_diff:
+            for item in offxml_diff["iterable_item_removed"].values():
+                assert item["@k"] == "0"
 
         # load both systems and compute the energy
         qubekit_top = load_topology(

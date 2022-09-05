@@ -160,7 +160,7 @@ class Atom(BaseModel):
     map_index: Optional[int] = Field(
         None,
         description="An alternative index. Initially made necessary by the WBOFragmenter which uses its own separate "
-                    "indexing for the molecule and the produced fragments. "
+        "indexing for the molecule and the produced fragments. ",
     )
 
     @classmethod
@@ -188,6 +188,10 @@ class Atom(BaseModel):
             stereo_code = rd_atom.GetProp("_CIPCode")
         else:
             stereo_code = None
+
+        # get an atom map if there is one
+        map_index = rd_atom.GetAtomMapNum() if rd_atom.GetAtomMapNum() else None
+
         return cls(
             atomic_number=atomic_number,
             atom_index=index,
@@ -196,6 +200,7 @@ class Atom(BaseModel):
             aromatic=aromatic,
             stereochemistry=stereo_code,
             bonds=bonds,
+            map_index=map_index,
         )
 
     @property

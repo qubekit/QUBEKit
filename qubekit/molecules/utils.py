@@ -107,7 +107,7 @@ class RDKit:
     @staticmethod
     def smiles_to_rdkit_mol(smiles_string: str, name: Optional[str] = None):
         """
-        Converts smiles strings to RDKit mol object.
+        Converts smiles strings to RDKit mol object. We are reusing here the OpenFF logic.
         Args:
             smiles_string:
                 The hydrogen free smiles string
@@ -117,14 +117,30 @@ class RDKit:
             The RDKit molecule
         """
 
-        mol = AllChem.MolFromSmiles(smiles_string)
+        mol = AllChem.MolFromSmiles(smiles_string, sanitize=False)
         if name is None:
             name = input("Please enter a name for the molecule:\n>")
         mol.SetProp("_Name", name)
-        mol_hydrogens = AllChem.AddHs(mol)
-        AllChem.EmbedMolecule(mol_hydrogens, randomSeed=1)
-        AllChem.SanitizeMol(mol_hydrogens)
-        return mol_hydrogens
+
+        # calculate valence in order to add hydrogens
+        # Chem.SanitizeMol calls updatePropertyCache so we don't need to call it ourselves
+        # https://www.rdkit.org/docs/cppapi/namespaceRDKit_1_1MolOps.html#a8d831787aaf2d65d9920c37b25b476f5
+        Chem.SanitizeMol(
+            mol,
+            Chem.SANITIZE_ALL ^ Chem.SANITIZE_SETAROMATICITY,
+        )
+
+        Chem.SetAromaticity(mol, Chem.AromaticityModel.AROMATICITY_MDL)
+
+        # Chem.MolFromSmiles adds bond directions (i.e. ENDDOWNRIGHT/ENDUPRIGHT), but
+        # doesn't set bond.GetStereo(). We need to call AssignStereochemistry for that.
+        Chem.AssignStereochemistry(mol)
+
+        mol = AllChem.AddHs(mol)
+
+        AllChem.EmbedMolecule(mol, randomSeed=1)
+
+        return mol
 
     @staticmethod
     def rdkit_descriptors(rdkit_mol: Chem.Mol) -> Dict[str, float]:

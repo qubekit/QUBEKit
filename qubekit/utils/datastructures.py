@@ -211,18 +211,21 @@ class StageBase(SchemaBase, abc.ABC):
         """Check any dependencies to make sure that this stage is available to run."""
         ...
 
-    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
-        """run it on the molecule and on the fragments """
-        molecule = self.run(molecule, *args, **kwargs)
+    def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
+        """run it on the molecule and on the fragments"""
+        molecule = self._run(molecule, *args, **kwargs)
 
         # run it on the fragments
-        if molecule.fragments is not None:
-            molecule.fragments = [self.run(fragment, *args, fragment=True, **kwargs) for fragment in molecule.fragments]
+        if hasattr(molecule, "fragments"):
+            molecule.fragments = [
+                self._run(fragment, *args, fragment=True, **kwargs)
+                for fragment in molecule.fragments
+            ]
 
         return molecule
 
     @abc.abstractmethod
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """The main function of the stage which should perform some parametrisation and return the complete molecule."""
         ...
 

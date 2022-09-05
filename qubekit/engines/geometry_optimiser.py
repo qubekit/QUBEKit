@@ -148,8 +148,8 @@ class GeometryOptimiser(SchemaBase):
         opt_result = qcng.compute_procedure(
             input_data=opt_task,
             procedure=self.optimiser,
-            raise_error=True,
-            local_options=local_options.local_options,
+            raise_error=False,
+            task_config=local_options.local_options,
         )
         # dump info to file
         result_mol = self._handle_output(molecule=molecule, opt_output=opt_result)
@@ -208,11 +208,9 @@ class GeometryOptimiser(SchemaBase):
         traj = [mol.geometry * constants.BOHR_TO_ANGS for mol in trajectory]
         result_mol.coordinates = traj[-1]
         # write to file
-        suffix = f'_fragment_{molecule.bond_indices[0]}-{molecule.bond_indices[1]}.xml' \
-            if molecule.bond_indices is not None else ''
-        result_mol.to_file(file_name=f"opt{suffix}.xyz")
+        result_mol.to_file(file_name=f"opt{molecule.suffix()}.xyz")
         result_mol.to_multiconformer_file(
-            file_name=f"opt_trajectory{suffix}.xyz", positions=traj
+            file_name=f"opt_trajectory{molecule.suffix()}.xyz", positions=traj
         )
 
         return result_mol

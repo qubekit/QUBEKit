@@ -28,7 +28,7 @@ def test_running_order_end():
     Make sure the end stage is included when supplied to the running order.
     """
     running_order = WorkFlow.get_running_order(end="charges")
-    assert len(running_order) == 4
+    assert len(running_order) == 5
     assert running_order[-1] == "charges"
 
 

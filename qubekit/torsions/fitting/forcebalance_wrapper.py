@@ -246,15 +246,14 @@ class ForceBalanceFitting(StageBase):
             raise_msg="Please install via `conda install forcebalance -c conda-forge`.",
         )
         openmm = which_import(
-            ".openmm",
+            "openmm",
             return_bool=True,
             raise_error=True,
-            package="simtk",
             raise_msg="Please install via `conda install openmm -c conda-forge`.",
         )
         return fb and openmm
 
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         The main run method of the ForceBalance torsion optimisation stage.
 
