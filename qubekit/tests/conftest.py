@@ -2,6 +2,7 @@ import pytest
 
 from qubekit.fragmentation import WBOFragmenter
 from qubekit.molecules import Ligand
+from qubekit.nonbonded import VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.utils.file_handling import get_data
 from qubekit.workflow.workflow import QCOptions, WorkFlow
@@ -83,3 +84,17 @@ def bace_fragmented(tmpdir):
 
     with tmpdir.as_cwd():
         return fragmenter.run(molecule)
+
+@pytest.fixture()
+def vs():
+    """
+    Initialise the VirtualSites class to be used for the following tests
+    """
+    virtual_sites = VirtualSites()
+    return virtual_sites
+
+
+@pytest.fixture()
+def ethanol():
+    return Ligand.parse_file(get_data("ethanol_sites.json"))
+
