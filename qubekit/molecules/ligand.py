@@ -1345,7 +1345,7 @@ class Ligand(Molecule):
                 coords = input_data.coords
         self.coordinates = coords
 
-    def to_offxml(self, file_name: str):
+    def to_offxml(self, file_name: str, h_constraints: bool = True):
         """
         Build an offxml for the molecule and raise an error if we do not think this will be possible due to the presence
         of v-sites or if the potential can not be accurately transferred to an equivalent openff potential.
@@ -1353,19 +1353,15 @@ class Ligand(Molecule):
         Note:
             There are a limited number of currently supported potentials in openff without using smirnoff-plugins.
         """
-        offxml = self._build_offxml()
+        offxml = self._build_offxml(h_constraints=h_constraints)
         offxml.to_file(filename=file_name)
 
-    def _build_offxml(self):
+    def _build_offxml(self, h_constraints: bool):
         """
         Build the offxml force field from the molecule parameters.
         """
         from openff.toolkit.typing.engines.smirnoff import ForceField
 
-        if self.extra_sites.n_sites > 0:
-            raise NotImplementedError(
-                "Virtual sites can not be safely converted into offxml format yet."
-            )
         if (
             self.RBTorsionForce.n_parameters > 0
             or self.ImproperRBTorsionForce.n_parameters > 0
@@ -1381,11 +1377,17 @@ class Ligand(Molecule):
                 "chemper is required to make an offxml, please install with `conda install chemper -c conda-forge`."
             )
 
-        offxml = ForceField(allow_cosmetic_attributes=True)
+        offxml = ForceField(allow_cosmetic_attributes=True, load_plugins=True)
         offxml.author = f"QUBEKit_version_{qubekit.__version__}"
         offxml.date = datetime.now().strftime("%Y_%m_%d")
         rdkit_mol = self.to_rdkit()
         # Now loop over each potential function and translate the terms to the openff format
+        if h_constraints:
+            # add a generic h-bond constraint
+            constraints = offxml.get_parameter_handler("Constraints")
+            constraints.add_parameter(
+                parameter_kwargs={"smirks": "[#1:1]-[*:2]", "id": "h-c1"}
+            )
         bond_handler = offxml.get_parameter_handler("Bonds")
         bond_types = self.bond_types
         # for each bond type collection create a single smirks pattern
@@ -1498,5 +1500,37 @@ class Ligand(Molecule):
         )
         charge_data["smirks"] = self.to_smiles(mapped=True)
         library_charges.add_parameter(parameter_kwargs=charge_data)
+
+        if self.extra_sites.n_sites > 0:
+            # use our local coordinate vsite plugin
+            local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
+            # we need to work around duplicate smirks patterns so we add them our self
+            for i, site in enumerate(self.extra_sites):
+                graph = ClusterGraph(
+                    mols=[rdkit_mol],
+                    smirks_atoms_lists=[
+                        [
+                            (
+                                site.parent_index,
+                                site.closest_a_index,
+                                site.closest_b_index,
+                            )
+                        ]
+                    ],
+                    layers="all",
+                )
+                vsite_parameter = local_vsites._INFOTYPE(
+                    **{
+                        "smirks": graph.as_smirks(),
+                        "name": f"site_{i}",
+                        "x_local": site.p1 * unit.nanometers,
+                        "y_local": site.p2 * unit.nanometers,
+                        "z_local": site.p3 * unit.nanometers,
+                        "charge": site.charge * unit.elementary_charge,
+                        "epsilon": 0 * unit.kilojoule_per_mole,
+                        "sigma": 1 * unit.nanometer,
+                    }
+                )
+                local_vsites._parameters.append(vsite_parameter)
 
         return offxml

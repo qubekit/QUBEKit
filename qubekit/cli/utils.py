@@ -1,7 +1,22 @@
-from openff.toolkit.topology import Molecule, TopologyAtom, TopologyVirtualSite
+from copy import deepcopy
+from typing import List, Tuple
+
+from openff.toolkit.topology import (
+    Molecule,
+    Topology,
+    TopologyAtom,
+    TopologyVirtualSite,
+    VirtualSite,
+)
 from openff.toolkit.typing.engines.smirnoff.parameters import (
+    ChargeIncrementModelHandler,
+    ElectrostaticsHandler,
+    LibraryChargeHandler,
     ParameterAttribute,
     ParameterType,
+    ToolkitAM1BCCHandler,
+    VirtualSiteHandler,
+    _allow_only,
     vdWHandler,
 )
 from openmm import openmm, unit
@@ -22,6 +37,26 @@ from qubekit.nonbonded.protocols import (
     s_base,
     si_base,
 )
+
+
+def _get_nonbonded_force(
+    system: openmm.System, topology: Topology
+) -> openmm.NonbondedForce:
+    """A workaround calling to the super methods of plugins to get the nonbonded force from an openmm system."""
+    # Get the OpenMM Nonbonded force or add if missing
+    existing = [system.getForce(i) for i in range(system.getNumForces())]
+    existing = [f for f in existing if type(f) == openmm.NonbondedForce]
+
+    # if not present make one and add the particles
+    if len(existing) == 0:
+        force = openmm.NonbondedForce()
+        system.addForce(force)
+        # add all atom particles, Vsites are added later
+        for _ in topology.topology_atoms:
+            force.addParticle(0.0, 1.0, 0.0)
+    else:
+        force = existing[0]
+    return force
 
 
 class QUBEKitHandler(vdWHandler):
@@ -53,23 +88,15 @@ class QUBEKitHandler(vdWHandler):
 
     _TAGNAME = "QUBEKitvdWTS"
     _INFOTYPE = QUBEKitvdWType
-    _DEPENDENCIES = None  # we might need to depend on vdW if present
+    # vdW must go first as we need to overwrite the blank parameters
+    _DEPENDENCIES = [
+        vdWHandler,
+        ElectrostaticsHandler,
+    ]  # we might need to depend on vdW if present
 
     def create_force(self, system, topology, **kwargs):
         """over write the force creation to use qubekit"""
-        # Get the OpenMM Nonbonded force or add if missing
-        existing = [system.getForce(i) for i in range(system.getNumForces())]
-        existing = [f for f in existing if type(f) == self._OPENMMTYPE]
-
-        # if not present make one and add the particles
-        if len(existing) == 0:
-            force = self._OPENMMTYPE()
-            system.addForce(force)
-            # add all atom particles, Vsites are added later
-            for _ in topology.topology_atoms:
-                force.addParticle(0.0, 1.0, 0.0)
-        else:
-            force = existing[0]
+        force = _get_nonbonded_force(system=system, topology=topology)
 
         # If we're using PME, then the only possible openMM Nonbonded type is LJPME
         if self.method == "PME":
@@ -176,60 +203,171 @@ class QUBEKitHandler(vdWHandler):
                     )
 
 
-class QUBEKitvdWHandler(vdWHandler):
+class LocalVirtualSite(VirtualSite):
+    """A particle to represent a local virtual site type"""
+
+    def __init__(
+        self,
+        p1: unit.Quantity,
+        p2: unit.Quantity,
+        p3: unit.Quantity,
+        name: str,
+        orientations: List[Tuple[int, ...]],
+    ):
+
+        super().__init__(name=name, orientations=orientations)
+        self._p1 = p1.in_units_of(unit.nanometer)
+        self._p2 = p2.in_units_of(unit.nanometer)
+        self._p3 = p3.in_units_of(unit.nanometer)
+
+    @property
+    def p1(self):
+        return self._p1
+
+    @property
+    def p2(self):
+        return self._p2
+
+    @property
+    def p3(self):
+        return self._p3
+
+    def to_dict(self):
+        vsite_dict = super().to_dict()
+        vsite_dict["p1"] = self._p1
+        vsite_dict["p2"] = self._p2
+        vsite_dict["p3"] = self._p3
+        vsite_dict["vsite_type"] = self.type
+        return vsite_dict
+
+    @classmethod
+    def from_dict(cls, vsite_dict):
+        base_dict = deepcopy(vsite_dict)
+        assert vsite_dict["vsite_type"] == "LocalVirtualSite"
+        del base_dict["vsite_type"]
+        return cls(**base_dict)
+
+    @property
+    def local_frame_weights(self):
+        o_weights = [1.0, 0.0, 0.0]
+        x_weights = [-1.0, 1.0, 0.0]
+        y_weights = [-1.0, 0.0, 1.0]
+
+        return o_weights, x_weights, y_weights
+
+    @property
+    def local_frame_position(self):
+        return [
+            self._p1.value_in_unit(unit.nanometer),
+            self._p2.value_in_unit(unit.nanometer),
+            self._p3.value_in_unit(unit.nanometer),
+        ] * unit.nanometer
+
+    def get_openmm_virtual_site(self, atoms: Tuple[int, ...]):
+        assert len(atoms) == 3
+        return self._openmm_virtual_site(atoms)
+
+    @property
+    def type(self) -> str:
+        """Hack to work around the use of the default vsite handler to get the parent index"""
+        return "DivalentLonePairVirtualSite"
+
+
+class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
     """
-    A subclass of the normal vdWhandler to use for qubekit optimisations so we can mix water models with our custom handler
+    A custom handler to add QUBEKit vsites to openmm systems made via the openff-toolkit.
+
+    Our v-sites are all based on the LocalCoordinateSite and can be translated directly to this object in OpenMM.
     """
 
-    _TAGNAME = "QUBEKitvdW"
+    class VirtualSiteType(vdWHandler.vdWType):
 
-    def create_force(self, system, topology, **kwargs):
-        # Get the OpenMM Nonbonded force or add if missing
-        existing = [system.getForce(i) for i in range(system.getNumForces())]
-        existing = [f for f in existing if type(f) == self._OPENMMTYPE]
+        _VALENCE_TYPE = None
+        _ELEMENT_NAME = "VirtualSite"
 
-        # if not present make one and add the particles
-        if len(existing) == 0:
-            force = self._OPENMMTYPE()
-            system.addForce(force)
-            # add all atom particles, Vsites are added later
-            for _ in topology.topology_atoms:
-                force.addParticle(0.0, 1.0, 0.0)
-        else:
-            force = existing[0]
+        name = ParameterAttribute(default="EP", converter=str)
+        match = ParameterAttribute(default="once", converter=_allow_only(["once"]))
+        type = ParameterAttribute(default="local", converter=str)
+        x_local = ParameterAttribute(unit=unit.nanometers)
+        y_local = ParameterAttribute(unit=unit.nanometers)
+        z_local = ParameterAttribute(unit=unit.nanometers)
+        charge = ParameterAttribute(unit=unit.elementary_charge)
+        sigma = ParameterAttribute(unit=unit.nanometer)
+        epsilon = ParameterAttribute(unit.kilojoule_per_mole)
 
-        # If we're using PME, then the only possible openMM Nonbonded type is LJPME
-        if self.method == "PME":
-            # If we're given a nonperiodic box, we always set NoCutoff. Later we'll add support for CutoffNonPeriodic
-            if topology.box_vectors is None:
-                force.setNonbondedMethod(openmm.NonbondedForce.NoCutoff)
-                # if (topology.box_vectors is None):
-                #     raise SMIRNOFFSpecError("If vdW method is  PME, a periodic Topology "
-                #                             "must be provided")
+        @property
+        def parent_index(self) -> int:
+            """The parent is always the first index in a qubekit vsite"""
+            return 0
+
+        def to_openmm_particle(
+            self, particle_indices: Tuple[int, ...]
+        ) -> openmm.LocalCoordinatesSite:
+            """Create an openmm local coord site based on the predefined weights using in QUBEKit"""
+            if len(particle_indices) == 4:
+                o_weights = [1.0, 0.0, 0.0, 0.0]
+                x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
+                y_weights = [1.0, -1.0, 0.0, 0.0]
             else:
-                force.setNonbondedMethod(openmm.NonbondedForce.LJPME)
-                force.setCutoffDistance(self.cutoff)
-                force.setEwaldErrorTolerance(1.0e-4)
+                o_weights = [1.0, 0.0, 0.0]
+                x_weights = [-1.0, 1.0, 0.0]
+                y_weights = [-1.0, 0.0, 1.0]
+            return openmm.LocalCoordinatesSite(
+                *particle_indices,
+                openmm.Vec3(*o_weights),
+                openmm.Vec3(*x_weights),
+                openmm.Vec3(*y_weights),
+                openmm.Vec3(self.x_local, self.y_local, self.z_local),
+            )
 
-        # If method is cutoff, then we currently support openMM's PME for periodic system and NoCutoff for nonperiodic
-        elif self.method == "cutoff":
-            # If we're given a nonperiodic box, we always set NoCutoff. Later we'll add support for CutoffNonPeriodic
-            if topology.box_vectors is None:
-                force.setNonbondedMethod(openmm.NonbondedForce.NoCutoff)
-            else:
-                force.setNonbondedMethod(openmm.NonbondedForce.PME)
-                force.setUseDispersionCorrection(True)
-                force.setCutoffDistance(self.cutoff)
+        def to_openff_particle(self, orientations: List[Tuple[int, ...]]):
+            values_dict = {"p1": self.x_local, "p2": self.y_local, "p3": self.z_local}
+            return LocalVirtualSite(
+                name=self.name, orientations=orientations, **values_dict
+            )
 
-        # Iterate over all defined Lennard-Jones types, allowing later matches to override earlier ones.
-        atom_matches = self.find_matches(topology)
+    _TAGNAME = "LocalCoordinateVirtualSites"
+    _INFOTYPE = VirtualSiteType
+    _OPENMMTYPE = openmm.NonbondedForce
+    _DEPENDENCIES = [
+        ElectrostaticsHandler,
+        LibraryChargeHandler,
+        ChargeIncrementModelHandler,
+        ToolkitAM1BCCHandler,
+        QUBEKitHandler,
+        vdWHandler,
+        VirtualSiteHandler,
+    ]
 
-        # Set the particle Lennard-Jones terms.
-        for atom_key, atom_match in atom_matches.items():
-            atom_idx = atom_key[0]
-            ljtype = atom_match.parameter_type
-            if ljtype.sigma is None:
-                sigma = 2.0 * ljtype.rmin_half / (2.0 ** (1.0 / 6.0))
-            else:
-                sigma = ljtype.sigma
-            force.setParticleParameters(atom_idx, 0.0, sigma, ljtype.epsilon)
+    exclusion_policy = ParameterAttribute(default="parents")
+
+    def create_force(self, system: openmm.System, topology: Topology, **kwargs):
+
+        # as the normal vsites go first there should be more than topology.n_atoms if we have a 4 site water or more
+        if system.getNumParticles() < topology.n_topology_atoms:
+            raise ValueError("the system does not seem to have enough particles in it")
+
+        force = _get_nonbonded_force(system=system, topology=topology)
+
+        matches_by_parent = self._find_matches_by_parent(topology)
+
+        parameter: LocalCoordinateVirtualSiteHandler.VirtualSiteType
+
+        for parent_index, parameters in matches_by_parent.items():
+            for parameter, orientations in parameters:
+                for orientation in orientations:
+                    orientation_indices = orientation.topology_atom_indices
+                    openmm_particle = parameter.to_openmm_particle(orientation_indices)
+
+                    charge = parameter.charge
+                    sigma = parameter.sigma
+                    epsilon = parameter.epsilon
+
+                    # add the vsite with no mass
+                    index_system = system.addParticle(0.0)
+                    index_force = force.addParticle(charge, sigma, epsilon)
+                    assert index_system == index_force
+
+                    system.setVirtualSite(index_system, openmm_particle)
+
+        self._create_openff_virtual_sites(matches_by_parent)

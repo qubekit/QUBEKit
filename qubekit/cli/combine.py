@@ -58,12 +58,20 @@ water_options = click.Choice(list(water_models.keys()), case_sensitive=True)
     show_default=True,
     default="tip3p",
 )
+@click.option(
+    "-h-con",
+    "--h-constraints",
+    show_default=True,
+    default=True,
+    help="If the offxml should include h-bond constraints, offxmls include constraints by default.",
+)
 def combine(
     filename: str,
     parameters: Optional[List[str]] = None,
     no_targets: bool = False,
     offxml: bool = False,
     water_model: str = "tip3p",
+    h_constraints: bool = True,
 ):
     """
     Combine a list of molecules together and create a single master XML force field file.
@@ -87,6 +95,7 @@ def combine(
             parameters=parameters,
             filename=filename,
             water_model=water_model,
+            h_constraints=h_constraints,
         )
 
     else:
@@ -103,7 +112,6 @@ def combine(
 
 def _add_water_model(
     force_field: ForceField,
-    using_plugin: bool,
     water_model: Literal["tip3p", "tip4p-fb"] = "tip3p",
 ):
     """Add a water model to an offxml force field"""
@@ -112,11 +120,7 @@ def _add_water_model(
         water_parameters = water_models[water_model]
         for parameter_handler, parameters in water_parameters.items():
             if parameter_handler == "Nonbonded":
-                if using_plugin:
-                    # if we are using the plugin to optimise the molecule we need a special vdw handler
-                    handler = force_field.get_parameter_handler("QUBEKitvdW")
-                else:
-                    handler = force_field.get_parameter_handler("vdW")
+                handler = force_field.get_parameter_handler("vdW")
             else:
                 handler = force_field.get_parameter_handler(parameter_handler)
             for parameter in parameters:
@@ -133,15 +137,11 @@ def _combine_molecules_offxml(
     rfree_data: Dict[str, Dict[str, Union[str, float]]],
     filename: str,
     water_model: Literal["tip3p"] = "tip3p",
-):
+    h_constraints: bool = True,
+) -> None:
     """
     Main worker function to build the combined offxmls.
     """
-
-    if sum([molecule.extra_sites.n_sites for molecule in molecules]) > 0:
-        raise NotImplementedError(
-            "Virtual sites can not be safely converted into offxml format yet."
-        )
 
     if sum([molecule.RBTorsionForce.n_parameters for molecule in molecules]) > 0:
         raise NotImplementedError(
@@ -166,7 +166,11 @@ def _combine_molecules_offxml(
     offxml.author = f"QUBEKit_version_{qubekit.__version__}"
     offxml.date = datetime.now().strftime("%Y_%m_%d")
     # get all of the handlers
-    _ = offxml.get_parameter_handler("Constraints")
+    constraints = offxml.get_parameter_handler("Constraints")
+    if h_constraints:
+        constraints.add_parameter(
+            parameter_kwargs={"smirks": "[#1:1]-[*:2]", "id": "h-c1"}
+        )
     bond_handler = offxml.get_parameter_handler("Bonds")
     angle_handler = offxml.get_parameter_handler("Angles")
     proper_torsions = offxml.get_parameter_handler("ProperTorsions")
@@ -181,11 +185,23 @@ def _combine_molecules_offxml(
             "QUBEKitvdWTS", allow_cosmetic_attributes=True
         )
         using_plugin = True
+        # add a dummy parameter to avoid missing parameters
+        vdw = offxml.get_parameter_handler("vdW", allow_cosmetic_attributes=True)
+        vdw.add_parameter(
+            parameter_kwargs={
+                "smirks": "[*:1]",
+                "epsilon": 0 * unit.kilojoule_per_mole,
+                "sigma": 1 * unit.nanometer,
+                "id": "g1",
+            }
+        )
     else:
         vdw_handler = offxml.get_parameter_handler(
             "vdW", allow_cosmetic_attributes=True
         )
     library_charges = offxml.get_parameter_handler("LibraryCharges")
+    # use our plugin handler
+    local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
 
     for molecule in molecules:
         rdkit_mol = molecule.to_rdkit()
@@ -305,6 +321,34 @@ def _combine_molecules_offxml(
         )
         charge_data["smirks"] = molecule.to_smiles(mapped=True)
         library_charges.add_parameter(parameter_kwargs=charge_data)
+        if molecule.extra_sites.n_sites > 0:
+            for i, site in enumerate(molecule.extra_sites):
+                graph = ClusterGraph(
+                    mols=[rdkit_mol],
+                    smirks_atoms_lists=[
+                        [
+                            (
+                                site.parent_index,
+                                site.closest_a_index,
+                                site.closest_b_index,
+                            )
+                        ]
+                    ],
+                    layers="all",
+                )
+                vsite_parameter = local_vsites._INFOTYPE(
+                    **{
+                        "smirks": graph.as_smirks(),
+                        "name": f"{molecule.name}_{i}",
+                        "x_local": site.p1 * unit.nanometers,
+                        "y_local": site.p2 * unit.nanometers,
+                        "z_local": site.p3 * unit.nanometers,
+                        "charge": site.charge * unit.elementary_charge,
+                        "epsilon": 0 * unit.kilojoule_per_mole,
+                        "sigma": 1 * unit.nanometer,
+                    }
+                )
+                local_vsites._parameters.append(vsite_parameter)
 
     # now loop over all the parameters to be fit and add them as cosmetic attributes
     to_parameterize = []
@@ -326,9 +370,7 @@ def _combine_molecules_offxml(
         vdw_handler.add_cosmetic_attribute("parameterize", ", ".join(to_parameterize))
 
     # now add a water model to the force field
-    _add_water_model(
-        force_field=offxml, water_model=water_model, using_plugin=using_plugin
-    )
+    _add_water_model(force_field=offxml, water_model=water_model)
     offxml.to_file(filename=filename)
 
 

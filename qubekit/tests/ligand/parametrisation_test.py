@@ -4,7 +4,7 @@ import xmltodict
 from deepdiff import DeepDiff
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
-from openmm import XmlSerializer, app
+from openmm import XmlSerializer, app, unit
 from parmed.openmm import energy_decomposition_system, load_topology
 from pydantic.error_wrappers import ValidationError
 
@@ -502,7 +502,7 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
         mol = Ligand.from_file(get_data(molecule))
         offmol = Molecule.from_file(get_data(molecule))
         openff.run(mol)
-        mol.to_offxml("test.offxml")
+        mol.to_offxml("test.offxml", h_constraints=False)
         # build another openmm system and serialise to compare with deepdiff
         offxml = ForceField("test.offxml")
         assert offxml.author == f"QUBEKit_version_{qubekit.__version__}"
@@ -547,21 +547,95 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
                     assert energy == pytest.approx(qube_e, abs=2e-3)
 
 
-def test_offxml_sites(xml, tmpdir):
-    """Make sure an error is raised when we try to create an offxml for a molecule with a virtual site"""
+@pytest.mark.parametrize(
+    "molecule",
+    [pytest.param("methanol", id="methanol"), pytest.param("ethanol", id="ethanol")],
+)
+def test_offxml_sites_energy(xml, tmpdir, methanol, ethanol, molecule):
+    """Make sure virtual sites are correctly written to offxml
+    and produce the same energy as an xml system with sites"""
+
+    molecules = {"methanol": methanol, "ethanol": ethanol}
+    mol = molecules[molecule]
+
     with tmpdir.as_cwd():
-        mol = Ligand.from_file(get_data("pyridine.pdb"))
-        xml.run(
-            mol,
-            input_files=[
-                get_data("pyridine.xml"),
-            ],
+        # make sure the molecule has extra sites
+        assert mol.extra_sites.n_sites == 2
+
+        openff_mol = Molecule.from_rdkit(mol.to_rdkit())
+        mol.to_offxml("test.offxml", h_constraints=False)
+        mol.write_parameters("test.xml")
+        ff = ForceField("test.offxml", load_plugins=True)
+        # check the site handler has two sites
+        sites = ff.get_parameter_handler("LocalCoordinateVirtualSites")
+        assert len(sites._parameters) == 2
+        off_system, off_top = ff.create_openmm_system(
+            openff_mol.to_topology(), return_topology=True
+        )
+        # check we have two virtual sites in the openff system
+        v_sites = []
+        for i in range(off_system.getNumParticles()):
+            if off_system.isVirtualSite(i):
+                v_sites.append(off_system.getVirtualSite(i))
+        assert len(v_sites) == 2
+        # make sure 2 vsites are in the openff topology
+        assert off_top.n_topology_virtual_sites == 2
+
+        with open("offxml_system.xml", "w") as out:
+            out.write(openmm.XmlSerializer.serialize(off_system))
+        off_system_xml = xmltodict.parse(open("offxml_system.xml").read())
+        # make our reference xml system
+        xml_ff = app.ForceField("test.xml")
+        # we don't have access to the openmm topology with vsites so make our own
+        modeller = app.Modeller(
+            topology=mol.to_openmm_topology(),
+            positions=mol.openmm_coordinates(),
+        )
+        modeller.addExtraParticles(xml_ff)
+        xml_system = xml_ff.createSystem(
+            modeller.topology, removeCMMotion=False, nonbondedCutoff=0.9
+        )
+        with open("xml_system.xml", "w") as out:
+            out.write(openmm.XmlSerializer.serialize(xml_system))
+        xml_system_xml = xmltodict.parse(open("xml_system.xml").read())
+
+        # get the system deepdiff
+        offxml_diff = DeepDiff(
+            off_system_xml,
+            xml_system_xml,
+            ignore_order=True,
+            exclude_regex_paths="mass",
+            significant_digits=6,
         )
 
-        assert mol.extra_sites.n_sites == 1
+        # the only difference should be in torsions with a 0 barrier height which are excluded from an offxml
+        if "iterable_item_removed" in offxml_diff:
+            for item in offxml_diff["iterable_item_removed"].values():
+                assert item["@k"] == "0"
 
-        with pytest.raises(NotImplementedError):
-            mol.to_offxml("test.offxml")
+        # check the energies match
+        xml_topology = load_topology(
+            modeller.topology,
+            system=xml_system,
+            xyz=modeller.positions,
+        )
+        xml_energy = energy_decomposition_system(
+            xml_topology, xml_system, platform="Reference"
+        )
+
+        off_topology = load_topology(
+            modeller.topology, system=off_system, xyz=modeller.positions
+        )
+        off_energy = energy_decomposition_system(
+            off_topology, off_system, platform="Reference"
+        )
+
+        # compare the decomposed energies of the groups
+        for force_group, energy in xml_energy:
+            for off_force, off_e in off_energy:
+                if force_group == off_force:
+                    assert energy == pytest.approx(off_e, abs=2e-3)
+                    print(energy, off_e)
 
 
 def test_rb_offxml(tmpdir):
@@ -574,3 +648,23 @@ def test_rb_offxml(tmpdir):
 
         with pytest.raises(NotImplementedError):
             mol.to_offxml("test.offxml")
+
+
+def test_h_constraints_offxml(methanol, tmpdir):
+    """Make sure constraints are added to an offxml when requested and they are included in an openmm system."""
+
+    with tmpdir.as_cwd():
+
+        methanol.to_offxml(file_name="methanol.offxml", h_constraints=True)
+        methanol_ff = ForceField("methanol.offxml")
+        off_methanol = Molecule.from_rdkit(methanol.to_rdkit())
+        system = methanol_ff.create_openmm_system(topology=off_methanol.to_topology())
+        # make sure all h bonds are constrained
+        assert system.getNumConstraints() == 4
+        for i in range(4):
+            a, b, constraint = system.getConstraintParameters(i)
+            # compare the constraint length with the equilibrium bond length
+            assert (
+                unit.Quantity(methanol.BondForce[(a, b)].length, unit.nanometer)
+                == constraint
+            )
