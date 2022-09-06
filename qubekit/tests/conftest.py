@@ -85,6 +85,7 @@ def bace_fragmented(tmpdir):
     with tmpdir.as_cwd():
         return fragmenter.run(molecule)
 
+
 @pytest.fixture()
 def vs():
     """
@@ -97,4 +98,3 @@ def vs():
 @pytest.fixture()
 def ethanol():
     return Ligand.parse_file(get_data("ethanol_sites.json"))
-
