@@ -78,12 +78,11 @@ def methanol():
 
 @pytest.fixture()
 def bace_fragmented(tmpdir):
-    bace = "CN1C(=O)C(c2cccc(-c3cccnc3)c2)(C2CC2)[NH+]=C1N"
-    molecule = Ligand.from_smiles(bace, "bace")
-    fragmenter = WBOFragmenter()
-
-    with tmpdir.as_cwd():
-        return fragmenter.run(molecule)
+    # ie CN1C(=O)C(c2cccc(-c3cccnc3)c2)(C2CC2)[NH+]=C1N
+    """
+    Load the freshly fragmented BACE molecule with the fragments before deduplication
+    """
+    return Ligand.parse_file(get_data("bace17d_with_fragments.json"))
 
 
 @pytest.fixture()

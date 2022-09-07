@@ -2,29 +2,33 @@ from qubekit.molecules import Ligand
 from qubekit.fragmentation import WBOFragmenter
 
 
-def test_generate_fragments(tmpdir):
+def test_fragment_butane(tmpdir):
     """
-    Generate fragments for the example case Cobimetinib
+    Fragmenter is running? Sanity check with butane
     """
-    Cobimetinib = "OC1(CN(C1)C(=O)C1=C(NC2=C(F)C=C(I)C=C2)C(F)=C(F)C=C1)[C@@H]1CCCCN1"
-    molecule = Ligand.from_smiles(Cobimetinib, "Cobimetinib")
+    butane = Ligand.from_smiles('CCCC', 'butane')
 
     with tmpdir.as_cwd():
         fragmenter = WBOFragmenter()
-        ligand = fragmenter.run(molecule)
+        ligand = fragmenter.run(butane)
 
-        # Cobimetinib has 5 fragments according to the example
-        # https://docs.openforcefield.org/projects/fragmenter/en/latest/fragment-molecules.html
-        assert len(ligand.fragments) == 5
+        assert len(ligand.fragments) == 1
 
 
-def test_merging_fragments_bace(tmpdir, bace_fragmented):
+def test_fragment_deduplication_bace(tmpdir, bace_fragmented):
     """
-    Generate fragments for the example case BACE
+    Test if fragment deduplication merges the same fragments together
     """
-    # The fragmenter creates 3 fragments (see visualisation output), however
-    # two of them are the same fragments and therefore they are merged.
+    # The WBO fragmenter creates 3 fragments
+    assert len(bace_fragmented.fragments) == 3
+
+    # run deduplication
+    fragmenter = WBOFragmenter()
+    bace_fragmented.fragments = fragmenter._deduplicate_fragments(bace_fragmented.fragments)
+
+    # two fragments are the same and therefore are merged
     assert len(bace_fragmented.fragments) == 2
+    # because two fragments are merged, one has two torsions for scanning
     assert any([len(frag.bond_indices) == 2 for frag in bace_fragmented.fragments])
 
 
