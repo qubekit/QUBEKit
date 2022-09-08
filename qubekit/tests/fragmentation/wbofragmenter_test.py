@@ -6,7 +6,7 @@ def test_fragment_butane(tmpdir):
     """
     Fragmenter is running? Sanity check with butane
     """
-    butane = Ligand.from_smiles('CCCC', 'butane')
+    butane = Ligand.from_smiles("CCCC", "butane")
 
     with tmpdir.as_cwd():
         fragmenter = WBOFragmenter()
@@ -24,7 +24,9 @@ def test_fragment_deduplication_bace(tmpdir, bace_fragmented):
 
     # run deduplication
     fragmenter = WBOFragmenter()
-    bace_fragmented.fragments = fragmenter._deduplicate_fragments(bace_fragmented.fragments)
+    bace_fragmented.fragments = fragmenter._deduplicate_fragments(
+        bace_fragmented.fragments
+    )
 
     # two fragments are the same and therefore are merged
     assert len(bace_fragmented.fragments) == 2
