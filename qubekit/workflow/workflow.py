@@ -314,6 +314,8 @@ class WorkFlow(SchemaBase):
             else:
                 molecule.to_file(file_name=f"{molecule.name}.pdb")
             molecule.write_parameters(file_name=f"{molecule.name}.xml")
+            # write out the offxml with h-bond constraints
+            molecule.to_offxml(file_name=f"{molecule.name}.offxml", h_constraints=True)
 
         return results
 

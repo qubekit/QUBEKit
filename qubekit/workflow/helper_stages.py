@@ -232,54 +232,40 @@ class Optimiser(StageBase):
         molecule.to_multiconformer_file(
             file_name=f"starting_coords{molecule.suffix()}.xyz", positions=geometries
         )
+        opt_list = []
+        with Pool(processes=local_options.cores) as pool:
+            for confomer in geometries:
+                opt_mol = deepcopy(molecule)
+                opt_mol.coordinates = confomer
+                opt_list.append(
+                    pool.apply_async(
+                        # make sure to divide the total resource between the number of workers
+                        g_opt.optimise,
+                        (
+                            opt_mol,
+                            qc_spec,
+                            local_options.divide_resource(n_tasks=local_options.cores),
+                            True,
+                            True,
+                        ),
+                    )
+                )
 
-        # simple loop
-        results = []
-        for confomer in geometries:
-            opt_mol = deepcopy(molecule)
-            opt_mol.coordinates = confomer
-            result_mol, opt_result = g_opt.optimise(
-                opt_mol, qc_spec, local_options, True, True
-            )
-            if opt_result.success:
-                # save the final energy and molecule
-                results.append((result_mol, opt_result.energies[-1]))
-            else:
-                # save the molecule and final energy from the last step if it fails
-                results.append((result_mol, opt_result.input_data["energies"][-1]))
-
-        # with Pool(processes=local_options.cores) as pool:
-        #     for confomer in geometries:
-        #         opt_mol = deepcopy(molecule)
-        #         opt_mol.coordinates = confomer
-        #         opt_list.append(
-        #             pool.apply_async(
-        #                 g_opt.optimise,
-        #                 (
-        #                     opt_mol,
-        #                     qc_spec,
-        #                     local_options.divide_resource(n_tasks=local_options.cores),
-        #                     True,
-        #                     True,
-        #                 ),
-        #             )
-        #         )
-        #
-        #     results = []
-        #     for result in tqdm(
-        #         opt_list,
-        #         desc=f"Optimising conformers with {self.pre_optimisation_method}",
-        #         total=len(opt_list),
-        #         ncols=80,
-        #     ):
-        #         # errors are auto raised from the class so catch the result, and write to file
-        #         result_mol, opt_result = result.get()
-        #         if opt_result.success:
-        #             # save the final energy and molecule
-        #             results.append((result_mol, opt_result.energies[-1]))
-        #         else:
-        #             # save the molecule and final energy from the last step if it fails
-        #             results.append((result_mol, opt_result.input_data["energies"][-1]))
+            results = []
+            for result in tqdm(
+                opt_list,
+                desc=f"Optimising conformers with {self.pre_optimisation_method}",
+                total=len(opt_list),
+                ncols=80,
+            ):
+                # errors are auto raised from the class so catch the result, and write to file
+                result_mol, opt_result = result.get()
+                if opt_result.success:
+                    # save the final energy and molecule
+                    results.append((result_mol, opt_result.energies[-1]))
+                else:
+                    # save the molecule and final energy from the last step if it fails
+                    results.append((result_mol, opt_result.input_data["energies"][-1]))
 
         # sort the results
         results.sort(key=lambda x: x[1])

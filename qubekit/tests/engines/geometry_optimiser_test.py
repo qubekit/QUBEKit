@@ -227,5 +227,4 @@ def test_optking_fail():
     a different program.
     """
     with pytest.raises(SpecificationError):
-        mol = Ligand.from_file(file_name=get_data("water.pdb"))
-        g = GeometryOptimiser(optimiser="optking")
+        _ = GeometryOptimiser(optimiser="optking")

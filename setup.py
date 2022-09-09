@@ -32,7 +32,7 @@ setup(
         ],
         "openff.toolkit.plugins.handlers": [
             "QUBEKitvdWTS = qubekit.cli.utils:QUBEKitHandler",
-            "QUBEKitvdW = qubekit.cli.utils:QUBEKitvdWHandler"
+            "LocalCoordinateVirtualSites = qubekit.cli.utils:LocalCoordinateVirtualSiteHandler"
         ]
     },
     version=versioneer.get_version(),

@@ -116,11 +116,17 @@ class RDKit:
         return:
             The RDKit molecule
         """
-
         mol = AllChem.MolFromSmiles(smiles_string, sanitize=False)
         if name is None:
             name = input("Please enter a name for the molecule:\n>")
         mol.SetProp("_Name", name)
+
+        atom_index_to_map = {}
+        for atom in mol.GetAtoms():
+            # set the map back to zero but hide the index in the atom prop data
+            atom_index_to_map[atom.GetIdx()] = atom.GetAtomMapNum()
+            # set it back to zero
+            atom.SetAtomMapNum(0)
 
         # calculate valence in order to add hydrogens
         # Chem.SanitizeMol calls updatePropertyCache so we don't need to call it ourselves
@@ -139,6 +145,10 @@ class RDKit:
         mol = AllChem.AddHs(mol)
 
         AllChem.EmbedMolecule(mol, randomSeed=1)
+
+        # put the map index back on the atoms
+        for atom in mol.GetAtoms():
+            atom.SetAtomMapNum(atom_index_to_map.get(atom.GetIdx(), 0))
 
         return mol
 

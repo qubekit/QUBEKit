@@ -2,6 +2,7 @@ import pytest
 
 from qubekit.fragmentation import WBOFragmenter
 from qubekit.molecules import Ligand
+from qubekit.nonbonded import VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.utils.file_handling import get_data
 from qubekit.workflow.workflow import QCOptions, WorkFlow
@@ -77,9 +78,22 @@ def methanol():
 
 @pytest.fixture()
 def bace_fragmented(tmpdir):
-    bace = "CN1C(=O)C(c2cccc(-c3cccnc3)c2)(C2CC2)[NH+]=C1N"
-    molecule = Ligand.from_smiles(bace, "bace")
-    fragmenter = WBOFragmenter()
+    # ie CN1C(=O)C(c2cccc(-c3cccnc3)c2)(C2CC2)[NH+]=C1N
+    """
+    Load the freshly fragmented BACE molecule with the fragments before deduplication
+    """
+    return Ligand.parse_file(get_data("bace17d_with_fragments.json"))
 
-    with tmpdir.as_cwd():
-        return fragmenter.run(molecule)
+
+@pytest.fixture()
+def vs():
+    """
+    Initialise the VirtualSites class to be used for the following tests
+    """
+    virtual_sites = VirtualSites()
+    return virtual_sites
+
+
+@pytest.fixture()
+def ethanol():
+    return Ligand.parse_file(get_data("ethanol_sites.json"))
