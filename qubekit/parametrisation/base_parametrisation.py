@@ -27,10 +27,10 @@ class Parametrisation(StageBase, abc.ABC):
     type: Literal["base"] = "base"
 
     def start_message(self, **kwargs) -> str:
-        return "Parametrising molecule using local input files."
+        return "Parametrising molecule and fragments using local input files."
 
     def finish_message(self, **kwargs) -> str:
-        return "Molecule parameterised and values stored."
+        return "Molecule and fragments parameterised and values stored."
 
     @abc.abstractmethod
     def _build_system(
@@ -61,7 +61,7 @@ class Parametrisation(StageBase, abc.ABC):
         system = self._build_system(molecule=molecule, input_files=input_files)
 
         # pass the indices of the bonded atoms around which the fragment was built
-        filename = f"serialised{molecule.suffix()}.xml"
+        filename = f"serialised_{molecule.name}.xml"
 
         self._serialise_system(system=system, filename=filename)
         self._gather_parameters(molecule=molecule, filename=filename)

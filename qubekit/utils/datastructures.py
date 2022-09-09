@@ -216,7 +216,7 @@ class StageBase(SchemaBase, abc.ABC):
         molecule = self._run(molecule, *args, **kwargs)
 
         # run it on the fragments
-        if hasattr(molecule, "fragments"):
+        if molecule.fragments is not None:
             molecule.fragments = [
                 self._run(fragment, *args, fragment=True, **kwargs)
                 for fragment in molecule.fragments

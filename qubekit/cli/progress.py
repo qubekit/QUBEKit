@@ -35,10 +35,11 @@ def progress():
         print(f"{COLOURS.orange}R{COLOURS.end} = Running;", end=" ")
         print(f"{COLOURS.purple}~{COLOURS.end} = Queued")
 
-        header_string = "{:15}" + "{:>10}" * 9
+        header_string = "{:15}" + "{:>10}" * 10
         print(
             header_string.format(
                 "Name",
+                "Fragment",
                 "Param",
                 "Opt",
                 "Hessian",

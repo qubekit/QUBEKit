@@ -1,20 +1,18 @@
 import itertools
-from typing import List, TYPE_CHECKING
-from typing_extensions import Literal
+from typing import TYPE_CHECKING, List
 
-from openff.fragmenter.fragment import WBOFragmenter
 from openff.fragmenter.depiction import depict_fragmentation_result
+from openff.fragmenter.fragment import WBOFragmenter
 from openff.toolkit.topology import Molecule as OFFMolecule
 from pydantic import Field
 from qcelemental.util import which_import
+from typing_extensions import Literal
 
-from qubekit.molecules import Ligand, Fragment
+from qubekit.molecules import Fragment, Ligand
 from qubekit.utils.datastructures import StageBase
 
 if TYPE_CHECKING:
-    from openff.fragmenter.fragment import (
-        FragmentationResult,
-    )
+    from openff.fragmenter.fragment import FragmentationResult
 
 
 class WBOFragmenter(StageBase, WBOFragmenter):
@@ -44,42 +42,52 @@ class WBOFragmenter(StageBase, WBOFragmenter):
 
         return fragmenter and rdkit
 
-    def _results_to_ligand(self, fragmentation):
+    def _results_to_ligand(
+        self, input_ligand: Ligand, fragmentation_result: "FragmentationResult"
+    ) -> Ligand:
         """
         Repackage the fragmentation results into our data types
         """
-        molecule = Ligand.from_smiles(fragmentation.parent_smiles, "ligand")
-
-        for wbo_fragment in fragmentation.fragments:
-            fragment = Fragment.from_smiles(wbo_fragment.smiles, "fragment")
+        molecule = Ligand.from_smiles(
+            fragmentation_result.parent_smiles, input_ligand.name
+        )
+        fragments = []
+        for i, wbo_fragment in enumerate(fragmentation_result.fragments):
+            fragment = Fragment.from_smiles(wbo_fragment.smiles, f"fragment_{i}")
 
             # attach the fragments as their own ligands
             fragment.bond_indices.append(wbo_fragment.bond_indices)
 
-            molecule.fragments.append(fragment)
+            fragments.append(fragment)
+        molecule.fragments = fragments
 
         return molecule
 
     def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
+        """Overwrite base so we don't try and fragment fragments on restarts."""
         return self._run(molecule, *args, **kwargs)
 
-    def _run(self, molecule: Ligand, **kwargs) -> Ligand:
+    def _run(self, molecule: Ligand, *args, **kwargs) -> Ligand:
         # convert to an OpenFF Molecule
         off_molecule: OFFMolecule = OFFMolecule.from_smiles(molecule.to_smiles())
 
-        fragmentation = self.fragment(
+        fragmentation_result = self.fragment(
             off_molecule, target_bond_smarts=self.rotatable_smirks
         )
 
-        depict_fragmentation_result(result=fragmentation, output_file="fragments.html")
+        depict_fragmentation_result(
+            result=fragmentation_result, output_file="fragments.html"
+        )
 
-        ligand = self._results_to_ligand(fragmentation)
+        ligand = self._results_to_ligand(
+            input_ligand=molecule, fragmentation_result=fragmentation_result
+        )
 
-        ligand.fragments = self._deduplicate_fragments(ligand.fragments)
+        ligand.fragments = self._deduplicate_fragments(ligand.fragments) or None
 
         return ligand
 
-    def _deduplicate_fragments(self, fragments: List["Ligand"]) -> List["Ligand"]:
+    def _deduplicate_fragments(self, fragments: List["Fragment"]) -> List["Fragment"]:
         """
         Remove symmetry equivalent fragments from the results. If a bond is the same and appears twice,
         it has to be computed only once.
@@ -126,17 +134,21 @@ class WBOFragmenter(StageBase, WBOFragmenter):
             ]
             unique_fragments.append(fragments_assymetry[0])
 
+        # re number the unique fragments
+        for i, fragment in enumerate(unique_fragments):
+            fragment.name = f"fragment_{i}"
+
         return unique_fragments
 
     def start_message(self, **kwargs) -> str:
         """
         A friendly message to let users know that stage is starting with any important options.
         """
-        # fixme - check if the fragmenter uses the same default smirks?
-        return "WBOFragmenter is starting the job"
+
+        return "Fragmenting molecule using the WBOFragmenter"
 
     def finish_message(self, **kwargs) -> str:
         """
         A friendly message to let users know that the stage is complete and any checks that have been performed.
         """
-        return f"WBOFragmenter has ended"
+        return f"Molecule produced {kwargs['molecule'].n_fragments} fragments"

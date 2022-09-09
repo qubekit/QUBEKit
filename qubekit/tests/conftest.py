@@ -1,6 +1,5 @@
 import pytest
 
-from qubekit.fragmentation import WBOFragmenter
 from qubekit.molecules import Ligand
 from qubekit.nonbonded import VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
@@ -19,7 +18,9 @@ def acetone():
 @pytest.fixture()
 def water():
     """Make a qube water molecule."""
-    return Ligand.from_file(file_name=get_data("water.pdb"))
+    w = Ligand.from_file(file_name=get_data("water.pdb"))
+    w.name = "water"
+    return w
 
 
 @pytest.fixture()

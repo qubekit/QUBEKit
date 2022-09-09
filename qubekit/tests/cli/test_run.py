@@ -1,5 +1,3 @@
-import pytest
-
 from qubekit.cli.run import run
 from qubekit.utils.file_handling import get_data
 

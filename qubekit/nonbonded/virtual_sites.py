@@ -31,6 +31,7 @@ from qubekit.utils.constants import (
     VACUUM_PERMITTIVITY,
 )
 from qubekit.utils.datastructures import StageBase
+from qubekit.utils.file_handling import folder_setup
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
@@ -121,7 +122,7 @@ class VirtualSites(StageBase):
     def finish_message(self, **kwargs) -> str:
         return "Virtual sites optimised and saved."
 
-    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
         Using the aim reference data stored in the ligand calculate virtual sites and add them to the ligand.
         Main worker method.
@@ -129,35 +130,37 @@ class VirtualSites(StageBase):
         Fit the ESP accordingly and store v-sites if they improve error.
         If any v-sites are found to be useful, write them to an xyz and store them in the Ligand object
         """
-        # remove any old sites
-        molecule.extra_sites.clear_sites()
-        for i in range(molecule.n_atoms):
-            atom = molecule.atoms[i]
-            molecule.NonbondedForce[(i,)].charge = atom.aim.charge
 
-        # if we have used chargemol the dipole and quad values are for a new orientation so we must use those coords
-        # else use QM
-        self._coords = (
-            molecule.chargemol_coords
-            if molecule.chargemol_coords is not None
-            else molecule.coordinates
-        )
-        self._molecule = molecule
-        for atom_index, atom in enumerate(molecule.atoms):
-            if len(atom.bonds) < 4:
-                self._sample_points = self._generate_sample_points_atom(atom_index)
-                self._no_site_esps = self._generate_esp_atom(atom_index)
-                self._fit(atom_index)
+        with folder_setup(molecule.name):
+            # remove any old sites
+            molecule.extra_sites.clear_sites()
+            for i in range(molecule.n_atoms):
+                atom = molecule.atoms[i]
+                molecule.NonbondedForce[(i,)].charge = atom.aim.charge
 
-        if self._v_sites_coords:
-            self._save_virtual_sites()
+            # if we have used chargemol the dipole and quad values are for a new orientation so we must use those coords
+            # else use QM
+            self._coords = (
+                molecule.chargemol_coords
+                if molecule.chargemol_coords is not None
+                else molecule.coordinates
+            )
+            self._molecule = molecule
+            for atom_index, atom in enumerate(molecule.atoms):
+                if len(atom.bonds) < 4:
+                    self._sample_points = self._generate_sample_points_atom(atom_index)
+                    self._no_site_esps = self._generate_esp_atom(atom_index)
+                    self._fit(atom_index)
 
-            self._write_xyz()
+            if self._v_sites_coords:
+                self._save_virtual_sites()
 
-        self._molecule.fix_net_charge()
+                self._write_xyz()
 
-        # clear any cache variables
-        self._clear_cache()
+            self._molecule.fix_net_charge()
+
+            # clear any cache variables
+            self._clear_cache()
 
         return molecule
 

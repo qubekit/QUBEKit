@@ -42,3 +42,6 @@ class XMLProtein(Parametrisation):
         )
 
         return system
+
+    def run(self, molecule: "Protein", *args, **kwargs) -> "Protein":
+        return self._run(molecule, *args, **kwargs)

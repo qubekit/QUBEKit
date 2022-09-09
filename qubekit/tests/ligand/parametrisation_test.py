@@ -101,7 +101,7 @@ def test_parameter_round_trip(method, tmpdir, xml, openff, antechamber):
     with tmpdir.as_cwd():
         mol = Ligand.from_file(get_data("acetone.sdf"))
         param_mol = param_method.run(mol)
-        with open("serialised.xml") as old:
+        with open("serialised_acetone.xml") as old:
             with open("orig.xml", "w") as new:
                 new.write(old.read())
         # write out params
@@ -302,7 +302,9 @@ def test_round_trip_energy(tmpdir, molecule, method, openff, antechamber):
         # parametrise the system
         engine.run(mol)
         # this will make a serialised system in the folder so get the reference energy
-        ref_system = XmlSerializer.deserializeSystem(open("serialised.xml").read())
+        ref_system = XmlSerializer.deserializeSystem(
+            open(f"serialised_{mol.name}.xml").read()
+        )
         parm_top = load_topology(
             mol.to_openmm_topology(), system=ref_system, xyz=mol.openmm_coordinates()
         )
@@ -457,7 +459,9 @@ def test_rb_energy_round_trip(tmpdir):
         mol = Ligand.from_file(file_name=get_data("cyclohexane.sdf"))
         XML().run(molecule=mol, input_files=[get_data("cyclohexane.xml")])
         # load the serialised system we extract the parameters from as our reference
-        ref_system = XmlSerializer.deserializeSystem(open("serialised.xml").read())
+        ref_system = XmlSerializer.deserializeSystem(
+            open(f"serialised_{mol.name}.xml").read()
+        )
         parm_top = load_topology(
             mol.to_openmm_topology(), system=ref_system, xyz=mol.openmm_coordinates()
         )
@@ -510,7 +514,7 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
         qubekit_xml = xmltodict.parse(openmm.XmlSerializer.serialize(qubekit_system))
         with open("qubekit_xml", "w") as output:
             output.write(openmm.XmlSerializer.serialize(qubekit_system))
-        openff_system = xmltodict.parse(open("serialised.xml").read())
+        openff_system = xmltodict.parse(open(f"serialised_{mol.name}.xml").read())
 
         offxml_diff = DeepDiff(
             qubekit_xml,
@@ -533,7 +537,9 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
             qubekit_top, qubekit_system, platform="Reference"
         )
 
-        ref_system = XmlSerializer.deserializeSystem(open("serialised.xml").read())
+        ref_system = XmlSerializer.deserializeSystem(
+            open(f"serialised_{mol.name}.xml").read()
+        )
         parm_top = load_topology(
             mol.to_openmm_topology(), system=ref_system, xyz=mol.openmm_coordinates()
         )

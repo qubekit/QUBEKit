@@ -1,3 +1,4 @@
+import os.path
 from copy import deepcopy
 from typing import List, Optional
 
@@ -7,12 +8,11 @@ from tqdm import tqdm
 from typing_extensions import Literal
 
 from qubekit.engines import GeometryOptimiser, call_qcengine
+from qubekit.molecules import Ligand
 from qubekit.utils.datastructures import LocalResource, QCOptions, StageBase
 from qubekit.utils.exceptions import GeometryOptimisationError, HessianCalculationFailed
 from qubekit.utils.file_handling import folder_setup
 from qubekit.utils.helpers import check_symmetry
-
-from qubekit.molecules import Ligand, Fragment
 
 PreOptMethods = Literal[
     "mmff94",
@@ -44,7 +44,7 @@ class Hessian(StageBase):
     def finish_message(self, **kwargs) -> str:
         return "Hessian matrix calculated and confirmed to be symmetric."
 
-    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
         Run a hessian calculation on the ligand at the current geometry and store the result into the molecule.
         """
@@ -58,19 +58,20 @@ class Hessian(StageBase):
             # we need to request the wbos for the hessian for qforce
             extras={"scf_properties": ["wiberg_lowdin_indices"]},
         )
-        with open("result.json", "w") as output:
-            output.write(result.json())
+        with folder_setup(molecule.name):
+            with open("result.json", "w") as output:
+                output.write(result.json())
 
-        if not result.success:
-            raise HessianCalculationFailed(
-                "The hessian calculation failed please check the result json."
-            )
+            if not result.success:
+                raise HessianCalculationFailed(
+                    f"The hessian calculation failed for {molecule.name} please check the result json."
+                )
 
-        np.savetxt("hessian.txt", result.return_result)
-        molecule.hessian = result.return_result
-        if "qcvars" in result.extras:
-            molecule.wbo = result.extras["qcvars"]["WIBERG LOWDIN INDICES"]
-        check_symmetry(molecule.hessian)
+            np.savetxt("hessian.txt", result.return_result)
+            molecule.hessian = result.return_result
+            if "qcvars" in result.extras:
+                molecule.wbo = result.extras["qcvars"]["WIBERG LOWDIN INDICES"]
+            check_symmetry(molecule.hessian)
         return molecule
 
 
@@ -117,16 +118,12 @@ class Optimiser(StageBase):
     def finish_message(self, **kwargs) -> str:
         return "Molecule optimisation complete."
 
-    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
         Run a molecule geometry optimisation to the gau_tight criteria and store the final geometry into the molecule.
         """
         local_options = kwargs["local_options"]
         qm_spec: QCOptions = kwargs["qc_spec"]
-
-        if not isinstance(molecule, Fragment):
-            print("Optimiser: ignoring the main molecule. Applying only to fragments. ")
-            return molecule
 
         # first run the pre_opt method
         if self.pre_optimisation_method is not None:
@@ -176,7 +173,12 @@ class Optimiser(StageBase):
                 conformers, desc="Optimising conformer", total=len(conformers), ncols=80
             )
         ):
-            with folder_setup(folder_name=f"conformer_{i}{molecule.suffix()}"):
+
+            with folder_setup(
+                folder_name=os.path.join(
+                    "qm_optimisation", molecule.name, f"conformer_{i}"
+                )
+            ):
                 # set the coords
                 opt_mol.coordinates = conformer
                 # errors are auto raised from the class so catch the result, and write to file
@@ -229,52 +231,57 @@ class Optimiser(StageBase):
 
         # generate the input conformations, number will include the input conform if provided
         geometries = molecule.generate_conformers(n_conformers=self.seed_conformers)
-        molecule.to_multiconformer_file(
-            file_name=f"starting_coords{molecule.suffix()}.xyz", positions=geometries
-        )
-        opt_list = []
-        with Pool(processes=local_options.cores) as pool:
-            for confomer in geometries:
-                opt_mol = deepcopy(molecule)
-                opt_mol.coordinates = confomer
-                opt_list.append(
-                    pool.apply_async(
-                        # make sure to divide the total resource between the number of workers
-                        g_opt.optimise,
-                        (
-                            opt_mol,
-                            qc_spec,
-                            local_options.divide_resource(n_tasks=local_options.cores),
-                            True,
-                            True,
-                        ),
+        with folder_setup(os.path.join("pre_optimisation", molecule.name)):
+            molecule.to_multiconformer_file(
+                file_name=f"starting_coords{molecule.name}.xyz", positions=geometries
+            )
+            opt_list = []
+            with Pool(processes=local_options.cores) as pool:
+                for confomer in geometries:
+                    opt_mol = deepcopy(molecule)
+                    opt_mol.coordinates = confomer
+                    opt_list.append(
+                        pool.apply_async(
+                            # make sure to divide the total resource between the number of workers
+                            g_opt.optimise,
+                            (
+                                opt_mol,
+                                qc_spec,
+                                local_options.divide_resource(
+                                    n_tasks=local_options.cores
+                                ),
+                                True,
+                                True,
+                            ),
+                        )
                     )
-                )
 
-            results = []
-            for result in tqdm(
-                opt_list,
-                desc=f"Optimising conformers with {self.pre_optimisation_method}",
-                total=len(opt_list),
-                ncols=80,
-            ):
-                # errors are auto raised from the class so catch the result, and write to file
-                result_mol, opt_result = result.get()
-                if opt_result.success:
-                    # save the final energy and molecule
-                    results.append((result_mol, opt_result.energies[-1]))
-                else:
-                    # save the molecule and final energy from the last step if it fails
-                    results.append((result_mol, opt_result.input_data["energies"][-1]))
+                results = []
+                for result in tqdm(
+                    opt_list,
+                    desc=f"Optimising conformers for {molecule.name} with {self.pre_optimisation_method}",
+                    total=len(opt_list),
+                    ncols=80,
+                ):
+                    # errors are auto raised from the class so catch the result, and write to file
+                    result_mol, opt_result = result.get()
+                    if opt_result.success:
+                        # save the final energy and molecule
+                        results.append((result_mol, opt_result.energies[-1]))
+                    else:
+                        # save the molecule and final energy from the last step if it fails
+                        results.append(
+                            (result_mol, opt_result.input_data["energies"][-1])
+                        )
 
-        # sort the results
-        results.sort(key=lambda x: x[1])
-        final_geometries = [re[0].coordinates for re in results]
-        # write all conformers out
-        molecule.to_multiconformer_file(
-            file_name=f"final_pre_opt_coords{molecule.suffix()}.xyz",
-            positions=final_geometries,
-        )
+            # sort the results
+            results.sort(key=lambda x: x[1])
+            final_geometries = [re[0].coordinates for re in results]
+            # write all conformers out
+            molecule.to_multiconformer_file(
+                file_name=f"final_pre_opt_coords_{molecule.name}.xyz",
+                positions=final_geometries,
+            )
         return final_geometries
 
     @classmethod

@@ -1,5 +1,5 @@
-from qubekit.molecules import Ligand
 from qubekit.fragmentation import WBOFragmenter
+from qubekit.molecules import Ligand
 
 
 def test_fragment_butane(tmpdir):

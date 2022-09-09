@@ -297,11 +297,11 @@ class WorkFlow(SchemaBase):
         for field in workflow:
             stage: StageBase = getattr(self, field)
             # some stages print based on what spec they are using
-            print(stage.start_message(qc_spec=self.qc_options))
+            print(stage.start_message(qc_spec=self.qc_options, molecule=molecule))
             molecule = self._run_stage(
                 stage_name=field, stage=stage, molecule=molecule, results=results
             )
-            print(stage.finish_message())
+            print(stage.finish_message(molecule=molecule))
 
         # now the workflow has finished
         # write final results

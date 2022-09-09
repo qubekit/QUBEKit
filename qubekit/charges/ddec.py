@@ -103,7 +103,7 @@ class DDECCharges(ChargeBase):
         Returns:
             A molecule updated with the ChargeMol reference data.
         """
-        with folder_setup(folder_name=f"ChargeMol{molecule.suffix()}"):
+        with folder_setup(folder_name=f"ChargeMol_{molecule.name}"):
             # write the wfx file
             density_file = f"{molecule.name}.wfx"
             with open(density_file, "w+") as d_file:

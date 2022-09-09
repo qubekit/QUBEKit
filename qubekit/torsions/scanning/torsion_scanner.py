@@ -6,6 +6,7 @@ from qcelemental.util import which_import
 from typing_extensions import Literal
 
 from qubekit.engines import TorsionDriver
+from qubekit.molecules import Bond, Fragment, Ligand
 from qubekit.torsions.utils import AvoidedTorsion, TargetTorsion, find_heavy_torsion
 from qubekit.utils.datastructures import (
     LocalResource,
@@ -14,8 +15,6 @@ from qubekit.utils.datastructures import (
     TorsionScan,
 )
 from qubekit.utils.file_handling import folder_setup
-
-from qubekit.molecules import Bond, Ligand, Fragment
 
 
 class TorsionScan1D(StageBase):
@@ -87,10 +86,12 @@ class TorsionScan1D(StageBase):
             molecule.fragments = [
                 self._run(fragment, *args, **kwargs) for fragment in molecule.fragments
             ]
+        else:
+            molecule = self._run(molecule, *args, **kwargs)
 
         return molecule
 
-    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
         Run any possible torsiondrives for this molecule given the list of allowed and disallowed torsion patterns.
 
@@ -103,23 +104,18 @@ class TorsionScan1D(StageBase):
         molecule.qm_scans = []
 
         # work with a copy as we change coordinates from the qm a lot!
-        drive_mol = copy.deepcopy(molecule)
+        drive_mol = molecule.copy(deep=True)
 
         if isinstance(drive_mol, Fragment):
             # find the two atoms for the bond based on their .map_index
             bonds = []
             for a1, a2 in drive_mol.bond_indices:
-                bond_atoms = [a for a in drive_mol.atoms if a.map_index in (a1, a2)]
+                bond_atoms = [
+                    a.atom_index for a in drive_mol.atoms if a.map_index in (a1, a2)
+                ]
                 # get the bond with the correct atom indices
-                bonds.extend(
-                    [
-                        b
-                        for b in drive_mol.bonds
-                        if {b.atom1_index, b.atom2_index}
-                        == {b.atom_index for b in bond_atoms}
-                    ]
-                )
-            print("Torsion scan will be applied on a fragment's bonds", bonds)
+                bonds.append(drive_mol.get_bond_between(*bond_atoms))
+            bonds = bonds or None
         else:
             # first find all rotatable bonds, while removing the unwanted scans
             bonds = drive_mol.find_rotatable_bonds(
@@ -129,46 +125,6 @@ class TorsionScan1D(StageBase):
         if bonds is None:
             print("No rotatable bonds found to scan!")
             return molecule
-
-        # remove symmetry duplicates
-        bonds = self._get_symmetry_unique_bonds(molecule=drive_mol, bonds=bonds)
-
-        torsion_scans = []
-        for bond in bonds:
-            # get the scan range and a torsion for the bond
-            torsion = find_heavy_torsion(molecule=drive_mol, bond=bond)
-            scan_range = self._get_scan_range(molecule=drive_mol, bond=bond)
-            torsion_scans.append(TorsionScan(torsion=torsion, scan_range=scan_range))
-
-        result_mol = self._run_torsion_drives(
-            molecule=drive_mol,
-            torsion_scans=torsion_scans,
-            qc_spec=kwargs["qc_spec"],
-            local_options=kwargs["local_options"],
-        )
-        # make sure we preserve the input coords
-        result_mol.coordinates = copy.deepcopy(molecule.coordinates)
-        # make sure we have all of the scans we expect
-        assert len(result_mol.qm_scans) == len(bonds)
-        return result_mol
-
-    def run_fragment(self, molecule: "Ligand", **kwargs) -> "Ligand":
-        """
-        Run any possible torsiondrives on each fragment specifically
-        focusing on the bond from which the fragment originated
-        """
-
-        molecule.qm_scans = []
-
-        # work with a copy as we change coordinates from the qm a lot!
-        drive_mol = copy.deepcopy(molecule)
-        # first find all rotatable bonds, while removing the unwanted scans
-        bonds = drive_mol.find_rotatable_bonds(
-            smirks_to_remove=[torsion.smirks for torsion in self.avoided_torsions]
-        )
-        # select only the bond from which the fragment originated
-        if bonds is None:
-            raise Exception("Fragment has to have at least one rotatable bond?")
 
         # remove symmetry duplicates
         bonds = self._get_symmetry_unique_bonds(molecule=drive_mol, bonds=bonds)
@@ -252,11 +208,11 @@ class TorsionScan1D(StageBase):
             # make a folder and move into to run the calculation
             folder = "SCAN_"
             folder += "_".join([str(t) for t in torsion_scan.torsion])
-            folder += f"{molecule.suffix()}"  # fragment
+            folder += f"{molecule.name}"  # fragment
 
             with folder_setup(folder):
                 print(
-                    f"Running scan for dihedral: {torsion_scan.torsion} with range: {torsion_scan.scan_range}"
+                    f"Running scan for dihedral: {torsion_scan.torsion} with range: {torsion_scan.scan_range} for molecule {molecule.name}"
                 )
                 result_mol = self.torsion_driver.run_torsiondrive(
                     molecule=molecule,

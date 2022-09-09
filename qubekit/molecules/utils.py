@@ -121,6 +121,7 @@ class RDKit:
             name = input("Please enter a name for the molecule:\n>")
         mol.SetProp("_Name", name)
 
+        # strip the atom map before sanitizing and assigning sterochemistry
         atom_index_to_map = {}
         for atom in mol.GetAtoms():
             # set the map back to zero but hide the index in the atom prop data
@@ -128,14 +129,7 @@ class RDKit:
             # set it back to zero
             atom.SetAtomMapNum(0)
 
-        # calculate valence in order to add hydrogens
-        # Chem.SanitizeMol calls updatePropertyCache so we don't need to call it ourselves
-        # https://www.rdkit.org/docs/cppapi/namespaceRDKit_1_1MolOps.html#a8d831787aaf2d65d9920c37b25b476f5
-        Chem.SanitizeMol(
-            mol,
-            Chem.SANITIZE_ALL ^ Chem.SANITIZE_SETAROMATICITY,
-        )
-
+        Chem.SanitizeMol(mol)
         Chem.SetAromaticity(mol, Chem.AromaticityModel.AROMATICITY_MDL)
 
         # Chem.MolFromSmiles adds bond directions (i.e. ENDDOWNRIGHT/ENDUPRIGHT), but
@@ -145,7 +139,6 @@ class RDKit:
         mol = AllChem.AddHs(mol)
 
         AllChem.EmbedMolecule(mol, randomSeed=1)
-
         # put the map index back on the atoms
         for atom in mol.GetAtoms():
             atom.SetAtomMapNum(atom_index_to_map.get(atom.GetIdx(), 0))

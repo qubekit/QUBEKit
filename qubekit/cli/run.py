@@ -10,6 +10,7 @@ from qubekit.workflow import WorkFlowResult
 
 stages = click.Choice(
     [
+        "fragmentation",
         "parametrisation",
         "optimisation",
         "hessian",
