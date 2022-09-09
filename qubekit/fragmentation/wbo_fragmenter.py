@@ -15,9 +15,9 @@ if TYPE_CHECKING:
     from openff.fragmenter.fragment import FragmentationResult
 
 
-class WBOFragmenter(StageBase, WBOFragmenter):
+class WBOFragmentation(StageBase, WBOFragmenter):
 
-    type: Literal["WBOFragmenter"] = "WBOFragmenter"
+    type: Literal["WBOFragmentation"] = "WBOFragmentation"
 
     rotatable_smirks: List[str] = Field(
         ["[!#1]~[!$(*#*)&!D1:1]-,=;!@[!$(*#*)&!D1:2]~[!#1]"],

@@ -1,3 +1,3 @@
-from .wbo_fragmenter import WBOFragmenter
+from .wbo_fragmenter import WBOFragmentation
 
-__all__ = [WBOFragmenter]
+__all__ = [WBOFragmentation]
