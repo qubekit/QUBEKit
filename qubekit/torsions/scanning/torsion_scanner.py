@@ -79,14 +79,20 @@ class TorsionScan1D(StageBase):
 
     def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
-        Carry out the torsion scans only on the fragments
+        Carry out the torsion scans on the molecule and/or fragments as needed.
         """
+
+        if molecule.bond_indices:
+            # the molecule is also one of the fragments so scan it first
+            molecule = self._run(molecule, *args, **kwargs)
 
         if molecule.fragments is not None:
             molecule.fragments = [
                 self._run(fragment, *args, **kwargs) for fragment in molecule.fragments
             ]
-        else:
+
+        elif not molecule.bond_indices and molecule.fragments is None:
+            # if no scans have been run use the default method
             molecule = self._run(molecule, *args, **kwargs)
 
         return molecule
@@ -106,7 +112,7 @@ class TorsionScan1D(StageBase):
         # work with a copy as we change coordinates from the qm a lot!
         drive_mol = molecule.copy(deep=True)
 
-        if isinstance(drive_mol, Fragment):
+        if drive_mol.bond_indices:
             # find the two atoms for the bond based on their .map_index
             bonds = []
             for a1, a2 in drive_mol.bond_indices:

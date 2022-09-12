@@ -48,17 +48,17 @@ class Hessian(StageBase):
         """
         Run a hessian calculation on the ligand at the current geometry and store the result into the molecule.
         """
-        qc_spec = kwargs["qc_spec"]
-        local_options = kwargs["local_options"]
-        result = call_qcengine(
-            molecule=molecule,
-            driver="hessian",
-            qc_spec=qc_spec,
-            local_options=local_options,
-            # we need to request the wbos for the hessian for qforce
-            extras={"scf_properties": ["wiberg_lowdin_indices"]},
-        )
         with folder_setup(molecule.name):
+            qc_spec = kwargs["qc_spec"]
+            local_options = kwargs["local_options"]
+            result = call_qcengine(
+                molecule=molecule,
+                driver="hessian",
+                qc_spec=qc_spec,
+                local_options=local_options,
+                # we need to request the wbos for the hessian for qforce
+                extras={"scf_properties": ["wiberg_lowdin_indices"]},
+            )
             with open("result.json", "w") as output:
                 output.write(result.json())
 

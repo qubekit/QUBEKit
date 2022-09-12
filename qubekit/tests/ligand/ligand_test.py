@@ -39,6 +39,14 @@ def test_generate_conformers(acetone):
     assert np.allclose(input_coords, conformers[0])
 
 
+def test_equal(acetone):
+    """Make sure we can tell molecules are the same using a simple smiles comparison"""
+    cco = Ligand.from_smiles("CCO", "ethanol")
+    occ = Ligand.from_smiles("OCC", "ethanol_revser")
+    assert occ == cco
+    assert occ != acetone
+
+
 def test_make_unique_names():
     """
     After loading a molecule with non unique atom names make sure a unique set is automatically generated.

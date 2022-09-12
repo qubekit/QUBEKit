@@ -46,7 +46,7 @@ class WBOFragmentation(StageBase, WBOFragmenter):
         self, input_ligand: Ligand, fragmentation_result: "FragmentationResult"
     ) -> Ligand:
         """
-        Repackage the fragmentation results into our data types
+        Repackage the fragmentation results into our data types. Make sure to deduplicate the parent as well.
         """
         molecule = Ligand.from_smiles(
             fragmentation_result.parent_smiles, input_ligand.name
@@ -57,8 +57,12 @@ class WBOFragmentation(StageBase, WBOFragmenter):
 
             # attach the fragments as their own ligands
             fragment.bond_indices.append(wbo_fragment.bond_indices)
+            if fragment != molecule:
+                # only save if the fragment is not the parent to avoid duplicated hessian/charge calculations
+                fragments.append(fragment)
+            else:
+                molecule.bond_indices.extend(fragment.bond_indices)
 
-            fragments.append(fragment)
         molecule.fragments = fragments
 
         return molecule

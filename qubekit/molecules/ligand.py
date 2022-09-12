@@ -215,6 +215,11 @@ class Molecule(SchemaBase):
         # make sure we have unique atom names
         self._validate_atom_names()
 
+    def __eq__(self, other: "Molecule"):
+        return self.to_smiles(isomeric=True, mapped=False) == other.to_smiles(
+            isomeric=True, mapped=False
+        )
+
     def to_topology(self) -> nx.Graph:
         """
         Build a networkx representation of the molecule.
@@ -1524,7 +1529,7 @@ class Fragment(Molecule):
     )
 
 
-class Ligand(Molecule):
+class Ligand(Fragment):
     """
     the main data class for QUBEKit which describes a small molecule and its fragments when required.
     """

@@ -2,17 +2,42 @@ from qubekit.fragmentation import WBOFragmentation
 from qubekit.molecules import Ligand
 
 
-def test_fragment_butane(tmpdir):
+def test_fragment(tmpdir):
     """
-    Fragmenter is running? Sanity check with butane
+    Check the Fragmentation runs and returns the input with the Cl removed
     """
-    butane = Ligand.from_smiles("CCCC", "butane")
+    biphen = Ligand.from_smiles(
+        "C1=CC=C(C=C1)C2=CC(=CC=C2)Cl", "1-chloro-3-phenylbenzene"
+    )
 
     with tmpdir.as_cwd():
         fragmenter = WBOFragmentation()
-        ligand = fragmenter.run(butane)
+        ligand = fragmenter.run(biphen)
 
         assert len(ligand.fragments) == 1
+        assert (
+            ligand.fragments[0].to_smiles()
+            == "[H][c]1[c]([H])[c]([H])[c](-[c]2[c]([H])[c]([H])[c]([H])[c]([H])[c]2[H])[c]([H])[c]1[H]"
+        )
+
+
+def test_fragmentation_same_molecule(tmpdir):
+    """
+    When fragmentation would return the same molecule, make sure it is deduplicated and the bond indices are transfered.
+    """
+    butane = Ligand.from_smiles("CCCC", "butane")
+    with tmpdir.as_cwd():
+        fragmenter = WBOFragmentation()
+        ligand = fragmenter.run(molecule=butane)
+
+        # the parent is the fragment so make sure it is removed
+        assert ligand.fragments is None
+        assert ligand.bond_indices == [(3, 4)]
+        # make sure these are connected in the final molecule
+        bond = [
+            a.atom_index for a in ligand.atoms if a.map_index in ligand.bond_indices[0]
+        ]
+        _ = ligand.get_bond_between(*bond)
 
 
 def test_fragment_deduplication_bace(tmpdir, bace_fragmented):
