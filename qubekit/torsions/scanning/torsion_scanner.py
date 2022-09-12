@@ -6,7 +6,7 @@ from qcelemental.util import which_import
 from typing_extensions import Literal
 
 from qubekit.engines import TorsionDriver
-from qubekit.molecules import Bond, Fragment, Ligand
+from qubekit.molecules import Bond, Ligand
 from qubekit.torsions.utils import AvoidedTorsion, TargetTorsion, find_heavy_torsion
 from qubekit.utils.datastructures import (
     LocalResource,

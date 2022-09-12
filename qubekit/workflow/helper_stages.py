@@ -59,8 +59,6 @@ class Hessian(StageBase):
                 # we need to request the wbos for the hessian for qforce
                 extras={"scf_properties": ["wiberg_lowdin_indices"]},
             )
-            with open("result.json", "w") as output:
-                output.write(result.json())
 
             if not result.success:
                 raise HessianCalculationFailed(
