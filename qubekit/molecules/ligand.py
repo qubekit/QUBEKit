@@ -814,6 +814,9 @@ class Molecule(SchemaBase):
         """
         atom_types = self.atom_types
         angle_symmetry_classes = {}
+        if self.n_angles == 0:
+            return {}
+
         for angle in self.angles:
             angle_symmetry_classes[angle] = (
                 f"{atom_types[angle[0]]}-"
