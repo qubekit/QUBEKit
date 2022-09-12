@@ -194,10 +194,12 @@ class QUBEKitHandler(vdWHandler):
                     particle_parameters = qb_mol.NonbondedForce[
                         (ref_mol_particle_index,)
                     ]
+                    # get the current particle charge as we do not want to change this
+                    charge, _, _ = force.getParticleParameters(topology_particle_index)
                     # Set the nonbonded force parameters
                     force.setParticleParameters(
                         topology_particle_index,
-                        particle_parameters.charge,  # this is a dummy charge which needs to be corrected by a libray charge
+                        charge,  # set with the existing charge do not use the dummy qubekit value!
                         particle_parameters.sigma,
                         particle_parameters.epsilon,
                     )
