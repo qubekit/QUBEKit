@@ -23,7 +23,7 @@ from qubekit.cli.combine import (
     elements,
 )
 from qubekit.molecules import Ligand
-from qubekit.nonbonded import LennardJones612, VirtualSites, get_protocol
+from qubekit.nonbonded import LennardJones612, get_protocol
 from qubekit.utils import constants
 from qubekit.utils.file_handling import get_data
 
@@ -136,9 +136,9 @@ def test_combine_molecules_deepdiff(acetone, openff, coumarin, tmpdir, rfree_dat
 
     with tmpdir.as_cwd():
         openff.run(acetone)
-        acetone_ref_system = xmltodict.parse(open("serialised.xml").read())
+        acetone_ref_system = xmltodict.parse(open("serialised_acetone.xml").read())
         openff.run(coumarin)
-        coumarin_ref_system = xmltodict.parse(open("serialised.xml").read())
+        coumarin_ref_system = xmltodict.parse(open("serialised_coumarin.xml").read())
 
         combined_xml = _combine_molecules(
             molecules=[acetone, coumarin], parameters=elements, rfree_data=rfree_data
@@ -199,10 +199,10 @@ def test_combine_molecules_sites_deepdiff(openff, xml, acetone, rfree_data, tmpd
     """
     with tmpdir.as_cwd():
         openff.run(acetone)
-        acetone_ref_system = xmltodict.parse(open("serialised.xml").read())
+        acetone_ref_system = xmltodict.parse(open("serialised_acetone.xml").read())
         pyridine = Ligand.from_file(file_name=get_data("pyridine.sdf"))
         xml.run(molecule=pyridine, input_files=[get_data("pyridine.xml")])
-        pyridine_ref_system = xmltodict.parse(open("serialised.xml").read())
+        pyridine_ref_system = xmltodict.parse(open("serialised_pyridine.xml").read())
 
         combined_xml = _combine_molecules(
             molecules=[acetone, pyridine], parameters=elements, rfree_data=rfree_data
@@ -364,7 +364,7 @@ def test_combine_sites_offxml_deepdiff(
         openff.run(acetone)
         off_acetone = Molecule.from_rdkit(acetone.to_rdkit())
         off_mol = Molecule.from_rdkit(mol.to_rdkit())
-        acetone_ref_system = xmltodict.parse(open("serialised.xml").read())
+        acetone_ref_system = xmltodict.parse(open("serialised_acetone.xml").read())
         mol.write_parameters("mol.xml")
         mol_ff = app.ForceField("mol.xml")
         mol_mod = app.Modeller(mol.to_openmm_topology(), mol.openmm_coordinates())
@@ -453,9 +453,9 @@ def test_combine_molecules_deepdiff_offxml(
 
     with tmpdir.as_cwd():
         openff.run(acetone)
-        acetone_ref_system = xmltodict.parse(open("serialised.xml").read())
+        acetone_ref_system = xmltodict.parse(open("serialised_acetone.xml").read())
         openff.run(coumarin)
-        coumarin_ref_system = xmltodict.parse(open("serialised.xml").read())
+        coumarin_ref_system = xmltodict.parse(open("serialised_coumarin.xml").read())
 
         _combine_molecules_offxml(
             molecules=[acetone, coumarin],

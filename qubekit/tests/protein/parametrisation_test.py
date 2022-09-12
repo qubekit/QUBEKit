@@ -1,7 +1,5 @@
 import shutil
 
-import pytest
-
 from qubekit.molecules import Protein
 from qubekit.parametrisation import XMLProtein
 from qubekit.utils.file_handling import get_data

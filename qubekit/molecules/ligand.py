@@ -21,7 +21,7 @@ import decimal
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from xml.dom.minidom import parseString
 
 import networkx as nx
@@ -33,6 +33,7 @@ from openmm.app.element import Element
 from pydantic import Field, validator
 from qcelemental.models.types import Array
 from rdkit import Chem
+from typing_extensions import Literal
 
 import qubekit
 from qubekit.forcefield import (
@@ -65,6 +66,8 @@ class Molecule(SchemaBase):
     The class is a simple representation of the molecule as a list of atom and bond objects, many attributes are then
     inferred from these core objects.
     """
+
+    type: Literal["Molecule"] = "Molecule"
 
     atoms: List[Atom] = Field(
         ..., description="A list of QUBEKit atom objects which make up the molecule."
@@ -126,6 +129,17 @@ class Molecule(SchemaBase):
         description="The coordinates used to calculate the chargemol quantities, "
         "this is a reorientated conformation",
     )
+    hessian: Optional[Array[float]] = Field(
+        None,
+        description="The hessian matrix calculated for this molecule at the QM optimised geometry.",
+    )
+    qm_scans: Optional[List[TorsionDriveData]] = Field(
+        None,
+        description="The list of reference torsiondrive results which we can fit against.",
+    )
+    wbo: Optional[Array[float]] = Field(
+        None, description="The WBO matrix calculated at the QM optimised geometry."
+    )
 
     @validator("coordinates", "chargemol_coords")
     def _reshape_coords(cls, coordinates: Optional[np.ndarray]) -> Optional[np.ndarray]:
@@ -133,6 +147,16 @@ class Molecule(SchemaBase):
             return coordinates.reshape((-1, 3))
         else:
             return coordinates
+
+    @validator("hessian", "wbo", allow_reuse=True)
+    def _reshape_matrix(cls, matrix: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        if matrix is not None:
+            if len(matrix.shape) == 1:
+                # the matrix is a flat list
+                # so we need to make the matrix to be square
+                length = int(np.sqrt(matrix.shape[0]))
+                return matrix.reshape((length, length))
+        return matrix
 
     def __init__(
         self,
@@ -177,6 +201,7 @@ class Molecule(SchemaBase):
             # make sure we respect the provenance when parsing a json file
             new_provenance = provenance
             new_provenance["routine"] = new_provenance["routine"]
+        name = name or "unk"
 
         super(Molecule, self).__init__(
             atoms=atoms,
@@ -186,6 +211,13 @@ class Molecule(SchemaBase):
             coordinates=coordinates,
             provenance=new_provenance,
             **kwargs,
+        )
+        # make sure we have unique atom names
+        self._validate_atom_names()
+
+    def __eq__(self, other: "Molecule"):
+        return self.to_smiles(isomeric=True, mapped=False) == other.to_smiles(
+            isomeric=True, mapped=False
         )
 
     def to_topology(self) -> nx.Graph:
@@ -403,7 +435,7 @@ class Molecule(SchemaBase):
                     for end in list(nx.neighbors(topology, edge[1])):
 
                         # Check atom not in main bond
-                        if end != edge[0] and end != edge[1]:
+                        if end != edge[0] and end != edge[1] and end != start:
 
                             if edge not in dihedrals:
                                 # Add the central edge as a key the first time it is used
@@ -1015,63 +1047,10 @@ class Molecule(SchemaBase):
             last_atom_index = self.n_atoms - 1
             self.NonbondedForce[(last_atom_index,)].charge += extra
 
-
-class Ligand(Molecule):
-    """
-    The Ligand class seperats from protiens as we add fields to store QM calculations, such as the hessian and add more
-    rdkit support methods.
-    """
-
-    hessian: Optional[Array[float]] = Field(
-        None,
-        description="The hessian matrix calculated for this molecule at the QM optimised geometry.",
-    )
-    qm_scans: Optional[List[TorsionDriveData]] = Field(
-        None,
-        description="The list of reference torsiondrive results which we can fit against.",
-    )
-    wbo: Optional[Array[float]] = Field(
-        None, description="The WBO matrix calculated at the QM optimised geometry."
-    )
-
-    def __init__(
-        self,
-        atoms: List[Atom],
-        bonds: Optional[List[Bond]] = None,
-        coordinates: Optional[np.ndarray] = None,
-        multiplicity: int = 1,
-        name: str = "unk",
-        routine: Optional[Set] = None,
-        provenance: Optional[Dict[str, Any]] = None,
-        **kwargs,
-    ):
-        super(Ligand, self).__init__(
-            atoms=atoms,
-            bonds=bonds,
-            coordinates=coordinates,
-            multiplicity=multiplicity,
-            name=name,
-            routine=routine,
-            provenance=provenance,
-            **kwargs,
-        )
-        # make sure we have unique atom names
-        self._validate_atom_names()
-
-    @validator("hessian", "wbo", allow_reuse=True)
-    def _reshape_matrix(cls, matrix: Optional[np.ndarray]) -> Optional[np.ndarray]:
-        if matrix is not None:
-            if len(matrix.shape) == 1:
-                # the matrix is a flat list
-                # so we need to make the matrix to be square
-                length = int(np.sqrt(matrix.shape[0]))
-                return matrix.reshape((length, length))
-        return matrix
-
     @classmethod
     def from_rdkit(
         cls, rdkit_mol: Chem.Mol, name: Optional[str] = None, multiplicity: int = 1
-    ) -> "Ligand":
+    ) -> "Molecule":
         """
         Build an instance of a qubekit ligand directly from an rdkit molecule.
 
@@ -1143,7 +1122,7 @@ class Ligand(Molecule):
             )
 
     @classmethod
-    def from_file(cls, file_name: str, multiplicity: int = 1) -> "Ligand":
+    def from_file(cls, file_name: str, multiplicity: int = 1) -> "Molecule":
         """
         Build a ligand from a supported input file.
 
@@ -1169,7 +1148,7 @@ class Ligand(Molecule):
     @classmethod
     def from_smiles(
         cls, smiles_string: str, name: str, multiplicity: int = 1
-    ) -> "Ligand":
+    ) -> "Molecule":
         """
         Build the ligand molecule directly from a non mapped smiles string.
 
@@ -1534,3 +1513,33 @@ class Ligand(Molecule):
                 local_vsites._parameters.append(vsite_parameter)
 
         return offxml
+
+
+class Fragment(Molecule):
+    """
+    Fragments use bond indices to identify rotatable bonds and can be stored in Ligands that they are related to.
+    """
+
+    type: Literal["Fragment"] = "Fragment"
+    bond_indices: List[Tuple[int, int]] = Field(
+        default_factory=list,
+        description="The map indices of the atoms in the parent molecule that are involved in the bond. "
+        "The fragment was built around these atoms. Note that one fragment might have more "
+        "than one torsion bond for performance reasons.",
+    )
+
+
+class Ligand(Fragment):
+    """
+    the main data class for QUBEKit which describes a small molecule and its fragments when required.
+    """
+
+    type: Literal["Ligand"] = "Ligand"
+    fragments: Optional[List[Fragment]] = Field(
+        None,
+        description="Fragments in the molecule with the bonds around which the fragments were built.",
+    )
+
+    @property
+    def n_fragments(self) -> int:
+        return 0 if self.fragments is None else len(self.fragments)

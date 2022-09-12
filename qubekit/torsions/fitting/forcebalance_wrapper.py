@@ -253,7 +253,7 @@ class ForceBalanceFitting(StageBase):
         )
         return fb and openmm
 
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
         The main run method of the ForceBalance torsion optimisation stage.
 

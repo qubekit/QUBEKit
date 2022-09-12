@@ -40,7 +40,7 @@ class OpenFF(Parametrisation):
     force_field: str = "openff_unconstrained-2.0.0.offxml"
 
     def start_message(self, **kwargs) -> str:
-        return f"Parametrising molecule with {self.force_field}."
+        return f"Parametrising molecule and fragments with {self.force_field}."
 
     @classmethod
     def is_available(cls) -> bool:

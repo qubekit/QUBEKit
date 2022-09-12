@@ -102,7 +102,7 @@ class LennardJones612(StageBase):
                         self.beta = float(line.split(" ")[6])
                         print("Updated beta parameter from ForceBalance file.")
 
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         Use the reference AIM data in the molecule to calculate the Non-bonded (non-electrostatic) terms for the forcefield.
         * Calculates the a_i, b_i and r_aim values.

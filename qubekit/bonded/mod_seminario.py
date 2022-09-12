@@ -15,6 +15,7 @@ from typing_extensions import Literal
 from qubekit.molecules import Ligand
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
+from qubekit.utils.file_handling import folder_setup
 
 
 class ModSemMaths:
@@ -209,7 +210,7 @@ class ModSeminario(StageBase):
     def finish_message(self, **kwargs) -> str:
         return "Bond and angle parameters calculated."
 
-    def run(self, molecule: Ligand, **kwargs) -> Ligand:
+    def _run(self, molecule: Ligand, *args, **kwargs) -> Ligand:
         """
         The main worker stage which takes the molecule and its hessian and calculates the modified seminario method.
 
@@ -220,17 +221,18 @@ class ModSeminario(StageBase):
             Please cite this method using <J. Chem. Theory Comput. (2018), doi:10.1021/acs.jctc.7b00785>
         """
 
-        # reset the bond and angle parameter groups
-        molecule.BondForce.clear_parameters()
-        molecule.AngleForce.clear_parameters()
-        # convert the hessian from atomic units
-        conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS**2)
-        # make sure we do not change the molecule hessian
-        hessian = copy.deepcopy(molecule.hessian)
-        hessian *= conversion
-        self._modified_seminario_method(molecule=molecule, hessian=hessian)
-        # apply symmetry to the bond and angle parameters
-        molecule.symmetrise_bonded_parameters()
+        with folder_setup(molecule.name):
+            # reset the bond and angle parameter groups
+            molecule.BondForce.clear_parameters()
+            molecule.AngleForce.clear_parameters()
+            # convert the hessian from atomic units
+            conversion = constants.HA_TO_KCAL_P_MOL / (constants.BOHR_TO_ANGS**2)
+            # make sure we do not change the molecule hessian
+            hessian = copy.deepcopy(molecule.hessian)
+            hessian *= conversion
+            self._modified_seminario_method(molecule=molecule, hessian=hessian)
+            # apply symmetry to the bond and angle parameters
+            molecule.symmetrise_bonded_parameters()
 
         return molecule
 

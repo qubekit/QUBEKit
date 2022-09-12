@@ -14,7 +14,7 @@ def make_and_change_into(name: str):
     """
 
     try:
-        os.mkdir(name)
+        os.makedirs(name, exist_ok=True)
     except FileExistsError:
         pass
     finally:

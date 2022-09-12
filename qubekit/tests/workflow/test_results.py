@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_results_to_file(acetone, rdkit_workflow, tmpdir):
     """
     Test writing a results object to file.

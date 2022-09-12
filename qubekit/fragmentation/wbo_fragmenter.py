@@ -1,0 +1,158 @@
+import itertools
+from typing import TYPE_CHECKING, List
+
+from openff.fragmenter.depiction import depict_fragmentation_result
+from openff.fragmenter.fragment import WBOFragmenter
+from openff.toolkit.topology import Molecule as OFFMolecule
+from pydantic import Field
+from qcelemental.util import which_import
+from typing_extensions import Literal
+
+from qubekit.molecules import Fragment, Ligand
+from qubekit.utils.datastructures import StageBase
+
+if TYPE_CHECKING:
+    from openff.fragmenter.fragment import FragmentationResult
+
+
+class WBOFragmentation(StageBase, WBOFragmenter):
+
+    type: Literal["WBOFragmentation"] = "WBOFragmentation"
+
+    rotatable_smirks: List[str] = Field(
+        ["[!#1]~[!$(*#*)&!D1:1]-,=;!@[!$(*#*)&!D1:2]~[!#1]"],
+        description="The rotatable smirks to use for fragmentation",
+    )
+
+    @classmethod
+    def is_available(cls) -> bool:
+        fragmenter = which_import(
+            "openff.fragmenter",
+            return_bool=True,
+            raise_error=True,
+            raise_msg="Please install via `conda install -c conda-forge openff-fragmenter`.",
+        )
+
+        rdkit = which_import(
+            "rdkit",
+            return_bool=True,
+            raise_error=True,
+            raise_msg="Please install via `conda install -c conda-forge rdkit`.",
+        )
+
+        return fragmenter and rdkit
+
+    def _results_to_ligand(
+        self, input_ligand: Ligand, fragmentation_result: "FragmentationResult"
+    ) -> Ligand:
+        """
+        Repackage the fragmentation results into our data types. Make sure to deduplicate the parent as well.
+        """
+        molecule = Ligand.from_smiles(
+            fragmentation_result.parent_smiles, input_ligand.name
+        )
+        fragments = []
+        for i, wbo_fragment in enumerate(fragmentation_result.fragments):
+            fragment = Fragment.from_smiles(wbo_fragment.smiles, f"fragment_{i}")
+
+            # attach the fragments as their own ligands
+            fragment.bond_indices.append(wbo_fragment.bond_indices)
+            if fragment != molecule:
+                # only save if the fragment is not the parent to avoid duplicated hessian/charge calculations
+                fragments.append(fragment)
+            else:
+                molecule.bond_indices.extend(fragment.bond_indices)
+
+        molecule.fragments = fragments
+
+        return molecule
+
+    def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
+        """Overwrite base so we don't try and fragment fragments on restarts."""
+        return self._run(molecule, *args, **kwargs)
+
+    def _run(self, molecule: Ligand, *args, **kwargs) -> Ligand:
+        # convert to an OpenFF Molecule
+        off_molecule: OFFMolecule = OFFMolecule.from_smiles(molecule.to_smiles())
+
+        fragmentation_result = self.fragment(
+            off_molecule, target_bond_smarts=self.rotatable_smirks
+        )
+
+        depict_fragmentation_result(
+            result=fragmentation_result, output_file="fragments.html"
+        )
+
+        ligand = self._results_to_ligand(
+            input_ligand=molecule, fragmentation_result=fragmentation_result
+        )
+
+        ligand.fragments = self._deduplicate_fragments(ligand.fragments) or None
+
+        return ligand
+
+    def _deduplicate_fragments(self, fragments: List["Fragment"]) -> List["Fragment"]:
+        """
+        Remove symmetry equivalent fragments from the results. If a bond is the same and appears twice,
+        it has to be computed only once.
+
+        Where fragments are the same but they focus on different bonds, combine them and keep all bonds.
+        """
+        unique_fragments = []
+
+        # group fragments by smiles
+        for smile, fragments in itertools.groupby(
+            fragments,
+            lambda frag: frag.to_smiles(explicit_hydrogens=False),
+        ):
+            fragments = list(fragments)
+
+            if len(fragments) == 1:
+                unique_fragments.extend(fragments)
+                continue
+
+            # filter out symmetrical bonds
+            symmetry_groups = set()
+            fragments_assymetry = []
+            for fragment in fragments:
+                bond_map = fragment.bond_indices
+                a1, a2 = [a for a in fragment.atoms if a.map_index in bond_map[0]]
+
+                symmetry_classes = fragment.atom_types
+                symmetry_group = frozenset(
+                    {
+                        int(symmetry_classes[a1.atom_index]),
+                        int(symmetry_classes[a2.atom_index]),
+                    }
+                )
+
+                if symmetry_group not in symmetry_groups:
+                    symmetry_groups.add(symmetry_group)
+                    fragments_assymetry.append(fragment)
+
+            # the smiles are the same so
+            # merge into one fragment to compute hessian/charges/etc only once
+            # but keep all the bonds that need scanning
+            fragments_assymetry[0].bond_indices = [
+                f.bond_indices[0] for f in fragments_assymetry
+            ]
+            unique_fragments.append(fragments_assymetry[0])
+
+        # re number the unique fragments
+        for i, fragment in enumerate(unique_fragments):
+            fragment.name = f"fragment_{i}"
+
+        return unique_fragments
+
+    def start_message(self, **kwargs) -> str:
+        """
+        A friendly message to let users know that stage is starting with any important options.
+        """
+
+        return "Fragmenting molecule using the WBOFragmenter"
+
+    def finish_message(self, **kwargs) -> str:
+        """
+        A friendly message to let users know that the stage is complete and any checks that have been performed.
+        """
+        return f"Molecule produced {kwargs['molecule'].n_fragments} fragments"

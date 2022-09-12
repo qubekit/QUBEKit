@@ -10,6 +10,7 @@ from typing_extensions import Literal
 
 from qubekit.charges.solvent_settings.base import SolventBase
 from qubekit.utils.datastructures import LocalResource, QCOptions, StageBase, TDSettings
+from qubekit.utils.file_handling import folder_setup
 
 if TYPE_CHECKING:
     from qubekit.molecules import Ligand
@@ -82,24 +83,28 @@ class ChargeBase(StageBase):
             )
         return None
 
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         A template run method which makes sure symmetry is applied when requested.
         """
-        # remove any extra sites as they will be invalidated by new charges
-        molecule.extra_sites.clear_sites()
-        local_options = kwargs.get("local_options")
-        # use the alternative or if not the provided spec
-        qc_spec = self._get_qc_options() or kwargs.get("qc_spec")
-        molecule = self._run(molecule, local_options=local_options, qc_spec=qc_spec)
-        # apply symmetry to the charge parameters
-        molecule = self.apply_symmetrisation(molecule=molecule)
-        # now store the reference values into the nonbonded force as a parameter
-        for i in range(molecule.n_atoms):
-            atom = molecule.atoms[i]
-            molecule.NonbondedForce[(i,)].charge = atom.aim.charge
 
-        molecule.fix_net_charge()
+        with folder_setup(molecule.name):
+            # remove any extra sites as they will be invalidated by new charges
+            molecule.extra_sites.clear_sites()
+            local_options = kwargs.get("local_options")
+            # use the alternative or if not the provided spec
+            qc_spec = self._get_qc_options() or kwargs.get("qc_spec")
+            molecule = self._execute(
+                molecule, local_options=local_options, qc_spec=qc_spec
+            )
+            # apply symmetry to the charge parameters
+            molecule = self.apply_symmetrisation(molecule=molecule)
+            # now store the reference values into the nonbonded force as a parameter
+            for i in range(molecule.n_atoms):
+                atom = molecule.atoms[i]
+                molecule.NonbondedForce[(i,)].charge = atom.aim.charge
+
+            molecule.fix_net_charge()
 
         return molecule
 
@@ -120,7 +125,7 @@ class ChargeBase(StageBase):
             return self._gas_calculation_settings()
 
     @abc.abstractmethod
-    def _run(
+    def _execute(
         self, molecule: "Ligand", local_options: LocalResource, qc_spec: QCOptions
     ) -> "Ligand":
         """

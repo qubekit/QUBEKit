@@ -107,7 +107,7 @@ class RDKit:
     @staticmethod
     def smiles_to_rdkit_mol(smiles_string: str, name: Optional[str] = None):
         """
-        Converts smiles strings to RDKit mol object.
+        Converts smiles strings to RDKit mol object. We are reusing here the OpenFF logic.
         Args:
             smiles_string:
                 The hydrogen free smiles string
@@ -116,15 +116,34 @@ class RDKit:
         return:
             The RDKit molecule
         """
-
-        mol = AllChem.MolFromSmiles(smiles_string)
+        mol = AllChem.MolFromSmiles(smiles_string, sanitize=False)
         if name is None:
             name = input("Please enter a name for the molecule:\n>")
         mol.SetProp("_Name", name)
-        mol_hydrogens = AllChem.AddHs(mol)
-        AllChem.EmbedMolecule(mol_hydrogens, randomSeed=1)
-        AllChem.SanitizeMol(mol_hydrogens)
-        return mol_hydrogens
+
+        # strip the atom map before sanitizing and assigning sterochemistry
+        atom_index_to_map = {}
+        for atom in mol.GetAtoms():
+            # set the map back to zero but hide the index in the atom prop data
+            atom_index_to_map[atom.GetIdx()] = atom.GetAtomMapNum()
+            # set it back to zero
+            atom.SetAtomMapNum(0)
+
+        Chem.SanitizeMol(mol)
+        Chem.SetAromaticity(mol, Chem.AromaticityModel.AROMATICITY_MDL)
+
+        # Chem.MolFromSmiles adds bond directions (i.e. ENDDOWNRIGHT/ENDUPRIGHT), but
+        # doesn't set bond.GetStereo(). We need to call AssignStereochemistry for that.
+        Chem.AssignStereochemistry(mol)
+
+        mol = AllChem.AddHs(mol)
+
+        AllChem.EmbedMolecule(mol, randomSeed=1)
+        # put the map index back on the atoms
+        for atom in mol.GetAtoms():
+            atom.SetAtomMapNum(atom_index_to_map.get(atom.GetIdx(), 0))
+
+        return mol
 
     @staticmethod
     def rdkit_descriptors(rdkit_mol: Chem.Mol) -> Dict[str, float]:

@@ -1,0 +1,2024 @@
+{
+  "type": "Ligand",
+  "atoms": [
+    {
+      "atomic_number": 1,
+      "atom_index": 0,
+      "atom_name": "H1",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        1
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 7
+    },
+    {
+      "atomic_number": 6,
+      "atom_index": 1,
+      "atom_name": "C1",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        0,
+        2,
+        3,
+        4
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 1
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 2,
+      "atom_name": "H2",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        1
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 8
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 3,
+      "atom_name": "H3",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        1
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 9
+    },
+    {
+      "atomic_number": 6,
+      "atom_index": 4,
+      "atom_name": "C2",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        1,
+        5,
+        6,
+        7
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 4
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 5,
+      "atom_name": "H4",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        4
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 16
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 6,
+      "atom_name": "H5",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        4
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 17
+    },
+    {
+      "atomic_number": 6,
+      "atom_index": 7,
+      "atom_name": "C3",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        4,
+        8,
+        9,
+        13
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 6
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 8,
+      "atom_name": "H6",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        7
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 20
+    },
+    {
+      "atomic_number": 6,
+      "atom_index": 9,
+      "atom_name": "C4",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        7,
+        10,
+        11,
+        12
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 3
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 10,
+      "atom_name": "H7",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        9
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 13
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 11,
+      "atom_name": "H8",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        9
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 14
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 12,
+      "atom_name": "H9",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        9
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 15
+    },
+    {
+      "atomic_number": 6,
+      "atom_index": 13,
+      "atom_name": "C5",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        7,
+        14,
+        15,
+        16
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 5
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 14,
+      "atom_name": "H10",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        13
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 18
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 15,
+      "atom_name": "H11",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        13
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 19
+    },
+    {
+      "atomic_number": 6,
+      "atom_index": 16,
+      "atom_name": "C6",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        13,
+        17,
+        18,
+        19
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 2
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 17,
+      "atom_name": "H12",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        16
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 10
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 18,
+      "atom_name": "H13",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        16
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 11
+    },
+    {
+      "atomic_number": 1,
+      "atom_index": 19,
+      "atom_name": "H14",
+      "formal_charge": 0,
+      "aromatic": false,
+      "stereochemistry": null,
+      "bonds": [
+        16
+      ],
+      "aim": {
+        "volume": null,
+        "charge": null,
+        "c8": null
+      },
+      "dipole": null,
+      "quadrupole": null,
+      "cloud_pen": null,
+      "map_index": 12
+    }
+  ],
+  "bonds": [
+    {
+      "atom1_index": 0,
+      "atom2_index": 1,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 1,
+      "atom2_index": 2,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 1,
+      "atom2_index": 3,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 1,
+      "atom2_index": 4,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 4,
+      "atom2_index": 5,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 4,
+      "atom2_index": 6,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 4,
+      "atom2_index": 7,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 7,
+      "atom2_index": 8,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 7,
+      "atom2_index": 9,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 9,
+      "atom2_index": 10,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 9,
+      "atom2_index": 11,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 9,
+      "atom2_index": 12,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 7,
+      "atom2_index": 13,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 13,
+      "atom2_index": 14,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 13,
+      "atom2_index": 15,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 13,
+      "atom2_index": 16,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 16,
+      "atom2_index": 17,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 16,
+      "atom2_index": 18,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    },
+    {
+      "atom1_index": 16,
+      "atom2_index": 19,
+      "bond_order": 1.0,
+      "aromatic": false,
+      "stereochemistry": null
+    }
+  ],
+  "coordinates": [
+    -1.1419683689368345,
+    1.7158765310636264,
+    -0.0736396600652602,
+    -1.657810370306151,
+    0.9164976164709363,
+    0.47263264874055977,
+    -2.434873288125045,
+    0.39229445296776333,
+    -0.11560619335998461,
+    -2.1805147196760046,
+    1.3825639164248675,
+    1.3411129616955046,
+    -0.6628301607677021,
+    -0.05536043227963162,
+    1.0273325024521116,
+    -1.212358145632927,
+    -0.7984640572597242,
+    1.6376271749253521,
+    0.019877016217081957,
+    0.4982921933508657,
+    1.703676793703691,
+    0.14264936204922687,
+    -0.7496022983907288,
+    -0.033648324989266724,
+    0.8298822358539877,
+    -1.458010123933286,
+    0.5019314324214276,
+    -0.6726374005070025,
+    -1.5407192655870299,
+    -0.995115643263698,
+    -0.9031062228938119,
+    -2.569447217345525,
+    -0.589982137560765,
+    -0.02632782018109527,
+    -1.7301672980317446,
+    -1.8998430120450334,
+    -1.5742648686940277,
+    -1.032949377846091,
+    -1.359238603643966,
+    1.0091065464664883,
+    0.26445782925019057,
+    -0.7275865388426803,
+    1.6078979563828983,
+    -0.30838597991202576,
+    -1.4932018525035609,
+    0.37021379058008996,
+    1.0074543523231805,
+    -1.245005750725811,
+    1.9452012669623848,
+    0.9170893658721354,
+    0.2818019842234378,
+    2.9656919160401567,
+    0.9101978691999637,
+    -0.15829486592193012,
+    1.9952405283689774,
+    0.31481398626445756,
+    1.212873410111298,
+    1.5809307467992437,
+    1.9235679373978223,
+    0.5121736746486569
+  ],
+  "multiplicity": 1,
+  "name": "test",
+  "provenance": {
+    "creator": "QUBEKit",
+    "version": "2.1.1+63.g1cbb8d1",
+    "routine": [
+      "QUBEKit.ligand.from_rdkit",
+      "QUBEKit.ligand.from_smiles",
+      "[H:7][C:1]([H:8])([H:9])[C:4]([H:16])([H:17])[C:6]([H:20])([C:3]([H:13])([H:14])[H:15])[C:5]([H:18])([H:19])[C:2]([H:10])([H:11])[H:12]"
+    ]
+  },
+  "extra_sites": {
+    "sites": {}
+  },
+  "BondForce": {
+    "type": "HarmonicBondForce",
+    "parameters": null
+  },
+  "AngleForce": {
+    "type": "HarmonicAngleForce",
+    "parameters": null
+  },
+  "TorsionForce": {
+    "type": "PeriodicTorsionForce",
+    "parameters": null,
+    "ordering": "default"
+  },
+  "ImproperTorsionForce": {
+    "type": "PeriodicImproperTorsionForce",
+    "parameters": null
+  },
+  "RBTorsionForce": {
+    "type": "RBProperTorsionForce",
+    "parameters": null
+  },
+  "ImproperRBTorsionForce": {
+    "type": "RBImproperTorsionForce",
+    "parameters": null
+  },
+  "NonbondedForce": {
+    "type": "NonbondedForce",
+    "parameters": null,
+    "coulomb14scale": 0.8333333333,
+    "lj14scale": 0.5,
+    "combination": "amber"
+  },
+  "chargemol_coords": null,
+  "hessian": null,
+  "qm_scans": null,
+  "wbo": null,
+  "fragments": [
+    {
+      "type": "Fragment",
+      "atoms": [
+        {
+          "atomic_number": 1,
+          "atom_index": 0,
+          "atom_name": "H1",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            1
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 7
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 1,
+          "atom_name": "C1",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            0,
+            2,
+            3,
+            4
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 1
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 2,
+          "atom_name": "H2",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            1
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 8
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 3,
+          "atom_name": "H3",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            1
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 9
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 4,
+          "atom_name": "C2",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            1,
+            5,
+            6,
+            7
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 4
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 5,
+          "atom_name": "H4",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            4
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 16
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 6,
+          "atom_name": "H5",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            4
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 17
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 7,
+          "atom_name": "C3",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            4,
+            8,
+            9,
+            13
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 6
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 8,
+          "atom_name": "H6",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            7
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 20
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 9,
+          "atom_name": "C4",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            7,
+            10,
+            11,
+            12
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 3
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 10,
+          "atom_name": "H7",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            9
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 13
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 11,
+          "atom_name": "H8",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            9
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 14
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 12,
+          "atom_name": "H9",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            9
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 15
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 13,
+          "atom_name": "C5",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            7,
+            14,
+            15,
+            16
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 5
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 14,
+          "atom_name": "H10",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            13
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 18
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 15,
+          "atom_name": "H11",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            13
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 19
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 16,
+          "atom_name": "C6",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            13,
+            17,
+            18,
+            19
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 2
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 17,
+          "atom_name": "H12",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            16
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 10
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 18,
+          "atom_name": "H13",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            16
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 11
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 19,
+          "atom_name": "H14",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            16
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 12
+        }
+      ],
+      "bonds": [
+        {
+          "atom1_index": 0,
+          "atom2_index": 1,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 1,
+          "atom2_index": 2,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 1,
+          "atom2_index": 3,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 1,
+          "atom2_index": 4,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 4,
+          "atom2_index": 5,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 4,
+          "atom2_index": 6,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 4,
+          "atom2_index": 7,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 7,
+          "atom2_index": 8,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 7,
+          "atom2_index": 9,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 9,
+          "atom2_index": 10,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 9,
+          "atom2_index": 11,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 9,
+          "atom2_index": 12,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 7,
+          "atom2_index": 13,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 13,
+          "atom2_index": 14,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 13,
+          "atom2_index": 15,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 13,
+          "atom2_index": 16,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 16,
+          "atom2_index": 17,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 16,
+          "atom2_index": 18,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 16,
+          "atom2_index": 19,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        }
+      ],
+      "coordinates": [
+        -1.1419683689368345,
+        1.7158765310636264,
+        -0.0736396600652602,
+        -1.657810370306151,
+        0.9164976164709363,
+        0.47263264874055977,
+        -2.434873288125045,
+        0.39229445296776333,
+        -0.11560619335998461,
+        -2.1805147196760046,
+        1.3825639164248675,
+        1.3411129616955046,
+        -0.6628301607677021,
+        -0.05536043227963162,
+        1.0273325024521116,
+        -1.212358145632927,
+        -0.7984640572597242,
+        1.6376271749253521,
+        0.019877016217081957,
+        0.4982921933508657,
+        1.703676793703691,
+        0.14264936204922687,
+        -0.7496022983907288,
+        -0.033648324989266724,
+        0.8298822358539877,
+        -1.458010123933286,
+        0.5019314324214276,
+        -0.6726374005070025,
+        -1.5407192655870299,
+        -0.995115643263698,
+        -0.9031062228938119,
+        -2.569447217345525,
+        -0.589982137560765,
+        -0.02632782018109527,
+        -1.7301672980317446,
+        -1.8998430120450334,
+        -1.5742648686940277,
+        -1.032949377846091,
+        -1.359238603643966,
+        1.0091065464664883,
+        0.26445782925019057,
+        -0.7275865388426803,
+        1.6078979563828983,
+        -0.30838597991202576,
+        -1.4932018525035609,
+        0.37021379058008996,
+        1.0074543523231805,
+        -1.245005750725811,
+        1.9452012669623848,
+        0.9170893658721354,
+        0.2818019842234378,
+        2.9656919160401567,
+        0.9101978691999637,
+        -0.15829486592193012,
+        1.9952405283689774,
+        0.31481398626445756,
+        1.212873410111298,
+        1.5809307467992437,
+        1.9235679373978223,
+        0.5121736746486569
+      ],
+      "multiplicity": 1,
+      "name": "fragment_0",
+      "provenance": {
+        "creator": "QUBEKit",
+        "version": "2.1.1+63.g1cbb8d1",
+        "routine": [
+          "QUBEKit.ligand.from_rdkit",
+          "QUBEKit.ligand.from_smiles",
+          "[H:7][C:1]([H:8])([H:9])[C:4]([H:16])([H:17])[C:6]([H:20])([C:3]([H:13])([H:14])[H:15])[C:5]([H:18])([H:19])[C:2]([H:10])([H:11])[H:12]"
+        ]
+      },
+      "extra_sites": {
+        "sites": {}
+      },
+      "BondForce": {
+        "type": "HarmonicBondForce",
+        "parameters": null
+      },
+      "AngleForce": {
+        "type": "HarmonicAngleForce",
+        "parameters": null
+      },
+      "TorsionForce": {
+        "type": "PeriodicTorsionForce",
+        "parameters": null,
+        "ordering": "default"
+      },
+      "ImproperTorsionForce": {
+        "type": "PeriodicImproperTorsionForce",
+        "parameters": null
+      },
+      "RBTorsionForce": {
+        "type": "RBProperTorsionForce",
+        "parameters": null
+      },
+      "ImproperRBTorsionForce": {
+        "type": "RBImproperTorsionForce",
+        "parameters": null
+      },
+      "NonbondedForce": {
+        "type": "NonbondedForce",
+        "parameters": null,
+        "coulomb14scale": 0.8333333333,
+        "lj14scale": 0.5,
+        "combination": "amber"
+      },
+      "chargemol_coords": null,
+      "hessian": null,
+      "qm_scans": null,
+      "wbo": null,
+      "bond_indices": [
+        [
+          5,
+          6
+        ]
+      ]
+    },
+    {
+      "type": "Fragment",
+      "atoms": [
+        {
+          "atomic_number": 1,
+          "atom_index": 0,
+          "atom_name": "H1",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            1
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 7
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 1,
+          "atom_name": "C1",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            0,
+            2,
+            3,
+            4
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 1
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 2,
+          "atom_name": "H2",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            1
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 8
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 3,
+          "atom_name": "H3",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            1
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 9
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 4,
+          "atom_name": "C2",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            1,
+            5,
+            6,
+            7
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 4
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 5,
+          "atom_name": "H4",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            4
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 16
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 6,
+          "atom_name": "H5",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            4
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 17
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 7,
+          "atom_name": "C3",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            4,
+            8,
+            9,
+            13
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 6
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 8,
+          "atom_name": "H6",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            7
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 20
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 9,
+          "atom_name": "C4",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            7,
+            10,
+            11,
+            12
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 3
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 10,
+          "atom_name": "H7",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            9
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 13
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 11,
+          "atom_name": "H8",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            9
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 14
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 12,
+          "atom_name": "H9",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            9
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 15
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 13,
+          "atom_name": "C5",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            7,
+            14,
+            15,
+            16
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 5
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 14,
+          "atom_name": "H10",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            13
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 18
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 15,
+          "atom_name": "H11",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            13
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 19
+        },
+        {
+          "atomic_number": 6,
+          "atom_index": 16,
+          "atom_name": "C6",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            13,
+            17,
+            18,
+            19
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 2
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 17,
+          "atom_name": "H12",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            16
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 10
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 18,
+          "atom_name": "H13",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            16
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 11
+        },
+        {
+          "atomic_number": 1,
+          "atom_index": 19,
+          "atom_name": "H14",
+          "formal_charge": 0,
+          "aromatic": false,
+          "stereochemistry": null,
+          "bonds": [
+            16
+          ],
+          "aim": {
+            "volume": null,
+            "charge": null,
+            "c8": null
+          },
+          "dipole": null,
+          "quadrupole": null,
+          "cloud_pen": null,
+          "map_index": 12
+        }
+      ],
+      "bonds": [
+        {
+          "atom1_index": 0,
+          "atom2_index": 1,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 1,
+          "atom2_index": 2,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 1,
+          "atom2_index": 3,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 1,
+          "atom2_index": 4,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 4,
+          "atom2_index": 5,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 4,
+          "atom2_index": 6,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 4,
+          "atom2_index": 7,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 7,
+          "atom2_index": 8,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 7,
+          "atom2_index": 9,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 9,
+          "atom2_index": 10,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 9,
+          "atom2_index": 11,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 9,
+          "atom2_index": 12,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 7,
+          "atom2_index": 13,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 13,
+          "atom2_index": 14,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 13,
+          "atom2_index": 15,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 13,
+          "atom2_index": 16,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 16,
+          "atom2_index": 17,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 16,
+          "atom2_index": 18,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        },
+        {
+          "atom1_index": 16,
+          "atom2_index": 19,
+          "bond_order": 1.0,
+          "aromatic": false,
+          "stereochemistry": null
+        }
+      ],
+      "coordinates": [
+        -1.1419683689368345,
+        1.7158765310636264,
+        -0.0736396600652602,
+        -1.657810370306151,
+        0.9164976164709363,
+        0.47263264874055977,
+        -2.434873288125045,
+        0.39229445296776333,
+        -0.11560619335998461,
+        -2.1805147196760046,
+        1.3825639164248675,
+        1.3411129616955046,
+        -0.6628301607677021,
+        -0.05536043227963162,
+        1.0273325024521116,
+        -1.212358145632927,
+        -0.7984640572597242,
+        1.6376271749253521,
+        0.019877016217081957,
+        0.4982921933508657,
+        1.703676793703691,
+        0.14264936204922687,
+        -0.7496022983907288,
+        -0.033648324989266724,
+        0.8298822358539877,
+        -1.458010123933286,
+        0.5019314324214276,
+        -0.6726374005070025,
+        -1.5407192655870299,
+        -0.995115643263698,
+        -0.9031062228938119,
+        -2.569447217345525,
+        -0.589982137560765,
+        -0.02632782018109527,
+        -1.7301672980317446,
+        -1.8998430120450334,
+        -1.5742648686940277,
+        -1.032949377846091,
+        -1.359238603643966,
+        1.0091065464664883,
+        0.26445782925019057,
+        -0.7275865388426803,
+        1.6078979563828983,
+        -0.30838597991202576,
+        -1.4932018525035609,
+        0.37021379058008996,
+        1.0074543523231805,
+        -1.245005750725811,
+        1.9452012669623848,
+        0.9170893658721354,
+        0.2818019842234378,
+        2.9656919160401567,
+        0.9101978691999637,
+        -0.15829486592193012,
+        1.9952405283689774,
+        0.31481398626445756,
+        1.212873410111298,
+        1.5809307467992437,
+        1.9235679373978223,
+        0.5121736746486569
+      ],
+      "multiplicity": 1,
+      "name": "fragment_1",
+      "provenance": {
+        "creator": "QUBEKit",
+        "version": "2.1.1+63.g1cbb8d1",
+        "routine": [
+          "QUBEKit.ligand.from_rdkit",
+          "QUBEKit.ligand.from_smiles",
+          "[H:7][C:1]([H:8])([H:9])[C:4]([H:16])([H:17])[C:6]([H:20])([C:3]([H:13])([H:14])[H:15])[C:5]([H:18])([H:19])[C:2]([H:10])([H:11])[H:12]"
+        ]
+      },
+      "extra_sites": {
+        "sites": {}
+      },
+      "BondForce": {
+        "type": "HarmonicBondForce",
+        "parameters": null
+      },
+      "AngleForce": {
+        "type": "HarmonicAngleForce",
+        "parameters": null
+      },
+      "TorsionForce": {
+        "type": "PeriodicTorsionForce",
+        "parameters": null,
+        "ordering": "default"
+      },
+      "ImproperTorsionForce": {
+        "type": "PeriodicImproperTorsionForce",
+        "parameters": null
+      },
+      "RBTorsionForce": {
+        "type": "RBProperTorsionForce",
+        "parameters": null
+      },
+      "ImproperRBTorsionForce": {
+        "type": "RBImproperTorsionForce",
+        "parameters": null
+      },
+      "NonbondedForce": {
+        "type": "NonbondedForce",
+        "parameters": null,
+        "coulomb14scale": 0.8333333333,
+        "lj14scale": 0.5,
+        "combination": "amber"
+      },
+      "chargemol_coords": null,
+      "hessian": null,
+      "qm_scans": null,
+      "wbo": null,
+      "bond_indices": [
+        [
+          4,
+          6
+        ]
+      ]
+    }
+  ]
+}

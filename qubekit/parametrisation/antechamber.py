@@ -24,7 +24,7 @@ class AnteChamber(Parametrisation):
     force_field: Literal["gaff", "gaff2"] = "gaff2"
 
     def start_message(self, **kwargs) -> str:
-        return f"Parametrising molecule with {self.force_field}."
+        return f"Parametrising molecules and fragments with {self.force_field}."
 
     @classmethod
     def is_available(cls) -> bool:

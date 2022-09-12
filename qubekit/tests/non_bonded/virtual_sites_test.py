@@ -9,7 +9,6 @@ import pytest
 from qubekit.charges import DDECCharges, ExtractChargeData
 from qubekit.molecules import Ligand
 from qubekit.nonbonded.protocols import cl_base, get_protocol
-from qubekit.nonbonded.virtual_sites import VirtualSites
 from qubekit.parametrisation import OpenFF
 from qubekit.utils.constants import BOHR_TO_ANGS
 from qubekit.utils.file_handling import get_data
@@ -244,7 +243,10 @@ def test_vsite_frozen_angles(methanol, vs, tmpdir):
         # check the angle between the sites is 90 degrees
         sites = []
         center_atom = None
-        with open("xyz_with_extra_point_charges.xyz") as xyz:
+        print(os.listdir("."))
+        with open(
+            os.path.join(methanol.name, "xyz_with_extra_point_charges.xyz")
+        ) as xyz:
             for line in xyz.readlines():
                 if line.startswith("X"):
                     sites.append(np.array([float(x) for x in line.split()[1:4]]))
@@ -273,7 +275,9 @@ def test_vsite_opt_angles(methanol, vs, tmpdir):
         # check the angle between the sites is 90 degrees
         sites = []
         center_atom = None
-        with open("xyz_with_extra_point_charges.xyz") as xyz:
+        with open(
+            os.path.join(methanol.name, "xyz_with_extra_point_charges.xyz")
+        ) as xyz:
             for line in xyz.readlines():
                 if line.startswith("X"):
                     sites.append(np.array([float(x) for x in line.split()[1:4]]))
@@ -298,7 +302,9 @@ def test_vsite_reg(methanol, vs, tmpdir):
         # check the total distance the site is from the parent
         sites = []
         center_atom = None
-        with open("xyz_with_extra_point_charges.xyz") as xyz:
+        with open(
+            os.path.join(methanol.name, "xyz_with_extra_point_charges.xyz")
+        ) as xyz:
             for line in xyz.readlines():
                 if line.startswith("X"):
                     sites.append(np.array([float(x) for x in line.split()[1:4]]))

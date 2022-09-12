@@ -8,6 +8,7 @@ from typing_extensions import Literal
 import qubekit
 from qubekit.bonded import ModSeminario, QForceHessianFitting
 from qubekit.charges import DDECCharges, MBISCharges
+from qubekit.fragmentation import WBOFragmentation
 from qubekit.molecules import Ligand
 from qubekit.nonbonded import LennardJones612, VirtualSites, get_protocol
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
@@ -29,6 +30,10 @@ class WorkFlow(SchemaBase):
     local_resources: LocalResource = Field(
         LocalResource(),
         description="The local resource options for the workflow like total memory and cores available.",
+    )
+    fragmentation: Optional[WBOFragmentation] = Field(
+        WBOFragmentation(),
+        description="The fragmentation method which should be used to speed up the torsion optimisation stage.",
     )
     parametrisation: Union[OpenFF, XML, AnteChamber] = Field(
         OpenFF(),
@@ -138,6 +143,7 @@ class WorkFlow(SchemaBase):
             A list of stage names in the order they will be ran in.
         """
         normal_workflow = [
+            "fragmentation",
             "parametrisation",
             "optimisation",
             "hessian",
@@ -291,11 +297,11 @@ class WorkFlow(SchemaBase):
         for field in workflow:
             stage: StageBase = getattr(self, field)
             # some stages print based on what spec they are using
-            print(stage.start_message(qc_spec=self.qc_options))
+            print(stage.start_message(qc_spec=self.qc_options, molecule=molecule))
             molecule = self._run_stage(
                 stage_name=field, stage=stage, molecule=molecule, results=results
             )
-            print(stage.finish_message())
+            print(stage.finish_message(molecule=molecule))
 
         # now the workflow has finished
         # write final results

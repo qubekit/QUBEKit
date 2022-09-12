@@ -14,6 +14,7 @@ dependencies:
 
     # Core deps
   - openff-toolkit-base >=0.10.6, <0.11
+  - openff-fragmenter
   - ambertools
   - pydantic
   - forcebalance

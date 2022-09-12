@@ -9,6 +9,7 @@ from typing_extensions import Literal
 
 from qubekit.utils import constants
 from qubekit.utils.datastructures import StageBase
+from qubekit.utils.file_handling import folder_setup
 from qubekit.utils.helpers import check_improper_torsion, check_proper_torsion
 
 if TYPE_CHECKING:
@@ -217,21 +218,25 @@ class QForceHessianFitting(StageBase):
         # now add back the flexible torsions
         molecule.TorsionForce.parameters.extend(flexible_torsions)
 
-    def run(self, molecule: "Ligand", **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
         The main worker method of the class, this will take the ligand and fit the hessian using qforce and then return ligand with the optimized parameters.
         The ligand must contain some qm coordinates, a hessian matrix and wbo matrix.
         """
         from qforce import run_hessian_fitting_for_external
 
-        qm_data = self._create_qm_data_dictionary(molecule=molecule)
-        atom_types = self._generate_atom_types(molecule=molecule)
-        qforce_settings = self._generate_settings()
-        result = run_hessian_fitting_for_external(
-            molecule.name, qm_data=qm_data, ext_lj=atom_types, config=qforce_settings
-        )
-        # now we need to get the terms back into the molecule
-        self._save_parameters(molecule=molecule, qforce_terms=result)
+        with folder_setup(molecule.name):
+            qm_data = self._create_qm_data_dictionary(molecule=molecule)
+            atom_types = self._generate_atom_types(molecule=molecule)
+            qforce_settings = self._generate_settings()
+            result = run_hessian_fitting_for_external(
+                molecule.name,
+                qm_data=qm_data,
+                ext_lj=atom_types,
+                config=qforce_settings,
+            )
+            # now we need to get the terms back into the molecule
+            self._save_parameters(molecule=molecule, qforce_terms=result)
         return molecule
 
     def _create_qm_data_dictionary(self, molecule: "Ligand") -> Dict:

@@ -1,5 +1,3 @@
-import pytest
-
 from qubekit.cli.bulk import create
 from qubekit.molecules import Ligand
 from qubekit.utils.file_handling import get_data

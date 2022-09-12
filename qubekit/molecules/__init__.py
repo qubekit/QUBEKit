@@ -10,7 +10,7 @@ from qubekit.molecules.components import (
     TorsionData,
     TorsionDriveData,
 )
-from qubekit.molecules.ligand import Ligand
+from qubekit.molecules.ligand import Fragment, Ligand
 from qubekit.molecules.protein import Protein
 
 __all__ = [
@@ -25,5 +25,6 @@ __all__ = [
     TorsionData,
     TorsionDriveData,
     Ligand,
+    Fragment,
     Protein,
 ]

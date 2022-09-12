@@ -181,7 +181,7 @@ def test_optimise(qc_spec: QCOptions, tmpdir):
         assert result_mol.coordinates.tolist() != mol.coordinates.tolist()
 
 
-def test_optimise_fail_output(tmpdir):
+def test_optimise_fail_output(tmpdir, water):
     """
     Make sure the optimised geometries and result is still wrote out if we fail the molecule and an error is rasied.
     """
@@ -197,8 +197,8 @@ def test_optimise_fail_output(tmpdir):
                 local_options=LocalResource(cores=1, memory=1),
             )
         files = os.listdir()
-        assert "opt.xyz" in files
-        assert "opt_trajectory.xyz" in files
+        assert "opt_water.xyz" in files
+        assert "opt_trajectory_water.xyz" in files
         assert "result.json" in files
 
 
