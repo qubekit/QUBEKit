@@ -263,7 +263,9 @@ class ModSeminario(StageBase):
 
         # The bond and angle values are calculated and written to file.
         self.calculate_bonds(eigenvals, eigenvecs, molecule, bond_lens)
-        self.calculate_angles(eigenvals, eigenvecs, molecule, bond_lens)
+        if molecule.n_angles > 0:
+            # handle linear molecules with no angles
+            self.calculate_angles(eigenvals, eigenvecs, molecule, bond_lens)
         return molecule
 
     def calculate_angles(
