@@ -538,10 +538,11 @@ class Molecule(SchemaBase):
                 force_group=self.BondForce, parameter_keys=bonds
             )
 
-        for angles in self.angle_types.values():
-            self._symmetrise_parameters(
-                force_group=self.AngleForce, parameter_keys=angles
-            )
+        if self.n_angles > 0:
+            for angles in self.angle_types.values():
+                self._symmetrise_parameters(
+                    force_group=self.AngleForce, parameter_keys=angles
+                )
 
         return True
 
@@ -813,6 +814,9 @@ class Molecule(SchemaBase):
         """
         atom_types = self.atom_types
         angle_symmetry_classes = {}
+        if self.n_angles == 0:
+            return {}
+
         for angle in self.angles:
             angle_symmetry_classes[angle] = (
                 f"{atom_types[angle[0]]}-"

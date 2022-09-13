@@ -60,6 +60,15 @@ def test_parameter_engines(tmpdir, parameter_engine, openff, antechamber):
         assert mol.NonbondedForce.n_parameters != 0
 
 
+def test_symm_params_no_angles(tmpdir, openff):
+    """Make sure we can still apply bonded parameter symmetrisation for linear molecules with no angles."""
+
+    with tmpdir.as_cwd():
+        mol = Ligand.from_smiles("Br", "BrH")
+        openff.run(mol)
+        mol.symmetrise_bonded_parameters()
+
+
 def test_openff_skeleton(tmpdir, openff):
     """
     Make sure the skeleton method in openff works when we have missing coverage in the openff forcefield.
