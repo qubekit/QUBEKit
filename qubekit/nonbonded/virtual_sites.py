@@ -1114,7 +1114,7 @@ class VirtualSites(StageBase):
 
         sm = ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array(np.array([]))
-        cbar = fig.colorbar(sm)
+        cbar = fig.colorbar(sm, ax=two_plt)
         cbar.ax.set_title("charge")
 
         plt.tight_layout()
