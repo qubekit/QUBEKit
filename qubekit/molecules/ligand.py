@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 from xml.dom.minidom import parseString
 
+from chemper.graphs.cluster_graph import ClusterGraph
 import networkx as nx
 import numpy as np
 import qcelemental as qcel
@@ -1343,34 +1344,21 @@ class Molecule(SchemaBase):
         """
         Build the offxml force field from the molecule parameters.
         """
-        from openff.toolkit.typing.engines.smirnoff import ForceField
 
-        if (
-            self.RBTorsionForce.n_parameters > 0
-            or self.ImproperRBTorsionForce.n_parameters > 0
-        ):
-            raise NotImplementedError(
-                "RBTorsions can not yet be safely converted into offxml format yet."
-            )
+        offxml = self._build_offxml_general(h_constraints)
 
-        try:
-            from chemper.graphs.cluster_graph import ClusterGraph
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "chemper is required to make an offxml, please install with `conda install chemper -c conda-forge`."
-            )
+        self._build_offxml_bonds(offxml)
+        self._build_offxml_angles(offxml)
+        self._build_offxml_torsions(offxml)
+        self._build_offxml_improper_torsions(offxml)
+        self._build_offxml_vdw(offxml)
+        self._build_offxml_charges(offxml)
+        self._build_offxml_vs(offxml)
 
-        offxml = ForceField(allow_cosmetic_attributes=True, load_plugins=True)
-        offxml.author = f"QUBEKit_version_{qubekit.__version__}"
-        offxml.date = datetime.now().strftime("%Y_%m_%d")
+        return offxml
+
+    def _build_offxml_bonds(self, offxml):
         rdkit_mol = self.to_rdkit()
-        # Now loop over each potential function and translate the terms to the openff format
-        if h_constraints:
-            # add a generic h-bond constraint
-            constraints = offxml.get_parameter_handler("Constraints")
-            constraints.add_parameter(
-                parameter_kwargs={"smirks": "[#1:1]-[*:2]", "id": "h-c1"}
-            )
         bond_handler = offxml.get_parameter_handler("Bonds")
         bond_types = self.bond_types
         # for each bond type collection create a single smirks pattern
@@ -1383,10 +1371,12 @@ class Molecule(SchemaBase):
                 parameter_kwargs={
                     "smirks": graph.as_smirks(),
                     "length": qube_bond.length * unit.nanometers,
-                    "k": qube_bond.k * unit.kilojoule_per_mole / unit.nanometers**2,
+                    "k": qube_bond.k * unit.kilojoule_per_mole / unit.nanometers ** 2,
                 }
             )
 
+    def _build_offxml_angles(self, offxml):
+        rdkit_mol = self.to_rdkit()
         angle_handler = offxml.get_parameter_handler("Angles")
         angle_types = self.angle_types
         for angles in angle_types.values():
@@ -1400,40 +1390,148 @@ class Molecule(SchemaBase):
                 parameter_kwargs={
                     "smirks": graph.as_smirks(),
                     "angle": qube_angle.angle * unit.radian,
-                    "k": qube_angle.k * unit.kilojoule_per_mole / unit.radians**2,
+                    "k": qube_angle.k * unit.kilojoule_per_mole / unit.radians ** 2,
                 }
             )
 
+    def _build_offxml_torsions(self, offxml, exclude=None):
+        # other_mol - the one with which we can square the stuff here?
+        """
+        other_mol: if there is more than one mol, here it means that one of them is a fragment,
+        for this reason, here we find the common dihedrals which were scanned in the first place,
+        in other words, these will be SMIRKS that capture the dihedrals across the fragment and the parent molecule,
+        now for the dihedrals that were scanned, we want to add the parametrise attribute,
+        """
+
+        rdkit_mols = self.to_rdkit()
         proper_torsions = offxml.get_parameter_handler("ProperTorsions")
         torsion_types = self.dihedral_types
         for dihedrals in torsion_types.values():
+            # exclude[1] would be referring to the parent
+            if exclude is not None:
+                for exclude_dihedrals in exclude:
+                    for dihedral in dihedrals:
+                        if dihedral in exclude_dihedrals[0]:
+                            continue
+
+            qube_dihedral = self.TorsionForce[dihedrals[0]]
             graph = ClusterGraph(
-                mols=[rdkit_mol],
+                mols=[rdkit_mols],
                 smirks_atoms_lists=[dihedrals],
                 layers="all",
             )
-            qube_dihedral = self.TorsionForce[dihedrals[0]]
-            proper_torsions.add_parameter(
-                parameter_kwargs={
-                    "smirks": graph.as_smirks(),
-                    "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
-                    "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
-                    "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
-                    "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
-                    "periodicity1": qube_dihedral.periodicity1,
-                    "periodicity2": qube_dihedral.periodicity2,
-                    "periodicity3": qube_dihedral.periodicity3,
-                    "periodicity4": qube_dihedral.periodicity4,
-                    "phase1": qube_dihedral.phase1 * unit.radians,
-                    "phase2": qube_dihedral.phase2 * unit.radians,
-                    "phase3": qube_dihedral.phase3 * unit.radians,
-                    "phase4": qube_dihedral.phase4 * unit.radians,
-                    "idivf1": 1,
-                    "idivf2": 1,
-                    "idivf3": 1,
-                    "idivf4": 1,
-                }
+            proper_torsions.add_parameter(parameter_kwargs={
+                "smirks": graph.as_smirks(),
+                "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
+                "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
+                "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
+                "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
+                "periodicity1": qube_dihedral.periodicity1,
+                "periodicity2": qube_dihedral.periodicity2,
+                "periodicity3": qube_dihedral.periodicity3,
+                "periodicity4": qube_dihedral.periodicity4,
+                "phase1": qube_dihedral.phase1 * unit.radians,
+                "phase2": qube_dihedral.phase2 * unit.radians,
+                "phase3": qube_dihedral.phase3 * unit.radians,
+                "phase4": qube_dihedral.phase4 * unit.radians,
+                "idivf1": 1,
+                "idivf2": 1,
+                "idivf3": 1,
+                "idivf4": 1,
+            })
+
+    def _build_offxml_torsions_fragment(self, parent_mol, offxml):
+        # other_mol - the one with which we can square the stuff here?
+        """
+        other_mol: if there is more than one mol, here it means that one of them is a fragment,
+        for this reason, here we find the common dihedrals which were scanned in the first place,
+        in other words, these will be SMIRKS that capture the dihedrals across the fragment and the parent molecule,
+        now for the dihedrals that were scanned, we want to add the parametrise attribute,
+
+        Returns the dihedral for which the common smirks were created
+        """
+        fragment = self
+
+        proper_torsions = offxml.get_parameter_handler("ProperTorsions")
+
+        # iterate over the fragment torsions
+        torsion_types = fragment.dihedral_types
+        corresponding_atoms_lists = []
+        for dihedrals in torsion_types.values():
+
+            qube_dihedral = fragment.TorsionForce[dihedrals[0]]
+
+            # get the bond indices and check if any of the dihedrals matches the rotating bond
+            mapped = []
+            for map_bond_indices in fragment.bond_indices:
+                # find the two atoms that are involved in the rotating bond
+                recovered = {a.atom_index for a in fragment.atoms if a.map_index in map_bond_indices}
+                assert len(recovered) == 2
+
+                # check if any of the dihedrals turns around the rotating bond
+                for dihedral in dihedrals:
+                    if recovered != set(dihedral[1:2 + 1]):
+                        continue
+
+                    # check if this dihedral is the one that we scanned and focus on here
+                    qube_dihedral = fragment.TorsionForce[dihedral]
+                    # find the mapped atoms in the parent
+                    # extract the fragment map indices first:
+                    frag_dihedral_mapped = [a.map_index for a in fragment.atoms if a.atom_index in dihedral]
+                    # now find them in the parent mapped
+                    corr_parent_atoms = [a.atom_index for a in parent_mol.atoms if a.map_index in frag_dihedral_mapped]
+                    mapped.append(tuple(corr_parent_atoms))
+
+            mols = [fragment.to_rdkit()]
+            smirks_atoms_lists = [dihedrals]
+
+            if mapped:
+                # the dihedral has to be evaluated
+                # we have to generate a smirk that can capture the dihedral across both the fragment and the parent molecule
+                # and the key to this will be to use the mapping
+                mols.append(parent_mol.to_rdkit())
+                # There is a list of tuples for each molecule, where each tuple specifies
+                # a molecular fragment using the atoms' indices.
+                smirks_atoms_lists.append(mapped)
+
+            graph = ClusterGraph(
+                mols=mols,
+                smirks_atoms_lists=smirks_atoms_lists,
+                layers="all",
             )
+
+            # build the kwargs
+            parameter_kwargs = {
+                "smirks": graph.as_smirks(),
+                "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
+                "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
+                "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
+                "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
+                "periodicity1": qube_dihedral.periodicity1,
+                "periodicity2": qube_dihedral.periodicity2,
+                "periodicity3": qube_dihedral.periodicity3,
+                "periodicity4": qube_dihedral.periodicity4,
+                "phase1": qube_dihedral.phase1 * unit.radians,
+                "phase2": qube_dihedral.phase2 * unit.radians,
+                "phase3": qube_dihedral.phase3 * unit.radians,
+                "phase4": qube_dihedral.phase4 * unit.radians,
+                "idivf1": 1,
+                "idivf2": 1,
+                "idivf3": 1,
+                "idivf4": 1,
+            }
+
+            if mapped:
+                parameter_kwargs["parameterize"] = "k1, k2, k3, k4"
+                parameter_kwargs["allow_cosmetic_attributes"] = True
+                corresponding_atoms_lists.append(smirks_atoms_lists)
+
+            proper_torsions.add_parameter(parameter_kwargs=parameter_kwargs)
+        return corresponding_atoms_lists
+
+
+    def _build_offxml_improper_torsions(self, offxml):
+        rdkit_mol = self.to_rdkit()
         improper_torsions = offxml.get_parameter_handler("ImproperTorsions")
         improper_types = self.improper_types
         for torsions in improper_types.values():
@@ -1456,10 +1554,8 @@ class Molecule(SchemaBase):
                 }
             )
 
-        # add a standard Electrostatic tag
-        _ = offxml.get_parameter_handler(
-            "Electrostatics", handler_kwargs={"scale14": 0.8333333333, "version": 0.3}
-        )
+    def _build_offxml_vdw(self, offxml):
+        rdkit_mol = self.to_rdkit()
         vdw_handler = offxml.get_parameter_handler("vdW")
         atom_types = {}
         for atom_index, cip_type in self.atom_types.items():
@@ -1476,6 +1572,37 @@ class Molecule(SchemaBase):
                     "sigma": qube_non_bond.sigma * unit.nanometers,
                 }
             )
+
+    def _build_offxml_general(self, h_constraints: bool=True):
+        from openff.toolkit.typing.engines.smirnoff import ForceField
+
+        if (
+                self.RBTorsionForce.n_parameters > 0
+                or self.ImproperRBTorsionForce.n_parameters > 0
+        ):
+            raise NotImplementedError(
+                "RBTorsions can not yet be safely converted into offxml format yet."
+            )
+
+        offxml = ForceField(allow_cosmetic_attributes=True, load_plugins=True)
+        offxml.author = f"QUBEKit_version_{qubekit.__version__}"
+        offxml.date = datetime.now().strftime("%Y_%m_%d")
+
+        if h_constraints:
+            # add a generic h-bond constraint
+            constraints = offxml.get_parameter_handler("Constraints")
+            constraints.add_parameter(
+                parameter_kwargs={"smirks": "[#1:1]-[*:2]", "id": "h-c1"}
+            )
+
+        # add a standard Electrostatic tag
+        _ = offxml.get_parameter_handler(
+            "Electrostatics", handler_kwargs={"scale14": 0.8333333333, "version": 0.3}
+        )
+
+        return offxml
+
+    def _build_offxml_charges(self, offxml):
         library_charges = offxml.get_parameter_handler("LibraryCharges")
         charge_data = dict(
             (f"charge{param.atoms[0] + 1}", param.charge * unit.elementary_charge)
@@ -1484,39 +1611,41 @@ class Molecule(SchemaBase):
         charge_data["smirks"] = self.to_smiles(mapped=True)
         library_charges.add_parameter(parameter_kwargs=charge_data)
 
-        if self.extra_sites.n_sites > 0:
-            # use our local coordinate vsite plugin
-            local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
-            # we need to work around duplicate smirks patterns so we add them our self
-            for i, site in enumerate(self.extra_sites):
-                graph = ClusterGraph(
-                    mols=[rdkit_mol],
-                    smirks_atoms_lists=[
-                        [
-                            (
-                                site.parent_index,
-                                site.closest_a_index,
-                                site.closest_b_index,
-                            )
-                        ]
-                    ],
-                    layers="all",
-                )
-                vsite_parameter = local_vsites._INFOTYPE(
-                    **{
-                        "smirks": graph.as_smirks(),
-                        "name": f"site_{i}",
-                        "x_local": site.p1 * unit.nanometers,
-                        "y_local": site.p2 * unit.nanometers,
-                        "z_local": site.p3 * unit.nanometers,
-                        "charge": site.charge * unit.elementary_charge,
-                        "epsilon": 0 * unit.kilojoule_per_mole,
-                        "sigma": 1 * unit.nanometer,
-                    }
-                )
-                local_vsites._parameters.append(vsite_parameter)
+    def _build_offxml_vs(self, offxml):
+        if self.extra_sites.n_sites == 0:
+            return
 
-        return offxml
+        rdkit_mol = self.to_rdkit()
+        # use our local coordinate vsite plugin
+        local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
+        # we need to work around duplicate smirks patterns so we add them our self
+        for i, site in enumerate(self.extra_sites):
+            graph = ClusterGraph(
+                mols=[rdkit_mol],
+                smirks_atoms_lists=[
+                    [
+                        (
+                            site.parent_index,
+                            site.closest_a_index,
+                            site.closest_b_index,
+                        )
+                    ]
+                ],
+                layers="all",
+            )
+            vsite_parameter = local_vsites._INFOTYPE(
+                **{
+                    "smirks": graph.as_smirks(),
+                    "name": f"site_{i}",
+                    "x_local": site.p1 * unit.nanometers,
+                    "y_local": site.p2 * unit.nanometers,
+                    "z_local": site.p3 * unit.nanometers,
+                    "charge": site.charge * unit.elementary_charge,
+                    "epsilon": 0 * unit.kilojoule_per_mole,
+                    "sigma": 1 * unit.nanometer,
+                }
+            )
+            local_vsites._parameters.append(vsite_parameter)
 
 
 class Fragment(Molecule):

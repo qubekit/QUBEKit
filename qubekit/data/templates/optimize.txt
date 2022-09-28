@@ -15,7 +15,7 @@ penalty_type {{ penalty_type }}
 jobtype {{ job_type }}
 
 # (list) The names of force fields, corresponding to directory forcefields/file_name.(itp|gen)
-forcefield bespoke.xml
+forcefield bespoke.offxml
 
 # (int) Maximum number of steps in an optimization
 maxstep {{max_iterations}}

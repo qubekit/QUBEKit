@@ -194,6 +194,118 @@ class TorsionProfile(TargetBase):
             meta.write(json.dumps(json_data, indent=2))
 
 
+class TorsionProfileSmirnoff(TargetBase):
+    """
+    This helps set up the files required to perform the torsion profile fitting target in forcebalance.
+    For each ligand passed the input files are prepared for each target torsion, the optimize in file is also updated with the target info.
+    """
+
+    target_name: Literal["TorsionProfile_SMIRNOFF"] = "TorsionProfile_SMIRNOFF"
+    description = "Relaxed energy and RMSD fitting for torsion drives only."
+    energy_denom: PositiveFloat = Field(
+        1.0,
+        description="The energy denominator used by forcebalance to weight the energies contribution to the objective function.",
+    )
+    energy_upper: PositiveFloat = Field(
+        10.0,
+        description="The upper limit for energy differences in kcal/mol which are included in fitting. Relative energies above this value do not contribute to the objective.",
+    )
+    attenuate: bool = Field(
+        False,
+        description="If the weights should be attenuated as a function of the energy above the minimum.",
+    )
+    restrain_k: float = Field(
+        1.0,
+        description="The strength of the harmonic restraint in kcal/mol used in the mm relaxation on all non-torsion atoms.",
+    )
+    keywords: Dict[str, Any] = {"pdb": "molecule.pdb",
+                                # ForceBalance is able to read an .sdf even though we pass it as a mol2 file.
+                                # This is a workaround not having a .mol2 writer (only OpenEye works fine now)
+                                "mol2": "molecule.sdf",
+                                "coords": "scan.xyz"}
+
+    def prep_for_fitting(self, molecule: Ligand) -> List[str]:
+        """
+        For the given ligand prep the input files ready for torsion profile fitting.
+
+        Args:
+            molecule: The molecule object that we need to prep for fitting, this should have qm reference data stored in molecule.qm_scans.
+
+        Note:
+            We assume we are already in the targets folder.
+
+        Returns:
+            A list of target folder names made by this target.
+
+        Raises:
+            MissingReferenceData: If the molecule does not have any torsion drive reference data saved in molecule.qm_scans.
+        """
+        # make sure we have data
+        if not molecule.qm_scans:
+            raise MissingReferenceData(
+                f"Can not prepare a forcebalance fitting target for {molecule.name} as the reference data is missing!"
+            )
+
+        # write out the qdata and other input files for each scan
+        target_folders = []
+        # keep track of where we start
+        base_folder = os.getcwd()
+
+        # loop over each fragment and then each scanned bond and make a target folder for each
+        for scan in molecule.qm_scans:
+            task_name = (
+                f"{self.target_name}_{scan.central_bond[0]}_{scan.central_bond[1]}"
+            )
+            target_folders.append(task_name)
+            make_and_change_into(name=task_name)
+            # make the pdb topology file
+            if molecule.has_ub_terms():
+                molecule._to_ub_pdb(file_name="molecule")
+            else:
+                molecule.to_file(file_name="molecule.pdb")
+            # mol2 is required for smirks
+            molecule.to_file('molecule.sdf')
+            # write the qdata file
+            export_torsiondrive_data(molecule=molecule, tdrive_data=scan)
+            # make the metadata
+            self.make_metadata(torsiondrive_data=scan)
+            # now move back to the base
+            os.chdir(base_folder)
+
+        return target_folders
+
+    @staticmethod
+    def make_metadata(torsiondrive_data: TorsionDriveData) -> None:
+        """
+        Create the metadata.json required to run a torsion profile target, this details the constrained optimisations to be done.
+
+        Args:
+            torsiondrive_data: Create the torsion metadata file which describes the angle to be scanned and the dihedral grid points.
+        """
+        import json
+
+        json_data = {
+            "dihedrals": [
+                torsiondrive_data.dihedral,
+            ],
+            "grid_spacing": [
+                torsiondrive_data.grid_spacing,
+            ],
+            "dihedral_ranges": [
+                torsiondrive_data.torsion_drive_range,
+            ],
+            "torsion_grid_ids": [
+                [
+                    data.angle,
+                ]
+                for data in torsiondrive_data.reference_data.values()
+            ],
+        }
+        # now dump to file
+        with open("metadata.json", "w") as meta:
+            meta.write(json.dumps(json_data, indent=2))
+
+
 class ForceBalanceFitting(StageBase):
     """
     This class interfaces with forcebalance <https://github.com/leeping/forcebalance> and allows users to fit multiple force field parameters
@@ -228,7 +340,10 @@ class ForceBalanceFitting(StageBase):
     normalize_weights: bool = False
     extras: Dict[str, Any] = {}
     priors: Priors = Priors()
-    targets: Dict[str, TorsionProfile] = {"TorsionProfile_OpenMM": TorsionProfile()}
+    # targets: Dict[str, TorsionProfile] = {"TorsionProfile_OpenMM": TorsionProfile()}
+    targets: Dict[str, TorsionProfileSmirnoff] = {
+        "TorsionProfile_OpenFF": TorsionProfileSmirnoff()
+    }
 
     def start_message(self, **kwargs) -> str:
         return "Performing torsion optimisations using ForceBalance."
@@ -252,6 +367,9 @@ class ForceBalanceFitting(StageBase):
             raise_msg="Please install via `conda install openmm -c conda-forge`.",
         )
         return fb and openmm
+
+    def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
+        return self._run(molecule, *args, **kwargs)
 
     def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         """
@@ -297,8 +415,13 @@ class ForceBalanceFitting(StageBase):
             # prep the target folders
             os.chdir("targets")
             for target in self.targets.values():
-                target_folders = target.prep_for_fitting(molecule=molecule)
-                fitting_targets[target.target_name] = target_folders
+                for fragment in molecule.fragments:
+                    target_folders = target.prep_for_fitting(molecule=fragment)
+                    # fitting_targets[target.target_name] = target_folders
+                    if target.target_name in fitting_targets:
+                        fitting_targets[target.target_name].extend(target_folders)
+                    else:
+                        fitting_targets[target.target_name] = target_folders
 
             # back to fitting folder
             os.chdir(fitting_folder)
@@ -330,45 +453,81 @@ class ForceBalanceFitting(StageBase):
             We work with a copy of the molecule here as we add attributes to the forcefield and change default values.
         """
 
-        copy_mol = copy.deepcopy(molecule)
-        # now we need to find all of the dihedrals for a central bond which should be optimised
-        for torsiondrive_data in copy_mol.qm_scans:
-            central_bond = torsiondrive_data.central_bond
-            # now we can get all dihedrals for this bond
-            try:
-                dihedrals = copy_mol.dihedrals[central_bond]
-            except KeyError:
-                dihedrals = copy_mol.dihedrals[tuple(reversed(central_bond))]
+        # create a general offxml skeleton
+        offxml = molecule._build_offxml_general(False)
 
-            dihedral_groups = self.group_by_symmetry(
-                molecule=copy_mol, dihedrals=dihedrals
-            )
+        # record the shared dihedrals [(parent, fragment), ()] -fixme
+        shared_dihedral_smirks = []
 
-            for dihedral_group in dihedral_groups:
-                # add parametrise flags for forcebalance to one dihedral in the group
-                # the rest get parameter eval tags referenced to this master dihedral
-                master_dihedral = dihedral_group[0]
-                master_parameter = copy_mol.TorsionForce[master_dihedral]
-                # use the parameter atom order to be consistent
-                dihedral_string = ".".join(str(i) for i in master_parameter.atoms)
-                eval_tags = [
-                    f"k{i}=PARM['Proper/k{i}/{dihedral_string}']" for i in range(1, 5)
-                ]
+        for fragment in molecule.fragments:
+            copy_mol = copy.deepcopy(fragment)
 
-                # we need to make sure all parameters are bigger than 0 to be loaded into an OpenMM system
-                parameter_data = {"attributes": {"k1", "k2", "k3", "k4"}}
-                for k in ["k1", "k2", "k3", "k4"]:
-                    if getattr(master_parameter, k) == 0:
-                        parameter_data[k] = 1e-6
-                master_parameter.update(**parameter_data)
+            # add all of the parameters
+            copy_mol._build_offxml_bonds(offxml)
+            copy_mol._build_offxml_angles(offxml)
+            copy_mol._build_offxml_improper_torsions(offxml)
+            copy_mol._build_offxml_vdw(offxml)
+            copy_mol._build_offxml_charges(offxml)
+            copy_mol._build_offxml_vs(offxml)
 
-                # now add parameter evals
-                for dihedral in dihedral_group[1:]:
-                    parameter = copy_mol.TorsionForce[dihedral]
-                    parameter.parameter_eval = eval_tags
+            # finally
+            shared_dihedral_smirks.extend(copy_mol._build_offxml_torsions_fragment(molecule, offxml))
 
-        # now we have all of the dihedrals build the force field
-        copy_mol.write_parameters(file_name=os.path.join("forcefield", "bespoke.xml"))
+            # we have to find smirks that generalise the smirks from the fragmetn to the parent,
+            # and for that we use chemper
+            from chemper.graphs.cluster_graph import ClusterGraph
+
+            # now we need to find all of the dihedrals for a central bond which should be optimised
+            for torsiondrive_data in copy_mol.qm_scans:
+                central_bond = torsiondrive_data.central_bond
+                # now we can get the correct dihedrals for this bond
+                try:
+                    # fixme: should we use the specific one we scanned, rather than them all?
+                    dihedrals = copy_mol.dihedrals[central_bond]
+                except KeyError:
+                    dihedrals = copy_mol.dihedrals[tuple(reversed(central_bond))]
+
+                dihedral_groups = self.group_by_symmetry(
+                    molecule=copy_mol, dihedrals=dihedrals
+                )
+
+                for dihedral_group in dihedral_groups:
+                    # add parametrise flags for forcebalance to one dihedral in the group
+                    # the rest get parameter eval tags referenced to this master dihedral
+                    master_dihedral = dihedral_group[0]
+                    master_parameter = copy_mol.TorsionForce[master_dihedral]
+                    # use the parameter atom order to be consistent
+                    dihedral_string = ".".join(str(i) for i in master_parameter.atoms)
+                    eval_tags = [
+                        f"k{i}=PARM['Proper/k{i}/{dihedral_string}']"
+                        for i in range(1, 5)
+                    ]
+
+                    # we need to make sure all parameters are bigger than 0 to be loaded into an OpenMM system
+                    parameter_data = {"attributes": {"k1", "k2", "k3", "k4"}}
+                    for k in ["k1", "k2", "k3", "k4"]:
+                        if getattr(master_parameter, k) == 0:
+                            parameter_data[k] = 1e-6
+                    master_parameter.update(**parameter_data)
+
+                    # now add parameter evals
+                    for dihedral in dihedral_group[1:]:
+                        parameter = copy_mol.TorsionForce[dihedral]
+                        parameter.parameter_eval = eval_tags
+
+        # add smirks for the parent molecule
+        molecule._build_offxml_bonds(offxml)
+        molecule._build_offxml_angles(offxml)
+        molecule._build_offxml_improper_torsions(offxml)
+        molecule._build_offxml_vdw(offxml)
+        molecule._build_offxml_charges(offxml)
+        molecule._build_offxml_vs(offxml)
+
+        # exclude the shared torsions which are being optimised
+        molecule._build_offxml_torsions(offxml, shared_dihedral_smirks)
+
+        # write the input ff for forcebalance
+        offxml.to_file(filename=os.path.join("forcefield", "bespoke.offxml"))
 
     def group_by_symmetry(
         self, molecule: Ligand, dihedrals: List[Tuple[int, int, int, int]]
@@ -467,14 +626,11 @@ class ForceBalanceFitting(StageBase):
             )
 
         else:
+            from qubekit.parametrisation.openff import OpenFF
 
-            from qubekit.parametrisation import XML
+            open_ff = OpenFF()
+            open_ff.force_field = os.path.join("result", self.job_type, "bespoke.offxml")
+            # apply only to the parent molecule
+            open_ff._run(molecule)
 
-            # load the new parameters into the ligand
-            # xml needs a pdb file
-            xml = XML()
-            xml.run(
-                molecule=molecule,
-                input_files=[os.path.join("result", self.job_type, "bespoke.xml")],
-            )
             return molecule
