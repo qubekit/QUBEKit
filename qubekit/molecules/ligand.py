@@ -1440,8 +1440,7 @@ class Molecule(SchemaBase):
                 "idivf4": 1,
             })
 
-    def _build_offxml_torsions_fragment(self, parent_mol, offxml):
-        # other_mol - the one with which we can square the stuff here?
+    def _build_offxml_torsions_fragment_parameterize(self, parent_mol, offxml):
         """
         other_mol: if there is more than one mol, here it means that one of them is a fragment,
         for this reason, here we find the common dihedrals which were scanned in the first place,
@@ -1456,43 +1455,42 @@ class Molecule(SchemaBase):
 
         # iterate over the fragment torsions
         torsion_types = fragment.dihedral_types
-        corresponding_atoms_lists = []
         for dihedrals in torsion_types.values():
 
             qube_dihedral = fragment.TorsionForce[dihedrals[0]]
-
-            # get the bond indices and check if any of the dihedrals matches the rotating bond
-            mapped = []
-            for map_bond_indices in fragment.bond_indices:
-                # find the two atoms that are involved in the rotating bond
-                recovered = {a.atom_index for a in fragment.atoms if a.map_index in map_bond_indices}
-                assert len(recovered) == 2
-
-                # check if any of the dihedrals turns around the rotating bond
-                for dihedral in dihedrals:
-                    if recovered != set(dihedral[1:2 + 1]):
-                        continue
-
-                    # check if this dihedral is the one that we scanned and focus on here
-                    qube_dihedral = fragment.TorsionForce[dihedral]
-                    # find the mapped atoms in the parent
-                    # extract the fragment map indices first:
-                    frag_dihedral_mapped = [a.map_index for a in fragment.atoms if a.atom_index in dihedral]
-                    # now find them in the parent mapped
-                    corr_parent_atoms = [a.atom_index for a in parent_mol.atoms if a.map_index in frag_dihedral_mapped]
-                    mapped.append(tuple(corr_parent_atoms))
-
             mols = [fragment.to_rdkit()]
             smirks_atoms_lists = [dihedrals]
 
-            if mapped:
+            # get the bond indices and check if any of the dihedrals matches the rotating bond
+            extra_parameter_kwargs = {}
+            for bond_indices_map in fragment.bond_indices:
+                # find the two atoms that are involved in the rotating bond
+                # real refers to the actual indices
+                bond_indices_real = {a.atom_index for a in fragment.atoms if a.map_index in bond_indices_map}
+                assert len(bond_indices_real) == 2
+
+                # continue only if the dihedral rotates around the main bond
+                if bond_indices_real != set(dihedrals[0][1:2 + 1]):
+                    continue
+
+                corresponding_parent_dihedrals = []
+                for dihedral in dihedrals:
+
+                    # get the map indices of the dihedral
+                    frag_dihedral_map = [a.map_index for a in fragment.atoms if a.atom_index in dihedral]
+
+                    # find the corresponding dihedral atom indices in the parent
+                    corresponding_parent_dihedral_real = [a.atom_index for a in parent_mol.atoms if a.map_index in frag_dihedral_map]
+                    corresponding_parent_dihedrals.append(tuple(corresponding_parent_dihedral_real))
+
                 # the dihedral has to be evaluated
-                # we have to generate a smirk that can capture the dihedral across both the fragment and the parent molecule
-                # and the key to this will be to use the mapping
+                # generate a smirk that can capture the dihedral across both the fragment and the parent molecule
+                # add information on the indices of the dihedrals that correspond to the ones in the fragments
+                smirks_atoms_lists.append(corresponding_parent_dihedrals)
                 mols.append(parent_mol.to_rdkit())
-                # There is a list of tuples for each molecule, where each tuple specifies
-                # a molecular fragment using the atoms' indices.
-                smirks_atoms_lists.append(mapped)
+
+                extra_parameter_kwargs["parameterize"] = "k1, k2, k3, k4"
+                extra_parameter_kwargs["allow_cosmetic_attributes"] = True
 
             graph = ClusterGraph(
                 mols=mols,
@@ -1521,14 +1519,11 @@ class Molecule(SchemaBase):
                 "idivf4": 1,
             }
 
-            if mapped:
-                parameter_kwargs["parameterize"] = "k1, k2, k3, k4"
-                parameter_kwargs["allow_cosmetic_attributes"] = True
-                corresponding_atoms_lists.append(smirks_atoms_lists)
+            # add the parameterizing information
+            for k, v in extra_parameter_kwargs.items():
+                parameter_kwargs[k] = v
 
             proper_torsions.add_parameter(parameter_kwargs=parameter_kwargs)
-        return corresponding_atoms_lists
-
 
     def _build_offxml_improper_torsions(self, offxml):
         rdkit_mol = self.to_rdkit()

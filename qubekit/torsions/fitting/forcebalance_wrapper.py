@@ -442,6 +442,7 @@ class ForceBalanceFitting(StageBase):
     def generate_forcefield(self, molecule: Ligand) -> None:
         """
         For the given molecule generate the fitting forcefield with the target torsion terms tagged with the parameterize keyword.
+        The selection of dihedrals for parameterization relies on the .fragments and their central bonds.
 
         Args:
             molecule: The molecule whose torsion parameters should be optimised.
@@ -453,11 +454,10 @@ class ForceBalanceFitting(StageBase):
             We work with a copy of the molecule here as we add attributes to the forcefield and change default values.
         """
 
-        # create a general offxml skeleton
-        offxml = molecule._build_offxml_general(False)
-
-        # record the shared dihedrals [(parent, fragment), ()] -fixme
-        shared_dihedral_smirks = []
+        # a general offxml skeleton
+        # the atoms in the dihedrals for parameterization have mass 0
+        # so the constraints have to be turned off
+        offxml = molecule._build_offxml_general(h_constraints=False)
 
         for fragment in molecule.fragments:
             copy_mol = copy.deepcopy(fragment)
@@ -470,12 +470,8 @@ class ForceBalanceFitting(StageBase):
             copy_mol._build_offxml_charges(offxml)
             copy_mol._build_offxml_vs(offxml)
 
-            # finally
-            shared_dihedral_smirks.extend(copy_mol._build_offxml_torsions_fragment(molecule, offxml))
-
-            # we have to find smirks that generalise the smirks from the fragmetn to the parent,
-            # and for that we use chemper
-            from chemper.graphs.cluster_graph import ClusterGraph
+            # ensure the torsions include the shared dihedrals between the parent and the fragments
+            copy_mol._build_offxml_torsions_fragment_parameterize(molecule, offxml)
 
             # now we need to find all of the dihedrals for a central bond which should be optimised
             for torsiondrive_data in copy_mol.qm_scans:
@@ -514,17 +510,6 @@ class ForceBalanceFitting(StageBase):
                     for dihedral in dihedral_group[1:]:
                         parameter = copy_mol.TorsionForce[dihedral]
                         parameter.parameter_eval = eval_tags
-
-        # add smirks for the parent molecule
-        molecule._build_offxml_bonds(offxml)
-        molecule._build_offxml_angles(offxml)
-        molecule._build_offxml_improper_torsions(offxml)
-        molecule._build_offxml_vdw(offxml)
-        molecule._build_offxml_charges(offxml)
-        molecule._build_offxml_vs(offxml)
-
-        # exclude the shared torsions which are being optimised
-        molecule._build_offxml_torsions(offxml, shared_dihedral_smirks)
 
         # write the input ff for forcebalance
         offxml.to_file(filename=os.path.join("forcefield", "bespoke.offxml"))
