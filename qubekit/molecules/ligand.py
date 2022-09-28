@@ -1371,7 +1371,7 @@ class Molecule(SchemaBase):
                 parameter_kwargs={
                     "smirks": graph.as_smirks(),
                     "length": qube_bond.length * unit.nanometers,
-                    "k": qube_bond.k * unit.kilojoule_per_mole / unit.nanometers ** 2,
+                    "k": qube_bond.k * unit.kilojoule_per_mole / unit.nanometers**2,
                 }
             )
 
@@ -1390,7 +1390,7 @@ class Molecule(SchemaBase):
                 parameter_kwargs={
                     "smirks": graph.as_smirks(),
                     "angle": qube_angle.angle * unit.radian,
-                    "k": qube_angle.k * unit.kilojoule_per_mole / unit.radians ** 2,
+                    "k": qube_angle.k * unit.kilojoule_per_mole / unit.radians**2,
                 }
             )
 
@@ -1420,25 +1420,27 @@ class Molecule(SchemaBase):
                 smirks_atoms_lists=[dihedrals],
                 layers="all",
             )
-            proper_torsions.add_parameter(parameter_kwargs={
-                "smirks": graph.as_smirks(),
-                "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
-                "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
-                "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
-                "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
-                "periodicity1": qube_dihedral.periodicity1,
-                "periodicity2": qube_dihedral.periodicity2,
-                "periodicity3": qube_dihedral.periodicity3,
-                "periodicity4": qube_dihedral.periodicity4,
-                "phase1": qube_dihedral.phase1 * unit.radians,
-                "phase2": qube_dihedral.phase2 * unit.radians,
-                "phase3": qube_dihedral.phase3 * unit.radians,
-                "phase4": qube_dihedral.phase4 * unit.radians,
-                "idivf1": 1,
-                "idivf2": 1,
-                "idivf3": 1,
-                "idivf4": 1,
-            })
+            proper_torsions.add_parameter(
+                parameter_kwargs={
+                    "smirks": graph.as_smirks(),
+                    "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
+                    "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
+                    "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
+                    "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
+                    "periodicity1": qube_dihedral.periodicity1,
+                    "periodicity2": qube_dihedral.periodicity2,
+                    "periodicity3": qube_dihedral.periodicity3,
+                    "periodicity4": qube_dihedral.periodicity4,
+                    "phase1": qube_dihedral.phase1 * unit.radians,
+                    "phase2": qube_dihedral.phase2 * unit.radians,
+                    "phase3": qube_dihedral.phase3 * unit.radians,
+                    "phase4": qube_dihedral.phase4 * unit.radians,
+                    "idivf1": 1,
+                    "idivf2": 1,
+                    "idivf3": 1,
+                    "idivf4": 1,
+                }
+            )
 
     def _build_offxml_torsions_fragment_parameterize(self, parent_mol, offxml):
         """
@@ -1466,22 +1468,34 @@ class Molecule(SchemaBase):
             for bond_indices_map in fragment.bond_indices:
                 # find the two atoms that are involved in the rotating bond
                 # real refers to the actual indices
-                bond_indices_real = {a.atom_index for a in fragment.atoms if a.map_index in bond_indices_map}
+                bond_indices_real = {
+                    a.atom_index
+                    for a in fragment.atoms
+                    if a.map_index in bond_indices_map
+                }
                 assert len(bond_indices_real) == 2
 
                 # continue only if the dihedral rotates around the main bond
-                if bond_indices_real != set(dihedrals[0][1:2 + 1]):
+                if bond_indices_real != set(dihedrals[0][1 : 2 + 1]):
                     continue
 
                 corresponding_parent_dihedrals = []
                 for dihedral in dihedrals:
 
                     # get the map indices of the dihedral
-                    frag_dihedral_map = [a.map_index for a in fragment.atoms if a.atom_index in dihedral]
+                    frag_dihedral_map = [
+                        a.map_index for a in fragment.atoms if a.atom_index in dihedral
+                    ]
 
                     # find the corresponding dihedral atom indices in the parent
-                    corresponding_parent_dihedral_real = [a.atom_index for a in parent_mol.atoms if a.map_index in frag_dihedral_map]
-                    corresponding_parent_dihedrals.append(tuple(corresponding_parent_dihedral_real))
+                    corresponding_parent_dihedral_real = [
+                        a.atom_index
+                        for a in parent_mol.atoms
+                        if a.map_index in frag_dihedral_map
+                    ]
+                    corresponding_parent_dihedrals.append(
+                        tuple(corresponding_parent_dihedral_real)
+                    )
 
                 # the dihedral has to be evaluated
                 # generate a smirk that can capture the dihedral across both the fragment and the parent molecule
@@ -1568,12 +1582,12 @@ class Molecule(SchemaBase):
                 }
             )
 
-    def _build_offxml_general(self, h_constraints: bool=True):
+    def _build_offxml_general(self, h_constraints: bool = True):
         from openff.toolkit.typing.engines.smirnoff import ForceField
 
         if (
-                self.RBTorsionForce.n_parameters > 0
-                or self.ImproperRBTorsionForce.n_parameters > 0
+            self.RBTorsionForce.n_parameters > 0
+            or self.ImproperRBTorsionForce.n_parameters > 0
         ):
             raise NotImplementedError(
                 "RBTorsions can not yet be safely converted into offxml format yet."

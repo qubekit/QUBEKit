@@ -65,7 +65,9 @@ class OpenFF(Parametrisation):
         # a special case: forcebalance generates a bespoke forcefield that we read in
         forcebalance_torsion_optimisation_ff = ["result/optimize/bespoke.offxml"]
 
-        openff_forcefields = [ff.lower() for ff in get_available_force_fields()] + forcebalance_torsion_optimisation_ff
+        openff_forcefields = [
+            ff.lower() for ff in get_available_force_fields()
+        ] + forcebalance_torsion_optimisation_ff
         if force_field in openff_forcefields:
             return force_field.lower()
         else:

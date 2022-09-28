@@ -218,11 +218,13 @@ class TorsionProfileSmirnoff(TargetBase):
         1.0,
         description="The strength of the harmonic restraint in kcal/mol used in the mm relaxation on all non-torsion atoms.",
     )
-    keywords: Dict[str, Any] = {"pdb": "molecule.pdb",
-                                # ForceBalance is able to read an .sdf even though we pass it as a mol2 file.
-                                # This is a workaround not having a .mol2 writer (only OpenEye works fine now)
-                                "mol2": "molecule.sdf",
-                                "coords": "scan.xyz"}
+    keywords: Dict[str, Any] = {
+        "pdb": "molecule.pdb",
+        # ForceBalance is able to read an .sdf even though we pass it as a mol2 file.
+        # This is a workaround not having a .mol2 writer (only OpenEye works fine now)
+        "mol2": "molecule.sdf",
+        "coords": "scan.xyz",
+    }
 
     def prep_for_fitting(self, molecule: Ligand) -> List[str]:
         """
@@ -264,7 +266,7 @@ class TorsionProfileSmirnoff(TargetBase):
             else:
                 molecule.to_file(file_name="molecule.pdb")
             # mol2 is required for smirks
-            molecule.to_file('molecule.sdf')
+            molecule.to_file("molecule.sdf")
             # write the qdata file
             export_torsiondrive_data(molecule=molecule, tdrive_data=scan)
             # make the metadata
@@ -614,7 +616,9 @@ class ForceBalanceFitting(StageBase):
             from qubekit.parametrisation.openff import OpenFF
 
             open_ff = OpenFF()
-            open_ff.force_field = os.path.join("result", self.job_type, "bespoke.offxml")
+            open_ff.force_field = os.path.join(
+                "result", self.job_type, "bespoke.offxml"
+            )
             # apply only to the parent molecule
             open_ff._run(molecule)
 
