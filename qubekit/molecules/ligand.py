@@ -24,10 +24,11 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 from xml.dom.minidom import parseString
 
-from chemper.graphs.cluster_graph import ClusterGraph
 import networkx as nx
 import numpy as np
 import qcelemental as qcel
+from chemper.graphs.cluster_graph import ClusterGraph
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from openmm import unit
 from openmm.app import Aromatic, Double, PDBFile, Single, Topology, Triple
 from openmm.app.element import Element
@@ -1337,27 +1338,50 @@ class Molecule(SchemaBase):
         Note:
             There are a limited number of currently supported potentials in openff without using smirnoff-plugins.
         """
-        offxml = self._build_offxml(h_constraints=h_constraints)
+
+        offxml = self._build_offxml_general(h_constraints=h_constraints)
+        offxml = self.add_params_to_offxml(offxml=offxml)
         offxml.to_file(filename=file_name)
 
-    def _build_offxml(self, h_constraints: bool):
+    def add_params_to_offxml(
+        self,
+        offxml: ForceField,
+        include_torsions: bool = True,
+        parameterize: bool = False,
+    ):
         """
-        Build the offxml force field from the molecule parameters.
+        Edits the force field in place by adding this molecules force field parameters.
+
+        Args:
+            include_torsions:
+                If the proper torsion parameters should also be included, this is only used when building transferable
+                force fields between fragments and ligands.
+            parameterize:
+                If any dihedrals passing through a scanned central bond should be marked for optimisation.
         """
 
-        offxml = self._build_offxml_general(h_constraints)
+        if (
+            self.RBTorsionForce.n_parameters > 0
+            or self.ImproperRBTorsionForce.n_parameters > 0
+        ):
+            raise NotImplementedError(
+                "RBTorsions can not yet be safely converted into offxml format yet."
+            )
 
-        self._build_offxml_bonds(offxml)
-        self._build_offxml_angles(offxml)
-        self._build_offxml_torsions(offxml)
-        self._build_offxml_improper_torsions(offxml)
-        self._build_offxml_vdw(offxml)
-        self._build_offxml_charges(offxml)
-        self._build_offxml_vs(offxml)
+        self._build_offxml_bonds(offxml=offxml)
+        self._build_offxml_angles(offxml=offxml)
+        if include_torsions:
+            self._build_offxml_torsions(offxml=offxml, parameterize=parameterize)
+        self._build_offxml_improper_torsions(offxml=offxml)
+        self._build_offxml_vdw(offxml=offxml)
+        self._build_offxml_charges(offxml=offxml)
+        self._build_offxml_vs(offxml=offxml)
 
         return offxml
 
-    def _build_offxml_bonds(self, offxml):
+    def _build_offxml_bonds(self, offxml: ForceField):
+        """Edit the offxml in place by adding the bonds for this molecule to the harmonic bond section"""
+
         rdkit_mol = self.to_rdkit()
         bond_handler = offxml.get_parameter_handler("Bonds")
         bond_types = self.bond_types
@@ -1375,7 +1399,9 @@ class Molecule(SchemaBase):
                 }
             )
 
-    def _build_offxml_angles(self, offxml):
+    def _build_offxml_angles(self, offxml: ForceField):
+        """Edit the offxml in place by adding the angles for this molecule to the harmonic angle section"""
+
         rdkit_mol = self.to_rdkit()
         angle_handler = offxml.get_parameter_handler("Angles")
         angle_types = self.angle_types
@@ -1394,126 +1420,30 @@ class Molecule(SchemaBase):
                 }
             )
 
-    def _build_offxml_torsions(self, offxml, exclude=None):
-        # other_mol - the one with which we can square the stuff here?
+    def _build_offxml_torsions(self, offxml: ForceField, parameterize: bool = False):
         """
-        other_mol: if there is more than one mol, here it means that one of them is a fragment,
-        for this reason, here we find the common dihedrals which were scanned in the first place,
-        in other words, these will be SMIRKS that capture the dihedrals across the fragment and the parent molecule,
-        now for the dihedrals that were scanned, we want to add the parametrise attribute,
+        Edit the offxml in place by adding this molecules proper torsion force field parameters.
+
+        Args:
+            parameterize:
+                If torsions passing through a scanned central bond should be marked for optimisation `True` or not `False`.
         """
 
-        rdkit_mols = self.to_rdkit()
+        rdkit_mol = self.to_rdkit()
         proper_torsions = offxml.get_parameter_handler("ProperTorsions")
         torsion_types = self.dihedral_types
+        scanned_bonds = [
+            torsiondrive_data.central_bond for torsiondrive_data in self.qm_scans
+        ]
         for dihedrals in torsion_types.values():
-            # exclude[1] would be referring to the parent
-            if exclude is not None:
-                for exclude_dihedrals in exclude:
-                    for dihedral in dihedrals:
-                        if dihedral in exclude_dihedrals[0]:
-                            continue
 
             qube_dihedral = self.TorsionForce[dihedrals[0]]
             graph = ClusterGraph(
-                mols=[rdkit_mols],
+                mols=[rdkit_mol],
                 smirks_atoms_lists=[dihedrals],
                 layers="all",
             )
-            proper_torsions.add_parameter(
-                parameter_kwargs={
-                    "smirks": graph.as_smirks(),
-                    "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
-                    "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
-                    "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
-                    "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
-                    "periodicity1": qube_dihedral.periodicity1,
-                    "periodicity2": qube_dihedral.periodicity2,
-                    "periodicity3": qube_dihedral.periodicity3,
-                    "periodicity4": qube_dihedral.periodicity4,
-                    "phase1": qube_dihedral.phase1 * unit.radians,
-                    "phase2": qube_dihedral.phase2 * unit.radians,
-                    "phase3": qube_dihedral.phase3 * unit.radians,
-                    "phase4": qube_dihedral.phase4 * unit.radians,
-                    "idivf1": 1,
-                    "idivf2": 1,
-                    "idivf3": 1,
-                    "idivf4": 1,
-                }
-            )
-
-    def _build_offxml_torsions_fragment_parameterize(self, parent_mol, offxml):
-        """
-        other_mol: if there is more than one mol, here it means that one of them is a fragment,
-        for this reason, here we find the common dihedrals which were scanned in the first place,
-        in other words, these will be SMIRKS that capture the dihedrals across the fragment and the parent molecule,
-        now for the dihedrals that were scanned, we want to add the parametrise attribute,
-
-        Returns the dihedral for which the common smirks were created
-        """
-        fragment = self
-
-        proper_torsions = offxml.get_parameter_handler("ProperTorsions")
-
-        # iterate over the fragment torsions
-        torsion_types = fragment.dihedral_types
-        for dihedrals in torsion_types.values():
-
-            qube_dihedral = fragment.TorsionForce[dihedrals[0]]
-            mols = [fragment.to_rdkit()]
-            smirks_atoms_lists = [dihedrals]
-
-            # get the bond indices and check if any of the dihedrals matches the rotating bond
-            extra_parameter_kwargs = {}
-            for bond_indices_map in fragment.bond_indices:
-                # find the two atoms that are involved in the rotating bond
-                # real refers to the actual indices
-                bond_indices_real = {
-                    a.atom_index
-                    for a in fragment.atoms
-                    if a.map_index in bond_indices_map
-                }
-                assert len(bond_indices_real) == 2
-
-                # continue only if the dihedral rotates around the main bond
-                if bond_indices_real != set(dihedrals[0][1 : 2 + 1]):
-                    continue
-
-                corresponding_parent_dihedrals = []
-                for dihedral in dihedrals:
-
-                    # get the map indices of the dihedral
-                    frag_dihedral_map = [
-                        a.map_index for a in fragment.atoms if a.atom_index in dihedral
-                    ]
-
-                    # find the corresponding dihedral atom indices in the parent
-                    corresponding_parent_dihedral_real = [
-                        a.atom_index
-                        for a in parent_mol.atoms
-                        if a.map_index in frag_dihedral_map
-                    ]
-                    corresponding_parent_dihedrals.append(
-                        tuple(corresponding_parent_dihedral_real)
-                    )
-
-                # the dihedral has to be evaluated
-                # generate a smirk that can capture the dihedral across both the fragment and the parent molecule
-                # add information on the indices of the dihedrals that correspond to the ones in the fragments
-                smirks_atoms_lists.append(corresponding_parent_dihedrals)
-                mols.append(parent_mol.to_rdkit())
-
-                extra_parameter_kwargs["parameterize"] = "k1, k2, k3, k4"
-                extra_parameter_kwargs["allow_cosmetic_attributes"] = True
-
-            graph = ClusterGraph(
-                mols=mols,
-                smirks_atoms_lists=smirks_atoms_lists,
-                layers="all",
-            )
-
-            # build the kwargs
-            parameter_kwargs = {
+            torsion_data = {
                 "smirks": graph.as_smirks(),
                 "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
                 "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
@@ -1532,14 +1462,22 @@ class Molecule(SchemaBase):
                 "idivf3": 1,
                 "idivf4": 1,
             }
+            if parameterize:
+                # we need to check if any of the torsions in this symmetry group pass through a scanned bond
+                for dihedral in dihedrals:
+                    if (
+                        tuple(dihedral[1:3])
+                        or tuple(reversed(dihedral[1:3])) in scanned_bonds
+                    ):
+                        torsion_data["parameterize"] = "k1, k2, k3, k4"
+                        torsion_data["allow_cosmetic_attributes"] = True
+                        break
 
-            # add the parameterizing information
-            for k, v in extra_parameter_kwargs.items():
-                parameter_kwargs[k] = v
+            proper_torsions.add_parameter(parameter_kwargs=torsion_data)
 
-            proper_torsions.add_parameter(parameter_kwargs=parameter_kwargs)
+    def _build_offxml_improper_torsions(self, offxml: ForceField):
+        """Edit the offxml in place and add periodic improper torsions."""
 
-    def _build_offxml_improper_torsions(self, offxml):
         rdkit_mol = self.to_rdkit()
         improper_torsions = offxml.get_parameter_handler("ImproperTorsions")
         improper_types = self.improper_types
@@ -1551,7 +1489,7 @@ class Molecule(SchemaBase):
                 mols=[rdkit_mol], smirks_atoms_lists=[impropers], layers="all"
             )
             qube_improper = self.ImproperTorsionForce[torsions[0]]
-            # we need to multiply each k value by as they will be applied as trefoil see
+            # we need to multiply each k value by 3 as they will be applied as trefoil see
             # <https://openforcefield.github.io/standards/standards/smirnoff/#impropertorsions> for more details
             # we assume we only have a k2 term for improper torsions via a periodic term
             improper_torsions.add_parameter(
@@ -1563,7 +1501,9 @@ class Molecule(SchemaBase):
                 }
             )
 
-    def _build_offxml_vdw(self, offxml):
+    def _build_offxml_vdw(self, offxml: ForceField):
+        """Edit the offxml in place and add the vdw parameters via the normal LJ nonbonded force."""
+
         rdkit_mol = self.to_rdkit()
         vdw_handler = offxml.get_parameter_handler("vdW")
         atom_types = {}
@@ -1582,16 +1522,9 @@ class Molecule(SchemaBase):
                 }
             )
 
-    def _build_offxml_general(self, h_constraints: bool = True):
-        from openff.toolkit.typing.engines.smirnoff import ForceField
-
-        if (
-            self.RBTorsionForce.n_parameters > 0
-            or self.ImproperRBTorsionForce.n_parameters > 0
-        ):
-            raise NotImplementedError(
-                "RBTorsions can not yet be safely converted into offxml format yet."
-            )
+    @classmethod
+    def _build_offxml_general(cls, h_constraints: bool = True):
+        """Initiate a custom offxml file with general metadata"""
 
         offxml = ForceField(allow_cosmetic_attributes=True, load_plugins=True)
         offxml.author = f"QUBEKit_version_{qubekit.__version__}"
@@ -1611,7 +1544,9 @@ class Molecule(SchemaBase):
 
         return offxml
 
-    def _build_offxml_charges(self, offxml):
+    def _build_offxml_charges(self, offxml: ForceField):
+        """Edit the offxml in place by adding the charges as libary charges."""
+
         library_charges = offxml.get_parameter_handler("LibraryCharges")
         charge_data = dict(
             (f"charge{param.atoms[0] + 1}", param.charge * unit.elementary_charge)
@@ -1620,7 +1555,9 @@ class Molecule(SchemaBase):
         charge_data["smirks"] = self.to_smiles(mapped=True)
         library_charges.add_parameter(parameter_kwargs=charge_data)
 
-    def _build_offxml_vs(self, offxml):
+    def _build_offxml_vs(self, offxml: ForceField):
+        """Edit the offxml in place adding any virtual sites via our custom plugin handler."""
+
         if self.extra_sites.n_sites == 0:
             return
 
@@ -1656,6 +1593,14 @@ class Molecule(SchemaBase):
             )
             local_vsites._parameters.append(vsite_parameter)
 
+    def get_atom_with_map_index(self, map_index: int) -> Atom:
+        """
+        Get the atom in the molecule which has the requested map index.
+        """
+        for atom in self.atoms:
+            if atom.map_index == map_index:
+                return atom
+
 
 class Fragment(Molecule):
     """
@@ -1685,3 +1630,98 @@ class Ligand(Fragment):
     @property
     def n_fragments(self) -> int:
         return 0 if self.fragments is None else len(self.fragments)
+
+    def _optimizeable_offxml(self, file_name: str, h_constraints: bool = False):
+        """
+        Build an optimizeable offxml for the torsion optimisation stage, which correctly handles any fragments of
+        the molecule. This logic has been moved from the ForceBalance wrapper to make it more general.
+        """
+
+        offxml = self._build_offxml_general(h_constraints=h_constraints)
+
+        if self.n_fragments == 0:
+            # If there are no fragments pass the parent molecule through with the correct tags
+            return self.add_params_to_offxml(
+                offxml=offxml, include_torsions=True, parameterize=True
+            )
+        else:
+
+            for fragment in self.fragments:
+                fragment.add_params_to_offxml(offxml=offxml, include_torsions=False)
+                self._build_transferable_torsions(fragment=fragment, offxml=offxml)
+
+    def _build_transferable_torsions(self, fragment: Fragment, offxml: ForceField):
+        """Edit an offxml in place by adding proper torsions from the fragment molecule and for scanned torsions create
+        a trasferable smirks pattern."""
+
+        parent_rdkit = self.to_rdkit()
+        fragment_rdkit = fragment.to_rdkit()
+        proper_torsions = offxml.get_parameter_handler("ProperTorsions")
+        fragment_torsion_types = fragment.dihedral_types
+        scanned_bonds = [
+            torsiondrive_data.central_bond for torsiondrive_data in fragment.qm_scans
+        ]
+        for dihedrals in fragment_torsion_types.values():
+
+            qube_dihedral = fragment.TorsionForce[dihedrals[0]]
+            mols = [fragment_rdkit]
+            smirks_atoms_lists = [dihedrals]
+
+            # check any of the dihedrals in this symmetry group run through a scanned bond
+            include_parent = False
+            corresponding_parent_dihedrals = []
+
+            for dihedral in dihedrals:
+                # check to see if this should be a transferable parameter
+                if (
+                    tuple(dihedral[1:3]) in scanned_bonds
+                    or tuple(reversed(dihedral[1:3])) in scanned_bonds
+                ):
+                    include_parent = True
+
+                # get the map indices of the dihedral in the correct order
+                frag_dihedral_map = [fragment.atoms[i].map_index for i in dihedral]
+
+                # find the corresponding dihedral atom indices in the parent with the same ordering
+                corresponding_parent_dihedral_real = [
+                    self.get_atom_with_map_index(map_index=i).atom_index
+                    for i in frag_dihedral_map
+                ]
+                corresponding_parent_dihedrals.append(
+                    tuple(corresponding_parent_dihedral_real)
+                )
+
+            if include_parent:
+                mols.append(parent_rdkit)
+                smirks_atoms_lists.append(corresponding_parent_dihedrals)
+
+            graph = ClusterGraph(
+                mols=mols,
+                smirks_atoms_lists=smirks_atoms_lists,
+                layers="all",
+            )
+
+            # build the kwargs
+            torsion_data = {
+                "smirks": graph.as_smirks(),
+                "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
+                "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
+                "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
+                "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
+                "periodicity1": qube_dihedral.periodicity1,
+                "periodicity2": qube_dihedral.periodicity2,
+                "periodicity3": qube_dihedral.periodicity3,
+                "periodicity4": qube_dihedral.periodicity4,
+                "phase1": qube_dihedral.phase1 * unit.radians,
+                "phase2": qube_dihedral.phase2 * unit.radians,
+                "phase3": qube_dihedral.phase3 * unit.radians,
+                "phase4": qube_dihedral.phase4 * unit.radians,
+                "idivf1": 1,
+                "idivf2": 1,
+                "idivf3": 1,
+                "idivf4": 1,
+                "parameterize": "k1, k2, k3, k4",
+                "allow_cosmetic_attributes": True,
+            }
+
+            proper_torsions.add_parameter(parameter_kwargs=torsion_data)
