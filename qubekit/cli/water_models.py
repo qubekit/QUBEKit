@@ -91,7 +91,7 @@ water_models = {
             # charge is set to zero as the v-site will move the charge
             {
                 "smirks": "[#1:1]-[#8X2H2+0]-[#1]",
-                "charge1": 0 * unit.elementary_charge,
+                "charge1": 0.52587 * unit.elementary_charge,
                 "id": "q-tip4p-fb-H",
             },
         ],
@@ -109,16 +109,18 @@ water_models = {
                 "sigma": 1 * unit.angstroms,
             },
         ],
-        "VirtualSites": [
+        "LocalCoordinateVirtualSites": [
             {
                 "smirks": "[#1:2]-[#8X2H2+0:1]-[#1:3]",
-                "type": "DivalentLonePair",
-                "distance": -0.10527 * unit.angstroms,
-                "outOfPlaneAngle": 0.0 * unit.degrees,
+                "type": "local",
+                "name": "q-tip4p-fb-v",
+                "x_local": 0.010527 * unit.nanometers,
+                "y_local": 0.0 * unit.nanometers,
+                "z_local": 0.0 * unit.nanometers,
                 "match": "once",
-                "charge_increment1": 0.0 * unit.elementary_charge,
-                "charge_increment2": 1.05174 * 0.5 * unit.elementary_charge,
-                "charge_increment3": 1.05174 * 0.5 * unit.elementary_charge,
+                "charge": -1.05174 * unit.elementary_charge,
+                "sigma": 1 * unit.nanometers,
+                "epsilon": 0.0 * unit.kilojoule_per_mole,
             }
         ],
     },

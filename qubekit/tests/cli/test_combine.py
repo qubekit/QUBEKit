@@ -702,7 +702,7 @@ def test_molecule_and_vsite_water(coumarin, tmpdir, water, rfree_data):
             coumarin_copy.n_atoms + 3
         )
         assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
-        assert sigma == unit.Quantity(0.0, unit.nanometer)
+        assert sigma == unit.Quantity(1.0, unit.nanometer)
         assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
 
 
@@ -793,7 +793,7 @@ def test_molecule_vsite_and_vsite_water(methanol, tmpdir, water, rfree_data):
             methanol.n_atoms + 3
         )
         assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
-        assert sigma == unit.Quantity(0.0, unit.nanometer)
+        assert sigma == unit.Quantity(1.0, unit.nanometer)
         assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
 
         # now check the two methanol sites
@@ -911,7 +911,7 @@ def test_molecule_vsite_and_vsite_water_plugin(methanol, tmpdir, water, rfree_da
             methanol.n_atoms + 3
         )
         assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
-        assert sigma == unit.Quantity(0.0, unit.nanometer)
+        assert sigma == unit.Quantity(1.0, unit.nanometer)
         assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
 
         # now check the two methanol sites
