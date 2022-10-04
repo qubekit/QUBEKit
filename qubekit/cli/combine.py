@@ -10,7 +10,7 @@ from openmm import unit
 from typing_extensions import Literal
 
 import qubekit
-from qubekit.cli.water_models import water_models
+from qubekit.cli.water_models import water_models_local, water_models_normal
 from qubekit.utils import constants
 from qubekit.workflow import WorkFlowResult
 
@@ -23,7 +23,7 @@ parameters_to_fit = click.Choice(
     elements,
     case_sensitive=True,
 )
-water_options = click.Choice(list(water_models.keys()), case_sensitive=True)
+water_options = click.Choice(list(water_models_normal.keys()), case_sensitive=True)
 
 
 @click.command()
@@ -113,11 +113,16 @@ def combine(
 def _add_water_model(
     force_field: ForceField,
     water_model: Literal["tip3p", "tip4p-fb"] = "tip3p",
+    use_local_sites: bool = False,
 ):
     """Add a water model to an offxml force field"""
 
-    if water_model in water_models:
-        water_parameters = water_models[water_model]
+    if use_local_sites:
+        available_models = water_models_local
+    else:
+        available_models = water_models_normal
+    if water_model in available_models:
+        water_parameters = available_models[water_model]
         for parameter_handler, parameters in water_parameters.items():
             if parameter_handler == "Nonbonded":
                 handler = force_field.get_parameter_handler("vdW")
@@ -127,7 +132,7 @@ def _add_water_model(
                 handler.add_parameter(parameter_kwargs=parameter)
     else:
         raise NotImplementedError(
-            f"Only the {list(water_models.keys())} water models are support for offxmls so far."
+            f"Only the {list(water_models_local.keys())} water models are support for offxmls so far."
         )
 
 
@@ -370,7 +375,15 @@ def _combine_molecules_offxml(
         vdw_handler.add_cosmetic_attribute("parameterize", ", ".join(to_parameterize))
 
     # now add a water model to the force field
-    _add_water_model(force_field=offxml, water_model=water_model)
+    use_local_sites = True
+    if len(local_vsites._parameters) == 0:
+        use_local_sites = False
+        # deregister the handler if not in use
+        offxml.deregister_parameter_handler("LocalCoordinateVirtualSites")
+
+    _add_water_model(
+        force_field=offxml, water_model=water_model, use_local_sites=use_local_sites
+    )
     offxml.to_file(filename=filename)
 
 

@@ -342,15 +342,6 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
 
     exclusion_policy = ParameterAttribute(default="parents")
 
-    def check_handler_compatibility(self, other_handler):
-        """
-        This handler is not compatible with the default Vsite handler so make sure an error is raised if they are both found together.
-        """
-        if type(other_handler) == VirtualSiteHandler:
-            raise ValueError(
-                "The LocalCoordinateVirtualSites QUBEKit handler is not compatible with the default v-site handler, please remove it."
-            )
-
     def create_force(self, system: openmm.System, topology: Topology, **kwargs):
 
         # as the normal vsites go first there should be more than topology.n_atoms if we have a 4 site water or more
