@@ -634,6 +634,10 @@ def test_molecule_and_vsite_water(coumarin, tmpdir, water, rfree_data):
         combinded_ff = ForceField(
             "combined.offxml", load_plugins=True, allow_cosmetic_attributes=True
         )
+        # make sure the sites are local and we have no normal sites
+        handlers = combinded_ff.registered_parameter_handlers
+        assert "LocalCoordinateVirtualSites" not in handlers
+        assert "VirtualSites" in handlers
         mixed_top = Topology.from_molecules(
             molecules=[
                 Molecule.from_rdkit(water.to_rdkit()),
@@ -702,7 +706,7 @@ def test_molecule_and_vsite_water(coumarin, tmpdir, water, rfree_data):
             coumarin_copy.n_atoms + 3
         )
         assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
-        assert sigma == unit.Quantity(0.0, unit.nanometer)
+        assert sigma == unit.Quantity(1.0, unit.nanometer)
         assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
 
 
@@ -793,7 +797,7 @@ def test_molecule_vsite_and_vsite_water(methanol, tmpdir, water, rfree_data):
             methanol.n_atoms + 3
         )
         assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
-        assert sigma == unit.Quantity(0.0, unit.nanometer)
+        assert sigma == unit.Quantity(1.0, unit.nanometer)
         assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
 
         # now check the two methanol sites
@@ -843,6 +847,11 @@ def test_molecule_vsite_and_vsite_water_plugin(methanol, tmpdir, water, rfree_da
         combinded_ff = ForceField(
             "combined.offxml", load_plugins=True, allow_cosmetic_attributes=True
         )
+        # make sure the sites are local and we have no normal sites
+        handlers = combinded_ff.registered_parameter_handlers
+        assert "LocalCoordinateVirtualSites" in handlers
+        assert "VirtualSites" not in handlers
+
         mixed_top = Topology.from_molecules(
             molecules=[
                 Molecule.from_rdkit(water.to_rdkit()),
@@ -911,7 +920,7 @@ def test_molecule_vsite_and_vsite_water_plugin(methanol, tmpdir, water, rfree_da
             methanol.n_atoms + 3
         )
         assert charge == unit.Quantity(-1.05174, unit.elementary_charge)
-        assert sigma == unit.Quantity(0.0, unit.nanometer)
+        assert sigma == unit.Quantity(1.0, unit.nanometer)
         assert epsilon == unit.Quantity(0.0, unit.kilojoule_per_mole)
 
         # now check the two methanol sites

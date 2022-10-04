@@ -338,7 +338,6 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
         ToolkitAM1BCCHandler,
         QUBEKitHandler,
         vdWHandler,
-        VirtualSiteHandler,
     ]
 
     exclusion_policy = ParameterAttribute(default="parents")
@@ -352,10 +351,13 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
         force = _get_nonbonded_force(system=system, topology=topology)
 
         matches_by_parent = self._find_matches_by_parent(topology)
+        # order the matches by the index of the parent atom
+        ordered_matches = sorted(list(matches_by_parent.keys()))
 
         parameter: LocalCoordinateVirtualSiteHandler.VirtualSiteType
 
-        for parent_index, parameters in matches_by_parent.items():
+        for parent_index in ordered_matches:
+            parameters = matches_by_parent[parent_index]
             for parameter, orientations in parameters:
                 for orientation in orientations:
                     orientation_indices = orientation.topology_atom_indices
