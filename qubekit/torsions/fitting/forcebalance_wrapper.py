@@ -417,9 +417,11 @@ class ForceBalanceFitting(StageBase):
             # prep the target folders
             os.chdir("targets")
             for target in self.targets.values():
-                for fragment in molecule.fragments:
+                # this happens when the molecule is the same as the fragment
+                fitting_list = molecule.fragments or [molecule]
+
+                for fragment in fitting_list:
                     target_folders = target.prep_for_fitting(molecule=fragment)
-                    # fitting_targets[target.target_name] = target_folders
                     if target.target_name in fitting_targets:
                         fitting_targets[target.target_name].extend(target_folders)
                     else:
@@ -461,7 +463,10 @@ class ForceBalanceFitting(StageBase):
         # so the constraints have to be turned off
         offxml = molecule._build_offxml_general(h_constraints=False)
 
-        for fragment in molecule.fragments:
+        # takes place when the molecule is the same as the fragment
+        targets = molecule.fragments or [molecule]
+
+        for fragment in targets:
             copy_mol = copy.deepcopy(fragment)
 
             # add all of the parameters
