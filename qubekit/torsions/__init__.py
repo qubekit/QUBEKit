@@ -1,7 +1,7 @@
 from qubekit.torsions.fitting.forcebalance_wrapper import (
     ForceBalanceFitting,
     Priors,
-    TorsionProfile,
+    TorsionProfileSmirnoff,
 )
 from qubekit.torsions.fitting.internal import TorsionOptimiser
 from qubekit.torsions.scanning.torsion_scanner import TorsionScan1D
@@ -15,7 +15,7 @@ from qubekit.torsions.utils import (
 __all__ = [
     ForceBalanceFitting,
     Priors,
-    TorsionProfile,
+    TorsionProfileSmirnoff,
     AvoidedTorsion,
     TargetTorsion,
     find_heavy_torsion,

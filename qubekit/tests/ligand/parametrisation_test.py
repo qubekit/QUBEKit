@@ -564,6 +564,118 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
 
 @pytest.mark.parametrize(
     "molecule",
+    [
+        pytest.param("bace0.sdf", id="bace"),
+        pytest.param("acetone.sdf", id="acetone"),
+        pytest.param("pyridine.sdf", id="pyridine"),
+        pytest.param("methane.sdf", id="methane"),
+    ],
+)
+def test_offxml_round_trip_ub_terms(tmpdir, openff, molecule):
+    """
+    Test round tripping offxml parameters through qubekit with urey-bradley terms
+    """
+
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data(molecule))
+        offmol = Molecule.from_file(get_data(molecule))
+        openff.run(mol)
+        # Add urey-bradley terms
+        for angle in mol.angles:
+            mol.BondForce.create_parameter((angle[0], angle[2]), k=1, length=2)
+
+        mol.to_offxml("test.offxml", h_constraints=False)
+        # build another openmm system and serialise to compare with deepdiff
+        offxml = ForceField("test.offxml")
+        assert offxml.author == f"QUBEKit_version_{qubekit.__version__}"
+        qubekit_offxml_system = offxml.create_openmm_system(
+            topology=offmol.to_topology()
+        )
+        qubekit_offxml_xml = xmltodict.parse(
+            openmm.XmlSerializer.serialize(qubekit_offxml_system)
+        )
+        with open("qubekit_offxml_system.xml", "w") as output:
+            output.write(openmm.XmlSerializer.serialize(qubekit_offxml_system))
+
+        # now write the normal xml
+        mol.write_parameters("test.xml")
+        xml_ff = app.ForceField("test.xml")
+        qubekit_xml_system = xml_ff.createSystem(
+            mol.to_openmm_topology(),
+            nonbondedCutoff=0.9 * unit.nanometers,
+            removeCMMotion=False,
+        )
+
+        # the exceptions are wrong due to the virtual bonds for the U-B terms
+        # make a new force and generate new exceptions
+        forces = {
+            force.__class__.__name__: force for force in qubekit_xml_system.getForces()
+        }
+        force = forces["NonbondedForce"]
+        bonds = [bond.indices for bond in mol.bonds]
+        new_force = openmm.NonbondedForce()
+        for i in range(force.getNumParticles()):
+            new_force.addParticle(*force.getParticleParameters(i))
+        new_force.createExceptionsFromBonds(
+            bonds, mol.NonbondedForce.coulomb14scale, mol.NonbondedForce.lj14scale
+        )
+        new_force.setNonbondedMethod(force.getNonbondedMethod())
+        new_force.setCutoffDistance(force.getCutoffDistance())
+        new_force.setUseDispersionCorrection(force.getUseDispersionCorrection())
+        new_force.setUseSwitchingFunction(force.getUseSwitchingFunction())
+        new_force.setSwitchingDistance(force.getSwitchingDistance())
+        for i in range(qubekit_xml_system.getNumForces()):
+            if type(qubekit_xml_system.getForce(i)) == openmm.NonbondedForce:
+                qubekit_xml_system.removeForce(i)
+                break
+        qubekit_xml_system.addForce(new_force)
+
+        qubekit_xml_xml = xmltodict.parse(
+            openmm.XmlSerializer.serialize(qubekit_xml_system)
+        )
+        with open("qubekit_xml_system.xml", "w") as output:
+            output.write(openmm.XmlSerializer.serialize(qubekit_xml_system))
+
+        offxml_diff = DeepDiff(
+            qubekit_offxml_xml,
+            qubekit_xml_xml,
+            ignore_order=True,
+            significant_digits=6,
+            exclude_regex_paths="mass",
+        )
+        assert len(offxml_diff) == 1
+        # the only difference should be in torsions with a 0 barrier height which are excluded from an offxml
+        if "iterable_removed_added" in offxml_diff:
+            for item in offxml_diff["iterable_removed_added"].values():
+                assert item["@k"] == "0"
+
+        # load both systems and compute the energy
+        qubekit_xml_top = load_topology(
+            mol.to_openmm_topology(),
+            system=qubekit_xml_system,
+            xyz=mol.openmm_coordinates(),
+        )
+        qubekit_energy = energy_decomposition_system(
+            qubekit_xml_top, qubekit_xml_system, platform="Reference"
+        )
+
+        qubekit_offxml_top = load_topology(
+            mol.to_openmm_topology(),
+            system=qubekit_offxml_system,
+            xyz=mol.openmm_coordinates(),
+        )
+        offxml_energy = energy_decomposition_system(
+            qubekit_offxml_top, qubekit_offxml_system, platform="Reference"
+        )
+        # compare the decomposed energies of the groups
+        for force_group, energy in offxml_energy:
+            for qube_force, qube_e in qubekit_energy:
+                if force_group == qube_force:
+                    assert energy == pytest.approx(qube_e, abs=2e-3)
+
+
+@pytest.mark.parametrize(
+    "molecule",
     [pytest.param("methanol", id="methanol"), pytest.param("ethanol", id="ethanol")],
 )
 def test_offxml_sites_energy(xml, tmpdir, methanol, ethanol, molecule):
