@@ -235,10 +235,14 @@ class RDKit:
         # smarts can match forward and backwards so condense the matches
         all_matches = set()
         for match in cp_mol.GetSubstructMatches(
-            smarts_mol, uniquify=True, useChirality=True
+            smarts_mol, uniquify=False, useChirality=True
         ):
             smirks_atoms = [match[atom] for atom in mapping.values()]
-            all_matches.add(tuple(smirks_atoms))
+            # add with the lowest index atom first
+            if smirks_atoms[0] < smirks_atoms[-1]:
+                all_matches.add(tuple(smirks_atoms))
+            else:
+                all_matches.add(tuple(reversed(smirks_atoms)))
         return list(all_matches)
 
     @staticmethod

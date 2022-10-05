@@ -564,6 +564,118 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
 
 @pytest.mark.parametrize(
     "molecule",
+    [
+        pytest.param("bace0.sdf", id="bace"),
+        pytest.param("acetone.sdf", id="acetone"),
+        pytest.param("pyridine.sdf", id="pyridine"),
+        pytest.param("methane.sdf", id="methane"),
+    ],
+)
+def test_offxml_round_trip_ub_terms(tmpdir, openff, molecule):
+    """
+    Test round tripping offxml parameters through qubekit with urey-bradley terms
+    """
+
+    with tmpdir.as_cwd():
+        mol = Ligand.from_file(get_data(molecule))
+        offmol = Molecule.from_file(get_data(molecule))
+        openff.run(mol)
+        # Add urey-bradley terms
+        for angle in mol.angles:
+            mol.BondForce.create_parameter((angle[0], angle[2]), k=1, length=2)
+
+        mol.to_offxml("test.offxml", h_constraints=False)
+        # build another openmm system and serialise to compare with deepdiff
+        offxml = ForceField("test.offxml")
+        assert offxml.author == f"QUBEKit_version_{qubekit.__version__}"
+        qubekit_offxml_system = offxml.create_openmm_system(
+            topology=offmol.to_topology()
+        )
+        qubekit_offxml_xml = xmltodict.parse(
+            openmm.XmlSerializer.serialize(qubekit_offxml_system)
+        )
+        with open("qubekit_offxml_system.xml", "w") as output:
+            output.write(openmm.XmlSerializer.serialize(qubekit_offxml_system))
+
+        # now write the normal xml
+        mol.write_parameters("test.xml")
+        xml_ff = app.ForceField("test.xml")
+        qubekit_xml_system = xml_ff.createSystem(
+            mol.to_openmm_topology(),
+            nonbondedCutoff=0.9 * unit.nanometers,
+            removeCMMotion=False,
+        )
+
+        # the exceptions are wrong due to the virtual bonds for the U-B terms
+        # make a new force and generate new exceptions
+        forces = {
+            force.__class__.__name__: force for force in qubekit_xml_system.getForces()
+        }
+        force = forces["NonbondedForce"]
+        bonds = [bond.indices for bond in mol.bonds]
+        new_force = openmm.NonbondedForce()
+        for i in range(force.getNumParticles()):
+            new_force.addParticle(*force.getParticleParameters(i))
+        new_force.createExceptionsFromBonds(
+            bonds, mol.NonbondedForce.coulomb14scale, mol.NonbondedForce.lj14scale
+        )
+        new_force.setNonbondedMethod(force.getNonbondedMethod())
+        new_force.setCutoffDistance(force.getCutoffDistance())
+        new_force.setUseDispersionCorrection(force.getUseDispersionCorrection())
+        new_force.setUseSwitchingFunction(force.getUseSwitchingFunction())
+        new_force.setSwitchingDistance(force.getSwitchingDistance())
+        for i in range(qubekit_xml_system.getNumForces()):
+            if type(qubekit_xml_system.getForce(i)) == openmm.NonbondedForce:
+                qubekit_xml_system.removeForce(i)
+                break
+        qubekit_xml_system.addForce(new_force)
+
+        qubekit_xml_xml = xmltodict.parse(
+            openmm.XmlSerializer.serialize(qubekit_xml_system)
+        )
+        with open("qubekit_xml_system.xml", "w") as output:
+            output.write(openmm.XmlSerializer.serialize(qubekit_xml_system))
+
+        offxml_diff = DeepDiff(
+            qubekit_offxml_xml,
+            qubekit_xml_xml,
+            ignore_order=True,
+            significant_digits=6,
+            exclude_regex_paths="mass",
+        )
+        assert len(offxml_diff) == 1
+        # the only difference should be in torsions with a 0 barrier height which are excluded from an offxml
+        if "iterable_removed_added" in offxml_diff:
+            for item in offxml_diff["iterable_removed_added"].values():
+                assert item["@k"] == "0"
+
+        # load both systems and compute the energy
+        qubekit_xml_top = load_topology(
+            mol.to_openmm_topology(),
+            system=qubekit_xml_system,
+            xyz=mol.openmm_coordinates(),
+        )
+        qubekit_energy = energy_decomposition_system(
+            qubekit_xml_top, qubekit_xml_system, platform="Reference"
+        )
+
+        qubekit_offxml_top = load_topology(
+            mol.to_openmm_topology(),
+            system=qubekit_offxml_system,
+            xyz=mol.openmm_coordinates(),
+        )
+        offxml_energy = energy_decomposition_system(
+            qubekit_offxml_top, qubekit_offxml_system, platform="Reference"
+        )
+        # compare the decomposed energies of the groups
+        for force_group, energy in offxml_energy:
+            for qube_force, qube_e in qubekit_energy:
+                if force_group == qube_force:
+                    assert energy == pytest.approx(qube_e, abs=2e-3)
+
+
+@pytest.mark.parametrize(
+    "molecule",
     [pytest.param("methanol", id="methanol"), pytest.param("ethanol", id="ethanol")],
 )
 def test_offxml_sites_energy(xml, tmpdir, methanol, ethanol, molecule):
@@ -683,3 +795,66 @@ def test_h_constraints_offxml(methanol, tmpdir):
                 unit.Quantity(methanol.BondForce[(a, b)].length, unit.nanometer)
                 == constraint
             )
+
+
+def test_parameterizable_offxml_no_fragments(biphenyl, openff, tmpdir):
+    """
+    Check we can write out a parameterizable offxml with tags for the correct torsions
+    """
+
+    with tmpdir.as_cwd():
+        openff.run(biphenyl)
+        file_name = "biphenyl.offxml"
+        biphenyl._optimizeable_offxml(file_name=file_name, h_constraints=False)
+        ff = ForceField(file_name, load_plugins=True, allow_cosmetic_attributes=True)
+        scanned_bond = tuple(sorted(biphenyl.qm_scans[0].central_bond))
+        torsions = ff.get_parameter_handler("ProperTorsions")
+        for parameter in torsions.parameters:
+            if parameter.attribute_is_cosmetic("parameterize"):
+                # make sure the parameter matches the rotatable bond
+                matches = biphenyl.get_smarts_matches(smirks=parameter.smirks)
+                for match in matches:
+                    assert tuple(sorted(match[1:3])) == scanned_bond
+
+
+def test_parameterizable_offxml_fragments(biphenyl_fragments, tmpdir):
+    """
+    Check we can write out a parameterizable offxml with tags for the correct torsions which match both the
+    frgament and the parent.
+    """
+
+    with tmpdir.as_cwd():
+        file_name = "ring_test.offxml"
+        # we know the molecule has one fragment
+        fragment = biphenyl_fragments.fragments[0]
+        biphenyl_fragments._optimizeable_offxml(
+            file_name=file_name, h_constraints=False
+        )
+        ff = ForceField(file_name, load_plugins=True, allow_cosmetic_attributes=True)
+        scanned_fragment_bond = tuple(sorted(fragment.qm_scans[0].central_bond))
+        torsions = ff.get_parameter_handler("ProperTorsions")
+        for parameter in torsions.parameters:
+            if parameter.attribute_is_cosmetic("parameterize"):
+                # make sure the parameter matches the rotatable bond in the fragment and parent
+                fragment_matches = fragment.get_smarts_matches(smirks=parameter.smirks)
+                parent_matches = biphenyl_fragments.get_smarts_matches(
+                    smirks=parameter.smirks
+                )
+                for match in fragment_matches:
+                    # check it hits the target bond
+                    assert tuple(sorted(match[1:3])) == scanned_fragment_bond
+                    # get the map index of the match
+                    map_match = [fragment.atoms[i].map_index for i in match]
+                    # get the parent torsion
+                    parent_torsion = [
+                        biphenyl_fragments.get_atom_with_map_index(i).atom_index
+                        for i in map_match
+                    ]
+                    # check this torsion was also hit in the parent
+                    if (
+                        tuple(parent_torsion) not in parent_matches
+                        and tuple(reversed(parent_torsion)) not in parent_matches
+                    ):
+                        raise RuntimeError(
+                            f"parent torsion {parent_torsion} not matched by smirks {parent_matches}"
+                        )

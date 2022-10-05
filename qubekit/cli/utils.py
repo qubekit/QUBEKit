@@ -9,16 +9,21 @@ from openff.toolkit.topology import (
     VirtualSite,
 )
 from openff.toolkit.typing.engines.smirnoff.parameters import (
+    AngleHandler,
+    BondHandler,
     ChargeIncrementModelHandler,
+    ConstraintHandler,
     ElectrostaticsHandler,
     LibraryChargeHandler,
     ParameterAttribute,
+    ParameterHandler,
     ParameterType,
     ToolkitAM1BCCHandler,
     VirtualSiteHandler,
     _allow_only,
     vdWHandler,
 )
+from openff.toolkit.utils.exceptions import NotBondedError
 from openmm import openmm, unit
 
 from qubekit.molecules import Ligand
@@ -375,3 +380,71 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
                     system.setVirtualSite(index_system, openmm_particle)
 
         self._create_openff_virtual_sites(matches_by_parent)
+
+
+class UreyBradleyHandler(ParameterHandler):
+    """
+    Handle UreyBradley special angle class.
+
+    This adds a harmonic angle term to the three tagged atoms and a harmonic bond to the terminal angle atoms.
+    """
+
+    class UBAngleType(ParameterType):
+        """
+        Smirnoff UB Angle type.
+        """
+
+        _VALENCE_TYPE = "Angle"
+        _ELEMENT_NAME = "Angle"
+
+        angle = ParameterAttribute(unit=unit.degree)
+        angle_k = ParameterAttribute(unit=unit.kilojoule_per_mole / unit.degree**2)
+        bond_length = ParameterAttribute(unit=unit.angstroms)
+        bond_k = ParameterAttribute(unit=unit.kilocalorie_per_mole / unit.angstrom**2)
+
+    _TAGNAME = "UreyBradley"
+    _INFOTYPE = UBAngleType
+    _OPENMMTYPE = openmm.HarmonicAngleForce
+    _DEPENDENCIES = [ConstraintHandler, BondHandler, AngleHandler]
+
+    def create_force(self, system: openmm.System, topology: Topology, **kwargs):
+        """
+        Add harmonic angles and bonds to the correct atoms in the system.
+        """
+
+        all_forces = {force.__class__.__name__: force for force in system.getForces()}
+        angle_force = all_forces.get("HarmonicAngleForce", None)
+        if angle_force is None:
+            angle_force = self._OPENMMTYPE()
+            system.addForce(angle_force)
+        bond_force = all_forces.get("HarmonicBondForce", None)
+        if bond_force is None:
+            bond_force = openmm.HarmonicBondForce()
+            system.addForce(bond_force)
+
+        angle_matches = self.find_matches(topology, unique=False)
+        skipped_constrained_angles = (
+            0  # keep track of how many angles were constrained (and hence skipped)
+        )
+        for (atoms, angle_match) in angle_matches.items():
+            try:
+                self._assert_correct_connectivity(angle_match)
+            except NotBondedError as e:
+                smirks = angle_match.parameter_type.smirks
+                raise NotBondedError(
+                    f"While processing angle with SMIRKS {smirks}: " + e.msg
+                )
+
+            if (
+                topology.is_constrained(atoms[0], atoms[1])
+                and topology.is_constrained(atoms[1], atoms[2])
+                and topology.is_constrained(atoms[0], atoms[2])
+            ):
+                # Angle is constrained; we don't need to add an angle term.
+                skipped_constrained_angles += 1
+                continue
+
+            angle = angle_match.parameter_type
+            angle_force.addAngle(*atoms, angle.angle, angle.angle_k)
+
+            bond_force.addBond(atoms[0], atoms[-1], angle.bond_length, angle.bond_k)

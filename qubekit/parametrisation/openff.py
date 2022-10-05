@@ -62,7 +62,12 @@ class OpenFF(Parametrisation):
         Make sure the supplied force field is valid.
         """
 
-        openff_forcefields = [ff.lower() for ff in get_available_force_fields()]
+        # a special case: forcebalance generates a bespoke forcefield that we read in
+        forcebalance_torsion_optimisation_ff = ["result/optimize/bespoke.offxml"]
+
+        openff_forcefields = [
+            ff.lower() for ff in get_available_force_fields()
+        ] + forcebalance_torsion_optimisation_ff
         if force_field in openff_forcefields:
             return force_field.lower()
         else:
@@ -85,7 +90,7 @@ class OpenFF(Parametrisation):
         # Make the OpenMM system
         off_topology = off_molecule.to_topology()
 
-        forcefield = ForceField(self.force_field)
+        forcefield = ForceField(self.force_field, allow_cosmetic_attributes=True)
         # we need to remove the constraints
         if "Constraints" in forcefield._parameter_handlers:
             del forcefield._parameter_handlers["Constraints"]

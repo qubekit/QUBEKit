@@ -302,7 +302,7 @@ def test_to_openmm_coords(acetone):
     assert np.allclose(coords.in_units_of(unit.angstrom), acetone.coordinates)
 
 
-def test_has_ub_terms(acetone):
+def test_has_ub_terms(acetone, openff):
     """
     Make sure we can correctly determine when there are ub terms
     """
