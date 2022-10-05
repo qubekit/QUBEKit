@@ -155,11 +155,7 @@ class TorsionProfileSmirnoff(TargetBase):
             task_name = f"{self.target_name}_{molecule.name}_{scan.central_bond[0]}_{scan.central_bond[1]}"
             target_folders.append(task_name)
             make_and_change_into(name=task_name)
-            # make the pdb topology file
-            if molecule.has_ub_terms():
-                molecule._to_ub_pdb(file_name="molecule")
-            else:
-                molecule.to_file(file_name="molecule.pdb")
+            molecule.to_file(file_name="molecule.pdb")
             # mol2 is required for smirks
             molecule.to_file("molecule.sdf")
             # write the qdata file
@@ -237,7 +233,6 @@ class ForceBalanceFitting(StageBase):
     normalize_weights: bool = False
     extras: Dict[str, Any] = {}
     priors: Priors = Priors()
-    # targets: Dict[str, TorsionProfile] = {"TorsionProfile_OpenMM": TorsionProfile()}
     targets: Dict[str, TorsionProfileSmirnoff] = {
         "TorsionProfile_OpenFF": TorsionProfileSmirnoff()
     }

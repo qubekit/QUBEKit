@@ -104,3 +104,8 @@ def vs():
 @pytest.fixture()
 def ethanol():
     return Ligand.parse_file(get_data("ethanol_sites.json"))
+
+
+@pytest.fixture()
+def biphenyl_fragments():
+    return Ligand.parse_file(get_data("ring_test.json"))

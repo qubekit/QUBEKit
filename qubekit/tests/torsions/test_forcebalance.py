@@ -9,11 +9,11 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 import pytest
-from rdkit.Chem.rdchem import AtomValenceException
+from openff.toolkit.typing.engines.smirnoff import ForceField
 
 from qubekit.molecules import Ligand, TorsionDriveData
 from qubekit.parametrisation import OpenFF
-from qubekit.torsions import ForceBalanceFitting, Priors, TorsionProfile
+from qubekit.torsions import ForceBalanceFitting, Priors, TorsionProfileSmirnoff
 from qubekit.utils.exceptions import (
     ForceBalanceError,
     MissingReferenceData,
@@ -52,37 +52,24 @@ def test_torsion_target_generation(tmpdir, biphenyl):
     Make sure that we can make a target from a molecule with its torsion scan data.
     """
     with tmpdir.as_cwd():
-        torsion_target = TorsionProfile()
+        torsion_target = TorsionProfileSmirnoff()
         target_folders = torsion_target.prep_for_fitting(molecule=biphenyl)
         # the name we expect for the target folder
-        target_name = "TorsionProfile_OpenMM_10_11"
+        target_name = "TorsionProfile_SMIRNOFF_biphenyl_10_11"
         # now make sure the folders have been made
         assert len(target_folders) == 1
         assert target_folders[0] == target_name
         assert target_name in os.listdir()
         # now we need to check the forcebalance target files have been made
-        required_files = ["molecule.pdb", "metadata.json", "qdata.txt", "scan.xyz"]
+        required_files = [
+            "molecule.pdb",
+            "metadata.json",
+            "qdata.txt",
+            "scan.xyz",
+            "molecule.sdf",
+        ]
         for f in required_files:
             assert f in os.listdir(target_name)
-
-
-def test_target_generation_ub_terms(tmpdir, biphenyl):
-    """
-    Make sure we can make a valid target folder when we have ub terms.
-    """
-    with tmpdir.as_cwd():
-        mol = biphenyl.copy(deep=True)
-        # add a ub term for each angle
-        for angle in mol.angles:
-            mol.BondForce.create_parameter(atoms=(angle[0], angle[2]), length=1, k=1)
-        torsion_target = TorsionProfile()
-        target_folders = torsion_target.prep_for_fitting(molecule=mol)
-
-        with pytest.raises(
-            AtomValenceException,
-            match="Explicit valence for atom # 6 C, 5, is greater than permitted",
-        ):
-            _ = Ligand.from_file(os.path.join(target_folders[0], "molecule.pdb"))
 
 
 def test_target_prep_no_data(tmpdir, biphenyl):
@@ -90,7 +77,7 @@ def test_target_prep_no_data(tmpdir, biphenyl):
     Make sure an error is raised if we try and prep the target with misssing data.
     """
     with tmpdir.as_cwd():
-        torsion_target = TorsionProfile()
+        torsion_target = TorsionProfileSmirnoff()
         biphenyl.qm_scans = []
         with pytest.raises(MissingReferenceData):
             torsion_target.prep_for_fitting(molecule=biphenyl)
@@ -101,7 +88,7 @@ def test_torsion_metadata(tmpdir, biphenyl):
     Make sure that the metadata.json has the correct torsion index and torsion grid values.
     """
     with tmpdir.as_cwd():
-        torsion_target = TorsionProfile()
+        torsion_target = TorsionProfileSmirnoff()
         torsion_target.make_metadata(torsiondrive_data=biphenyl.qm_scans[0])
         with open("metadata.json") as data:
             metadata = json.load(data)
@@ -122,7 +109,7 @@ def test_forcebalance_add_target():
     """
     fb = ForceBalanceFitting()
     fb.targets = {}
-    torsion_target = TorsionProfile()
+    torsion_target = TorsionProfileSmirnoff()
     fb.add_target(target=torsion_target)
     assert torsion_target.target_name in fb.targets
 
@@ -138,60 +125,21 @@ def test_generate_forcefield(tmpdir, biphenyl):
         OpenFF().run(molecule=biphenyl)
         fb.generate_forcefield(molecule=biphenyl)
         # load the forcefield and check for cosmetic tags
-        root = ET.parse(os.path.join("forcefield", "bespoke.xml")).getroot()
-        p_tags = 0
-        eval_tags = 0
-        for torsion in root.iter(tag="Proper"):
-            a1 = torsion.get(key="class1")
-            a2 = torsion.get(key="class2")
-            a3 = torsion.get(key="class3")
-            a4 = torsion.get(key="class4")
-            atoms = [a1, a2, a3, a4]
-            dihedral = [int(re.search("[0-9]+", atom).group()) for atom in atoms]
-            central_bond = dihedral[1:3]
-            # if we have the same central bond make sure we have the parametrise or eval tag
-            p_tag = torsion.get(key="parameterize", default=None)
-            if p_tag is not None:
-                p_tags += 1
-                if central_bond == (10, 11) or central_bond == (11, 10):
-                    # make sure we have a tag
-                    for t in p_tag.split(","):
-                        assert t.strip() in ["k1", "k2", "k3", "k4"]
-            else:
-                eval_tag = torsion.get(key="parameter_eval", default=None)
-                if eval_tag is not None:
-                    eval_tags += 1
-
-                else:
-                    assert eval_tag is None
-        # all torsions are the same symmetry type, so we should have one parametrize tag
-        # and 3 eval tags
-        assert p_tags == 1
-        assert eval_tags == 3
-
-
-def test_torsion_symmetry_groups(mol_47):
-    """
-    Test grouping the targeted torsions by symmetry groups.
-    """
-    fb = ForceBalanceFitting()
-    # only return the OH torsions, there are two
-    bonds = mol_47.find_rotatable_bonds(smirks_to_remove=["[#6:1]~[#6:2]"])
-    assert len(bonds) == 2
-    # now find all torsions for the first bond
-    oh_bond = bonds[0]
-    all_dihedrals = mol_47.dihedrals
-    try:
-        dihedrals = all_dihedrals[oh_bond.indices]
-    except KeyError:
-        dihedrals = all_dihedrals[tuple(reversed(oh_bond.indices))]
-    dihedral_groups = fb.group_by_symmetry(molecule=mol_47, dihedrals=dihedrals)
-    # there should only be two types in the OH torsions
-    assert len(dihedral_groups) == 2
-    # one torsion from OH to core, for each OH
-    assert len(dihedral_groups[0]) == 2
-    # two torsion from OH the CH3, for each OH
-    assert len(dihedral_groups[1]) == 4
+        offxml = ForceField(
+            os.path.join("forcefield", "bespoke.offxml"),
+            load_plugins=True,
+            allow_cosmetic_attributes=True,
+        )
+        torsions = offxml.get_parameter_handler("ProperTorsions")
+        for parameter in torsions.parameters:
+            if parameter.attribute_is_cosmetic("parameterize"):
+                p_tags = parameter._parameterize
+                for t in p_tags.split(","):
+                    assert t.strip() in ["k1", "k2", "k3", "k4"]
+                # check the parameter matches the central rotatable bond
+                matches = biphenyl.get_smarts_matches(smirks=parameter.smirks)
+                for match in matches:
+                    assert tuple(sorted(match[1:3])) == (10, 11)
 
 
 def test_generate_optimise_in(tmpdir, biphenyl):
@@ -205,7 +153,7 @@ def test_generate_optimise_in(tmpdir, biphenyl):
         fb = ForceBalanceFitting(
             penalty_type="L2", max_iterations=100, minimum_trust_radius=10
         )
-        tp = TorsionProfile(restrain_k=100)
+        tp = TorsionProfileSmirnoff(restrain_k=100)
         fb.add_target(target=tp)
         # now run the setup
         target_folders = tp.prep_for_fitting(molecule=biphenyl)
@@ -218,12 +166,13 @@ def test_generate_optimise_in(tmpdir, biphenyl):
         assert "maxstep 100" in opt_data
         assert "mintrust 10" in opt_data
         assert "restrain_k 100" in opt_data
-        assert "type TorsionProfile_OpenMM" in opt_data
+        assert "type TorsionProfile_SMIRNOFF" in opt_data
 
 
 def test_full_optimise(tmpdir, biphenyl):
     """
-    Test the forcebalance wrapper by doing a full optimise run for a simple molecule. Also check that the optimised results are saved.
+    Test the forcebalance wrapper by doing a full optimise run for a simple molecule.
+    Also check that the optimised results are saved.
     """
     with tmpdir.as_cwd():
         OpenFF().run(biphenyl)
@@ -249,6 +198,54 @@ def test_full_optimise(tmpdir, biphenyl):
                 assert fitted_values.k2 == master_terms.k2
                 assert fitted_values.k3 == master_terms.k3
                 assert fitted_values.k4 == master_terms.k4
+
+
+def test_full_optimise_fragment(tmpdir, biphenyl_fragments):
+    """
+    Test a full fb optimisation using a fragmented bipheynl system, and make sure the parameters of the
+    parent are correctly updated.
+    """
+
+    with tmpdir.as_cwd():
+        fb = ForceBalanceFitting()
+        fit_molecule = biphenyl_fragments.copy(deep=True)
+        fit_molecule = fb.run(molecule=fit_molecule)
+        # find the rotatable bond in the parent molecule
+        fragment = biphenyl_fragments.fragments[0]
+        fragment_map = [
+            fragment.atoms[i].map_index for i in fragment.qm_scans[0].central_bond
+        ]
+        central_bond = tuple(
+            sorted(
+                [
+                    biphenyl_fragments.get_atom_with_map_index(map_id).atom_index
+                    for map_id in fragment_map
+                ]
+            )
+        )
+        # compare the resulting parameters
+        for dihedrals in fit_molecule.dihedral_types.values():
+            unique_torsions = set()
+            # loop over the symmetry groups and make sure they have the same torsion parameters
+            for dihedral in dihedrals:
+                new_parameter = fit_molecule.TorsionForce[dihedral]
+                unique_torsions.add(new_parameter.json(exclude={"atoms"}))
+                old_parameter = biphenyl_fragments.TorsionForce[dihedral]
+                # check if the torsion runs through the rotatable bond
+                if tuple(sorted(dihedral[1:3])) == central_bond:
+                    # make sure they have been optimised
+                    assert new_parameter.k1 != old_parameter.k1
+                    assert new_parameter.k2 != old_parameter.k2
+                    assert new_parameter.k3 != old_parameter.k3
+                    assert new_parameter.k4 != old_parameter.k4
+                else:
+                    # make sure the old parameters are the same
+                    assert new_parameter.k1 == old_parameter.k1
+                    assert new_parameter.k2 == old_parameter.k2
+                    assert new_parameter.k3 == old_parameter.k3
+                    assert new_parameter.k4 == old_parameter.k4
+
+            assert len(unique_torsions) == 1
 
 
 def test_optimise_no_target(tmpdir, biphenyl):
