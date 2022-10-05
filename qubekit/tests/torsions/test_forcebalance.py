@@ -230,6 +230,14 @@ def test_full_optimise(tmpdir, biphenyl):
         # use default values
         fb = ForceBalanceFitting()
         fit_molecule = biphenyl.copy(deep=True)
+
+        # set mapping to be the same as real indices
+        for i, a in enumerate(fit_molecule.atoms, start=0):
+            a.map_index = i
+        # set the dihedral for scanning (see @biphenyl)
+        fit_molecule.bond_indices.append((10, 11))
+
+        # biphenyl has to be fragmented first
         fit_molecule = fb.run(molecule=fit_molecule)
         # now compare the fitted results
         master_terms = None
