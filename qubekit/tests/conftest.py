@@ -1,6 +1,6 @@
 import pytest
 
-from qubekit.molecules import Ligand
+from qubekit.molecules import Ligand, TorsionDriveData
 from qubekit.nonbonded import VirtualSites
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.utils.file_handling import get_data
@@ -109,3 +109,18 @@ def ethanol():
 @pytest.fixture()
 def biphenyl_fragments():
     return Ligand.parse_file(get_data("ring_test.json"))
+
+
+@pytest.fixture()
+def biphenyl():
+    """
+    Load up a biphenyl molecule with some torsiondrive data.
+    """
+    # load biphenyl
+    mol = Ligand.from_file(file_name=get_data("biphenyl.sdf"))
+    # load the torsiondrive data
+    td_data = TorsionDriveData.from_qdata(
+        qdata_file=get_data("biphenyl_qdata.txt"), dihedral=(6, 10, 11, 8)
+    )
+    mol.add_qm_scan(scan_data=td_data)
+    return mol

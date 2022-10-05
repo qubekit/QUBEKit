@@ -795,3 +795,66 @@ def test_h_constraints_offxml(methanol, tmpdir):
                 unit.Quantity(methanol.BondForce[(a, b)].length, unit.nanometer)
                 == constraint
             )
+
+
+def test_parameterizable_offxml_no_fragments(biphenyl, openff, tmpdir):
+    """
+    Check we can write out a parameterizable offxml with tags for the correct torsions
+    """
+
+    with tmpdir.as_cwd():
+        openff.run(biphenyl)
+        file_name = "biphenyl.offxml"
+        biphenyl._optimizeable_offxml(file_name=file_name, h_constraints=False)
+        ff = ForceField(file_name, load_plugins=True, allow_cosmetic_attributes=True)
+        scanned_bond = tuple(sorted(biphenyl.qm_scans[0].central_bond))
+        torsions = ff.get_parameter_handler("ProperTorsions")
+        for parameter in torsions.parameters:
+            if parameter.attribute_is_cosmetic("parameterize"):
+                # make sure the parameter matches the rotatable bond
+                matches = biphenyl.get_smarts_matches(smirks=parameter.smirks)
+                for match in matches:
+                    assert tuple(sorted(match[1:3])) == scanned_bond
+
+
+def test_parameterizable_offxml_fragments(biphenyl_fragments, tmpdir):
+    """
+    Check we can write out a parameterizable offxml with tags for the correct torsions which match both the
+    frgament and the parent.
+    """
+
+    with tmpdir.as_cwd():
+        file_name = "ring_test.offxml"
+        # we know the molecule has one fragment
+        fragment = biphenyl_fragments.fragments[0]
+        biphenyl_fragments._optimizeable_offxml(
+            file_name=file_name, h_constraints=False
+        )
+        ff = ForceField(file_name, load_plugins=True, allow_cosmetic_attributes=True)
+        scanned_fragment_bond = tuple(sorted(fragment.qm_scans[0].central_bond))
+        torsions = ff.get_parameter_handler("ProperTorsions")
+        for parameter in torsions.parameters:
+            if parameter.attribute_is_cosmetic("parameterize"):
+                # make sure the parameter matches the rotatable bond in the fragment and parent
+                fragment_matches = fragment.get_smarts_matches(smirks=parameter.smirks)
+                parent_matches = biphenyl_fragments.get_smarts_matches(
+                    smirks=parameter.smirks
+                )
+                for match in fragment_matches:
+                    # check it hits the target bond
+                    assert tuple(sorted(match[1:3])) == scanned_fragment_bond
+                    # get the map index of the match
+                    map_match = [fragment.atoms[i].map_index for i in match]
+                    # get the parent torsion
+                    parent_torsion = [
+                        biphenyl_fragments.get_atom_with_map_index(i).atom_index
+                        for i in map_match
+                    ]
+                    # check this torsion was also hit in the parent
+                    if (
+                        tuple(parent_torsion) not in parent_matches
+                        and tuple(reversed(parent_torsion)) not in parent_matches
+                    ):
+                        raise RuntimeError(
+                            f"parent torsion {parent_torsion} not matched by smirks {parent_matches}"
+                        )

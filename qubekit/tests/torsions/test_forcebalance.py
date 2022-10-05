@@ -4,8 +4,6 @@ Forcebalance fitting specific tests.
 
 import json
 import os
-import re
-import xml.etree.ElementTree as ET
 
 import numpy as np
 import pytest
@@ -21,21 +19,6 @@ from qubekit.utils.exceptions import (
 )
 from qubekit.utils.file_handling import get_data
 from qubekit.utils.helpers import export_torsiondrive_data
-
-
-@pytest.fixture
-def biphenyl():
-    """
-    Load up a biphenyl molecule with some torsiondrive data.
-    """
-    # load biphenyl
-    mol = Ligand.from_file(file_name=get_data("biphenyl.sdf"))
-    # load the torsiondrive data
-    td_data = TorsionDriveData.from_qdata(
-        qdata_file=get_data("biphenyl_qdata.txt"), dihedral=(6, 10, 11, 8)
-    )
-    mol.add_qm_scan(scan_data=td_data)
-    return mol
 
 
 def test_prior_dict():
