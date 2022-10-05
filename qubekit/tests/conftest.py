@@ -116,7 +116,6 @@ def biphenyl():
     """
     Load up a biphenyl molecule with some torsiondrive data.
     """
-    # load biphenyl
     mol = Ligand.from_file(file_name=get_data("biphenyl.sdf"))
     # load the torsiondrive data
     td_data = TorsionDriveData.from_qdata(
