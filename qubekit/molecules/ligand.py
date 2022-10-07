@@ -29,6 +29,7 @@ import numpy as np
 import qcelemental as qcel
 from chemper.graphs.cluster_graph import ClusterGraph
 from openff.toolkit.typing.engines.smirnoff import ForceField
+from openff.toolkit.utils.exceptions import ParameterLookupError
 from openmm import unit
 from openmm.app import Aromatic, Double, PDBFile, Single, Topology, Triple
 from openmm.app.element import Element
@@ -56,6 +57,7 @@ from qubekit.utils.datastructures import SchemaBase
 from qubekit.utils.exceptions import (
     ConformerError,
     FileTypeError,
+    MissingParameterError,
     MissingReferenceData,
     StereoChemistryError,
     TopologyMismatch,
@@ -1360,19 +1362,19 @@ class Molecule(SchemaBase):
                 If any dihedrals passing through a scanned central bond should be marked for optimisation.
         """
 
-        if (
-            self.RBTorsionForce.n_parameters > 0
-            or self.ImproperRBTorsionForce.n_parameters > 0
-        ):
+        if self.ImproperRBTorsionForce.n_parameters > 0:
             raise NotImplementedError(
-                "RBTorsions can not yet be safely converted into offxml format yet."
+                "RB Improper Torsions can not yet be safely converted into offxml format yet."
             )
 
         self._build_offxml_bonds(offxml=offxml)
         self._build_offxml_angles(offxml=offxml)
-        if include_torsions:
+        if include_torsions and self.TorsionForce.n_parameters > 0:
             self._build_offxml_torsions(offxml=offxml, parameterize=parameterize)
-        self._build_offxml_improper_torsions(offxml=offxml)
+        if self.ImproperTorsionForce.n_parameters > 0:
+            self._build_offxml_improper_torsions(offxml=offxml)
+        if self.RBTorsionForce.n_parameters > 0:
+            self._build_offxml_rb_torsions(offxml=offxml)
         self._build_offxml_vdw(offxml=offxml)
         self._build_offxml_charges(offxml=offxml)
         self._build_offxml_vs(offxml=offxml)
@@ -1454,44 +1456,99 @@ class Molecule(SchemaBase):
                 torsiondrive_data.central_bond for torsiondrive_data in self.qm_scans
             ]
         for dihedrals in torsion_types.values():
+            try:
+                qube_dihedral = self.TorsionForce[dihedrals[0]]
+                graph = ClusterGraph(
+                    mols=[rdkit_mol],
+                    smirks_atoms_lists=[dihedrals],
+                    layers="all",
+                )
+                torsion_data = {
+                    "smirks": graph.as_smirks(),
+                    "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
+                    "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
+                    "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
+                    "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
+                    "periodicity1": qube_dihedral.periodicity1,
+                    "periodicity2": qube_dihedral.periodicity2,
+                    "periodicity3": qube_dihedral.periodicity3,
+                    "periodicity4": qube_dihedral.periodicity4,
+                    "phase1": qube_dihedral.phase1 * unit.radians,
+                    "phase2": qube_dihedral.phase2 * unit.radians,
+                    "phase3": qube_dihedral.phase3 * unit.radians,
+                    "phase4": qube_dihedral.phase4 * unit.radians,
+                    "idivf1": 1,
+                    "idivf2": 1,
+                    "idivf3": 1,
+                    "idivf4": 1,
+                }
+                if parameterize:
+                    # we need to check if any of the torsions in this symmetry group pass through a scanned bond
+                    for dihedral in dihedrals:
+                        if (
+                            tuple(dihedral[1:3]) in scanned_bonds
+                            or tuple(reversed(dihedral[1:3])) in scanned_bonds
+                        ):
+                            torsion_data["parameterize"] = "k1, k2, k3, k4"
+                            torsion_data["allow_cosmetic_attributes"] = True
+                            break
 
-            qube_dihedral = self.TorsionForce[dihedrals[0]]
-            graph = ClusterGraph(
-                mols=[rdkit_mol],
-                smirks_atoms_lists=[dihedrals],
-                layers="all",
-            )
-            torsion_data = {
-                "smirks": graph.as_smirks(),
-                "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
-                "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
-                "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
-                "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
-                "periodicity1": qube_dihedral.periodicity1,
-                "periodicity2": qube_dihedral.periodicity2,
-                "periodicity3": qube_dihedral.periodicity3,
-                "periodicity4": qube_dihedral.periodicity4,
-                "phase1": qube_dihedral.phase1 * unit.radians,
-                "phase2": qube_dihedral.phase2 * unit.radians,
-                "phase3": qube_dihedral.phase3 * unit.radians,
-                "phase4": qube_dihedral.phase4 * unit.radians,
-                "idivf1": 1,
-                "idivf2": 1,
-                "idivf3": 1,
-                "idivf4": 1,
-            }
-            if parameterize:
-                # we need to check if any of the torsions in this symmetry group pass through a scanned bond
-                for dihedral in dihedrals:
-                    if (
-                        tuple(dihedral[1:3]) in scanned_bonds
-                        or tuple(reversed(dihedral[1:3])) in scanned_bonds
-                    ):
-                        torsion_data["parameterize"] = "k1, k2, k3, k4"
-                        torsion_data["allow_cosmetic_attributes"] = True
-                        break
+                proper_torsions.add_parameter(parameter_kwargs=torsion_data)
+            except MissingParameterError:
+                # we have no torsion force for this dihedral it could be handled by RB torsions
+                continue
 
-            proper_torsions.add_parameter(parameter_kwargs=torsion_data)
+    def _build_offxml_rb_torsions(self, offxml: ForceField):
+        """
+        Edit the offxml in place and add RB Proper torsions using our plugin handler.
+        """
+
+        # we need a dummy proper torsion to cover the dihedrals which have RB terms
+        if "ProperTorsions" in offxml.registered_parameter_handlers:
+            periodic_torsions = offxml.get_parameter_handler("ProperTorsions")
+            generic_smirks = "[*:1]~[*:2]~[*:3]~[*:4]"
+            try:
+                _ = periodic_torsions[generic_smirks]
+            except ParameterLookupError:
+                # make sure it is inserted at the start of the handlers
+                periodic_torsions.add_parameter(
+                    parameter_kwargs={
+                        "smirks": generic_smirks,
+                        "periodicity1": 1,
+                        "phase1": 0.0 * unit.degree,
+                        "k1": 0.0 * unit.kilojoule_per_mole,
+                        "idivf1": 1,
+                    },
+                    before=0,
+                )
+
+        rdkit_mol = self.to_rdkit()
+        proper_torsions = offxml.get_parameter_handler("ProperRyckhaertBellemans")
+        # we only use these torsion types for flexible non-aromatic ring movements applied by QForce
+        # not sure if we need to also group by symmetry?
+        torsion_types = self.dihedral_types
+        for dihedrals in torsion_types.values():
+            try:
+                rb_torsion = self.RBTorsionForce[dihedrals[0]]
+                graph = ClusterGraph(
+                    mols=[rdkit_mol],
+                    smirks_atoms_lists=[dihedrals],
+                    layers="all",
+                )
+                proper_torsions.add_parameter(
+                    parameter_kwargs={
+                        "smirks": graph.as_smirks(),
+                        "c0": rb_torsion.c0 * unit.kilojoule_per_mole,
+                        "c1": rb_torsion.c1 * unit.kilojoule_per_mole,
+                        "c2": rb_torsion.c2 * unit.kilojoule_per_mole,
+                        "c3": rb_torsion.c3 * unit.kilojoule_per_mole,
+                        "c4": rb_torsion.c4 * unit.kilojoule_per_mole,
+                        "c5": rb_torsion.c5 * unit.kilojoule_per_mole,
+                    }
+                )
+            except MissingParameterError:
+                # there is rb torsion force for these dihedrals so skip over them?
+                continue
 
     def _build_offxml_improper_torsions(self, offxml: ForceField):
         """Edit the offxml in place and add periodic improper torsions."""

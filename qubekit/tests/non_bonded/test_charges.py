@@ -9,6 +9,7 @@ from qcelemental.util import which_import
 from qcengine.config import get_config
 
 from qubekit.charges import DDECCharges, MBISCharges, SolventPsi4
+from qubekit.charges.utils import ExtractChargeData
 from qubekit.engines import GaussianHarness
 from qubekit.parametrisation import OpenFF
 from qubekit.utils import constants
@@ -103,10 +104,7 @@ def test_chargemol_template(tmpdir, version, water):
         assert f"{water.charge}\n" in job_data
 
 
-@pytest.mark.parametrize(
-    "version", [pytest.param(3, id="DDEC3"), pytest.param(6, id="DDEC6")]
-)
-def test_chargemol_run(tmpdir, water, version):
+def test_chargemol_run(tmpdir, water):
     """
     test running a chargemol calculation and storing the aim data.
     """
@@ -114,12 +112,28 @@ def test_chargemol_run(tmpdir, water, version):
     wfx_file = get_data("water.wfx")
     with tmpdir.as_cwd():
         assert water.atoms[0].aim.charge is None
-        charge_method = DDECCharges(ddec_version=version)
+        charge_method = DDECCharges(ddec_version=6)
         water = charge_method._call_chargemol(
             density_file_content=open(wfx_file).read(), molecule=water, cores=1
         )
 
         assert water.atoms[0].aim.charge is not None
+
+
+def test_wrong_chargemol_version(water):
+
+    with pytest.raises(ValueError):
+        ExtractChargeData.extract_charge_data_chargemol(
+            molecule=water, dir_path="", ddec_version=1
+        )
+
+
+def test_missing_chargemol_file(water):
+
+    with pytest.raises(FileNotFoundError):
+        ExtractChargeData.extract_charge_data_chargemol(
+            molecule=water, dir_path="", ddec_version=6
+        )
 
 
 def test_gaussian_solvent_template(tmpdir, water):

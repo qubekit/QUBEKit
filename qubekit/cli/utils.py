@@ -448,3 +448,63 @@ class UreyBradleyHandler(ParameterHandler):
             angle_force.addAngle(*atoms, angle.angle, angle.angle_k)
 
             bond_force.addBond(atoms[0], atoms[-1], angle.bond_length, angle.bond_k)
+
+
+class ProperRyckhaertBellemansHandler(ParameterHandler):
+    """
+    Handle RyckhaertBellemans torsion terms.
+    """
+
+    class ProperRBTorsionType(ParameterType):
+        """
+        A SMIRNOFF R-B torsion type.
+        """
+
+        _VALENCE_TYPE = "ProperTorsion"
+        _ELEMENT_NAME = "Proper"
+
+        c0 = ParameterAttribute(unit=unit.kilojoule_per_mole)
+        c1 = ParameterAttribute(unit=unit.kilojoule_per_mole)
+        c2 = ParameterAttribute(unit=unit.kilojoule_per_mole)
+        c3 = ParameterAttribute(unit=unit.kilojoule_per_mole)
+        c4 = ParameterAttribute(unit=unit.kilojoule_per_mole)
+        c5 = ParameterAttribute(unit=unit.kilojoule_per_mole)
+
+    _TAGNAME = "ProperRyckhaertBellemans"
+    _INFOTYPE = ProperRBTorsionType
+    _OPENMMTYPE = openmm.RBTorsionForce
+
+    def create_force(self, system: openmm.System, topology: Topology, **kwargs):
+        """
+        Create the RBTorsion force and assign the torsions.
+        """
+        existing = [system.getForce(i) for i in range(system.getNumForces())]
+        existing = [f for f in existing if type(f) == self._OPENMMTYPE]
+
+        if len(existing) == 0:
+            force = self._OPENMMTYPE()
+            system.addForce(force)
+        else:
+            force = existing[0]
+
+        torsion_matches = self.find_matches(topology)
+
+        for (atom_indices, torsion_match) in torsion_matches.items():
+            # Ensure atoms are actually bonded correct pattern in Topology
+            try:
+                self._assert_correct_connectivity(torsion_match)
+            except NotBondedError as e:
+                smirks = torsion_match.parameter_type.smirks
+                raise NotBondedError(
+                    f"While processing torsion with SMIRKS {smirks}: " + e.msg
+                )
+            parameter = torsion_match.parameter_type
+            torsion_params = [
+                parameter.c0,
+                parameter.c1,
+                parameter.c2,
+                parameter.c3,
+                parameter.c4,
+                parameter.c5,
+            ]
+            force.addTorsion(*atom_indices, *torsion_params)
