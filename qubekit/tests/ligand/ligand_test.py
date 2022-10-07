@@ -790,6 +790,20 @@ def test_find_rotatable_bonds_indices_of_bonds():
         assert bond in expected_bonds or tuple(reversed(bond)) in expected_bonds
 
 
+def test_no_rotatable_bonds(water):
+    assert 0 == water.n_rotatable_bonds
+
+
+def test_n_rotatable_bonds(methanol):
+    assert 1 == methanol.n_rotatable_bonds
+
+
+def test_measure_no_angles():
+    mol = Ligand.from_smiles("Br", "BrH")
+    assert mol.measure_angles() is None
+    assert not mol.angle_types
+
+
 def test_atom_setup():
     mol = Ligand.from_file(get_data("chloromethane.pdb"))
     ddec_file_path = get_data("DDEC6_even_tempered_net_atomic_charges.xyz")

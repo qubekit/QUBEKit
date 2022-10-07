@@ -520,7 +520,7 @@ class Molecule(SchemaBase):
         atom_types = {}
         for atom_index, cip_type in self.atom_types.items():
             atom_types.setdefault(cip_type, []).append((atom_index,))
-        for atoms in atom_types.items():
+        for atoms in atom_types.values():
             self._symmetrise_parameters(
                 force_group=self.NonbondedForce, parameter_keys=atoms
             )
