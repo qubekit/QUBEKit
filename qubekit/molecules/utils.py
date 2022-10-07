@@ -285,7 +285,7 @@ class RDKit:
         return [conformer.GetPositions() for conformer in positions]
 
     @staticmethod
-    def find_symmetry_classes(rdkit_mol: Chem.Mol) -> Dict[int, str]:
+    def find_symmetry_classes(rdkit_mol: Chem.Mol) -> Dict[int, int]:
         """
         Generate list of tuples of symmetry-equivalent (homotopic) atoms in the molecular graph
         based on: https://sourceforge.net/p/rdkit/mailman/message/27897393/
@@ -320,7 +320,7 @@ class RDKit:
         # i will be used to define the class (just index based)
         for i, sym_class in enumerate(atom_symmetry_classes):
             for atom in sym_class:
-                atom_symmetry_classes_dict[atom] = str(i)
+                atom_symmetry_classes_dict[atom] = i
 
         return atom_symmetry_classes_dict
 

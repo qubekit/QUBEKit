@@ -787,7 +787,7 @@ class Molecule(SchemaBase):
     def bond_types(self) -> Dict[str, List[Tuple[int, int]]]:
         """
         Using the symmetry dict, give each bond a code. If any codes match, the bonds can be symmetrised.
-        e.g. bond_symmetry_classes = {(0, 3): '2-0', (0, 4): '2-0', (0, 5): '2-0' ...}
+        e.g. bond_symmetry_classes = {(0, 3): (2, 0), (0, 4): (2, 0), (0, 5): (2, 0) ...}
         all of the above bonds (tuples) are of the same type (methyl H-C bonds in same region)
         This dict is then used to produce bond_types.
         bond_types is just a dict where the keys are the string code from above and the values are all
@@ -797,7 +797,8 @@ class Molecule(SchemaBase):
         bond_symmetry_classes = {}
         for bond in self.bonds:
             bond_symmetry_classes[(bond.atom1_index, bond.atom2_index)] = (
-                f"{atom_types[bond.atom1_index]}-" f"{atom_types[bond.atom2_index]}"
+                atom_types[bond.atom1_index],
+                atom_types[bond.atom2_index],
             )
 
         bond_types = {}
@@ -811,7 +812,7 @@ class Molecule(SchemaBase):
     def angle_types(self) -> Dict[str, List[Tuple[int, int, int]]]:
         """
         Using the symmetry dict, give each angle a code. If any codes match, the angles can be symmetrised.
-        e.g. angle_symmetry_classes = {(1, 0, 3): '3-2-0', (1, 0, 4): '3-2-0', (1, 0, 5): '3-2-0' ...}
+        e.g. angle_symmetry_classes = {(1, 0, 3): (3, 2, 0), (1, 0, 4): (3, 2, 0), (1, 0, 5): (3, 2, 0) ...}
         all of the above angles (tuples) are of the same type (methyl H-C-H angles in same region)
         angle_types is just a dict where the keys are the string code from the above and the values are all
         of the angles with that particular type.
@@ -823,9 +824,9 @@ class Molecule(SchemaBase):
 
         for angle in self.angles:
             angle_symmetry_classes[angle] = (
-                f"{atom_types[angle[0]]}-"
-                f"{atom_types[angle[1]]}-"
-                f"{atom_types[angle[2]]}"
+                atom_types[angle[0]],
+                atom_types[angle[1]],
+                atom_types[angle[2]],
             )
 
         angle_types = {}
@@ -840,7 +841,7 @@ class Molecule(SchemaBase):
         """
         Using the symmetry dict, give each dihedral a code. If any codes match, the dihedrals can be clustered and their
         parameters should be the same, this is to be used in dihedral fitting so all symmetry equivalent dihedrals are
-        optimised at the same time. dihedral_equiv_classes = {(0, 1, 2 ,3): '1-1-2-1'...} all of the tuples are the
+        optimised at the same time. dihedral_equiv_classes = {(0, 1, 2 ,3): (1, 1, 2, 1)...} all of the tuples are the
         dihedrals index by topology and the strings are the symmetry equivalent atom combinations.
         """
 
@@ -852,10 +853,10 @@ class Molecule(SchemaBase):
         for dihedral_set in self.dihedrals.values():
             for dihedral in dihedral_set:
                 dihedral_symmetry_classes[tuple(dihedral)] = (
-                    f"{atom_types[dihedral[0]]}-"
-                    f"{atom_types[dihedral[1]]}-"
-                    f"{atom_types[dihedral[2]]}-"
-                    f"{atom_types[dihedral[3]]}"
+                    atom_types[dihedral[0]],
+                    atom_types[dihedral[1]],
+                    atom_types[dihedral[2]],
+                    atom_types[dihedral[3]],
                 )
 
         dihedral_types = {}
@@ -876,10 +877,10 @@ class Molecule(SchemaBase):
         improper_symmetry_classes = {}
         for dihedral in self.improper_torsions:
             improper_symmetry_classes[tuple(dihedral)] = (
-                f"{atom_types[dihedral[0]]}-"
-                f"{atom_types[dihedral[1]]}-"
-                f"{atom_types[dihedral[2]]}-"
-                f"{atom_types[dihedral[3]]}"
+                atom_types[dihedral[0]],
+                atom_types[dihedral[1]],
+                atom_types[dihedral[2]],
+                atom_types[dihedral[3]],
             )
 
         improper_types = {}
@@ -910,7 +911,7 @@ class Molecule(SchemaBase):
         return new_classes
 
     @property
-    def atom_types(self) -> Dict[int, str]:
+    def atom_types(self) -> Dict[int, int]:
         """Returns a dictionary of atom indices mapped to their class or None if there is no rdkit molecule."""
 
         return RDKit.find_symmetry_classes(self.to_rdkit())
