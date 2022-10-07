@@ -44,6 +44,11 @@ def coumarin():
 
 
 @pytest.fixture()
+def coumarin_with_rb():
+    return Ligand.parse_file(get_data("coumarin_with_rb.json"))
+
+
+@pytest.fixture()
 def mol_47():
     return Ligand.from_smiles("CC(C)(O)CCC(C)(C)O", "mol_47")
 

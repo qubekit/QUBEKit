@@ -643,11 +643,14 @@ def test_offxml_round_trip_ub_terms(tmpdir, openff, molecule):
             significant_digits=6,
             exclude_regex_paths="mass",
         )
-        assert len(offxml_diff) == 1
-        # the only difference should be in torsions with a 0 barrier height which are excluded from an offxml
-        if "iterable_removed_added" in offxml_diff:
-            for item in offxml_diff["iterable_removed_added"].values():
-                assert item["@k"] == "0"
+        if molecule == "methane.sdf":
+            assert len(offxml_diff) == 0
+        else:
+            assert len(offxml_diff) == 1
+            # the only difference should be in torsions with a 0 barrier height which are excluded from an offxml
+            if "iterable_removed_added" in offxml_diff:
+                for item in offxml_diff["iterable_removed_added"].values():
+                    assert item["@k"] == "0"
 
         # load both systems and compute the energy
         qubekit_xml_top = load_topology(
@@ -762,19 +765,134 @@ def test_offxml_sites_energy(xml, tmpdir, methanol, ethanol, molecule):
             for off_force, off_e in off_energy:
                 if force_group == off_force:
                     assert energy == pytest.approx(off_e, abs=2e-3)
-                    print(energy, off_e)
 
 
-def test_rb_offxml(tmpdir):
-    """Make sure an error is raised if we try to create an offxml with a RB torsion."""
+def test_rb_offxml_deepdiff(tmpdir):
+    """Make sure  we can correctly write out an offxml for a molecule with RBProper torsions
+    and get the same system as xml"""
+
     with tmpdir.as_cwd():
         mol = Ligand.from_file(file_name=get_data("cyclohexane.sdf"))
         XML().run(molecule=mol, input_files=[get_data("cyclohexane.xml")])
         # there should be 6 RB terms
         assert mol.RBTorsionForce.n_parameters == 6
+        # load the xml openmm system
+        xml_ff = app.ForceField(get_data("cyclohexane.xml"))
+        xml_system = xml_ff.createSystem(
+            mol.to_openmm_topology(),
+            nonbondedCutoff=9 * unit.angstroms,
+            removeCMMotion=False,
+        )
+        system_xml = xmltodict.parse(openmm.XmlSerializer.serialize(xml_system))
 
-        with pytest.raises(NotImplementedError):
-            mol.to_offxml("test.offxml")
+        mol.to_offxml("test.offxml", h_constraints=False)
+        offxml = ForceField(
+            "test.offxml", load_plugins=True, allow_cosmetic_attributes=True
+        )
+        offmol = Molecule.from_file(get_data("cyclohexane.sdf"))
+        system = offxml.create_openmm_system(offmol.to_topology())
+        off_system = xmltodict.parse(openmm.XmlSerializer.serialize(system))
+
+        system_diff = DeepDiff(
+            system_xml,
+            off_system,
+            ignore_order=True,
+            exclude_regex_paths="mass",
+            significant_digits=6,
+        )
+        # there should only be one bond which is the wrong way around for some reason!
+        assert list(system_diff.keys()) == ["values_changed"]
+        assert system_diff["values_changed"][
+            "root['System']['Forces']['Force'][0]['Bonds']['Bond'][5]['@p1']"
+        ] == {"new_value": "0", "old_value": "5"}
+
+        # check the energies match
+        xml_topology = load_topology(
+            mol.to_openmm_topology(),
+            system=xml_system,
+            xyz=mol.openmm_coordinates(),
+        )
+        xml_energy = energy_decomposition_system(
+            xml_topology, xml_system, platform="Reference"
+        )
+
+        off_topology = load_topology(
+            mol.to_openmm_topology(), system=system, xyz=mol.openmm_coordinates()
+        )
+        off_energy = energy_decomposition_system(
+            off_topology, system, platform="Reference"
+        )
+
+        # compare the decomposed energies of the groups
+        for force_group, energy in xml_energy:
+            for off_force, off_e in off_energy:
+                if force_group == off_force:
+                    assert energy == pytest.approx(off_e, abs=2e-3)
+
+
+def test_rb_torsion_dummy_offxxml(coumarin_with_rb, tmpdir):
+    """
+    Make sure a dummy proper torsion parameter is only added to an
+    offxml when we have a mixture of proper and RB torsions.
+    """
+
+    with tmpdir.as_cwd():
+        coumarin_with_rb.to_offxml(file_name="coumarin.offxml", h_constraints=False)
+        ff = ForceField("coumarin.offxml", load_plugins=True)
+        # the force field should use a mixture of proper and rb torsions
+        proper_torsions = ff.get_parameter_handler("ProperTorsions")
+        generic_parameter = proper_torsions["[*:1]~[*:2]~[*:3]~[*:4]"]
+        assert generic_parameter.k1 == unit.Quantity(0.0, unit=unit.kilojoule_per_mole)
+        # make sure the generic parameter is first
+        assert proper_torsions._index_of_parameter(parameter=generic_parameter) == 0
+        rb_torsions = ff.get_parameter_handler("ProperRyckhaertBellemans")
+        assert len(rb_torsions.parameters) == 6
+
+
+def test_mixed_rb_proper_offxml(coumarin_with_rb, tmpdir):
+    """
+    Compare openmm systems made from offxml and normal xml for molecules with mixed proper
+    and RB torsions.
+    """
+    with tmpdir.as_cwd():
+        coumarin_with_rb.to_offxml("coumarin.offxml", h_constraints=False)
+        coumarin_with_rb.write_parameters("coumarin.xml")
+        xml_ff = app.ForceField("coumarin.xml")
+        offxml = ForceField("coumarin.offxml", load_plugins=True)
+        xml_system = xml_ff.createSystem(
+            coumarin_with_rb.to_openmm_topology(),
+            nonbondedCutoff=9 * unit.angstroms,
+            removeCMMotion=False,
+        )
+
+        offmol = Molecule.from_rdkit(coumarin_with_rb.to_rdkit())
+        offxml_system = offxml.create_openmm_system(offmol.to_topology())
+
+        # compare the system energies
+        xml_topology = load_topology(
+            coumarin_with_rb.to_openmm_topology(),
+            system=xml_system,
+            xyz=coumarin_with_rb.openmm_coordinates(),
+        )
+        xml_energy = energy_decomposition_system(
+            xml_topology, xml_system, platform="Reference"
+        )
+
+        off_topology = load_topology(
+            coumarin_with_rb.to_openmm_topology(),
+            system=offxml_system,
+            xyz=coumarin_with_rb.openmm_coordinates(),
+        )
+        off_energy = energy_decomposition_system(
+            off_topology, offxml_system, platform="Reference"
+        )
+
+        # compare the decomposed energies of the groups
+        for force_group, energy in xml_energy:
+            for off_force, off_e in off_energy:
+                if force_group == off_force:
+                    print(force_group, energy, off_e)
+                    assert energy == pytest.approx(off_e, abs=2e-3)
 
 
 def test_h_constraints_offxml(methanol, tmpdir):
