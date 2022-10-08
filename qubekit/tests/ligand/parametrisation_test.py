@@ -69,6 +69,21 @@ def test_symm_params_no_angles(tmpdir, openff):
         mol.symmetrise_bonded_parameters()
 
 
+def test_symm_nonbonded_params(tmpdir, openff):
+
+    with tmpdir.as_cwd():
+        mol = Ligand.from_smiles("C", "methane")
+        openff.run(mol)
+        mol.symmetrise_nonbonded_parameters()
+        # make sure all hydrogens have the same parameters
+        p = mol.NonbondedForce[(1,)]
+        for i in range(3):
+            other_p = mol.NonbondedForce[(2 + i,)]
+            assert other_p.charge == p.charge
+            assert other_p.epsilon == p.epsilon
+            assert other_p.sigma == p.sigma
+
+
 def test_openff_skeleton(tmpdir, openff):
     """
     Make sure the skeleton method in openff works when we have missing coverage in the openff forcefield.
