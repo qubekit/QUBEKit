@@ -144,6 +144,7 @@ class QForceHessianFitting(StageBase):
         # remove any starting parameters
         molecule.BondForce.clear_parameters()
         molecule.AngleForce.clear_parameters()
+        molecule.UreyBradleyForce.clear_parameters()
         molecule.TorsionForce.clear_parameters()
         # qforce only adds impropers when there are no rigid terms so remove any initial terms
         molecule.ImproperTorsionForce.clear_parameters()
@@ -153,44 +154,35 @@ class QForceHessianFitting(StageBase):
 
         for bond in qforce_terms["bond"]:
             # we only want terms which are non zero
-            if round(bond.fconst * 100, ndigits=3) != 0:
-                bond_data = {
-                    "length": bond.equ * constants.ANGS_TO_NM,
-                    "k": bond.fconst * 100,
-                }
-                molecule.BondForce.create_parameter(
-                    atoms=tuple(bond.atomids), **bond_data
-                )
+            bond_data = {
+                "length": bond.equ * constants.ANGS_TO_NM,
+                "k": bond.fconst * 100,
+            }
+            molecule.BondForce.create_parameter(atoms=tuple(bond.atomids), **bond_data)
         for angle in qforce_terms["angle"]:
-            if round(angle.fconst, ndigits=3) != 0:
-                angle_data = {"angle": angle.equ, "k": angle.fconst}
-                molecule.AngleForce.create_parameter(tuple(angle.atomids), **angle_data)
+            angle_data = {"angle": angle.equ, "k": angle.fconst}
+            molecule.AngleForce.create_parameter(tuple(angle.atomids), **angle_data)
         if "urey" in qforce_terms:
             # grab urey angle terms and make a bond for the terminal atoms
             for urey in qforce_terms["urey"]:
-                if round(urey.fconst * 100, ndigits=3) != 0:
-                    urey_data = {
-                        "length": urey.equ * constants.ANGS_TO_NM,
-                        "k": urey.fconst * 100,
-                    }
-                    atoms = urey.atomids
-                    # make sure to grab the terminal atoms when making the bond term
-                    molecule.BondForce.create_parameter(
-                        atoms=tuple([atoms[0], atoms[2]]), **urey_data
-                    )
-        for dihedral in qforce_terms["dihedral"]["rigid"]:
-            if round(dihedral.fconst / 4, ndigits=3) != 0:
-                dihedral_data = {
-                    "k2": dihedral.fconst / 4,
+                urey_data = {
+                    "d": urey.equ * constants.ANGS_TO_NM,
+                    "k": urey.fconst * 100,
                 }
-                molecule.TorsionForce.create_parameter(
-                    atoms=tuple(dihedral.atomids), **dihedral_data
+                molecule.UreyBradleyForce.create_parameter(
+                    atoms=tuple(urey.atomids), **urey_data
                 )
+        for dihedral in qforce_terms["dihedral"]["rigid"]:
+            dihedral_data = {
+                "k2": dihedral.fconst / 4,
+            }
+            molecule.TorsionForce.create_parameter(
+                atoms=tuple(dihedral.atomids), **dihedral_data
+            )
         for improper in qforce_terms["dihedral"]["improper"]:
-            if round(improper.fconst / 4, ndigits=3) != 0:
-                molecule.ImproperTorsionForce.create_parameter(
-                    atoms=tuple(improper.atomids), k2=improper.fconst / 4
-                )
+            molecule.ImproperTorsionForce.create_parameter(
+                atoms=tuple(improper.atomids), k2=improper.fconst / 4
+            )
         for inversion in qforce_terms["dihedral"]["inversion"]:
             # use the RB torsion type to model the inversion dihedrals
             # get the parameters in RB form

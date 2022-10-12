@@ -597,7 +597,7 @@ def test_offxml_round_trip_ub_terms(tmpdir, openff, molecule):
         openff.run(mol)
         # Add urey-bradley terms
         for angle in mol.angles:
-            mol.BondForce.create_parameter((angle[0], angle[2]), k=1, length=2)
+            mol.UreyBradleyForce.create_parameter(angle, k=1, d=2)
 
         mol.to_offxml("test.offxml", h_constraints=False)
         # build another openmm system and serialise to compare with deepdiff
@@ -620,30 +620,6 @@ def test_offxml_round_trip_ub_terms(tmpdir, openff, molecule):
             nonbondedCutoff=0.9 * unit.nanometers,
             removeCMMotion=False,
         )
-
-        # the exceptions are wrong due to the virtual bonds for the U-B terms
-        # make a new force and generate new exceptions
-        forces = {
-            force.__class__.__name__: force for force in qubekit_xml_system.getForces()
-        }
-        force = forces["NonbondedForce"]
-        bonds = [bond.indices for bond in mol.bonds]
-        new_force = openmm.NonbondedForce()
-        for i in range(force.getNumParticles()):
-            new_force.addParticle(*force.getParticleParameters(i))
-        new_force.createExceptionsFromBonds(
-            bonds, mol.NonbondedForce.coulomb14scale, mol.NonbondedForce.lj14scale
-        )
-        new_force.setNonbondedMethod(force.getNonbondedMethod())
-        new_force.setCutoffDistance(force.getCutoffDistance())
-        new_force.setUseDispersionCorrection(force.getUseDispersionCorrection())
-        new_force.setUseSwitchingFunction(force.getUseSwitchingFunction())
-        new_force.setSwitchingDistance(force.getSwitchingDistance())
-        for i in range(qubekit_xml_system.getNumForces()):
-            if type(qubekit_xml_system.getForce(i)) == openmm.NonbondedForce:
-                qubekit_xml_system.removeForce(i)
-                break
-        qubekit_xml_system.addForce(new_force)
 
         qubekit_xml_xml = xmltodict.parse(
             openmm.XmlSerializer.serialize(qubekit_xml_system)

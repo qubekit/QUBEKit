@@ -13,6 +13,7 @@ from qubekit.forcefield.parameters import (
     LennardJones612Parameter,
     PeriodicTorsionParameter,
     ProperRBTorsionParameter,
+    UreyBradleyHarmonicParameter,
 )
 from qubekit.utils.exceptions import MissingParameterError
 
@@ -153,6 +154,24 @@ class HarmonicAngleForce(BaseForceGroup):
     @classmethod
     def symmetry_parameters(cls) -> List[str]:
         return ["angle", "k"]
+
+
+class UreyBradleyHarmonicForce(BaseForceGroup):
+
+    type: Literal["UreyBradleyHarmonicForce"] = "UreyBradleyHarmonicForce"
+    parameters: Optional[List[UreyBradleyHarmonicParameter]] = None
+
+    @classmethod
+    def _parameter_class(cls):
+        return UreyBradleyHarmonicParameter
+
+    @classmethod
+    def openmm_group(cls):
+        return "AmoebaUreyBradleyForce"
+
+    @classmethod
+    def symmetry_parameters(cls) -> List[str]:
+        return ["d", "k"]
 
 
 class PeriodicTorsionForce(BaseForceGroup):

@@ -134,6 +134,35 @@ class HarmonicAngleParameter(BaseParameter):
         return "Angle"
 
 
+class UreyBradleyHarmonicParameter(BaseParameter):
+
+    type: Literal["UreyBradleyHarmonicParameter"] = "UreyBradleyHarmonicParameter"
+    k: float = Field(
+        ...,
+        description="The force constant for a harmonic potential in kj/mol/nm**2 representing a U-B "
+        "bond angle cross term. Note our k here is halved when calculating the energy "
+        "which is different to <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4772747/>.",
+    )
+    d: float = Field(
+        ..., description="The equilibrium bond length in the harmonic potential in nm."
+    )
+
+    @classmethod
+    def _n_tags(cls) -> int:
+        return 3
+
+    @classmethod
+    def openmm_type(cls) -> str:
+        return "UreyBradley"
+
+    def xml_data(self) -> Dict[str, str]:
+        xml_data = super().xml_data()
+        # we need to half the k value to get the correct behaviour in OpenMM
+        k = float(xml_data["k"])
+        xml_data["k"] = str(k / 2)
+        return xml_data
+
+
 class PeriodicTorsionParameter(BaseParameter):
 
     type: Literal["PeriodicTorsionParameter"] = "PeriodicTorsionParameter"
