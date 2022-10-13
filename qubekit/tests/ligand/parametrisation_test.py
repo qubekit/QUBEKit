@@ -678,13 +678,11 @@ def test_vsite_handler_labeling(methanol, tmpdir):
         vsite_handler = ff.get_parameter_handler("LocalCoordinateVirtualSites")
         assert len(vsite_handler.parameters) == 2
         off_mol = Molecule.from_rdkit(methanol.to_rdkit())
-        vsite_labels = ff.label_molecules(topology=off_mol.to_topology())[0][
-            "LocalCoordinateVirtualSites"
-        ]
+        matches = vsite_handler._find_matches(entity=off_mol.to_topology())
         # they should only be on the oxygen atom
-        assert len(vsite_labels) == 1
+        assert len(matches) == 1
         # there should be a lone pair on the oxygen
-        assert len(vsite_labels[(1,)]) == 2
+        assert len(matches[(1,)]) == 2
 
 
 @pytest.mark.parametrize(

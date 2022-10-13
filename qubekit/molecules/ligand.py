@@ -552,9 +552,10 @@ class Molecule(SchemaBase):
                 self._symmetrise_parameters(
                     force_group=self.AngleForce, parameter_keys=angles
                 )
-                self._symmetrise_parameters(
-                    force_group=self.UreyBradleyForce, parameter_keys=angles
-                )
+                if self.UreyBradleyForce.n_parameters > 0:
+                    self._symmetrise_parameters(
+                        force_group=self.UreyBradleyForce, parameter_keys=angles
+                    )
 
         return True
 
