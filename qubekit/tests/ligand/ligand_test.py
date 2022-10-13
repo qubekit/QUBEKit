@@ -9,7 +9,6 @@ import pytest
 from openff.toolkit.topology import Molecule as OFFMolecule
 from openmm import unit
 from rdkit.Chem import rdMolTransforms
-from rdkit.Chem.rdchem import AtomValenceException
 
 from qubekit.charges import ExtractChargeData
 from qubekit.molecules import Ligand
@@ -310,42 +309,9 @@ def test_has_ub_terms(acetone, openff):
     assert acetone.has_ub_terms() is False
     # now add a fake terms
     for angle in acetone.angles:
-        acetone.BondForce.create_parameter(atoms=(angle[0], angle[2]), k=1, length=2)
+        acetone.UreyBradleyForce.create_parameter(atoms=angle, k=1, d=2)
 
     assert acetone.has_ub_terms() is True
-
-
-def test_openmm_topology_ub(acetone):
-    """
-    Make sure ub connections are added to a openmm topology when present.
-    """
-    openmm_top_no_ub = acetone.to_openmm_topology()
-    # now add fake ub terms
-    for angle in acetone.angles:
-        acetone.BondForce.create_parameter(atoms=(angle[0], angle[2]), k=1, length=2)
-    openmm_top_ub = acetone.to_openmm_topology()
-    assert openmm_top_ub.getNumBonds() > openmm_top_no_ub.getNumBonds()
-    assert openmm_top_ub.getNumAtoms() == openmm_top_no_ub.getNumAtoms()
-
-
-def test_ub_pdb(acetone, tmpdir):
-    """
-    Make sure we can write pdb files which have the ub connections.
-    """
-    with tmpdir.as_cwd():
-        # add fake ub terms
-        for angle in acetone.angles:
-            acetone.BondForce.create_parameter(
-                atoms=(angle[0], angle[2]), k=1, length=2
-            )
-        # write out the pdb file
-        acetone._to_ub_pdb()
-        # try and read in the malformed pdb with extra connections
-        with pytest.raises(
-            AtomValenceException,
-            match="Explicit valence for atom # 0 C, 6, is greater than permitted",
-        ):
-            _ = Ligand.from_file("acetone.pdb")
 
 
 @pytest.mark.parametrize(

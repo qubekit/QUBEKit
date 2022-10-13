@@ -148,9 +148,12 @@ def _combine_molecules_offxml(
     Main worker function to build the combined offxmls.
     """
 
-    if sum([molecule.RBTorsionForce.n_parameters for molecule in molecules]) > 0:
+    if (
+        sum([molecule.ImproperRBTorsionForce.n_parameters for molecule in molecules])
+        > 0
+    ):
         raise NotImplementedError(
-            "RBTorsions can not yet be safely converted into offxml format yet."
+            "RBTorsions improper can not yet be safely converted into offxml format yet."
         )
 
     try:
@@ -176,10 +179,11 @@ def _combine_molecules_offxml(
         constraints.add_parameter(
             parameter_kwargs={"smirks": "[#1:1]-[*:2]", "id": "h-c1"}
         )
-    bond_handler = offxml.get_parameter_handler("Bonds")
-    angle_handler = offxml.get_parameter_handler("Angles")
-    proper_torsions = offxml.get_parameter_handler("ProperTorsions")
-    improper_torsions = offxml.get_parameter_handler("ImproperTorsions")
+    # add the handlers to ensure we get them in the order we want
+    _ = offxml.get_parameter_handler("Bonds")
+    _ = offxml.get_parameter_handler("Angles")
+    _ = offxml.get_parameter_handler("ProperTorsions")
+    _ = offxml.get_parameter_handler("ImproperTorsions")
     _ = offxml.get_parameter_handler(
         "Electrostatics", handler_kwargs={"scale14": 0.8333333333, "version": 0.3}
     )
@@ -204,95 +208,22 @@ def _combine_molecules_offxml(
         vdw_handler = offxml.get_parameter_handler(
             "vdW", allow_cosmetic_attributes=True
         )
-    library_charges = offxml.get_parameter_handler("LibraryCharges")
-    # use our plugin handler
-    local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
 
     for molecule in molecules:
-        rdkit_mol = molecule.to_rdkit()
-        bond_types = molecule.bond_types
-        # for each bond type collection create a single smirks pattern
-        for bonds in bond_types.values():
-            graph = ClusterGraph(
-                mols=[rdkit_mol], smirks_atoms_lists=[bonds], layers="all"
-            )
-            qube_bond = molecule.BondForce[bonds[0]]
-            bond_handler.add_parameter(
-                parameter_kwargs={
-                    "smirks": graph.as_smirks(),
-                    "length": qube_bond.length * unit.nanometers,
-                    "k": qube_bond.k * unit.kilojoule_per_mole / unit.nanometers**2,
-                }
-            )
-
-        angle_types = molecule.angle_types
-        for angles in angle_types.values():
-            graph = ClusterGraph(
-                mols=[rdkit_mol],
-                smirks_atoms_lists=[angles],
-                layers="all",
-            )
-            qube_angle = molecule.AngleForce[angles[0]]
-            angle_handler.add_parameter(
-                parameter_kwargs={
-                    "smirks": graph.as_smirks(),
-                    "angle": qube_angle.angle * unit.radian,
-                    "k": qube_angle.k * unit.kilojoule_per_mole / unit.radians**2,
-                }
-            )
-
-        torsion_types = molecule.dihedral_types
-        for dihedrals in torsion_types.values():
-            graph = ClusterGraph(
-                mols=[rdkit_mol],
-                smirks_atoms_lists=[dihedrals],
-                layers="all",
-            )
-            qube_dihedral = molecule.TorsionForce[dihedrals[0]]
-            proper_torsions.add_parameter(
-                parameter_kwargs={
-                    "smirks": graph.as_smirks(),
-                    "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
-                    "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
-                    "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
-                    "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
-                    "periodicity1": qube_dihedral.periodicity1,
-                    "periodicity2": qube_dihedral.periodicity2,
-                    "periodicity3": qube_dihedral.periodicity3,
-                    "periodicity4": qube_dihedral.periodicity4,
-                    "phase1": qube_dihedral.phase1 * unit.radians,
-                    "phase2": qube_dihedral.phase2 * unit.radians,
-                    "phase3": qube_dihedral.phase3 * unit.radians,
-                    "phase4": qube_dihedral.phase4 * unit.radians,
-                    "idivf1": 1,
-                    "idivf2": 1,
-                    "idivf3": 1,
-                    "idivf4": 1,
-                }
-            )
-
-        improper_types = molecule.improper_types
-        for torsions in improper_types.values():
-            impropers = [
-                (improper[1], improper[0], *improper[2:]) for improper in torsions
-            ]
-            graph = ClusterGraph(
-                mols=[rdkit_mol], smirks_atoms_lists=[impropers], layers="all"
-            )
-            qube_improper = molecule.ImproperTorsionForce[torsions[0]]
-            # we need to multiply each k value by as they will be applied as trefoil see
-            # <https://openforcefield.github.io/standards/standards/smirnoff/#impropertorsions> for more details
-            # we assume we only have a k2 term for improper torsions via a periodic term
-            improper_torsions.add_parameter(
-                parameter_kwargs={
-                    "smirks": graph.as_smirks(),
-                    "k1": qube_improper.k2 * 3 * unit.kilojoule_per_mole,
-                    "periodicity1": qube_improper.periodicity2,
-                    "phase1": qube_improper.phase2 * unit.radians,
-                }
-            )
+        print(f"Adding parameters for molecule {molecule.name}")
+        # add each parameter section but use a special method to add the nonbonded section used for Rfree opt
+        molecule._build_offxml_bonds(offxml=offxml)
+        molecule._build_offxml_angles(offxml=offxml)
+        molecule._build_offxml_torsions(offxml=offxml, parameterize=False)
+        molecule._build_offxml_improper_torsions(offxml=offxml)
+        if molecule.RBTorsionForce.n_parameters > 0:
+            molecule._build_offxml_rb_torsions(offxml=offxml)
+        molecule._build_offxml_charges(offxml=offxml)
+        molecule._build_offxml_vs(offxml=offxml)
 
         atom_types = {}
+        rdkit_mol = molecule.to_rdkit()
+
         for atom_index, cip_type in molecule.atom_types.items():
             atom_types.setdefault(cip_type, []).append((atom_index,))
         for sym_set in atom_types.values():
@@ -320,41 +251,6 @@ def _combine_molecules_offxml(
 
             vdw_handler.add_parameter(parameter_kwargs=atom_data)
 
-        charge_data = dict(
-            (f"charge{param.atoms[0] + 1}", param.charge * unit.elementary_charge)
-            for param in molecule.NonbondedForce
-        )
-        charge_data["smirks"] = molecule.to_smiles(mapped=True)
-        library_charges.add_parameter(parameter_kwargs=charge_data)
-        if molecule.extra_sites.n_sites > 0:
-            for i, site in enumerate(molecule.extra_sites):
-                graph = ClusterGraph(
-                    mols=[rdkit_mol],
-                    smirks_atoms_lists=[
-                        [
-                            (
-                                site.parent_index,
-                                site.closest_a_index,
-                                site.closest_b_index,
-                            )
-                        ]
-                    ],
-                    layers="all",
-                )
-                vsite_parameter = local_vsites._INFOTYPE(
-                    **{
-                        "smirks": graph.as_smirks(),
-                        "name": f"{molecule.name}_{i}",
-                        "x_local": site.p1 * unit.nanometers,
-                        "y_local": site.p2 * unit.nanometers,
-                        "z_local": site.p3 * unit.nanometers,
-                        "charge": site.charge * unit.elementary_charge,
-                        "epsilon": 0 * unit.kilojoule_per_mole,
-                        "sigma": 1 * unit.nanometer,
-                    }
-                )
-                local_vsites._parameters.append(vsite_parameter)
-
     # now loop over all the parameters to be fit and add them as cosmetic attributes
     to_parameterize = []
     for parameter_to_fit in parameters:
@@ -376,6 +272,7 @@ def _combine_molecules_offxml(
 
     # now add a water model to the force field
     use_local_sites = True
+    local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
     if len(local_vsites._parameters) == 0:
         use_local_sites = False
         # deregister the handler if not in use

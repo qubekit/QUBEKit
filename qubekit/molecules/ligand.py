@@ -31,7 +31,7 @@ from chemper.graphs.cluster_graph import ClusterGraph
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.toolkit.utils.exceptions import ParameterLookupError
 from openmm import unit
-from openmm.app import Aromatic, Double, PDBFile, Single, Topology, Triple
+from openmm.app import Aromatic, Double, Single, Topology, Triple
 from openmm.app.element import Element
 from pydantic import Field, validator
 from qcelemental.models.types import Array
@@ -48,6 +48,7 @@ from qubekit.forcefield import (
     PeriodicTorsionForce,
     RBImproperTorsionForce,
     RBProperTorsionForce,
+    UreyBradleyHarmonicForce,
     VirtualSiteGroup,
 )
 from qubekit.molecules.components import Atom, Bond, TorsionDriveData
@@ -103,6 +104,10 @@ class Molecule(SchemaBase):
     BondForce: Union[HarmonicBondForce] = Field(
         HarmonicBondForce(),
         description="A force object which records bonded interactions between pairs of atoms",
+    )
+    UreyBradleyForce: UreyBradleyHarmonicForce = Field(
+        UreyBradleyHarmonicForce(),
+        description="A force object which records Urey-Bradley bond-angle cross terms.",
     )
     AngleForce: Union[HarmonicAngleForce] = Field(
         HarmonicAngleForce(),
@@ -547,6 +552,10 @@ class Molecule(SchemaBase):
                 self._symmetrise_parameters(
                     force_group=self.AngleForce, parameter_keys=angles
                 )
+                if self.UreyBradleyForce.n_parameters > 0:
+                    self._symmetrise_parameters(
+                        force_group=self.UreyBradleyForce, parameter_keys=angles
+                    )
 
         return True
 
@@ -712,6 +721,13 @@ class Molecule(SchemaBase):
         AngleForce = ET.SubElement(
             root, self.AngleForce.openmm_group(), attrib=self.AngleForce.xml_data()
         )
+        UBForce = ET.SubElement(
+            root,
+            self.UreyBradleyForce.openmm_group(),
+            attrib=self.UreyBradleyForce.xml_data(),
+        )
+        for parameter in self.UreyBradleyForce:
+            ET.SubElement(UBForce, parameter.openmm_type(), attrib=parameter.xml_data())
         for parameter in self.AngleForce:
             ET.SubElement(
                 AngleForce, parameter.openmm_type(), attrib=parameter.xml_data()
@@ -1102,22 +1118,11 @@ class Molecule(SchemaBase):
         )
 
     def has_ub_terms(self) -> bool:
-        """Return `True` if the molecule has Ure-Bradly terms, as there are forces between non-bonded atoms."""
-        for bond in self.BondForce:
-            try:
-                self.get_bond_between(*bond.atoms)
-            except TopologyMismatch:
-                return True
-        return False
+        """Return `True` if the molecule has Urey-Bradley terms, as there are forces between non-bonded atoms."""
+        if self.UreyBradleyForce.n_parameters > 0:
+            return True
 
-    def _to_ub_pdb(self, file_name: Optional[str] = None) -> None:
-        """A privet method to write the molecule to a non-standard pdb file with connections for Urey-Bradly terms."""
-        openmm_top = self.to_openmm_topology()
-        PDBFile.writeFile(
-            topology=openmm_top,
-            positions=self.openmm_coordinates(),
-            file=open(f"{file_name or self.name}.pdb", "w"),
-        )
+        return False
 
     @staticmethod
     def _check_file_name(file_name: str) -> None:
@@ -1213,16 +1218,6 @@ class Molecule(SchemaBase):
             topology.addBond(
                 atom1=atom1, atom2=atom2, type=b_type, order=bond.bond_order
             )
-        # now check for Urey-Bradley terms
-        for bond in self.BondForce:
-            try:
-                self.get_bond_between(*bond.atoms)
-            except TopologyMismatch:
-                # the bond is not in the bond list so add it as a u-b term
-                atom1 = top_atoms[bond.atoms[0]]
-                atom2 = top_atoms[bond.atoms[1]]
-                # this is a fake bond used for U-B terms.
-                topology.addBond(atom1=atom1, atom2=atom2, type=Single, order=1)
 
         return topology
 
@@ -1426,11 +1421,10 @@ class Molecule(SchemaBase):
                 angle_data["angle_k"] = (
                     qube_angle.k * unit.kilojoule_per_mole / unit.radians**2
                 )
-                # use the terminal atom to find the bond
-                qube_bond = self.BondForce[(angles[0][0], angles[0][-1])]
-                angle_data["bond_length"] = qube_bond.length * unit.nanometers
+                qube_ub = self.UreyBradleyForce[angles[0]]
+                angle_data["bond_length"] = qube_ub.d * unit.nanometers
                 angle_data["bond_k"] = (
-                    qube_bond.k * unit.kilojoule_per_mole / unit.nanometers**2
+                    qube_ub.k * unit.kilojoule_per_mole / unit.nanometers**2
                 )
             else:
                 angle_data["k"] = (

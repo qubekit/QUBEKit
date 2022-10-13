@@ -72,8 +72,25 @@ def test_coumarin_run(tmpdir, coumarin):
         qf.run(coumarin)
         assert coumarin.BondForce.n_parameters == coumarin.n_bonds
         assert coumarin.AngleForce.n_parameters == coumarin.n_angles
-        assert coumarin.TorsionForce.n_parameters == 45
+        assert coumarin.UreyBradleyForce.n_parameters == 0
+        assert coumarin.TorsionForce.n_parameters == 50
         assert coumarin.RBTorsionForce.n_parameters == 6
+
+
+def test_coumarin_ub_run(tmpdir, coumarin):
+    """Test running QForce on coumarin and extracting the Urey-Bradley terms"""
+    try:
+        QForceHessianFitting.is_available()
+    except ModuleNotFoundError:
+        pytest.skip("QForce is not available skipping test.")
+
+    with tmpdir.as_cwd():
+        qf = QForceHessianFitting(use_urey_bradley=True)
+        qf.run(coumarin)
+        assert coumarin.BondForce.n_parameters == coumarin.n_bonds
+        assert coumarin.AngleForce.n_parameters == coumarin.n_angles
+        assert coumarin.has_ub_terms() is True
+        assert coumarin.UreyBradleyForce.n_parameters == coumarin.n_angles
 
 
 def test_messages():

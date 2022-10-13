@@ -7,6 +7,7 @@ from qubekit.forcefield.force_groups import (
     PeriodicTorsionForce,
     RBImproperTorsionForce,
     RBProperTorsionForce,
+    UreyBradleyHarmonicForce,
 )
 from qubekit.forcefield.parameters import (
     BaseParameter,
@@ -18,6 +19,7 @@ from qubekit.forcefield.parameters import (
     LennardJones612Parameter,
     PeriodicTorsionParameter,
     ProperRBTorsionParameter,
+    UreyBradleyHarmonicParameter,
     VirtualSite3Point,
     VirtualSite4Point,
 )
@@ -44,4 +46,6 @@ __all__ = [
     VirtualSite3Point,
     VirtualSite4Point,
     VirtualSiteGroup,
+    UreyBradleyHarmonicParameter,
+    UreyBradleyHarmonicForce,
 ]
