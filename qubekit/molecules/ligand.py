@@ -552,6 +552,9 @@ class Molecule(SchemaBase):
                 self._symmetrise_parameters(
                     force_group=self.AngleForce, parameter_keys=angles
                 )
+                self._symmetrise_parameters(
+                    force_group=self.UreyBradleyForce, parameter_keys=angles
+                )
 
         return True
 
@@ -1214,16 +1217,6 @@ class Molecule(SchemaBase):
             topology.addBond(
                 atom1=atom1, atom2=atom2, type=b_type, order=bond.bond_order
             )
-        # # now check for Urey-Bradley terms
-        # for bond in self.BondForce:
-        #     try:
-        #         self.get_bond_between(*bond.atoms)
-        #     except TopologyMismatch:
-        #         # the bond is not in the bond list so add it as a u-b term
-        #         atom1 = top_atoms[bond.atoms[0]]
-        #         atom2 = top_atoms[bond.atoms[1]]
-        #         # this is a fake bond used for U-B terms.
-        #         topology.addBond(atom1=atom1, atom2=atom2, type=Single, order=1)
 
         return topology
 

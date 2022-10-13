@@ -668,6 +668,25 @@ def test_offxml_round_trip_ub_terms(tmpdir, openff, molecule):
                     assert energy == pytest.approx(qube_e, abs=2e-3)
 
 
+def test_vsite_handler_labeling(methanol, tmpdir):
+    """Make sure our plugin handler can label molecules so as not to break down stream workflows"""
+
+    with tmpdir.as_cwd():
+        # write out a offxml with local coord sites
+        methanol.to_offxml("methanol.offxml", h_constraints=False)
+        ff = ForceField("methanol.offxml", load_plugins=True)
+        vsite_handler = ff.get_parameter_handler("LocalCoordinateVirtualSites")
+        assert len(vsite_handler.parameters) == 2
+        off_mol = Molecule.from_rdkit(methanol.to_rdkit())
+        vsite_labels = ff.label_molecules(topology=off_mol.to_topology())[0][
+            "LocalCoordinateVirtualSites"
+        ]
+        # they should only be on the oxygen atom
+        assert len(vsite_labels) == 1
+        # there should be a lone pair on the oxygen
+        assert len(vsite_labels[(1,)]) == 2
+
+
 @pytest.mark.parametrize(
     "molecule",
     [pytest.param("methanol", id="methanol"), pytest.param("ethanol", id="ethanol")],
