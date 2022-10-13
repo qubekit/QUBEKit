@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from openff.toolkit.topology import (
     Molecule,
@@ -380,6 +380,28 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
                     system.setVirtualSite(index_system, openmm_particle)
 
         self._create_openff_virtual_sites(matches_by_parent)
+
+    def _find_matches(
+        self,
+        entity: Topology,
+        transformed_dict_cls=dict,
+        unique=False,
+    ) -> Dict[Tuple[int], List[ParameterHandler._Match]]:
+
+        assigned_matches_by_parent = self._find_matches_by_parent(entity)
+        return_dict = {}
+        for parent_index, assigned_parameters in assigned_matches_by_parent.items():
+
+            assigned_matches = []
+            for assigned_parameter, match_orientations in assigned_parameters:
+
+                for match in match_orientations:
+                    assigned_matches.append(
+                        ParameterHandler._Match(assigned_parameter, match)
+                    )
+            return_dict[(parent_index,)] = assigned_matches
+
+        return return_dict
 
 
 class UreyBradleyHandler(ParameterHandler):

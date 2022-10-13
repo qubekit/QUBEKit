@@ -9,7 +9,6 @@ import pytest
 from openff.toolkit.topology import Molecule as OFFMolecule
 from openmm import unit
 from rdkit.Chem import rdMolTransforms
-from rdkit.Chem.rdchem import AtomValenceException
 
 from qubekit.charges import ExtractChargeData
 from qubekit.molecules import Ligand

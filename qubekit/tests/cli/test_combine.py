@@ -436,14 +436,18 @@ def test_combine_rb_offxml(tmpdir, xml, rfree_data):
         # and no periodic terms
         assert mol.TorsionForce.n_parameters == 0
         # now try and make offxml
-        with pytest.raises(NotImplementedError):
-            _combine_molecules_offxml(
-                molecules=[mol],
-                parameters=elements,
-                rfree_data=rfree_data,
-                filename="test.offxml",
-                h_constraints=False,
-            )
+        _combine_molecules_offxml(
+            molecules=[mol],
+            parameters=elements,
+            rfree_data=rfree_data,
+            filename="test.offxml",
+            h_constraints=False,
+        )
+        ff = ForceField(
+            "test.offxml", load_plugins=True, allow_cosmetic_attributes=True
+        )
+        rb_torsions = ff.get_parameter_handler("ProperRyckhaertBellemans")
+        assert len(rb_torsions.parameters) == 1
 
 
 def test_combine_molecules_deepdiff_offxml(
