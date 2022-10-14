@@ -1053,3 +1053,43 @@ def test_offxml_constraints(acetone, water, openff, tmpdir, rfree_data):
                 unit.Quantity(acetone.BondForce[(a - 3, b - 3)].length, unit.nanometer)
                 == constraint
             )
+
+
+def test_offxml_charges_correctly_applied(tmpdir, openff, rfree_data):
+    """
+    Make sure that charges are correctly applied when we have similar molecules
+    """
+
+    mol1 = Ligand.from_smiles("CSC", "mol1")
+    mol2 = Ligand.from_smiles("CS(=O)C", "mol2")
+
+    with tmpdir.as_cwd():
+        openff.run(mol1)
+        openff.run(mol2)
+
+        # make a combined FF with mol2 first as mol2 is a substructure of mol1 it could overwrite the charges
+        _combine_molecules_offxml(
+            molecules=[mol2, mol1],
+            parameters=[],
+            rfree_data=rfree_data,
+            filename="charge_test.offxml",
+            h_constraints=False,
+        )
+
+        ff = ForceField(
+            "charge_test.offxml", load_plugins=True, allow_cosmetic_attributes=True
+        )
+        off_mol = Molecule.from_rdkit(mol2.to_rdkit())
+        system = ff.create_openmm_system(off_mol.to_topology())
+        # if the system has been made the post process charge check has worked, but confirm it by testing here
+        for force in system.getForces():
+            if type(force) == openmm.NonbondedForce:
+                break
+
+        for i in range(force.getNumParticles()):
+            charge, sigma, epsilon = force.getParticleParameters(i)
+            qube_parameter = mol2.NonbondedForce[(i,)]
+            # we need to remove the decimal for the comparison
+            assert charge == float(qube_parameter.charge) * unit.elementary_charge
+            assert sigma == qube_parameter.sigma * unit.nanometer
+            assert epsilon == qube_parameter.epsilon * unit.kilojoule_per_mole
