@@ -1615,14 +1615,20 @@ class Molecule(SchemaBase):
         return offxml
 
     def _build_offxml_charges(self, offxml: ForceField):
-        """Edit the offxml in place by adding the charges as libary charges."""
+        """Edit the offxml in place by adding the charges as library charges."""
 
+        rdkit_mol = self.to_rdkit()
         library_charges = offxml.get_parameter_handler("LibraryCharges")
         charge_data = dict(
             (f"charge{param.atoms[0] + 1}", param.charge * unit.elementary_charge)
             for param in self.NonbondedForce
         )
-        charge_data["smirks"] = self.to_smiles(mapped=True)
+        graph = ClusterGraph(
+            mols=[rdkit_mol],
+            smirks_atoms_lists=[[list([i for i in range(self.n_atoms)])]],
+            layers="all",
+        )
+        charge_data["smirks"] = graph.as_smirks()
         library_charges.add_parameter(parameter_kwargs=charge_data)
 
     def _build_offxml_vs(self, offxml: ForceField):
