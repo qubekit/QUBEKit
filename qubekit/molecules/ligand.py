@@ -721,17 +721,20 @@ class Molecule(SchemaBase):
         AngleForce = ET.SubElement(
             root, self.AngleForce.openmm_group(), attrib=self.AngleForce.xml_data()
         )
-        UBForce = ET.SubElement(
-            root,
-            self.UreyBradleyForce.openmm_group(),
-            attrib=self.UreyBradleyForce.xml_data(),
-        )
-        for parameter in self.UreyBradleyForce:
-            ET.SubElement(UBForce, parameter.openmm_type(), attrib=parameter.xml_data())
         for parameter in self.AngleForce:
             ET.SubElement(
                 AngleForce, parameter.openmm_type(), attrib=parameter.xml_data()
             )
+        if self.UreyBradleyForce.n_parameters > 0:
+            UBForce = ET.SubElement(
+                root,
+                self.UreyBradleyForce.openmm_group(),
+                attrib=self.UreyBradleyForce.xml_data(),
+            )
+            for parameter in self.UreyBradleyForce:
+                ET.SubElement(
+                    UBForce, parameter.openmm_type(), attrib=parameter.xml_data()
+                )
         if (
             self.TorsionForce.n_parameters > 0
             or self.ImproperTorsionForce.n_parameters > 0
@@ -1469,6 +1472,7 @@ class Molecule(SchemaBase):
                     "periodicity3": qube_dihedral.periodicity3,
                     "periodicity4": qube_dihedral.periodicity4,
                     "phase1": qube_dihedral.phase1 * unit.radians,
+                    "phase2": qube_dihedral.phase2 * unit.radians,
                     "phase2": qube_dihedral.phase2 * unit.radians,
                     "phase3": qube_dihedral.phase3 * unit.radians,
                     "phase4": qube_dihedral.phase4 * unit.radians,
