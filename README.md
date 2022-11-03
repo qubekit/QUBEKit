@@ -27,7 +27,7 @@
 
 ## What is QUBEKit?
 
-[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python 3.6+ based force field derivation toolkit for Linux operating systems.
+[QUBEKit](https://blogs.ncl.ac.uk/danielcole/qube-force-field/) is a Python 3.7+ based force field derivation toolkit for Linux operating systems.
 Our aims are to allow users to quickly derive molecular mechanics parameters directly from quantum mechanical calculations.
 QUBEKit pulls together multiple pre-existing engines, as well as bespoke methods to produce accurate results with minimal user input.
 QUBEKit aims to avoid fitting to experimental data where possible while also being highly customisable.
@@ -74,13 +74,10 @@ Download Anaconda from the above link and install with the linux command:
 
 We recommend you add conda to your .bashrc when prompted.
 
-Optionally, you may choose to use Gaussian and Chargemol. 
-Gaussian is an option for QM optimisations, hessian calculations and density calculations.
-Chargemol is an option for charge partitioning. QUBEKit contains alternative approaches for these calculations.
-
-* [Gaussian09](http://gaussian.com/)
-
+Optionally, you may choose to use [Gaussian](http://gaussian.com/).
 Installation of Gaussian is likely handled by your institution.
+Gaussian is an option for QM optimisations, hessian calculations and density calculations.
+QUBEKit contains alternative approaches for these calculations.
 
 Minimal conda packages are included in the conda-forge install with all optional engine packages left to the user to install.
 If there are dependency issues or version conflicts in your environment, packages can be installed individually.
@@ -156,7 +153,7 @@ To create a config file template with the name "example", containing default opt
 
     qubekit config create example.json
 
-Simply edit the sections as desired to change the method, basis set, memory etc.
+Simply edit the sections as desired to change the method, basis set, memory, etc.
 
 This config file can then be used to execute a QUBEKit job using the `--config` or `-c` flag in the run command.
 
@@ -179,7 +176,7 @@ In the case of a smiles string, the molecule must also be named with the `--name
 ### QUBEKit Commands: High Throughput
 
 Bulk commands are for high throughput analyses; they are invoked with the `bulk` keyword.
-A csv must be used when running a bulk analysis.
+A csv file must be used when running a bulk analysis.
 If you would like to generate a blank csv file, simply run the command:
 
     qubekit bulk create example.csv 
@@ -199,9 +196,9 @@ any empty columns will simply use the default values:
 * If the multiplicity column is empty, multiplicity will be set to 1; 
 * If the config column is empty, the default config is used;
 * Leaving the restart column empty will start the program from the beginning;
-* Leaving the end column empty will end the program after a full analysis.
+* Leaving the end column empty will end the program after a full analysis from its start point.
 
-A bulk analysis is called with the `run` command, followed by the name of the csv file:
+A bulk analysis is started with the `run` command, followed by the name of the csv file:
 
     qubekit bulk run example.csv
     
