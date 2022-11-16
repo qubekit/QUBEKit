@@ -91,7 +91,7 @@ class WBOFragmentation(StageBase, WBOFragmenter):
 
         return ligand
 
-    def _deduplicate_fragments(self, fragments: List["Fragment"]) -> List["Fragment"]:
+    def _deduplicate_fragments(self, original_fragments: List["Fragment"]) -> List["Fragment"]:
         """
         Remove symmetry equivalent fragments from the results. If a bond is the same and appears twice,
         it has to be computed only once.
@@ -100,9 +100,11 @@ class WBOFragmentation(StageBase, WBOFragmenter):
         """
         unique_fragments = []
 
+        sorted_fragments = sorted(original_fragments, lambda frag: frag.to_smiles(explicit_hydrogens=False))
+
         # group fragments by smiles
         for smile, fragments in itertools.groupby(
-            fragments,
+            sorted_fragments,
             lambda frag: frag.to_smiles(explicit_hydrogens=False),
         ):
             fragments = list(fragments)
