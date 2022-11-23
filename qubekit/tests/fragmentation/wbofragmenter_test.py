@@ -68,7 +68,7 @@ def test_fragment_deduplication_symmetry_equivalent(symmetry_fragments):
     )
     fragmenter = WBOFragmentation()
     deduplicated_fragments = fragmenter._deduplicate_fragments(
-        fragments=symmetry_fragments.fragments
+        symmetry_fragments.fragments
     )
     # we should have one molecule with one scan
     assert len(deduplicated_fragments) == 1
