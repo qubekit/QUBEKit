@@ -112,7 +112,7 @@ water_models_local = {
         "LocalCoordinateVirtualSites": [
             {
                 "smirks": "[#1:2]-[#8X2H2+0:1]-[#1:3]",
-                "type": "local",
+                "type": "water",
                 "name": "q-tip4p-fb-v",
                 "x_local": 0.010527 * unit.nanometers,
                 "y_local": 0.0 * unit.nanometers,

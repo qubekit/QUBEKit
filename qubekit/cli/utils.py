@@ -219,6 +219,9 @@ class LocalVirtualSite(VirtualSite):
         p2: unit.Quantity,
         p3: unit.Quantity,
         name: str,
+        o_weights: List[float],
+        x_weights: List[float],
+        y_weights: List[float],
         orientations: List[Tuple[int, ...]],
     ):
 
@@ -226,6 +229,9 @@ class LocalVirtualSite(VirtualSite):
         self._p1 = p1.in_units_of(unit.nanometer)
         self._p2 = p2.in_units_of(unit.nanometer)
         self._p3 = p3.in_units_of(unit.nanometer)
+        self._o_weights = o_weights
+        self._x_weights = x_weights
+        self._y_weights = y_weights
 
     @property
     def p1(self):
@@ -256,11 +262,7 @@ class LocalVirtualSite(VirtualSite):
 
     @property
     def local_frame_weights(self):
-        o_weights = [1.0, 0.0, 0.0]
-        x_weights = [-1.0, 1.0, 0.0]
-        y_weights = [-1.0, 0.0, 1.0]
-
-        return o_weights, x_weights, y_weights
+        return self._o_weights, self._x_weights, self._y_weights
 
     @property
     def local_frame_position(self):
@@ -294,7 +296,9 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
 
         name = ParameterAttribute(default="EP", converter=str)
         match = ParameterAttribute(default="once", converter=_allow_only(["once"]))
-        type = ParameterAttribute(default="local", converter=str)
+        type = ParameterAttribute(
+            default="local", converter=_allow_only(["local", "water"])
+        )
         x_local = ParameterAttribute(unit=unit.nanometers)
         y_local = ParameterAttribute(unit=unit.nanometers)
         z_local = ParameterAttribute(unit=unit.nanometers)
@@ -307,18 +311,30 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
             """The parent is always the first index in a qubekit vsite"""
             return 0
 
-        def to_openmm_particle(
+        def get_weights(
             self, particle_indices: Tuple[int, ...]
-        ) -> openmm.LocalCoordinatesSite:
-            """Create an openmm local coord site based on the predefined weights using in QUBEKit"""
+        ) -> Tuple[List[float], ...]:
             if len(particle_indices) == 4:
                 o_weights = [1.0, 0.0, 0.0, 0.0]
                 x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
                 y_weights = [1.0, -1.0, 0.0, 0.0]
+            elif self.type == "water":
+                o_weights = [1.0, 0.0, 0.0]
+                x_weights = [-1.0, 0.5, 0.5]
+                y_weights = [-1.0, 1.0, 0.0]
             else:
                 o_weights = [1.0, 0.0, 0.0]
                 x_weights = [-1.0, 1.0, 0.0]
                 y_weights = [-1.0, 0.0, 1.0]
+            return o_weights, x_weights, y_weights
+
+        def to_openmm_particle(
+            self, particle_indices: Tuple[int, ...]
+        ) -> openmm.LocalCoordinatesSite:
+            """Create an openmm local coord site based on the predefined weights using in QUBEKit"""
+            o_weights, x_weights, y_weights = self.get_weights(
+                particle_indices=particle_indices
+            )
             return openmm.LocalCoordinatesSite(
                 *particle_indices,
                 openmm.Vec3(*o_weights),
@@ -328,7 +344,15 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
             )
 
         def to_openff_particle(self, orientations: List[Tuple[int, ...]]):
-            values_dict = {"p1": self.x_local, "p2": self.y_local, "p3": self.z_local}
+            o_weights, x_weights, y_weights = self.get_weights(orientations[0])
+            values_dict = {
+                "p1": self.x_local,
+                "p2": self.y_local,
+                "p3": self.z_local,
+                "o_weights": o_weights,
+                "x_weights": x_weights,
+                "y_weights": y_weights,
+            }
             return LocalVirtualSite(
                 name=self.name, orientations=orientations, **values_dict
             )
