@@ -251,6 +251,9 @@ class LocalVirtualSite(VirtualSite):
         vsite_dict["p2"] = self._p2
         vsite_dict["p3"] = self._p3
         vsite_dict["vsite_type"] = self.type
+        vsite_dict["o_weights"] = self._o_weights
+        vsite_dict["x_weights"] = self._x_weights
+        vsite_dict["y_weights"] = self._y_weights
         return vsite_dict
 
     @classmethod
@@ -297,7 +300,7 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
         name = ParameterAttribute(default="EP", converter=str)
         match = ParameterAttribute(default="once", converter=_allow_only(["once"]))
         type = ParameterAttribute(
-            default="local", converter=_allow_only(["local", "water"])
+            default="local3p", converter=_allow_only(["local3p", "local4p", "water"])
         )
         x_local = ParameterAttribute(unit=unit.nanometers)
         y_local = ParameterAttribute(unit=unit.nanometers)
@@ -311,10 +314,8 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
             """The parent is always the first index in a qubekit vsite"""
             return 0
 
-        def get_weights(
-            self, particle_indices: Tuple[int, ...]
-        ) -> Tuple[List[float], ...]:
-            if len(particle_indices) == 4:
+        def get_weights(self) -> Tuple[List[float], ...]:
+            if self.type == "local4p":
                 o_weights = [1.0, 0.0, 0.0, 0.0]
                 x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
                 y_weights = [1.0, -1.0, 0.0, 0.0]
@@ -336,15 +337,15 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
                 particle_indices=particle_indices
             )
             return openmm.LocalCoordinatesSite(
-                *particle_indices,
-                openmm.Vec3(*o_weights),
-                openmm.Vec3(*x_weights),
-                openmm.Vec3(*y_weights),
+                particle_indices,
+                o_weights,
+                x_weights,
+                y_weights,
                 openmm.Vec3(self.x_local, self.y_local, self.z_local),
             )
 
         def to_openff_particle(self, orientations: List[Tuple[int, ...]]):
-            o_weights, x_weights, y_weights = self.get_weights(orientations[0])
+            o_weights, x_weights, y_weights = self.get_weights()
             values_dict = {
                 "p1": self.x_local,
                 "p2": self.y_local,

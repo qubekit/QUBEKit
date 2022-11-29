@@ -342,7 +342,7 @@ def test_combine_cli_all_offxml(
             # we are using the normal format so make sure it complies
             ff = ForceField("combined.offxml")
             vdw_handler = ff.get_parameter_handler("vdW")
-            assert len(vdw_handler.parameters) == 34
+            assert len(vdw_handler.parameters) == 32
 
 
 @pytest.mark.parametrize(
@@ -1027,6 +1027,7 @@ def test_offxml_constraints(acetone, water, openff, tmpdir, rfree_data):
             rfree_data=rfree_data,
             filename="combined.offxml",
             h_constraints=True,
+            water_model="tip3p",
         )
 
         combinded_ff = ForceField("combined.offxml")

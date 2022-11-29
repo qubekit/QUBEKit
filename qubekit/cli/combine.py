@@ -54,9 +54,7 @@ water_options = click.Choice(list(water_models_normal.keys()), case_sensitive=Tr
     "-w",
     "--water-model",
     type=water_options,
-    help="The name of the water model to include in an offxml.",
-    show_default=True,
-    default="tip3p",
+    help="The name of a published water model to include in an offxml Note this will cause a clash if used with a QUBEKit local model.",
 )
 @click.option(
     "-h-con",
@@ -141,7 +139,7 @@ def _combine_molecules_offxml(
     parameters: List[str],
     rfree_data: Dict[str, Dict[str, Union[str, float]]],
     filename: str,
-    water_model: Literal["tip3p"] = "tip3p",
+    water_model: Optional[Literal["tip3p", "tip4p-fb"]] = None,
     h_constraints: bool = True,
 ) -> None:
     """
@@ -278,9 +276,10 @@ def _combine_molecules_offxml(
         # deregister the handler if not in use
         offxml.deregister_parameter_handler("LocalCoordinateVirtualSites")
 
-    _add_water_model(
-        force_field=offxml, water_model=water_model, use_local_sites=use_local_sites
-    )
+    if water_model is not None:
+        _add_water_model(
+            force_field=offxml, water_model=water_model, use_local_sites=use_local_sites
+        )
     offxml.to_file(filename=filename)
 
 

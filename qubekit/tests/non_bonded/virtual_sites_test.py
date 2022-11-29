@@ -313,3 +313,19 @@ def test_vsite_reg(methanol, vs, tmpdir):
         # work out the distance
         for site in sites:
             assert np.linalg.norm(center_atom - site) == pytest.approx(0.29, abs=0.01)
+
+
+def test_vsite_no_sites(vs, tmpdir):
+    """
+    QUBEKit was saving 1 site even if the error was not lower than the threshold make sure this is not the case now
+    """
+
+    with tmpdir.as_cwd():
+        mol = Ligand.parse_file(get_data("no_sites_fit.json"))
+        assert mol.extra_sites.n_sites == 0
+        vs.run(molecule=mol)
+        assert mol.extra_sites.n_sites == 0
+        with open(os.path.join(mol.name, "site_results.txt")) as site_data:
+            data_line = site_data.readlines()[0]
+            # make sure it says no sites were saved
+            assert data_line.startswith("No virtual sites have been added")

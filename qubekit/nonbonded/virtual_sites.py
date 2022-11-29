@@ -55,7 +55,7 @@ class VirtualSites(StageBase):
 
     type: Literal["VirtualSites"] = "VirtualSites"
     site_error_factor: float = Field(
-        1.005,
+        1.1,
         description="The factor by which a site must reduce the error before being accepted.",
         gt=0,
     )
@@ -986,24 +986,38 @@ class VirtualSites(StageBase):
 
         with open("site_results.txt", "a+") as site_file:
 
-            if one_site_error < two_site_error * self.site_error_factor:
-                site_file.write(
-                    f"One virtual site has been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
-                    f"No site error: {site_errors[0]: .4f}    One site error: {site_errors[1]: .4f}\n"
-                )
-                self._v_sites_coords.extend(one_site_coords)
-                self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
-                    one_site_coords[0][1]
-                )
+            if (
+                no_site_error > one_site_error * self.site_error_factor
+                or no_site_error > two_site_error * self.site_error_factor
+            ):
 
+                if one_site_error < two_site_error * self.site_error_factor:
+                    site_file.write(
+                        f"One virtual site has been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
+                        f"No site error: {site_errors[0]: .4f}    One site error: {site_errors[1]: .4f}    Two sites error: {site_errors[2]: .4f}\n"
+                    )
+                    self._v_sites_coords.extend(one_site_coords)
+                    self._molecule.NonbondedForce[
+                        (atom_index,)
+                    ].charge -= decimal.Decimal(one_site_coords[0][1])
+
+                else:
+                    site_file.write(
+                        f"Two virtual sites have been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
+                        f"No site error: {site_errors[0]: .4f}    One site error: {site_errors[1]: .4f}    Two sites error: {site_errors[2]: .4f}\n"
+                    )
+                    self._v_sites_coords.extend(two_site_coords)
+                    self._molecule.NonbondedForce[
+                        (atom_index,)
+                    ].charge -= decimal.Decimal(
+                        two_site_coords[0][1] + two_site_coords[1][1]
+                    )
             else:
                 site_file.write(
-                    f"Two virtual sites have been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
-                    f"No site error: {site_errors[0]: .4f}    Two sites error: {site_errors[2]: .4f}\n"
-                )
-                self._v_sites_coords.extend(two_site_coords)
-                self._molecule.NonbondedForce[(atom_index,)].charge -= decimal.Decimal(
-                    two_site_coords[0][1] + two_site_coords[1][1]
+                    f"No virtual sites have been added to atom {self._molecule.atoms[atom_index].atom_name} as they do "
+                    f"not significantly lower the error, to change the error reduction threshold see the "
+                    f"`site_error_factor` parameter\n"
+                    f"No site error: {site_errors[0]: .4f}    One site error: {site_errors[1]: .4f}    Two sites error: {site_errors[2]: .4f}\n"
                 )
         self._plot(atom_index, site_errors, one_site_coords, two_site_coords)
 
@@ -1196,7 +1210,6 @@ class VirtualSites(StageBase):
                 x_dir /= np.linalg.norm(x_dir)
 
                 site_data["p2"] = 0
-                site_data["p3"] = 0
 
                 site_data["o_weights"] = [1.0, 0.0, 0.0, 0.0]  # SUM MUST BE 1.0
                 site_data["x_weights"] = [-1.0, 0.33333333, 0.33333333, 0.33333333]
