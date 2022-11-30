@@ -1659,10 +1659,13 @@ class Molecule(SchemaBase):
                     "x_local": site.p1 * unit.nanometers,
                     "y_local": site.p2 * unit.nanometers,
                     "z_local": site.p3 * unit.nanometers,
+                    "o_weights": site.o_weights,
+                    "x_weights": site.x_weights,
+                    "y_weights": site.y_weights,
                     "charge": site.charge * unit.elementary_charge,
                     "epsilon": 0 * unit.kilojoule_per_mole,
                     "sigma": 1 * unit.nanometer,
-                    "type": site_type,
+                    "type": "local",
                 }
             )
             local_vsites._parameters.append(vsite_parameter)

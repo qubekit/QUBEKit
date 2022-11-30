@@ -14,6 +14,7 @@ from openff.toolkit.typing.engines.smirnoff.parameters import (
     ChargeIncrementModelHandler,
     ConstraintHandler,
     ElectrostaticsHandler,
+    IndexedParameterAttribute,
     LibraryChargeHandler,
     ParameterAttribute,
     ParameterHandler,
@@ -299,12 +300,13 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
 
         name = ParameterAttribute(default="EP", converter=str)
         match = ParameterAttribute(default="once", converter=_allow_only(["once"]))
-        type = ParameterAttribute(
-            default="local3p", converter=_allow_only(["local3p", "local4p", "water"])
-        )
+        type = ParameterAttribute(default="local", converter=_allow_only(["local"]))
         x_local = ParameterAttribute(unit=unit.nanometers)
         y_local = ParameterAttribute(unit=unit.nanometers)
         z_local = ParameterAttribute(unit=unit.nanometers)
+        o_weights = IndexedParameterAttribute(converter=float)
+        x_weights = IndexedParameterAttribute(converter=float)
+        y_weights = IndexedParameterAttribute(converter=float)
         charge = ParameterAttribute(unit=unit.elementary_charge)
         sigma = ParameterAttribute(unit=unit.nanometer)
         epsilon = ParameterAttribute(unit.kilojoule_per_mole)
@@ -315,27 +317,13 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
             return 0
 
         def get_weights(self) -> Tuple[List[float], ...]:
-            if self.type == "local4p":
-                o_weights = [1.0, 0.0, 0.0, 0.0]
-                x_weights = [-1.0, 0.33333333, 0.33333333, 0.33333333]
-                y_weights = [1.0, -1.0, 0.0, 0.0]
-            elif self.type == "water":
-                o_weights = [1.0, 0.0, 0.0]
-                x_weights = [-1.0, 0.5, 0.5]
-                y_weights = [-1.0, 1.0, 0.0]
-            else:
-                o_weights = [1.0, 0.0, 0.0]
-                x_weights = [-1.0, 1.0, 0.0]
-                y_weights = [-1.0, 0.0, 1.0]
-            return o_weights, x_weights, y_weights
+            return self.o_weights, self.x_weights, self.y_weights
 
         def to_openmm_particle(
             self, particle_indices: Tuple[int, ...]
         ) -> openmm.LocalCoordinatesSite:
             """Create an openmm local coord site based on the predefined weights using in QUBEKit"""
-            o_weights, x_weights, y_weights = self.get_weights(
-                particle_indices=particle_indices
-            )
+            o_weights, x_weights, y_weights = self.get_weights()
             return openmm.LocalCoordinatesSite(
                 particle_indices,
                 o_weights,

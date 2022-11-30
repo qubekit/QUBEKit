@@ -1165,9 +1165,11 @@ class VirtualSites(StageBase):
 
     def _save_virtual_sites(self):
         """
-        Take the v_site_coords generated and insert them into the Ligand object as molecule.extra_sites.
+        Take the v_site_coords generated and insert them into the Ligand object as molecule.extra_sites a proxy for
+        an Openmm.LocalCoordinatesSite
 
-        Uses the coordinates to generate the necessary position vectors to be used in the xml.
+        Uses the coordinates to generate the necessary position vectors to be used in the OpenMM xml format to match
+        as close as possible to the true position used for fitting.
         """
 
         # Prevent duplication of sites.
@@ -1193,29 +1195,83 @@ class VirtualSites(StageBase):
 
             # Get the xyz coordinates of the reference atoms
             parent_coords = self._coords[parent]
-            close_a_coords = self._coords[closest_atoms[0]]
-            close_b_coords = self._coords[closest_atoms[1]]
+            # close_a_coords = self._coords[closest_atoms[0]]
+            # close_b_coords = self._coords[closest_atoms[1]]
 
-            site_data["closest_a_index"] = closest_atoms[0]
-            site_data["closest_b_index"] = closest_atoms[1]
+            # site_data["closest_a_index"] = closest_atoms[0]
+            # site_data["closest_b_index"] = closest_atoms[1]
 
             parent_atom = self._molecule.atoms[parent]
-            if parent_atom.atomic_symbol == "N" and len(parent_atom.bonds) == 3:
-                close_c_coords = self._coords[closest_atoms[2]]
-                site_data["closest_c_index"] = closest_atoms[2]
 
-                x_dir = (
-                    (close_a_coords + close_b_coords + close_c_coords) / 3
-                ) - parent_coords
+            # workout if this is the special Amine bisecting H vector which should not use a 4 point method
+            amine_special_case = False
+            amine_hs = [
+                atom
+                for atom in parent_atom.bonds
+                if self._molecule.atoms[atom].atomic_symbol == "H"
+            ]
+            if (
+                parent_atom.atomic_symbol == "N"
+                and len(amine_hs) == 2
+                and parent in self._molecule.extra_sites.sites
+            ):
+                # Only applies to the second site created as the first is always along the normal to the plane of the
+                # other atoms connected to the N
+                amine_special_case = True
+
+            if amine_special_case:
+                # we need a special case for amines which bisects the Hs pointing to N for one of the sites
+                h_a_coords = self._coords[amine_hs[0]]
+                h_b_coords = self._coords[amine_hs[1]]
+                r_ha = parent_coords - h_a_coords
+                r_hb = parent_coords - h_b_coords
+                x_dir = r_ha + r_hb
                 x_dir /= np.linalg.norm(x_dir)
 
+                # we want to only depend on the hs
+                site_data["closest_a_index"] = amine_hs[0]
+                site_data["closest_b_index"] = amine_hs[1]
+                site_data["o_weights"] = [1.0, 0.0, 0.0]
+                site_data["x_weights"] = [1.0, -0.5, -0.5]
+                site_data["y_weights"] = [-1.0, 0.0, 1.0]
                 site_data["p2"] = 0
+                site_data["p3"] = 0
 
+            elif len(parent_atom.bonds) == 3:
+                # close_c_coords = self._coords[closest_atoms[2]]
+                site_data["closest_a_index"] = closest_atoms[0]
+                site_data["closest_b_index"] = closest_atoms[1]
+                site_data["closest_c_index"] = closest_atoms[2]
+
+                # always the same by construction
                 site_data["o_weights"] = [1.0, 0.0, 0.0, 0.0]  # SUM MUST BE 1.0
-                site_data["x_weights"] = [-1.0, 0.33333333, 0.33333333, 0.33333333]
+                site_data["p2"] = 0
+                site_data["p3"] = 0
+
+                # these weights don't matter by construction
                 site_data["y_weights"] = [1.0, -1.0, 0.0, 0.0]
 
+                # x_dir = (
+                #     (close_a_coords + close_b_coords + close_c_coords) / 3
+                # ) - parent_coords
+                # x_dir /= np.linalg.norm(x_dir)
+
+                x_dir, x_weights = self._find_4_point_x_dir(
+                    parent_index=parent,
+                    atom_indices=[closest_atoms[0], closest_atoms[1], closest_atoms[2]],
+                )
+
+                # site_data["p2"] = 0
+                # site_data["p3"] = 0
+
+                # site_data["o_weights"] = [1.0, 0.0, 0.0, 0.0]  # SUM MUST BE 1.0
+                site_data["x_weights"] = [1.0, *x_weights]
+                # site_data["y_weights"] = [1.0, -1.0, 0.0, 0.0]
+
             else:
+                close_a_coords = self._coords[closest_atoms[0]]
+                close_b_coords = self._coords[closest_atoms[1]]
+
                 x_dir = close_a_coords - parent_coords
                 x_dir /= np.linalg.norm(x_dir)
 
@@ -1250,3 +1306,68 @@ class VirtualSites(StageBase):
             self._molecule.extra_sites.create_site(**site_data)
 
         assert self._molecule.extra_sites.n_sites == len(self._v_sites_coords)
+
+    def _find_4_point_x_dir(
+        self, parent_index: int, atom_indices: List[int]
+    ) -> Tuple[np.array, np.array]:
+        """
+        To recreate a site that depends on 4 points in OpenMM which can invert we need to calculate the vector
+        corresponding to the projection of the parent atom onto the plane formed by the 3 bonded atoms. The bisecting
+        point must be formed by the linear combination of the 3 atoms so we must find the vector and the weights
+        used to form the vector.
+
+        Returns:
+            x_dir: np.array
+                The vector on which the sites lie on
+            weights: np.array
+                The weights used to form the projection vector
+        """
+        # find the normal to plane formed by the 3 atoms
+        atom1_index, atom2_index, atom3_index = atom_indices
+        atom1_coords, atom2_coords, atom3_coords, parent_coords = (
+            self._coords[atom1_index],
+            self._coords[atom2_index],
+            self._coords[atom3_index],
+            self._coords[parent_index],
+        )
+        # construct the same way as _get_vector_from_coords
+        normal_vec = np.cross(
+            (atom1_coords - atom2_coords), (atom3_coords - atom2_coords)
+        )
+        normal_vec /= np.linalg.norm(normal_vec)
+        # project the parent coords onto the plane
+        parent_distance = np.dot(parent_coords, normal_vec)
+        projected_point = parent_coords - parent_distance * normal_vec
+
+        def _distance_func(
+            weights: np.array,
+            atom1: np.array,
+            atom2: np.array,
+            atom3: np.array,
+            target: np.array,
+        ) -> float:
+            "A function used in the minimisation to find the weights for the projection vector"
+            bisector = np.dot(weights, [atom1, atom2, atom3])
+            return np.linalg.norm(bisector - target)
+
+        def _constraint(x: np.array) -> float:
+            return 1 - x.sum()
+
+        # find the weights which can remake the projection point
+        error = minimize(
+            _distance_func,
+            np.array([1 / 3, 1 / 3, 1 / 3]),
+            args=(atom1_coords, atom2_coords, atom3_coords, projected_point),
+            constraints={"type": "eq", "fun": _constraint},
+        )
+        assert (
+            error.fun < 1e2
+        ), f"The 4 point site could not be converted correctly to openmm format distance to position {error.fun}"
+
+        # make the openmm normal vector
+        openmm_vec = parent_coords - np.dot(
+            error.x, [atom1_coords, atom2_coords, atom3_coords]
+        )
+        openmm_vec /= np.linalg.norm(openmm_vec)
+
+        return openmm_vec, -1 * error.x
