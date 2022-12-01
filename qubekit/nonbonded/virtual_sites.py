@@ -55,7 +55,7 @@ class VirtualSites(StageBase):
 
     type: Literal["VirtualSites"] = "VirtualSites"
     site_error_factor: float = Field(
-        1.1,
+        1.005,
         description="The factor by which a site must reduce the error before being accepted.",
         gt=0,
     )
@@ -1271,6 +1271,8 @@ class VirtualSites(StageBase):
             else:
                 close_a_coords = self._coords[closest_atoms[0]]
                 close_b_coords = self._coords[closest_atoms[1]]
+                site_data["closest_a_index"] = closest_atoms[0]
+                site_data["closest_b_index"] = closest_atoms[1]
 
                 x_dir = close_a_coords - parent_coords
                 x_dir /= np.linalg.norm(x_dir)
