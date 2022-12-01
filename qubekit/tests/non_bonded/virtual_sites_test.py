@@ -4,9 +4,14 @@ import os
 from tempfile import TemporaryDirectory
 
 import numpy as np
+import openmm
 import pytest
+from openff.toolkit.topology import Molecule
+from openff.toolkit.typing.engines.smirnoff import ForceField
+from openmm import app, unit
 
 from qubekit.charges import DDECCharges, ExtractChargeData
+from qubekit.forcefield import VirtualSite3Point, VirtualSite4Point
 from qubekit.molecules import Ligand
 from qubekit.nonbonded.protocols import cl_base, get_protocol
 from qubekit.parametrisation import OpenFF
@@ -313,3 +318,76 @@ def test_vsite_reg(methanol, vs, tmpdir):
         # work out the distance
         for site in sites:
             assert np.linalg.norm(center_atom - site) == pytest.approx(0.29, abs=0.01)
+
+
+def test_vsite_no_sites(vs, tmpdir):
+    """
+    QUBEKit was saving 1 site even if the error was not lower than the threshold make sure this is not the case now
+    """
+
+    with tmpdir.as_cwd():
+        mol = Ligand.parse_file(get_data("no_sites_fit.json"))
+        assert mol.extra_sites.n_sites == 0
+        vs.run(molecule=mol)
+        assert mol.extra_sites.n_sites == 0
+        with open(os.path.join(mol.name, "site_results.txt")) as site_data:
+            data_line = site_data.readlines()[0]
+            # make sure it says no sites were saved
+            assert data_line.startswith("No virtual sites have been added")
+
+
+def test_amine_special_case(tmpdir, vs):
+    """
+    Make sure amine special case v-sites are correctly saved to the QK model and wrote to XML and OFFXML
+    """
+
+    with tmpdir.as_cwd():
+        mol = Ligand.parse_file(get_data("methylamine.json"))
+        assert mol.extra_sites.n_sites == 0
+        vs.run(molecule=mol)
+        # we should two sites the first a 4point the second 3 point special case
+        assert mol.extra_sites.n_sites == 2
+        sites = mol.extra_sites[1]
+        assert type(sites[0]) == VirtualSite4Point
+        assert type(sites[1]) == VirtualSite3Point
+        # make sure the second site only depends on Hs
+        assert mol.atoms[sites[1].closest_a_index].atomic_symbol == "H"
+        assert mol.atoms[sites[1].closest_b_index].atomic_symbol == "H"
+
+        # load both models into openmm and make sure the site positions are the same
+        mol.to_offxml("sites.offxml")
+        mol.write_parameters("sites.xml")
+
+        offxml = ForceField("sites.offxml", load_plugins=True)
+        off_mol = Molecule.from_rdkit(mol.to_rdkit())
+        # check the sites are constructed at a random conformation
+        off_mol.generate_conformers(n_conformers=1, clear_existing=True)
+        positions = off_mol.conformers[0].value_in_unit(unit.angstroms)
+        # pad with dummy space
+        padded_pos = np.vstack([positions, [0, 0, 0], [0, 0, 0]])
+        off_system = offxml.create_openmm_system(off_mol.to_topology())
+        integrator = openmm.LangevinIntegrator(
+            300 * unit.kelvin, 1 / unit.picosecond, 0.5 * unit.femtosecond
+        )
+        off_context = openmm.Context(off_system, integrator)
+        off_context.setPositions(padded_pos * unit.angstroms)
+        off_context.computeVirtualSites()
+        off_state = off_context.getState(getPositions=True)
+        off_site_pos = off_state.getPositions().value_in_unit(unit.angstroms)
+
+        xml_ff = app.ForceField("sites.xml")
+        modeller = app.Modeller(
+            topology=mol.to_openmm_topology(), positions=off_mol.conformers[0]
+        )
+        modeller.addExtraParticles(forcefield=xml_ff)
+        xml_system = xml_ff.createSystem(topology=modeller.topology)
+        integrator = openmm.LangevinIntegrator(
+            300 * unit.kelvin, 1 / unit.picosecond, 0.5 * unit.femtosecond
+        )
+        xml_context = openmm.Context(xml_system, integrator)
+        xml_context.setPositions(modeller.positions)
+        xml_context.computeVirtualSites()
+        xml_state = xml_context.getState(getPositions=True)
+        xml_site_pos = xml_state.getPositions().value_in_unit(unit.angstroms)
+
+        assert np.allclose(off_site_pos, xml_site_pos)

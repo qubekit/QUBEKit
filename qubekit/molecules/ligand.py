@@ -1642,17 +1642,14 @@ class Molecule(SchemaBase):
         local_vsites = offxml.get_parameter_handler("LocalCoordinateVirtualSites")
         # we need to work around duplicate smirks patterns so we add them our self
         for i, site in enumerate(self.extra_sites):
+            site_type = "local3p" if site.type == "VirtualSite3Point" else "local4p"
+            atoms = [site.parent_index, site.closest_a_index, site.closest_b_index]
+            if site_type == "local4p":
+                atoms.append(site.closest_c_index)
+
             graph = ClusterGraph(
                 mols=[rdkit_mol],
-                smirks_atoms_lists=[
-                    [
-                        (
-                            site.parent_index,
-                            site.closest_a_index,
-                            site.closest_b_index,
-                        )
-                    ]
-                ],
+                smirks_atoms_lists=[[atoms]],
                 layers="all",
             )
             vsite_parameter = local_vsites._INFOTYPE(
@@ -1662,9 +1659,13 @@ class Molecule(SchemaBase):
                     "x_local": site.p1 * unit.nanometers,
                     "y_local": site.p2 * unit.nanometers,
                     "z_local": site.p3 * unit.nanometers,
+                    "o_weights": site.o_weights,
+                    "x_weights": site.x_weights,
+                    "y_weights": site.y_weights,
                     "charge": site.charge * unit.elementary_charge,
                     "epsilon": 0 * unit.kilojoule_per_mole,
                     "sigma": 1 * unit.nanometer,
+                    "type": "local",
                 }
             )
             local_vsites._parameters.append(vsite_parameter)
