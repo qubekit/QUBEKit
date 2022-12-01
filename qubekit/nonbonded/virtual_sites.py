@@ -1313,8 +1313,7 @@ class VirtualSites(StageBase):
         """
         To recreate a site that depends on 4 points in OpenMM which can invert we need to calculate the vector
         corresponding to the projection of the parent atom onto the plane formed by the 3 bonded atoms. The bisecting
-        point must be formed by the linear combination of the 3 atoms so we must find the vector and the weights
-        used to form the vector.
+        point must be formed by the linear combination of the 3 atoms that make the plane so we must find these weights.
 
         Returns:
             x_dir: np.array
@@ -1351,6 +1350,7 @@ class VirtualSites(StageBase):
             return np.linalg.norm(bisector - target)
 
         def _constraint(x: np.array) -> float:
+            "The total of the weights must add to 1"
             return 1 - x.sum()
 
         # find the weights which can remake the projection point
@@ -1369,5 +1369,6 @@ class VirtualSites(StageBase):
             error.x, [atom1_coords, atom2_coords, atom3_coords]
         )
         openmm_vec /= np.linalg.norm(openmm_vec)
-
+        # times the weights by -1 so that when we construct the total
+        # vector it points towards the parent from the plane
         return openmm_vec, -1 * error.x
