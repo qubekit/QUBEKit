@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import math
-import os
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from pydantic import Field
@@ -68,40 +67,6 @@ class LennardJones612(StageBase):
                 "Please supply Rfree data for polar hydrogen using the symbol X is `lj_on_polar_h` is True"
             )
 
-    def extract_rfrees(self):
-        """
-        Open any .out files from ForceBalance and read in the relevant parameters.
-        Parameters are taken from the "Final physical parameters" section and stored
-        to be used in the proceeding LJ calculations.
-        """
-        # TODO remove this method and use Rfree in the config
-        for file in os.listdir("../../"):
-            if file.endswith(".out"):
-                with open(f"../../{file}") as opt_file:
-                    lines = opt_file.readlines()
-                    for i, line in enumerate(lines):
-                        if "Final physical parameters" in line:
-                            lines = lines[i:]
-                            break
-                    else:
-                        # don't raise an error if we search a random output file
-                        print(
-                            f"Could not find final parameters in ForceBalance file {file}."
-                        )
-                for line in lines:
-                    for k, v in self.free_parameters.items():
-                        if f"{k}Element" in line:
-                            self.free_parameters[k] = FreeParams(
-                                v.v_free, v.b_free, float(line.split(" ")[6])
-                            )
-                            print(f"Updated {k}free parameter from ForceBalance file.")
-                    if "xalpha" in line:
-                        self.alpha = float(line.split(" ")[6])
-                        print("Updated alpha parameter from ForceBalance file.")
-                    elif "xbeta" in line:
-                        self.beta = float(line.split(" ")[6])
-                        print("Updated beta parameter from ForceBalance file.")
-
     def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         Use the reference AIM data in the molecule to calculate the Non-bonded (non-electrostatic) terms for the forcefield.
@@ -112,8 +77,6 @@ class LennardJones612(StageBase):
         """
 
         self.check_element_coverage(molecule=molecule)
-
-        self.extract_rfrees()
 
         # Calculate initial a_is and b_is
         lj_data = self._calculate_lj_data(molecule=molecule)
