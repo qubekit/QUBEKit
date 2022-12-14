@@ -71,6 +71,19 @@ class WorkFlow(SchemaBase):
 
     _results_fname: str = PrivateAttr("workflow_result.json")
 
+    _default_workflow: ClassVar[List[str]] = [
+        "fragmentation",
+        "parametrisation",
+        "optimisation",
+        "hessian",
+        "charges",
+        "virtual_sites",
+        "non_bonded",
+        "bonded_parameters",
+        "torsion_scanner",
+        "torsion_optimisation",
+    ]
+
     @classmethod
     def from_results(cls, results: WorkFlowResult):
         """Build a workflow from the provenance info in the results object."""
@@ -142,18 +155,8 @@ class WorkFlow(SchemaBase):
         Returns:
             A list of stage names in the order they will be ran in.
         """
-        normal_workflow = [
-            "fragmentation",
-            "parametrisation",
-            "optimisation",
-            "hessian",
-            "charges",
-            "virtual_sites",
-            "non_bonded",
-            "bonded_parameters",
-            "torsion_scanner",
-            "torsion_optimisation",
-        ]
+        normal_workflow = cls._default_workflow.copy()
+
         if skip_stages is not None:
             for stage in skip_stages:
                 try:
@@ -202,12 +205,19 @@ class WorkFlow(SchemaBase):
         """
         Add any optional stages which are skipped when not supplied, to the skip stages list.
         """
-        if self.virtual_sites is None and skip_stages is not None:
-            # we get a tuple from click so we can not append
-            return [*skip_stages, "virtual_sites"]
 
-        elif self.virtual_sites is None and skip_stages is None:
-            return ["virtual_sites"]
+        optional_stages = []
+        for stage_name in self._default_workflow:
+            stage = getattr(self, stage_name)
+            if stage is None:
+                optional_stages.append(stage_name)
+
+        if optional_stages and skip_stages is not None:
+            # we get a tuple from click so we can not append
+            return [*skip_stages, *optional_stages]
+
+        elif optional_stages and skip_stages is None:
+            return [*optional_stages]
 
         return skip_stages
 
