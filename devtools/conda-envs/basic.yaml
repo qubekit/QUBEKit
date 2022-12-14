@@ -25,7 +25,7 @@ dependencies:
   - click
   - chargemol
   - qcelemental >=0.19.0
-  - forcebalance
+  - forcebalance=1.9.3
   - pymbar=3.0.7
   - jinja2
   - typing-extensions

@@ -17,7 +17,7 @@ dependencies:
   - openff-fragmenter
   - ambertools
   - pydantic
-  - forcebalance
+  - forcebalance=1.9.3
   - pymbar=3.0.7
   - rdkit
   - tqdm
