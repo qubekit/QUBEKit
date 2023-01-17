@@ -165,7 +165,7 @@ class QUBEKitHandler(vdWHandler):
                 )
                 for match in matches:
                     qb_mol.atoms[match[0]].aim.volume = parameter.volume.value_in_unit(
-                        unit.angstroms**3
+                        unit.bohr**3
                     )
             # make sure all atoms in the molecule have volumes, assign dummy values
             for i in range(qb_mol.n_atoms):

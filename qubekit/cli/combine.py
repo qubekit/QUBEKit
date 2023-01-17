@@ -242,7 +242,7 @@ def _combine_molecules_offxml(
             if using_plugin:
                 # this is to be refit
                 atom = molecule.atoms[qube_non_bond.atoms[0]]
-                atom_data["volume"] = atom.aim.volume * unit.angstroms**3
+                atom_data["volume"] = atom.aim.volume * unit.bohr**3
             else:
                 atom_data["epsilon"] = qube_non_bond.epsilon * unit.kilojoule_per_mole
                 atom_data["sigma"] = qube_non_bond.sigma * unit.nanometers
