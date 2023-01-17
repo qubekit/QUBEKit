@@ -318,11 +318,7 @@ class WorkFlow(SchemaBase):
         results.to_file(filename=self._results_fname)
         # write out final parameters
         with folder_setup("final_parameters"):
-            # if we have U-B terms we need to write a non-standard pdb file
-            if molecule.has_ub_terms():
-                molecule._to_ub_pdb()
-            else:
-                molecule.to_file(file_name=f"{molecule.name}.pdb")
+            molecule.to_file(file_name=f"{molecule.name}.pdb")
             molecule.write_parameters(file_name=f"{molecule.name}.xml")
             # write out the offxml with h-bond constraints
             molecule.to_offxml(file_name=f"{molecule.name}.offxml", h_constraints=True)

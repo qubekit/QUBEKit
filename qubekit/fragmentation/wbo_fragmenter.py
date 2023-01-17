@@ -73,7 +73,9 @@ class WBOFragmentation(StageBase, WBOFragmenter):
 
     def _run(self, molecule: Ligand, *args, **kwargs) -> Ligand:
         # convert to an OpenFF Molecule
-        off_molecule: OFFMolecule = OFFMolecule.from_smiles(molecule.to_smiles())
+        off_molecule: OFFMolecule = OFFMolecule.from_smiles(
+            molecule.to_smiles(), allow_undefined_stereo=True
+        )
 
         fragmentation_result = self.fragment(
             off_molecule, target_bond_smarts=self.rotatable_smirks
