@@ -281,7 +281,7 @@ class ForceBalanceFitting(StageBase):
             )
 
         # now we have validated the data run the optimiser
-        return self._optimise(molecule=molecule, local_options=kwargs['local_options'])
+        return self._optimise(molecule=molecule, local_options=kwargs["local_options"])
 
     def add_target(self, target: TargetBase) -> None:
         """
@@ -331,10 +331,15 @@ class ForceBalanceFitting(StageBase):
 
             # now execute forcebalance
             with open("log.txt", "w") as log:
-                forcebalance_process = subprocess.Popen(['ForceBalance', 'optimize.in'], stdout=log, stderr=log)
+                forcebalance_process = subprocess.Popen(
+                    ["ForceBalance", "optimize.in"], stdout=log, stderr=log
+                )
 
                 import work_queue
-                workers = work_queue.Factory("local", manager_host_port=f"localhost:{wq_port}")
+
+                workers = work_queue.Factory(
+                    "local", manager_host_port=f"localhost:{wq_port}"
+                )
                 # the optimisation takes space in gas, so 1 core for each OpenMM is good enough most likely
                 workers.cores = 1
                 # divide the memory for each worker
@@ -393,9 +398,9 @@ class ForceBalanceFitting(StageBase):
 
         # select an empty socket and bind it
         sock = socket.socket()
-        sock.bind(('', 0))
+        sock.bind(("", 0))
         wq_port = sock.getsockname()[1]
-        data['wq_port'] = wq_port
+        data["wq_port"] = wq_port
 
         rendered_template = template.render(**data)
 
