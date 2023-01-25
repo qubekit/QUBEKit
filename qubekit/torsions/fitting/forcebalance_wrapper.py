@@ -331,10 +331,6 @@ class ForceBalanceFitting(StageBase):
 
             # now execute forcebalance
             with open("log.txt", "w") as log:
-                forcebalance_process = subprocess.Popen(
-                    ["ForceBalance", "optimize.in"], stdout=log, stderr=log
-                )
-
                 import work_queue
 
                 workers = work_queue.Factory(
@@ -343,12 +339,12 @@ class ForceBalanceFitting(StageBase):
                 # the optimisation takes space in gas, so 1 core for each OpenMM is good enough most likely
                 workers.cores = 1
                 # divide the memory for each worker
-                workers.memory = local_options.memory / local_options[0].cores
+                workers.memory = local_options.memory / local_options.cores
                 workers.min_workers = 1
                 workers.max_workers = local_options.cores
 
                 with workers:
-                    forcebalance_process.wait()
+                    subprocess.run("ForceBalance optimize.in", shell=True, stdout=log, stderr=log)
 
             result_ligand = self.collect_results(molecule=molecule)
             return result_ligand
@@ -398,7 +394,7 @@ class ForceBalanceFitting(StageBase):
 
         # select an empty socket and bind it
         sock = socket.socket()
-        sock.bind(("", 0))
+        sock.bind(("localhost", 0))
         wq_port = sock.getsockname()[1]
         data["wq_port"] = wq_port
 
