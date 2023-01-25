@@ -104,7 +104,7 @@ class WBOFragmentation(StageBase, WBOFragmenter):
 
         sorted_fragments = sorted(
             original_fragments,
-            key=lambda frag: frag.to_smiles(explicit_hydrogens=False)
+            key=lambda frag: frag.to_smiles(explicit_hydrogens=False),
         )
 
         # group fragments by smiles

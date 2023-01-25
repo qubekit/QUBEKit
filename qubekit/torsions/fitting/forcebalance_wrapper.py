@@ -344,7 +344,9 @@ class ForceBalanceFitting(StageBase):
                 workers.max_workers = local_options.cores
 
                 with workers:
-                    subprocess.run("ForceBalance optimize.in", shell=True, stdout=log, stderr=log)
+                    subprocess.run(
+                        "ForceBalance optimize.in", shell=True, stdout=log, stderr=log
+                    )
 
             result_ligand = self.collect_results(molecule=molecule)
             return result_ligand
