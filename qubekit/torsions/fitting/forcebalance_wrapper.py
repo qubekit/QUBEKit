@@ -13,7 +13,7 @@ from typing_extensions import Literal
 
 from qubekit.molecules import Ligand, TorsionDriveData
 from qubekit.torsions.utils import forcebalance_setup
-from qubekit.utils.datastructures import StageBase
+from qubekit.utils.datastructures import StageBase, LocalResource
 from qubekit.utils.exceptions import ForceBalanceError, MissingReferenceData
 from qubekit.utils.file_handling import get_data, make_and_change_into
 from qubekit.utils.helpers import export_torsiondrive_data
@@ -264,7 +264,7 @@ class ForceBalanceFitting(StageBase):
     def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         return self._run(molecule, *args, **kwargs)
 
-    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         The main run method of the ForceBalance torsion optimisation stage.
 
@@ -281,7 +281,7 @@ class ForceBalanceFitting(StageBase):
             )
 
         # now we have validated the data run the optimiser
-        return self._optimise(molecule=molecule, local_options=kwargs["local_options"])
+        return self._optimise(molecule=molecule, **kwargs)
 
     def add_target(self, target: TargetBase) -> None:
         """
@@ -293,13 +293,17 @@ class ForceBalanceFitting(StageBase):
         if issubclass(type(target), TargetBase):
             self.targets[target.target_name] = target
 
-    def _optimise(self, molecule: Ligand, local_options: "LocalResource") -> Ligand:
+    def _optimise(self, molecule: Ligand, local_options=None) -> Ligand:
         """
         For the given input molecule run the forcebalance fitting for the list of targets and run time settings.
 
         Note:
             The list of optimisation targets should be set before running.
         """
+
+        if local_options is None:
+            # set minimum defaults
+            local_options = LocalResource(cores=1, memory=2)
 
         # set up the master fitting folder
         with forcebalance_setup(folder_name="ForceBalance"):
