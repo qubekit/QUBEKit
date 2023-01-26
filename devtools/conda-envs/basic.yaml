@@ -30,6 +30,7 @@ dependencies:
   - jinja2
   - typing-extensions
   - tqdm
+  - ndcctools
 
   # Optional
   - xtb-python
