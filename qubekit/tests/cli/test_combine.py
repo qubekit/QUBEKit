@@ -2,6 +2,7 @@ import os
 import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
 
+import numpy as np
 import pytest
 import xmltodict
 from deepdiff import DeepDiff
@@ -342,7 +343,7 @@ def test_combine_cli_all_offxml(
             # we are using the normal format so make sure it complies
             ff = ForceField("combined.offxml")
             vdw_handler = ff.get_parameter_handler("vdW")
-            assert len(vdw_handler.parameters) == 34
+            assert len(vdw_handler.parameters) == 32
 
 
 @pytest.mark.parametrize(
@@ -1027,6 +1028,7 @@ def test_offxml_constraints(acetone, water, openff, tmpdir, rfree_data):
             rfree_data=rfree_data,
             filename="combined.offxml",
             h_constraints=True,
+            water_model="tip3p",
         )
 
         combinded_ff = ForceField("combined.offxml")
@@ -1093,3 +1095,47 @@ def test_offxml_charges_correctly_applied(tmpdir, openff, rfree_data):
             assert charge == float(qube_parameter.charge) * unit.elementary_charge
             assert sigma == qube_parameter.sigma * unit.nanometer
             assert epsilon == qube_parameter.epsilon * unit.kilojoule_per_mole
+
+
+@pytest.mark.parametrize(
+    "use_local_sites", [pytest.param(True, id="True"), pytest.param(False, id="False")]
+)
+def test_offxml_water_sites(water, use_local_sites):
+    """
+    Make sure that the tip4p-fb water model correctly places the vsite relative to the other atoms
+    """
+
+    offxml = ForceField(load_plugins=True)
+    # Make sure we are using our plugin
+    _add_water_model(
+        force_field=offxml, water_model="tip4p-fb", use_local_sites=use_local_sites
+    )
+    off_water = Molecule.from_rdkit(water.to_rdkit())
+    system, off_top = offxml.create_openmm_system(
+        off_water.to_topology(), return_topology=True
+    )
+
+    # create the openmm topology and manually add the vsite as the toolkit drops this info
+    openmm_top = off_top.to_openmm()
+    for chain in openmm_top.chains():
+        if len(chain) == 1:
+            residue = chain._residues[0]
+            break
+
+    openmm_top.addAtom("EP1", app.Element.getByMass(0), residue)
+    positions = off_water.conformers[0].value_in_unit(unit.angstrom)
+    padded_pos = np.vstack([positions, [0, 0, 0]])
+    integrator = openmm.LangevinIntegrator(
+        300 * unit.kelvin, 1 / unit.picosecond, 0.5 * unit.femtosecond
+    )
+    context = openmm.Context(system, integrator)
+    context.setPositions(padded_pos * unit.angstrom)
+    # apply the constraints to compute the water and vsite positions
+    context.applyConstraints(0)
+    state = context.getState(getPositions=True)
+    new_positions = state.getPositions().value_in_unit(unit.angstroms)
+    # make sure the site is at the expected position
+    assert np.allclose(
+        new_positions[-1],
+        [0.044661788269877434, 0.28491150587797165, 0.043212613090872765],
+    )
