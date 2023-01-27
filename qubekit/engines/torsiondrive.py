@@ -30,7 +30,6 @@ class TorsionDriver(SchemaBase):
         1,
         description="The number of workers that should be used to run parallel optimisations. Note the threads and memory will be divided between workers.",
         ge=1,
-        le=4,
     )
     grid_spacing: int = Field(
         15, description="The grid spacing in degrees between each optimisation."

@@ -3,6 +3,7 @@ Classes that help with parameter fitting using ForceBalance.
 """
 import abc
 import os
+import socket
 import subprocess
 from typing import Any, Dict, List
 
@@ -12,7 +13,7 @@ from typing_extensions import Literal
 
 from qubekit.molecules import Ligand, TorsionDriveData
 from qubekit.torsions.utils import forcebalance_setup
-from qubekit.utils.datastructures import StageBase
+from qubekit.utils.datastructures import StageBase, LocalResource
 from qubekit.utils.exceptions import ForceBalanceError, MissingReferenceData
 from qubekit.utils.file_handling import get_data, make_and_change_into
 from qubekit.utils.helpers import export_torsiondrive_data
@@ -263,7 +264,7 @@ class ForceBalanceFitting(StageBase):
     def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         return self._run(molecule, *args, **kwargs)
 
-    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
+    def _run(self, molecule: "Ligand", **kwargs) -> "Ligand":
         """
         The main run method of the ForceBalance torsion optimisation stage.
 
@@ -280,7 +281,7 @@ class ForceBalanceFitting(StageBase):
             )
 
         # now we have validated the data run the optimiser
-        return self._optimise(molecule=molecule)
+        return self._optimise(molecule=molecule, **kwargs)
 
     def add_target(self, target: TargetBase) -> None:
         """
@@ -292,13 +293,17 @@ class ForceBalanceFitting(StageBase):
         if issubclass(type(target), TargetBase):
             self.targets[target.target_name] = target
 
-    def _optimise(self, molecule: Ligand) -> Ligand:
+    def _optimise(self, molecule: Ligand, local_options=None) -> Ligand:
         """
         For the given input molecule run the forcebalance fitting for the list of targets and run time settings.
 
         Note:
             The list of optimisation targets should be set before running.
         """
+
+        if local_options is None:
+            # set minimum defaults
+            local_options = LocalResource(cores=1, memory=2)
 
         # set up the master fitting folder
         with forcebalance_setup(folder_name="ForceBalance"):
@@ -324,15 +329,28 @@ class ForceBalanceFitting(StageBase):
             # back to fitting folder
             os.chdir(fitting_folder)
             # now we can make the optimize in file
-            self.generate_optimise_in(target_data=fitting_targets)
+            wq_port = self.generate_optimise_in(target_data=fitting_targets)
             # now make the forcefield file
             self.generate_forcefield(molecule=molecule)
 
             # now execute forcebalance
             with open("log.txt", "w") as log:
-                subprocess.run(
-                    "ForceBalance optimize.in", shell=True, stdout=log, stderr=log
+                import work_queue
+
+                workers = work_queue.Factory(
+                    "local", manager_host_port=f"localhost:{wq_port}"
                 )
+                # the optimisation takes space in gas, so 1 core for each OpenMM is good enough most likely
+                workers.cores = 1
+                # divide the memory for each worker
+                workers.memory = local_options.memory / local_options.cores
+                workers.min_workers = 1
+                workers.max_workers = local_options.cores
+
+                with workers:
+                    subprocess.run(
+                        "ForceBalance optimize.in", shell=True, stdout=log, stderr=log
+                    )
 
             result_ligand = self.collect_results(molecule=molecule)
             return result_ligand
@@ -380,10 +398,18 @@ class ForceBalanceFitting(StageBase):
             target_options[target.target_name] = target.fb_options()
         data["target_options"] = target_options
 
+        # select an empty socket and bind it
+        sock = socket.socket()
+        sock.bind(("localhost", 0))
+        wq_port = sock.getsockname()[1]
+        data["wq_port"] = wq_port
+
         rendered_template = template.render(**data)
 
         with open("optimize.in", "w") as opt_in:
             opt_in.write(rendered_template)
+
+        return wq_port
 
     @staticmethod
     def check_converged() -> bool:

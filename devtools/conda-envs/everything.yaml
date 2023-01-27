@@ -33,6 +33,7 @@ dependencies:
   - jinja2
   - typing-extensions
   - pcmsolver >=1.2.1
+  - ndcctools
 
   # Optional
   - xtb-python
