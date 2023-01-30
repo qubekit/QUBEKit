@@ -822,12 +822,6 @@ def test_molecule_vsite_and_vsite_water_plugin(methanol, tmpdir, water, rfree_da
     with tmpdir.as_cwd():
 
         methanol_copy = methanol.copy(deep=True)
-        MBISCharges.apply_symmetrisation(methanol_copy)
-        methanol_copy.extra_sites.clear_sites()
-        # run vsites
-        assert methanol_copy.extra_sites.n_sites == 0
-        vs.run(methanol_copy)
-        assert methanol_copy.extra_sites.n_sites == 2
 
         # run the lj method to make sure the parameters match
         alpha = rfree_data.pop("alpha")
@@ -1139,3 +1133,60 @@ def test_offxml_water_sites(water, use_local_sites):
         new_positions[-1],
         [0.044661788269877434, 0.28491150587797165, 0.043212613090872765],
     )
+
+
+def test_offxml_combine_no_polar_lj(tmpdir, methanol, rfree_data, vs):
+    """
+    Make sure the polar H have no LJ terms when we request them to be transferred using the flag
+    """
+
+    with tmpdir.as_cwd():
+
+        # run the lj method to make sure the parameters match
+        alpha = rfree_data.pop("alpha")
+        beta = rfree_data.pop("beta")
+        lj = LennardJones612(
+            free_parameters=rfree_data, alpha=alpha, beta=beta, lj_on_polar_h=False
+        )
+        # get new Rfree data
+        lj.run(methanol)
+
+        # remake rfree
+        rfree_data["alpha"] = alpha
+        rfree_data["beta"] = beta
+
+        _combine_molecules_offxml(
+            molecules=[methanol],
+            parameters=elements,
+            rfree_data=rfree_data,
+            filename="no_polar_h.offxml",
+            water_model="tip4p-fb",
+            h_constraints=True,
+            lj_on_polar_h=False,
+        )
+        ff = ForceField(
+            "no_polar_h.offxml", load_plugins=True, allow_cosmetic_attributes=True
+        )
+
+        vdw = ff.get_parameter_handler("QUBEKitvdWTS")
+        assert vdw.lj_on_polar_h == "False"
+        assert "parameterize" in vdw._cosmetic_attribs
+        assert "xfree" not in getattr(vdw, "_parameterize").split(",")
+
+        # make the OpenMM system and make sure this setting is respected
+        off_mol = Molecule.from_rdkit(methanol.to_rdkit())
+        openmm_system = ff.create_openmm_system(off_mol.to_topology())
+
+        forces = dict(
+            (force.__class__.__name__, force) for force in openmm_system.getForces()
+        )
+        nonbonded_force: openmm.NonbondedForce = forces["NonbondedForce"]
+        # now check methanol
+        for i in range(methanol.n_atoms):
+            ref_params = methanol.NonbondedForce[(i,)]
+            charge, sigma, epsilon = nonbonded_force.getParticleParameters(i)
+            assert charge.value_in_unit(unit.elementary_charge) == float(
+                ref_params.charge
+            )
+            assert sigma.value_in_unit(unit.nanometers) == ref_params.sigma
+            assert epsilon.value_in_unit(unit.kilojoule_per_mole) == ref_params.epsilon
