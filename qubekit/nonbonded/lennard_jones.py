@@ -119,11 +119,15 @@ class LennardJones612(StageBase):
                 # Find polar Hydrogens and allocate their new name: X
                 if atomic_symbol == "H":
                     bonded_index = atom.bonds[0]
-                    if molecule.atoms[bonded_index].atomic_symbol in [
-                        "N",
-                        "O",
-                        "S",
-                    ]:
+                    if (
+                        molecule.atoms[bonded_index].atomic_symbol
+                        in [
+                            "N",
+                            "O",
+                            "S",
+                        ]
+                        and self.lj_on_polar_h
+                    ):
                         atomic_symbol = "X"
 
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
@@ -132,8 +136,13 @@ class LennardJones612(StageBase):
                 )
 
                 # b_i = bfree * ((vol / v_free) ** 2)
-                b_i = self.free_parameters[atomic_symbol].b_free * (
-                    (atom_vol / self.free_parameters[atomic_symbol].v_free) ** 2
+                b_i = (
+                    self.free_parameters[atomic_symbol].b_free
+                    * self.alpha
+                    * (
+                        (atom_vol / self.free_parameters[atomic_symbol].v_free)
+                        ** (2 + self.beta)
+                    )
                 )
 
                 a_i = 32 * b_i * (r_aim**6)
@@ -239,10 +248,10 @@ class LennardJones612(StageBase):
                 epsilon = (lj_datum.b_i * lj_datum.b_i) / (4 * lj_datum.a_i)
 
                 # alpha and beta
-                epsilon *= self.alpha * (
-                    (atom.aim.volume / self.free_parameters[atom.atomic_symbol].v_free)
-                    ** self.beta
-                )
+                # epsilon *= self.alpha * (
+                #     (atom.aim.volume / self.free_parameters[atom.atomic_symbol].v_free)
+                #     ** self.beta
+                # )
                 epsilon *= constants.EPSILON_CONVERSION
 
             non_bonded_forces[atom.atom_index] = (sigma, epsilon)

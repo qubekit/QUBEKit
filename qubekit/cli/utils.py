@@ -83,6 +83,9 @@ class QUBEKitHandler(vdWHandler):
     sifree = ParameterAttribute(0 * unit.angstroms, unit=unit.angstroms)
     alpha = ParameterAttribute(1)
     beta = ParameterAttribute(0)
+    lj_on_polar_h = ParameterAttribute(
+        default="True", converter=_allow_only(["True", "False"])
+    )
 
     class QUBEKitvdWType(ParameterType):
         """A dummy vdw type which just stores the volume and so we can build the system correctly"""
@@ -145,6 +148,7 @@ class QUBEKitHandler(vdWHandler):
             },
             alpha=self.alpha,
             beta=self.beta,
+            lj_on_polar_h=self.lj_on_polar_h,
         )
 
         water = Molecule.from_smiles("O")

@@ -19,8 +19,118 @@ from qubekit.nonbonded.protocols import (
     si_base,
 )
 from qubekit.parametrisation import OpenFF
+from qubekit.utils import constants
 from qubekit.utils.exceptions import MissingRfreeError
 from qubekit.utils.file_handling import get_data
+
+
+def test_lennard_jones612_polar_h_no_ab(methanol):
+    """
+    Make sure polar h have there parameters correctly calculated when there are no alpha and beta terms.
+    """
+    lj_protocol = get_protocol(protocol_name="0")
+    lj_protocol.run(molecule=methanol)
+    # check the polar hydrogen
+    assert methanol.NonbondedForce[(5,)].epsilon == 1.814472172136794
+    assert methanol.NonbondedForce[(5,)].sigma == 0.12906327125421754
+    # check the oxygen
+    assert methanol.NonbondedForce[(1,)].epsilon == 0.6193305402659339
+    assert methanol.NonbondedForce[(1,)].sigma == 0.2811820692687191
+
+
+def test_lennard_jones612_polar_h_ab(methanol):
+    """
+    Make sure polar h have there parameters correctly calculated when there are alpha and beta terms.
+    """
+
+    lj_protocol = get_protocol(protocol_name="5b")
+    lj_protocol.run(molecule=methanol)
+    # check the polar hydrogen
+    assert methanol.NonbondedForce[(5,)].epsilon == 0.3621678392735354
+    assert methanol.NonbondedForce[(5,)].sigma == 0.15873709816308199
+    # check the oxygen
+    assert methanol.NonbondedForce[(1,)].epsilon == 0.5341909748395333
+    assert methanol.NonbondedForce[(1,)].sigma == 0.2997524661050121
+
+
+def test_lennard_jones612_no_polar_h_ab(methanol):
+    """
+    Test that polar H C6 is correctly transferred to the parent atom when requested, and that the alpha and beta
+    scaling are correctly applied.
+    """
+
+    # use the no polar H protocol with alpha=1 and beta=0
+    lj_protocol = get_protocol(protocol_name="4a")
+    lj_protocol.run(molecule=methanol)
+
+    # check the polar hydrogen
+    assert methanol.NonbondedForce[(5,)].epsilon == 0.0
+    assert methanol.NonbondedForce[(5,)].sigma == 1.0
+    # check the oxygen
+    assert methanol.NonbondedForce[(1,)].epsilon == 0.6883098722469343
+    assert methanol.NonbondedForce[(1,)].sigma == 0.29074863733590034
+    # calculate what epsilon should be for oxygen with no alpha and beta
+    h_c6 = (
+        lj_protocol.free_parameters["H"].b_free
+        * (methanol.atoms[5].aim.volume / lj_protocol.free_parameters["H"].v_free) ** 2
+    )
+    o_c6 = (
+        lj_protocol.free_parameters["O"].b_free
+        * (methanol.atoms[1].aim.volume / lj_protocol.free_parameters["O"].v_free) ** 2
+    )
+    o_c6_prime = (np.sqrt(o_c6) + np.sqrt(h_c6)) ** 2
+    o_epsilon = (
+        o_c6_prime
+        / (
+            128
+            * (
+                (methanol.atoms[1].aim.volume / lj_protocol.free_parameters["O"].v_free)
+                ** 2
+            )
+            * lj_protocol.free_parameters["O"].r_free ** 6
+        )
+        * constants.EPSILON_CONVERSION
+    )
+    assert pytest.approx(o_epsilon, abs=1e-7) == methanol.NonbondedForce[(1,)].epsilon
+
+    # now change alpha and beta and check that epsilon has changed but sigma is the same
+    lj_protocol.alpha = 1.1
+    lj_protocol.beta = 0.4
+    lj_protocol.run(molecule=methanol)
+    # check the polar hydrogen
+    assert methanol.NonbondedForce[(5,)].epsilon == 0.0
+    assert methanol.NonbondedForce[(5,)].sigma == 1.0
+    # check the oxygen
+    assert methanol.NonbondedForce[(1,)].epsilon == 0.7517401841871586
+    assert methanol.NonbondedForce[(1,)].sigma == 0.29074863733590034
+
+    # calculate what epsilon should be with alpha and beta
+    # scale H_C6
+    h_c6 *= (
+        lj_protocol.alpha
+        * (methanol.atoms[5].aim.volume / lj_protocol.free_parameters["H"].v_free)
+        ** lj_protocol.beta
+    )
+    # scale O_C6
+    o_c6 *= (
+        lj_protocol.alpha
+        * (methanol.atoms[1].aim.volume / lj_protocol.free_parameters["O"].v_free)
+        ** lj_protocol.beta
+    )
+    o_c6_prime = (np.sqrt(o_c6) + np.sqrt(h_c6)) ** 2
+    o_epsilon = (
+        o_c6_prime
+        / (
+            128
+            * (
+                (methanol.atoms[1].aim.volume / lj_protocol.free_parameters["O"].v_free)
+                ** 2
+            )
+            * lj_protocol.free_parameters["O"].r_free ** 6
+        )
+        * constants.EPSILON_CONVERSION
+    )
+    assert pytest.approx(o_epsilon, abs=1e-7) == methanol.NonbondedForce[(1,)].epsilon
 
 
 def test_lennard_jones612(tmpdir):

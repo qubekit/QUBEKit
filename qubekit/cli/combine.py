@@ -51,6 +51,12 @@ water_options = click.Choice(list(water_models_normal.keys()), case_sensitive=Tr
     help="Make an offxml style force field if possible.",
 )
 @click.option(
+    "--lj-on-polar-h/--no-lj-on-polar-h",
+    default=True,
+    show_default=True,
+    help="Add or remove LJ terms from polar hydroges, they will have their C6 transferred to the parent atom if excluded.",
+)
+@click.option(
     "-w",
     "--water-model",
     type=water_options,
@@ -70,6 +76,7 @@ def combine(
     offxml: bool = False,
     water_model: str = "tip3p",
     h_constraints: bool = True,
+    lj_on_polar_h: bool = True,
 ):
     """
     Combine a list of molecules together and create a single master XML force field file.
@@ -94,6 +101,7 @@ def combine(
             filename=filename,
             water_model=water_model,
             h_constraints=h_constraints,
+            lj_on_polar_h=lj_on_polar_h,
         )
 
     else:
@@ -141,6 +149,7 @@ def _combine_molecules_offxml(
     filename: str,
     water_model: Optional[Literal["tip3p", "tip4p-fb"]] = None,
     h_constraints: bool = True,
+    lj_on_polar_h: bool = True,
 ) -> None:
     """
     Main worker function to build the combined offxmls.
@@ -191,6 +200,7 @@ def _combine_molecules_offxml(
         vdw_handler = offxml.get_parameter_handler(
             "QUBEKitvdWTS", allow_cosmetic_attributes=True
         )
+        vdw_handler.lj_on_polar_h = str(lj_on_polar_h)
         using_plugin = True
         # add a dummy parameter to avoid missing parameters
         vdw = offxml.get_parameter_handler("vdW", allow_cosmetic_attributes=True)
@@ -260,7 +270,11 @@ def _combine_molecules_offxml(
                     rfree_data[parameter_to_fit]["r_free"], unit=unit.angstroms
                 ),
             )
-            to_parameterize.append(f"{parameter_to_fit.lower()}free")
+            if not lj_on_polar_h and parameter_to_fit.lower() == "x":
+                # do add the parameterize tag to polar h if not included
+                continue
+            else:
+                to_parameterize.append(f"{parameter_to_fit.lower()}free")
     if fit_ab:
         vdw_handler.alpha = rfree_data["alpha"]
         vdw_handler.beta = rfree_data["beta"]
