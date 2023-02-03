@@ -547,3 +547,61 @@ class ProperRyckhaertBellemansHandler(ParameterHandler):
                 parameter.c5,
             ]
             force.addTorsion(*atom_indices, *torsion_params)
+
+
+class BondChargeCorrectionHandler(ParameterHandler):
+    """
+    BondChargeCorrection handler to fit BCCs on top of AIM charges not to be used with Virtual sites?
+
+    The charge correction is added to the first tagged atom and subtracted from the second, so swapping the indices is
+    the same as swapping the sign of the correction.
+    """
+
+    class BCCType(ParameterType):
+        """
+        A SMIRNOFF style BCC type which adjusts Library charges with QUBEKit
+        """
+
+        _VALENCE_TYPE = "Bond"
+        _ELEMENT_NAME = "BCC"
+
+        charge_correction = ParameterAttribute(unit=unit.elementary_charge)
+
+    _TAGNAME = "BondChargeCorrection"
+    _INFOTYPE = BCCType
+    _OPENMMTYPE = openmm.NonbondedForce
+
+    _DEPENDENCIES = [
+        vdWHandler,
+        ElectrostaticsHandler,
+        LibraryChargeHandler,
+    ]  # we might need to depend on vdW if present
+
+    def create_force(self, system, topology, **kwargs):
+        """
+        Apply the bond charge corrections to the system, charges must already be present
+        """
+        force = _get_nonbonded_force(system=system, topology=topology)
+
+        bond_charge_matches = self.find_matches(topology)
+
+        for match in bond_charge_matches.values():
+            # the atom indices in the dict have been sorted for deduplication so use the ones in the match object
+            atom_indices = match.environment_match.topology_atom_indices
+            # Add charge to the first atom and subtracted from the second
+            charge_added_atom, charge_subtracted_atom = atom_indices
+            charge, sigma, epsilon = force.getParticleParameters(charge_added_atom)
+            force.setParticleParameters(
+                index=charge_added_atom,
+                charge=charge + match.parameter_type.charge_correction,
+                sigma=sigma,
+                epsilon=epsilon,
+            )
+
+            charge, sigma, epsilon = force.getParticleParameters(charge_subtracted_atom)
+            force.setParticleParameters(
+                index=charge_subtracted_atom,
+                charge=charge - match.parameter_type.charge_correction,
+                sigma=sigma,
+                epsilon=epsilon,
+            )

@@ -1,7 +1,12 @@
+import openmm
 import pytest
+from openff.toolkit.topology import Molecule, Topology
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from openmm import unit
 
+from qubekit.cli.combine import _add_water_model
 from qubekit.cli.utils import LocalVirtualSite
+from qubekit.molecules import Ligand
 
 
 def test_local_site_to_dict():
@@ -101,3 +106,120 @@ def test_local_get_openmm_site():
     assert openmm_position.x == lp.p1.value_in_unit(unit.nanometer)
     assert openmm_position.y == lp.p2.value_in_unit(unit.nanometer)
     assert openmm_position.z == lp.p3.value_in_unit(unit.nanometer)
+
+
+@pytest.mark.parametrize(
+    "smirks, correction, direction",
+    [
+        pytest.param("[#6!a:1]-[#8X2H1:2]", 0.1, "forward", id="Normal"),
+        pytest.param("[#6!a:2]-[#8X2H1:1]", 0.1, "reverse", id="Reversed"),
+        pytest.param("[#6!a:1]-[#8X2H1:2]", -0.1, "forward", id="Negative"),
+        pytest.param(
+            "[#6!a:2]-[#8X2H1:1]", -0.1, "reverse", id="Reversed and negative"
+        ),
+    ],
+)
+def test_bcc_correction(methanol, smirks, correction, direction):
+    """
+    Make sure that BCCs are correctly applied to openmm systems.
+
+    Reverse just tells the test if the smirks have been flipped so the correction should be added to the first atom
+    and subtracted from the other.
+    """
+    # remove the v-sites
+    methanol.extra_sites.clear_sites()
+    for i in range(methanol.n_atoms):
+        methanol.NonbondedForce[(i,)].charge = methanol.atoms[i].aim.charge
+
+    ff = ForceField(load_plugins=True)
+    methanol.add_params_to_offxml(offxml=ff)
+    # add an alcohol bcc
+    bcc = ff.get_parameter_handler("BondChargeCorrection")
+    bcc.add_parameter(
+        {
+            "smirks": smirks,  # charge to be transferred from C->O
+            "charge_correction": correction * unit.elementary_charge,
+        }
+    )
+
+    off_mol = Molecule.from_rdkit(methanol.to_rdkit())
+    # create the system and make sure the BCC was applied
+    openmm_system = ff.create_openmm_system(off_mol.to_topology())
+    forces = dict(
+        (force.__class__.__name__, force) for force in openmm_system.getForces()
+    )
+    nonbonded_force: openmm.NonbondedForce = forces["NonbondedForce"]
+
+    if direction == "reverse":
+        correction *= -1
+
+    for i in range(nonbonded_force.getNumParticles()):
+        charge, sigma, epsilon = nonbonded_force.getParticleParameters(i)
+        qb_params = methanol.NonbondedForce[(i,)]
+        atomic_number = methanol.atoms[i].atomic_number
+        if atomic_number == 6:
+            assert (
+                charge.value_in_unit(unit.elementary_charge)
+                == float(qb_params.charge) + correction
+            )
+        elif atomic_number == 8:
+            assert (
+                charge.value_in_unit(unit.elementary_charge)
+                == float(qb_params.charge) - correction
+            )
+        else:
+            assert charge.value_in_unit(unit.elementary_charge) == float(
+                qb_params.charge
+            )
+
+        # make sure sigma and epsilon are the same
+        assert sigma.value_in_unit(unit.nanometers) == qb_params.sigma
+        assert epsilon.value_in_unit(unit.kilojoule_per_mole) == qb_params.epsilon
+
+
+def test_multi_bbc_correction(openff, tmpdir):
+    """
+    For a molecule which can match many types of correction make sure they are applied to a system that also has other
+    particles including water with a v-site.
+    """
+    with tmpdir.as_cwd():
+        water = Molecule.from_smiles("O")
+        mol = Ligand.from_smiles("Fc1ccccc1", "fluorobenzene")
+        openff.run(mol)
+        ff = ForceField(load_plugins=True)
+        mol.add_params_to_offxml(offxml=ff)
+        _add_water_model(force_field=ff, water_model="tip4p-fb")
+        bcc = ff.get_parameter_handler("BondChargeCorrection")
+        bcc.add_parameter(
+            {
+                "smirks": "[#6a:1]-[#9:2]",
+                "charge_correction": 0.1 * unit.elementary_charge,
+            }
+        )
+        bcc.add_parameter(
+            {
+                "smirks": "[#1:1]-[#6a:2]",
+                "charge_correction": 0.05 * unit.elementary_charge,
+            }
+        )
+
+        off_mol = Molecule.from_rdkit(mol.to_rdkit())
+        off_top = Topology.from_molecules(molecules=[off_mol, water])
+        openmm_system = ff.create_openmm_system(off_top)
+        forces = dict(
+            (force.__class__.__name__, force) for force in openmm_system.getForces()
+        )
+        nonbonded_force: openmm.NonbondedForce = forces["NonbondedForce"]
+
+        for parameter in bcc.parameters:
+            matches = off_mol.chemical_environment_matches(parameter.smirks)
+            for match in matches:
+                atom_add, atom_subtract = match
+                charge, sigma, epsilon = nonbonded_force.getParticleParameters(atom_add)
+                assert float(
+                    mol.NonbondedForce[(atom_add,)].charge
+                ) + parameter.charge_correction.value_in_unit(
+                    unit.elementary_charge
+                ) == charge.value_in_unit(
+                    unit.elementary_charge
+                )

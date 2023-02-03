@@ -13,7 +13,7 @@ from typing_extensions import Literal
 
 from qubekit.molecules import Ligand, TorsionDriveData
 from qubekit.torsions.utils import forcebalance_setup
-from qubekit.utils.datastructures import StageBase, LocalResource
+from qubekit.utils.datastructures import LocalResource, StageBase
 from qubekit.utils.exceptions import ForceBalanceError, MissingReferenceData
 from qubekit.utils.file_handling import get_data, make_and_change_into
 from qubekit.utils.helpers import export_torsiondrive_data
