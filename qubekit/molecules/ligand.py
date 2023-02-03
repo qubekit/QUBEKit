@@ -435,17 +435,12 @@ class Molecule(SchemaBase):
         topology = self.to_topology()
         # Work through the network using each edge as a central dihedral bond
         for edge in topology.edges:
-
             for start in list(nx.neighbors(topology, edge[0])):
-
                 # Check atom not in main bond
                 if start != edge[0] and start != edge[1]:
-
                     for end in list(nx.neighbors(topology, edge[1])):
-
                         # Check atom not in main bond
                         if end != edge[0] and end != edge[1] and end != start:
-
                             if edge not in dihedrals:
                                 # Add the central edge as a key the first time it is used
                                 dihedrals[edge] = [(start, edge[0], edge[1], end)]
@@ -1739,7 +1734,6 @@ class Ligand(Fragment):
             torsiondrive_data.central_bond for torsiondrive_data in fragment.qm_scans
         ]
         for dihedrals in fragment_torsion_types.values():
-
             qube_dihedral = fragment.TorsionForce[dihedrals[0]]
             mols = [fragment_rdkit]
             smirks_atoms_lists = [dihedrals]

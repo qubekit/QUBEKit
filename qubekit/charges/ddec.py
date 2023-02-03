@@ -23,7 +23,6 @@ from qubekit.utils.file_handling import folder_setup, get_data
 
 
 class DDECCharges(ChargeBase):
-
     type: Literal["DDECCharges"] = "DDECCharges"
     program: Literal["gaussian"] = "gaussian"
     ddec_version: Literal[3, 6] = Field(
@@ -117,7 +116,6 @@ class DDECCharges(ChargeBase):
             # Export a variable to the environment that chargemol will use to work out the threads, must be a string
             os.environ["OMP_NUM_THREADS"] = str(cores)
             with open("log.txt", "w+") as log:
-
                 try:
                     sp.run(
                         "chargemol job_controll.txt",

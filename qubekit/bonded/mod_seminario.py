@@ -56,7 +56,6 @@ class ModSemMaths:
 
     @staticmethod
     def dot_product(u_pa, eig_ab):
-
         return sum(u_pa[i] * eig_ab[i].conjugate() for i in range(3))
 
     @staticmethod
@@ -159,7 +158,6 @@ class ModSemMaths:
         k_theta_array = np.zeros(n_samples)
 
         for theta in range(n_samples):
-
             u_n = [
                 np.sin(theta) * np.cos(theta),
                 np.sin(theta) * np.sin(theta),
@@ -192,7 +190,6 @@ class ModSemMaths:
 
 
 class ModSeminario(StageBase):
-
     type: Literal["ModSeminario"] = "ModSeminario"
     vibrational_scaling: float = Field(
         1.0,
@@ -378,9 +375,7 @@ class ModSeminario(StageBase):
         conversion = constants.KCAL_TO_KJ * 2
 
         with open("Modified_Seminario_Angles.txt", "w") as angle_file:
-
             for i, angle in enumerate(molecule.angles):
-
                 scalings = scaling_factors_angles_list[i]
 
                 # Ensures that there is no difference when the ordering is changed.
@@ -434,7 +429,6 @@ class ModSeminario(StageBase):
         k_b, bond_len_list = np.zeros(len(bonds)), np.zeros(len(bonds))
 
         with open("Modified_Seminario_Bonds.txt", "w") as bond_file:
-
             for pos, bond in enumerate(bonds):
                 ab = ModSemMaths.force_constant_bond(
                     bond, eigenvals, eigenvecs, molecule.coordinates

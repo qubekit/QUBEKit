@@ -19,7 +19,6 @@ T = TypeVar("T", bound=SolventBase)
 
 
 class ChargeBase(StageBase):
-
     type: Literal["ChargeBase"] = "ChargeBase"
     solvent_settings: Optional[T] = Field(
         None,

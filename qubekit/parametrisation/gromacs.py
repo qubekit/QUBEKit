@@ -27,7 +27,6 @@ class Gromacs(Parametrisation):
     def _build_system(
         self, molecule: "Ligand", input_files: Optional[List[str]] = None
     ) -> System:
-
         # get the topfile
         top_file = None
         if input_files is not None:

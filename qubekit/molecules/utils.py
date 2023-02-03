@@ -382,7 +382,6 @@ class ReadInput:
         rdkit_mol: Optional = None,
         name: Optional[str] = None,
     ):
-
         self.coords = coords
         self.rdkit_mol = rdkit_mol
         self.name = name

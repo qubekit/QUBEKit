@@ -985,12 +985,10 @@ class VirtualSites(StageBase):
         }
 
         with open("site_results.txt", "a+") as site_file:
-
             if (
                 no_site_error > one_site_error * self.site_error_factor
                 or no_site_error > two_site_error * self.site_error_factor
             ):
-
                 if one_site_error < two_site_error * self.site_error_factor:
                     site_file.write(
                         f"One virtual site has been added to atom {self._molecule.atoms[atom_index].atom_name}\n"
@@ -1177,7 +1175,6 @@ class VirtualSites(StageBase):
 
         topology = self._molecule.to_topology()
         for site_number, site in enumerate(self._v_sites_coords):
-
             site_data = {}
 
             site_coords, site_charge, parent = site

@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class WBOFragmentation(StageBase, WBOFragmenter):
-
     type: Literal["WBOFragmentation"] = "WBOFragmentation"
 
     rotatable_smirks: List[str] = Field(

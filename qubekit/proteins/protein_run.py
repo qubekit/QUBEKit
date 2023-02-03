@@ -27,7 +27,6 @@ def main():
         """This class is called when we setup a new protein."""
 
         def __call__(self, pars, namespace, values, option_string=None):
-
             printf("starting protein prep, reading pdb file...")
             protein = Protein(values)
             printf(f"{len(protein.residues)} residues found!")
@@ -40,7 +39,6 @@ def main():
         """This class handles the building of the protein xml and pdb files."""
 
         def __call__(self, pars, namespace, values, option_string=None):
-
             pro = Protein(values)
             # print the QUBE general FF to use in the parametrisation
             qube_general()

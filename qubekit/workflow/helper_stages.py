@@ -171,7 +171,6 @@ class Optimiser(StageBase):
                 conformers, desc="Optimising conformer", total=len(conformers), ncols=80
             )
         ):
-
             with folder_setup(
                 folder_name=os.path.join(
                     "qm_optimisation", molecule.name, f"conformer_{i}"

@@ -138,7 +138,6 @@ def test_full_tdrive(tmpdir, workers, capsys):
     Try and run a full torsiondrive for ethane with a cheap rdkit method.
     """
     with tmpdir.as_cwd():
-
         ethane = Ligand.from_file(get_data("ethane.sdf"))
         # make the scan data
         bond = ethane.find_rotatable_bonds()[0]

@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 
 class LennardJones612(StageBase):
-
     type: Literal["LennardJones612"] = "LennardJones612"
     lj_on_polar_h: bool = Field(
         True,

@@ -29,12 +29,10 @@ def mol_data_from_csv(csv_name: str):
     """
 
     with open(csv_name, "r") as csv_file:
-
         mol_confs = csv.DictReader(csv_file)
 
         rows = []
         for row in mol_confs:
-
             # Converts to ordinary dict rather than ordered.
             row = dict(row)
             # If there is no config given assume its the default
@@ -85,7 +83,6 @@ def generate_bulk_csv(csv_name: str, max_execs: Optional[int] = None):
     # If max number of pdbs per file is unspecified, just put them all in one file.
     if max_execs is None:
         with open(csv_name, "w") as csv_file:
-
             file_writer = csv.writer(
                 csv_file, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
             )

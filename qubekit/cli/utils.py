@@ -229,7 +229,6 @@ class LocalVirtualSite(VirtualSite):
         y_weights: List[float],
         orientations: List[Tuple[int, ...]],
     ):
-
         super().__init__(name=name, orientations=orientations)
         self._p1 = p1.in_units_of(unit.nanometer)
         self._p2 = p2.in_units_of(unit.nanometer)
@@ -298,7 +297,6 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
     """
 
     class VirtualSiteType(vdWHandler.vdWType):
-
         _VALENCE_TYPE = None
         _ELEMENT_NAME = "VirtualSite"
 
@@ -365,7 +363,6 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
     exclusion_policy = ParameterAttribute(default="parents")
 
     def create_force(self, system: openmm.System, topology: Topology, **kwargs):
-
         # as the normal vsites go first there should be more than topology.n_atoms if we have a 4 site water or more
         if system.getNumParticles() < topology.n_topology_atoms:
             raise ValueError("the system does not seem to have enough particles in it")
@@ -404,14 +401,11 @@ class LocalCoordinateVirtualSiteHandler(VirtualSiteHandler):
         transformed_dict_cls=dict,
         unique=False,
     ) -> Dict[Tuple[int], List[ParameterHandler._Match]]:
-
         assigned_matches_by_parent = self._find_matches_by_parent(entity)
         return_dict = {}
         for parent_index, assigned_parameters in assigned_matches_by_parent.items():
-
             assigned_matches = []
             for assigned_parameter, match_orientations in assigned_parameters:
-
                 for match in match_orientations:
                     assigned_matches.append(
                         ParameterHandler._Match(assigned_parameter, match)
@@ -465,7 +459,7 @@ class UreyBradleyHandler(ParameterHandler):
         skipped_constrained_angles = (
             0  # keep track of how many angles were constrained (and hence skipped)
         )
-        for (atoms, angle_match) in angle_matches.items():
+        for atoms, angle_match in angle_matches.items():
             try:
                 self._assert_correct_connectivity(angle_match)
             except NotBondedError as e:
@@ -528,7 +522,7 @@ class ProperRyckhaertBellemansHandler(ParameterHandler):
 
         torsion_matches = self.find_matches(topology)
 
-        for (atom_indices, torsion_match) in torsion_matches.items():
+        for atom_indices, torsion_match in torsion_matches.items():
             # Ensure atoms are actually bonded correct pattern in Topology
             try:
                 self._assert_correct_connectivity(torsion_match)

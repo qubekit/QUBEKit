@@ -317,7 +317,6 @@ class ForceBalanceFitting(StageBase):
             if molecule.fragments is not None:
                 molecules_to_optimise.extend(molecule.fragments)
             for target in self.targets.values():
-
                 for mol in molecules_to_optimise:
                     target_folders = target.prep_for_fitting(molecule=mol)
                     # fitting_targets[target.target_name] = target_folders

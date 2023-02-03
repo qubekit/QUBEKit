@@ -24,7 +24,6 @@ class SchemaBase(BaseModel):
 
 
 class LocalResource(SchemaBase):
-
     cores: PositiveInt = Field(
         4, description="The number of cores to be allocated to the computation."
     )
@@ -202,7 +201,6 @@ class QCOptions(SchemaBase):
 
 
 class StageBase(SchemaBase, abc.ABC):
-
     type: Literal["base"] = "base"
 
     @classmethod

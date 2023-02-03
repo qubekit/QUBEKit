@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 
 class TorsionDriver(SchemaBase):
-
     type: Literal["torsiondriver"] = "torsiondriver"
     n_workers: int = Field(
         1,

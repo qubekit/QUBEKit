@@ -21,7 +21,6 @@ from qubekit.workflow.results import StageResult, Status, WorkFlowResult
 
 
 class WorkFlow(SchemaBase):
-
     type: Literal["WorkFlow"] = "WorkFlow"
     qc_options: QCOptions = Field(
         QCOptions(),

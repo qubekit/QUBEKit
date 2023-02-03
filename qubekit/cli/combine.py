@@ -330,7 +330,6 @@ def _combine_molecules(
 
     # loop over molecules and create forces as they are found
     for molecule in molecules:
-
         resiude = ET.SubElement(Residues, "Residue", name=molecule.name)
 
         for atom in molecule.atoms:
@@ -580,9 +579,9 @@ def _get_eval_string(
     return eval_string
 
 
-def _find_molecules_and_rfrees() -> Tuple[
-    List["Ligand"], Dict[str, Dict[str, Union[str, float]]]
-]:
+def _find_molecules_and_rfrees() -> (
+    Tuple[List["Ligand"], Dict[str, Dict[str, Union[str, float]]]]
+):
     """
     Loop over the local directories looking for qubekit WorkFlowResults and extract the ligands and a list of all
     unique free params used to parameterise the molecules.
