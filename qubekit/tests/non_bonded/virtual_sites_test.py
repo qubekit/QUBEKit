@@ -42,14 +42,12 @@ def mol():
 
 
 def test_extract_charge(mol):
-
     assert mol.atoms[0].aim.charge == -0.220571
     assert mol.atoms[0].dipole.x == 0.109103
     assert mol.atoms[0].aim.volume == 30.289335
 
 
 def test_apply_symmetrisation(mol):
-
     assert mol.atoms[2].aim.charge == mol.atoms[3].aim.charge
     assert mol.atoms[2].aim.volume == mol.atoms[3].aim.volume
 

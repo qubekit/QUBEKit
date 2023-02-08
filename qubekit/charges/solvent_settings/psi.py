@@ -9,7 +9,6 @@ from qubekit.utils.exceptions import SpecificationError
 
 
 class SolventPsi4(SolventBase):
-
     program: Literal["psi4"] = "psi4"
     units: Literal["au", "angstrom"] = Field(
         ...,

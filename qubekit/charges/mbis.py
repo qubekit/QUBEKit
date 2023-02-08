@@ -18,7 +18,6 @@ from qubekit.utils.exceptions import SpecificationError
 
 
 class MBISCharges(ChargeBase):
-
     type: Literal["MBISCharges"] = "MBISCharges"
     solvent_settings: Optional[SolventPsi4] = Field(
         SolventPsi4(units="au", medium_Solvent="chloroform"),

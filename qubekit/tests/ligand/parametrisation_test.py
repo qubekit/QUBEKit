@@ -70,7 +70,6 @@ def test_symm_params_no_angles(tmpdir, openff):
 
 
 def test_symm_nonbonded_params(tmpdir, openff):
-
     with tmpdir.as_cwd():
         mol = Ligand.from_smiles("C", "methane")
         openff.run(mol)
@@ -907,7 +906,6 @@ def test_h_constraints_offxml(methanol, tmpdir):
     """Make sure constraints are added to an offxml when requested and they are included in an openmm system."""
 
     with tmpdir.as_cwd():
-
         methanol.to_offxml(file_name="methanol.offxml", h_constraints=True)
         methanol_ff = ForceField("methanol.offxml")
         off_methanol = Molecule.from_rdkit(methanol.to_rdkit())

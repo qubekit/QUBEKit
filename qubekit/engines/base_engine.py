@@ -12,7 +12,6 @@ class Engines:
     """
 
     def __init__(self, molecule: "Ligand"):
-
         self.molecule = molecule
 
     def __repr__(self):

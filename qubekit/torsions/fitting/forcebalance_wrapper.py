@@ -13,7 +13,7 @@ from typing_extensions import Literal
 
 from qubekit.molecules import Ligand, TorsionDriveData
 from qubekit.torsions.utils import forcebalance_setup
-from qubekit.utils.datastructures import StageBase, LocalResource
+from qubekit.utils.datastructures import LocalResource, StageBase
 from qubekit.utils.exceptions import ForceBalanceError, MissingReferenceData
 from qubekit.utils.file_handling import get_data, make_and_change_into
 from qubekit.utils.helpers import export_torsiondrive_data
@@ -317,7 +317,6 @@ class ForceBalanceFitting(StageBase):
             if molecule.fragments is not None:
                 molecules_to_optimise.extend(molecule.fragments)
             for target in self.targets.values():
-
                 for mol in molecules_to_optimise:
                     target_folders = target.prep_for_fitting(molecule=mol)
                     # fitting_targets[target.target_name] = target_folders

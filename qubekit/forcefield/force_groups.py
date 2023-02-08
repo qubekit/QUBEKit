@@ -121,7 +121,6 @@ class BaseForceGroup(BaseModel):
 
 
 class HarmonicBondForce(BaseForceGroup):
-
     type: Literal["HarmonicBondForce"] = "HarmonicBondForce"
     parameters: Optional[List[HarmonicBondParameter]] = None
 
@@ -139,7 +138,6 @@ class HarmonicBondForce(BaseForceGroup):
 
 
 class HarmonicAngleForce(BaseForceGroup):
-
     type: Literal["HarmonicAngleForce"] = "HarmonicAngleForce"
     parameters: Optional[List[HarmonicAngleParameter]] = None
 
@@ -157,7 +155,6 @@ class HarmonicAngleForce(BaseForceGroup):
 
 
 class UreyBradleyHarmonicForce(BaseForceGroup):
-
     type: Literal["UreyBradleyHarmonicForce"] = "UreyBradleyHarmonicForce"
     parameters: Optional[List[UreyBradleyHarmonicParameter]] = None
 
@@ -175,7 +172,6 @@ class UreyBradleyHarmonicForce(BaseForceGroup):
 
 
 class PeriodicTorsionForce(BaseForceGroup):
-
     type: Literal["PeriodicTorsionForce"] = "PeriodicTorsionForce"
     parameters: Optional[List[PeriodicTorsionParameter]] = None
     ordering: Literal["default", "amber", "charmm", "smirnoff"] = "default"
@@ -195,7 +191,6 @@ class PeriodicTorsionForce(BaseForceGroup):
 
 
 class PeriodicImproperTorsionForce(BaseForceGroup):
-
     type: Literal["PeriodicImproperTorsionForce"] = "PeriodicImproperTorsionForce"
     parameters: Optional[List[ImproperTorsionParameter]] = None
 
@@ -213,7 +208,6 @@ class PeriodicImproperTorsionForce(BaseForceGroup):
 
 
 class RBProperTorsionForce(BaseForceGroup):
-
     type: Literal["RBProperTorsionForce"] = "RBProperTorsionForce"
     parameters: Optional[List[ProperRBTorsionParameter]] = None
 
@@ -231,7 +225,6 @@ class RBProperTorsionForce(BaseForceGroup):
 
 
 class RBImproperTorsionForce(BaseForceGroup):
-
     type: Literal["RBImproperTorsionForce"] = "RBImproperTorsionForce"
     parameters: Optional[List[ImproperRBTorsionParameter]] = None
 
@@ -249,7 +242,6 @@ class RBImproperTorsionForce(BaseForceGroup):
 
 
 class LennardJones126Force(BaseForceGroup):
-
     type: Literal["NonbondedForce"] = "NonbondedForce"
     parameters: Optional[List[LennardJones612Parameter]] = None
     coulomb14scale: float = Field(0.8333333333, description="The 1-4 coulomb scaling.")

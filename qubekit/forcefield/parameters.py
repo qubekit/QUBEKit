@@ -15,7 +15,6 @@ Point4 = Tuple[float, float, float, float]
 
 
 class BasicParameterModel(BaseModel, abc.ABC):
-
     type: Literal["base"] = "base"
     attributes: Set[str] = Field(
         set(),
@@ -49,7 +48,6 @@ class BasicParameterModel(BaseModel, abc.ABC):
 
 
 class BaseParameter(BasicParameterModel):
-
     atoms: Tuple[int, ...] = Field(
         ..., description="The atom indices that this potential applies to."
     )
@@ -94,7 +92,6 @@ class BaseParameter(BasicParameterModel):
 
 
 class HarmonicBondParameter(BaseParameter):
-
     type: Literal["HarmonicBondParameter"] = "HarmonicBondParameter"
     length: float = Field(
         ...,
@@ -115,7 +112,6 @@ class HarmonicBondParameter(BaseParameter):
 
 
 class HarmonicAngleParameter(BaseParameter):
-
     type: Literal["HarmonicAngleParameter"] = "HarmonicAngleParameter"
     k: float = Field(
         ...,
@@ -135,7 +131,6 @@ class HarmonicAngleParameter(BaseParameter):
 
 
 class UreyBradleyHarmonicParameter(BaseParameter):
-
     type: Literal["UreyBradleyHarmonicParameter"] = "UreyBradleyHarmonicParameter"
     k: float = Field(
         ...,
@@ -164,7 +159,6 @@ class UreyBradleyHarmonicParameter(BaseParameter):
 
 
 class PeriodicTorsionParameter(BaseParameter):
-
     type: Literal["PeriodicTorsionParameter"] = "PeriodicTorsionParameter"
     k1: float = 0
     k2: float = 0
@@ -189,7 +183,6 @@ class PeriodicTorsionParameter(BaseParameter):
 
 
 class ImproperTorsionParameter(PeriodicTorsionParameter):
-
     type: Literal["ImproperTorsionParameter"] = "ImproperTorsionParameter"
 
     @classmethod
@@ -198,7 +191,6 @@ class ImproperTorsionParameter(PeriodicTorsionParameter):
 
 
 class BasicRBTorsionParameter(BaseParameter):
-
     type: Literal["BasicRBTorsionParameter"] = "BasicRBTorsionParameter"
     c0: float = 0
     c1: float = 0
@@ -213,7 +205,6 @@ class BasicRBTorsionParameter(BaseParameter):
 
 
 class ProperRBTorsionParameter(BasicRBTorsionParameter):
-
     type: Literal["ProperRBTorsionParameter"] = "ProperRBTorsionParameter"
 
     @classmethod
@@ -222,7 +213,6 @@ class ProperRBTorsionParameter(BasicRBTorsionParameter):
 
 
 class ImproperRBTorsionParameter(BasicRBTorsionParameter):
-
     type: Literal["ImproperRBTorsionParameter"] = "ImproperRBTorsionParameter"
 
     @classmethod
@@ -231,7 +221,6 @@ class ImproperRBTorsionParameter(BasicRBTorsionParameter):
 
 
 class BasicNonBondedParameter(BaseParameter):
-
     type: Literal["basic_non_bonded"] = "basic_non_bonded"
     charge: decimal.Decimal = Field(
         ..., description="The atomic partial charge in elementary charge units."
@@ -254,7 +243,6 @@ class BasicNonBondedParameter(BaseParameter):
 
 
 class LennardJones612Parameter(BasicNonBondedParameter):
-
     type: Literal["LennardJones612"] = "LennardJones612"
     epsilon: float = Field(
         ...,
@@ -267,7 +255,6 @@ class LennardJones612Parameter(BasicNonBondedParameter):
 
 
 class VirtualSite3Point(BasicParameterModel):
-
     type: Literal["VirtualSite3Point"] = "VirtualSite3Point"
     parent_index: int = Field(
         ..., description="The index of the atom the site is attached to."
@@ -336,7 +323,6 @@ class VirtualSite3Point(BasicParameterModel):
 
 
 class VirtualSite4Point(VirtualSite3Point):
-
     type: Literal["VirtualSite4Point"] = "VirtualSite4Point"
     closest_c_index: int = Field(
         ...,

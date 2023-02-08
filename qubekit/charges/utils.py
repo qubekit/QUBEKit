@@ -168,7 +168,6 @@ class ExtractChargeData:
 
         charge_pos, vol_pos = None, None
         for pos, line in enumerate(lines):
-
             # Charges marker in file:
             if "DDEC density" in line:
                 charge_pos = pos + 7

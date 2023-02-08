@@ -121,7 +121,6 @@ def test_chargemol_run(tmpdir, water):
 
 
 def test_wrong_chargemol_version(water):
-
     with pytest.raises(ValueError):
         ExtractChargeData.extract_charge_data_chargemol(
             molecule=water, dir_path="", ddec_version=1
@@ -129,7 +128,6 @@ def test_wrong_chargemol_version(water):
 
 
 def test_missing_chargemol_file(water):
-
     with pytest.raises(FileNotFoundError):
         ExtractChargeData.extract_charge_data_chargemol(
             molecule=water, dir_path="", ddec_version=6

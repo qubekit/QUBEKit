@@ -134,7 +134,6 @@ def test_get_eval_string(atom, a_and_b, rfree_code, expected, coumarin):
 
 
 def test_combine_molecules_deepdiff(acetone, openff, coumarin, tmpdir, rfree_data):
-
     with tmpdir.as_cwd():
         openff.run(acetone)
         acetone_ref_system = xmltodict.parse(open("serialised_acetone.xml").read())
@@ -521,7 +520,6 @@ def test_molecule_and_water_offxml(coumarin, water, tmpdir, rfree_data, paramete
     MBISCharges.apply_symmetrisation(coumarin_copy)
 
     with tmpdir.as_cwd():
-
         # run the lj method to make sure the parameters match
         alpha = rfree_data.pop("alpha")
         beta = rfree_data.pop("beta")
@@ -615,7 +613,6 @@ def test_molecule_and_vsite_water(coumarin, tmpdir, water, rfree_data):
     MBISCharges.apply_symmetrisation(coumarin_copy)
 
     with tmpdir.as_cwd():
-
         # run the lj method to make sure the parameters match
         alpha = rfree_data.pop("alpha")
         beta = rfree_data.pop("beta")
@@ -721,7 +718,6 @@ def test_molecule_vsite_and_vsite_water(methanol, tmpdir, water, rfree_data):
     """
 
     with tmpdir.as_cwd():
-
         _combine_molecules_offxml(
             molecules=[methanol],
             parameters=[],
@@ -820,7 +816,6 @@ def test_molecule_vsite_and_vsite_water_plugin(methanol, tmpdir, water, rfree_da
     Make sure a v-site water model is correctly loaded from and offxml
     """
     with tmpdir.as_cwd():
-
         methanol_copy = methanol.copy(deep=True)
 
         # run the lj method to make sure the parameters match
@@ -1007,7 +1002,6 @@ def test_offxml_constraints(acetone, water, openff, tmpdir, rfree_data):
     """Make sure systems made via combined offxml have h-bond constraints when requested."""
 
     with tmpdir.as_cwd():
-
         openff.run(acetone)
         mixed_top = Topology.from_molecules(
             molecules=[
@@ -1141,7 +1135,6 @@ def test_offxml_combine_no_polar_lj(tmpdir, methanol, rfree_data, vs):
     """
 
     with tmpdir.as_cwd():
-
         # run the lj method to make sure the parameters match
         alpha = rfree_data.pop("alpha")
         beta = rfree_data.pop("beta")

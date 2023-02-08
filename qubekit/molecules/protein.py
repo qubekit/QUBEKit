@@ -72,7 +72,6 @@ class Protein(Molecule):
         topology = self.to_topology()
         for atom in self.atoms:
             if atom.atomic_symbol == "C" or atom.atomic_symbol == "N":
-
                 hs = []
                 for bonded in topology.neighbors(atom.atom_index):
                     if len(list(topology.neighbors(bonded))) == 1:
@@ -128,7 +127,6 @@ class Protein(Molecule):
         """
 
         with open(f"{name if name is not None else self.name}.pdb", "w+") as pdb_file:
-
             pdb_file.write(f"REMARK   1 CREATED WITH QUBEKit {datetime.now()}\n")
             # Write out the atomic xyz coordinates
             for i, (coord, atom) in enumerate(zip(self.coordinates, self.atoms)):
