@@ -1,5 +1,5 @@
+![QUBEKit_logo](https://user-images.githubusercontent.com/30259414/220639869-fe2382b4-47e9-4f5d-9173-4c38dcfdb8c8.png)
 # QUBEKit - *Qu*antum Mechanical *Be*spoke force field tool*kit*
-
 #### **Newcastle University UK - Cole Group**
 
 | **Status** | [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  [![CI](https://github.com/qubekit/QUBEKit/actions/workflows/CI.yaml/badge.svg)](https://github.com/qubekit/QUBEKit/actions/workflows/CI.yaml)  [![codecov](https://codecov.io/gh/qubekit/QUBEKit/branch/main/graph/badge.svg?token=E554IAATJC)](https://codecov.io/gh/qubekit/QUBEKit)|
