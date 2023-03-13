@@ -54,7 +54,7 @@
   },
   "optimisation": {
     "type": "Optimiser",
-    "pre_optimisation_method": "gfn2xtb",
+    "pre_optimisation_method": "ani1ccx",
     "seed_conformers": 40,
     "maxiter": 350,
     "convergence_criteria": "GAU_TIGHT"
