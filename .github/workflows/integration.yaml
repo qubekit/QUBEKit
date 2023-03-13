@@ -59,4 +59,4 @@ jobs:
 
       - name: Integration test
         run: |
-          qubekit run -sm "CCO" -n "ethanol" -c qubekit/data/integration_workflow.json
+          OMP_NUM_THREADS=1 qubekit run -sm "CCO" -n "ethanol" -c qubekit/data/integration_workflow.json
