@@ -145,7 +145,7 @@
     ],
     "torsion_driver": {
       "type": "torsiondriver",
-      "n_workers": 1,
+      "n_workers": 2,
       "grid_spacing": 60,
       "energy_decrease_thresh": null,
       "energy_upper_limit": null,

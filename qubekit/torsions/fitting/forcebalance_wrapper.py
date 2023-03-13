@@ -251,15 +251,21 @@ class ForceBalanceFitting(StageBase):
             "forcebalance",
             return_bool=True,
             raise_error=True,
-            raise_msg="Please install via `conda install forcebalance -c conda-forge`.",
+            raise_msg="Please install ForceBalance via `conda install forcebalance -c conda-forge`.",
         )
         openmm = which_import(
             "openmm",
             return_bool=True,
             raise_error=True,
-            raise_msg="Please install via `conda install openmm -c conda-forge`.",
+            raise_msg="Please install openmm via `conda install openmm -c conda-forge`.",
         )
-        return fb and openmm
+        cctools = which_import(
+            "work_queue",
+            return_bool=True,
+            raise_error=True,
+            raise_msg="Please install cctools via `conda install ndcctools -c conda-forge`.",
+        )
+        return fb and openmm and cctools
 
     def run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
         return self._run(molecule, *args, **kwargs)
@@ -281,7 +287,9 @@ class ForceBalanceFitting(StageBase):
             )
 
         # now we have validated the data run the optimiser
-        return self._optimise(molecule=molecule, **kwargs)
+        return self._optimise(
+            molecule=molecule, local_options=kwargs.get("local_options", None)
+        )
 
     def add_target(self, target: TargetBase) -> None:
         """
