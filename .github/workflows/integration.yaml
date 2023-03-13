@@ -25,31 +25,31 @@ jobs:
         os: [ubuntu-latest]
         python-version: ["3.9"]
 
-  steps:
-    - uses: actions/checkout@v3
+    steps:
+      - uses: actions/checkout@v3
 
-    - name: Additional info about the build
-      run: |
-        uname -a
-        df -h
-        ulimit -a
+      - name: Additional info about the build
+        run: |
+          uname -a
+          df -h
+          ulimit -a
 
-    - name: Create Environment
-      uses: mamba-org/provision-with-micromamba@main
-      with:
-        environment-file: devtools/conda-envs/everything.yaml
-        extra-specs: |
-          python=${{ matrix.python-version }}
+      - name: Create Environment
+        uses: mamba-org/provision-with-micromamba@main
+        with:
+          environment-file: devtools/conda-envs/everything.yaml
+          extra-specs: |
+            python=${{ matrix.python-version }}
 
-    - name: Install QUBEKit
-      run: |
-        pip install -e .
+      - name: Install QUBEKit
+        run: |
+          pip install -e .
 
-    - name: Environment Information
-      run: |
-        conda info
-        conda list --show-channel-urls
+      - name: Environment Information
+        run: |
+          conda info
+          conda list --show-channel-urls
 
-    - name: Integration test
-      run: |
-        qubekit run -sm "CCO" -n "ethanol" -c qubekit/data/integration_workflow.json
+      - name: Integration test
+        run: |
+          qubekit run -sm "CCO" -n "ethanol" -c qubekit/data/integration_workflow.json
