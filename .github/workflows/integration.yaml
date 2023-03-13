@@ -35,11 +35,18 @@ jobs:
           ulimit -a
 
       - name: Create Environment
-        uses: mamba-org/provision-with-micromamba@main
+        uses: conda-incubator/setup-miniconda@v2.1.1
         with:
+          activate-environment: test
           environment-file: devtools/conda-envs/everything.yaml
-          extra-specs: |
-            python=${{ matrix.python-version }}
+          python-version: ${{ matrix.python-version }}
+          auto-update-conda: true
+          auto-activate-base: false
+          show-channel-urls: true
+          mamba-version: "*"
+          miniforge-version: latest
+          miniforge-variant: Mambaforge
+          use-mamba: true
 
       - name: Install QUBEKit
         run: |
