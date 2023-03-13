@@ -105,7 +105,7 @@ class TorsionProfileSmirnoff(TargetBase):
         description="The upper limit for energy differences in kcal/mol which are included in fitting. Relative energies above this value do not contribute to the objective.",
     )
     attenuate: bool = Field(
-        False,
+        True,
         description="If the weights should be attenuated as a function of the energy above the minimum.",
     )
     restrain_k: float = Field(
