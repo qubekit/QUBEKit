@@ -108,7 +108,7 @@ class QCOptions(SchemaBase):
         """
         keywords = {
             "scf_type": "df",
-            # make sure we always use an ultrafine grid
+            # make sure we always use an ultra-fine grid
             "dft_spherical_points": 590,
             "dft_radial_points": 99,
         }
@@ -117,9 +117,12 @@ class QCOptions(SchemaBase):
             keywords["tdscf_states"] = self.td_settings.n_states
             keywords["tdscf_tda"] = self.td_settings.use_tda
 
-        # work around a setting in psi4, fixes range seperated functionals
+        # work around a setting in psi4, fixes range separated functionals
         if self.program.lower() == "psi4":
             keywords["wcombine"] = False
+        elif self.program.lower() == "xtb":
+            # stop too many open files error see <https://github.com/grimme-lab/xtb-python/issues/73>
+            keywords["verbosity"] = "muted"
         return keywords
 
     @property
