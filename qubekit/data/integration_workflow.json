@@ -7,7 +7,7 @@
     "td_settings": null
   },
   "local_resources": {
-    "cores": 1,
+    "cores": 2,
     "memory": 2
   },
   "fragmentation": {
