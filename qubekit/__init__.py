@@ -1,6 +1,9 @@
 """
 QUBEKit
 """
+import faulthandler
+faulthandler.enable()
+
 # Handel versioneer
 from ._version import get_versions
 
