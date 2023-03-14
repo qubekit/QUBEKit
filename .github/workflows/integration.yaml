@@ -59,6 +59,6 @@ jobs:
 
       - name: Integration test
         run: |
-          export KMP_DUPLICATE_LIB_OK=TRUE
+          mamba install _openmp_mutex=4.5=2_gnu -c conda-forge
           export OMP_NUM_THREADS=1 
           strace qubekit run -sm "CCO" -n "ethanol" -c qubekit/data/integration_workflow.json
