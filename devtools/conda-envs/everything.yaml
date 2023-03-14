@@ -14,6 +14,7 @@ dependencies:
 
     # Core deps
   - openff-toolkit-base >=0.10.6, <0.11
+  - _openmp_mutex=4.5=2_gnu #required by psi4 ie intel-openmp it seems
   - conda-forge::pytorch
   - openff-fragmenter
   - ambertools
