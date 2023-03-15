@@ -13,7 +13,7 @@ dependencies:
   - deepdiff >=5.8.0
 
     # Core deps
-  - openff-toolkit-base >=0.10.6, <0.11
+#  - openff-toolkit-base >=0.10.6, <0.11
   - _openmp_mutex=4.5=2_gnu #required by psi4 ie intel-openmp it seems
   - pytorch
   - openff-fragmenter
@@ -49,3 +49,4 @@ dependencies:
 
   - pip:
       - qforce==0.6.3
+      - git+https://github.com/openforcefield/openff-toolkit.git@0-10-x
