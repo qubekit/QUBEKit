@@ -16,7 +16,7 @@ dependencies:
 #  - openff-toolkit-base >=0.10.6, <0.11
   - _openmp_mutex=4.5=2_gnu #required by psi4 ie intel-openmp it seems
   - pytorch
-  - openff-fragmenter
+  - openff-fragmenter=0.1.2
   - ambertools
   - pydantic
   - forcebalance=1.9.3
