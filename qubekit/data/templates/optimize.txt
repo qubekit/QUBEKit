@@ -55,8 +55,11 @@ normalize_weights {{normalize_weights}}
 # Charge constraints are taken care of using "evals".
 constrain_charge false
 
+{%- if asynchronous %}
 wq_port {{ wq_port }}
-asynchronous
+asynchronous true
+{% endif %}
+
 
 priors
    {%- for key, value in priors.items() %}
@@ -73,8 +76,10 @@ name {{entry_name}}
 type {{target}}
 {%- for key, value in target_options[target].items() %}
 {{key}} {{ value if value is not none else "" }}
-remote 1 # use work_queue worker instead of running directly
 {%- endfor %}
+{%- if asynchronous %}
+remote true
+{% endif %}
 $end
 {%- endfor %}
 {%- endfor %}

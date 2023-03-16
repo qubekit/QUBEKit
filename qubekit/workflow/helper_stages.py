@@ -1,5 +1,4 @@
 import os.path
-from copy import deepcopy
 from typing import List, Optional
 
 import numpy as np
@@ -163,7 +162,7 @@ class Optimiser(StageBase):
             qc_spec: The QCSpec used to run the QM optimisation.
             local_options: The local resource that is available for the optimisation.
         """
-        opt_mol = deepcopy(molecule)
+        opt_mol = molecule.copy(deep=True)
         g_opt = GeometryOptimiser(convergence=self.convergence_criteria, maxiter=50)
 
         for i, conformer in enumerate(
@@ -222,7 +221,6 @@ class Optimiser(StageBase):
         Returns:
             A list of final coordinates from the optimisations.
         """
-        from multiprocessing import Pool
 
         g_opt = GeometryOptimiser(convergence="GAU", maxiter=self.maxiter)
 
@@ -232,44 +230,30 @@ class Optimiser(StageBase):
             molecule.to_multiconformer_file(
                 file_name=f"starting_coords{molecule.name}.xyz", positions=geometries
             )
-            opt_list = []
-            with Pool(processes=local_options.cores) as pool:
-                for confomer in geometries:
-                    opt_mol = deepcopy(molecule)
-                    opt_mol.coordinates = confomer
-                    opt_list.append(
-                        pool.apply_async(
-                            # make sure to divide the total resource between the number of workers
-                            g_opt.optimise,
-                            (
-                                opt_mol,
-                                qc_spec,
-                                local_options.divide_resource(
-                                    n_tasks=local_options.cores
-                                ),
-                                True,
-                                True,
-                            ),
-                        )
-                    )
+            results = []
+            for conformer in tqdm(
+                geometries,
+                desc=f"Optimising conformers for {molecule.name} with {self.pre_optimisation_method}",
+                total=len(geometries),
+                ncols=80,
+            ):
+                opt_mol = molecule.copy(deep=True)
+                opt_mol.coordinates = conformer
+                # errors are auto raised from the class so catch the result, and write to file
+                result_mol, opt_result = g_opt.optimise(
+                    molecule=opt_mol,
+                    qc_spec=qc_spec,
+                    local_options=local_options,
+                    allow_fail=True,
+                    return_result=True,
+                )
 
-                results = []
-                for result in tqdm(
-                    opt_list,
-                    desc=f"Optimising conformers for {molecule.name} with {self.pre_optimisation_method}",
-                    total=len(opt_list),
-                    ncols=80,
-                ):
-                    # errors are auto raised from the class so catch the result, and write to file
-                    result_mol, opt_result = result.get()
-                    if opt_result.success:
-                        # save the final energy and molecule
-                        results.append((result_mol, opt_result.energies[-1]))
-                    else:
-                        # save the molecule and final energy from the last step if it fails
-                        results.append(
-                            (result_mol, opt_result.input_data["energies"][-1])
-                        )
+                if opt_result.success:
+                    # save the final energy and molecule
+                    results.append((result_mol, opt_result.energies[-1]))
+                else:
+                    # save the molecule and final energy from the last step if it fails
+                    results.append((result_mol, opt_result.input_data["energies"][-1]))
 
             # sort the results
             results.sort(key=lambda x: x[1])

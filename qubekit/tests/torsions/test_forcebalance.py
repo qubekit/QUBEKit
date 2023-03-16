@@ -125,7 +125,10 @@ def test_generate_forcefield(tmpdir, biphenyl):
                     assert tuple(sorted(match[1:3])) == (10, 11)
 
 
-def test_generate_optimise_in(tmpdir, biphenyl):
+@pytest.mark.parametrize(
+    "use_workers", [pytest.param(True, id="True"), pytest.param(False, id="False")]
+)
+def test_generate_optimise_in(tmpdir, biphenyl, use_workers: bool):
     """
     Test generating an optimize in file which captures the correct forcebalance run time settings.
     """
@@ -140,7 +143,9 @@ def test_generate_optimise_in(tmpdir, biphenyl):
         fb.add_target(target=tp)
         # now run the setup
         target_folders = tp.prep_for_fitting(molecule=biphenyl)
-        fb.generate_optimise_in(target_data={tp.target_name: target_folders})
+        fb.generate_optimise_in(
+            target_data={tp.target_name: target_folders}, use_workers=use_workers
+        )
         # read the file back in
         with open("optimize.in") as opt_in:
             opt_data = opt_in.read()
@@ -150,6 +155,13 @@ def test_generate_optimise_in(tmpdir, biphenyl):
         assert "mintrust 10" in opt_data
         assert "restrain_k 100" in opt_data
         assert "type TorsionProfile_SMIRNOFF" in opt_data
+        async_tag = "asynchronous" in opt_data
+        wq_tag = "wq_port" in opt_data
+        remote_tag = "remote true" in opt_data
+        # these tags will be present depending on use_workers
+        assert async_tag is use_workers
+        assert wq_tag is use_workers
+        assert remote_tag is use_workers
 
 
 def test_full_optimise(tmpdir, biphenyl):

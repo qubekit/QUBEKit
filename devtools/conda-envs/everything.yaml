@@ -13,8 +13,10 @@ dependencies:
   - deepdiff >=5.8.0
 
     # Core deps
-  - openff-toolkit-base >=0.10.6, <0.11
-  - openff-fragmenter
+#  - openff-toolkit-base >=0.10.6, <0.11
+  - _openmp_mutex=4.5=2_gnu #required by psi4 ie intel-openmp it seems
+  - pytorch
+  - openff-fragmenter=0.1.2
   - ambertools
   - pydantic
   - forcebalance=1.9.3
@@ -45,5 +47,16 @@ dependencies:
   - msgpack-python
   - chemper
 
+  # OpenFF-toolkit missing
+  - openmm >=7.6
+  - smirnoff99Frosst
+  - openff-forcefields
+  - mdtraj
+  - xmltodict
+  - packaging
+  - python-constraint
+  - importlib-metadata >=4.10
+
   - pip:
       - qforce==0.6.3
+      - git+https://github.com/openforcefield/openff-toolkit.git@0-10-x

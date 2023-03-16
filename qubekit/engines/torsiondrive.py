@@ -1,8 +1,8 @@
 import copy
 import json
+import multiprocessing
 import os
 import shutil
-from multiprocessing import Pool
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -172,7 +172,9 @@ class TorsionDriver(SchemaBase):
                 # create a new local resource object by dividing the current one by n workers
                 resource_settings = local_options.divide_resource(n_tasks=workers)
                 # start worker pool for multiple optimisers
-                with Pool(processes=self.n_workers) as pool:
+
+                ctx = multiprocessing.get_context("spawn")
+                with ctx.Pool(processes=self.n_workers) as pool:
                     print(f"setting up {workers} workers to compute optimisations")
                     for grid_id_str, job_geo_list in new_jobs.items():
                         for geo_job in job_geo_list:

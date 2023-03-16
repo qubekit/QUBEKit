@@ -1,0 +1,192 @@
+{
+  "type": "WorkFlow",
+  "qc_options": {
+    "program": "torchani",
+    "basis": null,
+    "method": "ani1ccx",
+    "td_settings": null
+  },
+  "local_resources": {
+    "cores": 2,
+    "memory": 2
+  },
+  "fragmentation": {
+    "functional_groups": {
+      "hydrazine": "[NX3:1][NX3:2]",
+      "hydrazone": "[NX3:1][NX2:2]",
+      "nitric_oxide": "[N:1]-[O:2]",
+      "amide": "[#7:1][#6:2](=[#8:3])",
+      "amide_n": "[#7:1][#6:2](-[O-:3])",
+      "amide_2": "[NX3:1][CX3:2](=[OX1:3])[NX3:4]",
+      "aldehyde": "[CX3H1:1](=[O:2])[#6:3]",
+      "sulfoxide_1": "[#16X3:1]=[OX1:2]",
+      "sulfoxide_2": "[#16X3+:1][OX1-:2]",
+      "sulfonyl": "[#16X4:1](=[OX1:2])=[OX1:3]",
+      "sulfinic_acid": "[#16X3:1](=[OX1:2])[OX2H,OX1H0-:3]",
+      "sulfinamide": "[#16X4:1](=[OX1:2])(=[OX1:3])([NX3R0:4])",
+      "sulfonic_acid": "[#16X4:1](=[OX1:2])(=[OX1:3])[OX2H,OX1H0-:4]",
+      "phosphine_oxide": "[PX4:1](=[OX1:2])([#6:3])([#6:4])([#6:5])",
+      "phosphonate": "[P:1](=[OX1:2])([OX2H,OX1-:3])([OX2H,OX1-:4])",
+      "phosphate": "[PX4:1](=[OX1:2])([#8:3])([#8:4])([#8:5])",
+      "carboxylic_acid": "[CX3:1](=[O:2])[OX1H0-,OX2H1:3]",
+      "nitro_1": "[NX3+:1](=[O:2])[O-:3]",
+      "nitro_2": "[NX3:1](=[O:2])=[O:3]",
+      "ester": "[CX3:1](=[O:2])[OX2H0:3]",
+      "tri_halide": "[#6:1]([F,Cl,I,Br:2])([F,Cl,I,Br:3])([F,Cl,I,Br:4])"
+    },
+    "scheme": "WBO",
+    "wbo_options": {
+      "method": "am1-wiberg-elf10",
+      "max_conformers": 800,
+      "rms_threshold": 1.0
+    },
+    "threshold": 0.03,
+    "heuristic": "path_length",
+    "keep_non_rotor_ring_substituents": false,
+    "type": "WBOFragmentation",
+    "rotatable_smirks": [
+      "[!#1]~[!$(*#*)&!D1:1]-,=;!@[!$(*#*)&!D1:2]~[!#1]"
+    ]
+  },
+  "parametrisation": {
+    "type": "OpenFF",
+    "force_field": "openff_unconstrained-2.0.0.offxml"
+  },
+  "optimisation": {
+    "type": "Optimiser",
+    "pre_optimisation_method": "gfn2xtb",
+    "seed_conformers": 40,
+    "maxiter": 350,
+    "convergence_criteria": "GAU_TIGHT"
+  },
+  "charges": {
+    "type": "MBISCharges",
+    "solvent_settings": {
+      "program": "psi4",
+      "units": "au",
+      "codata": 2010,
+      "cavity_Type": "GePol",
+      "cavity_Area": 0.3,
+      "cavity_Scaling": true,
+      "cavity_RadiiSet": "bondi",
+      "cavity_MinRadius": 100,
+      "cavity_Mode": "Implicit",
+      "medium_SolverType": "IEFPCM",
+      "medium_Nonequilibrium": false,
+      "medium_Solvent": "CHCL3",
+      "medium_MatrixSymm": true,
+      "medium_Correction": 0.0,
+      "medium_DiagonalScaling": 1.07,
+      "medium_ProbeRadius": 1.0
+    },
+    "program": "psi4",
+    "basis": "DZVP",
+    "method": "b3lyp-d3bj",
+    "td_settings": null
+  },
+  "virtual_sites": {
+    "type": "VirtualSites",
+    "site_error_factor": 1.005,
+    "site_error_threshold": 1.0,
+    "freeze_site_angles": true,
+    "regularisation_epsilon": 0.0
+  },
+  "non_bonded": {
+    "type": "LennardJones612",
+    "lj_on_polar_h": true,
+    "free_parameters": {
+      "H": {
+        "v_free": 7.6,
+        "b_free": 6.5,
+        "r_free": 1.68
+      },
+      "X": {
+        "v_free": 7.6,
+        "b_free": 6.5,
+        "r_free": 1.464
+      },
+      "C": {
+        "v_free": 34.4,
+        "b_free": 46.6,
+        "r_free": 2.043
+      },
+      "N": {
+        "v_free": 25.9,
+        "b_free": 24.2,
+        "r_free": 1.693
+      },
+      "O": {
+        "v_free": 22.1,
+        "b_free": 15.6,
+        "r_free": 1.68
+      }
+    },
+    "alpha": 0.999,
+    "beta": 0.491
+  },
+  "bonded_parameters": {
+    "type": "ModSeminario",
+    "vibrational_scaling": 1.0
+  },
+  "torsion_scanner": {
+    "type": "TorsionScan1D",
+    "special_torsions": [],
+    "default_scan_range": [
+      -165,
+      180
+    ],
+    "avoided_torsions": [
+      {
+        "smirks": "[*:1]-[CH3:2]"
+      },
+      {
+        "smirks": "[*:1]-[NH2:2]"
+      }
+    ],
+    "torsion_driver": {
+      "type": "torsiondriver",
+      "n_workers": 2,
+      "grid_spacing": 60,
+      "energy_decrease_thresh": null,
+      "energy_upper_limit": null,
+      "starting_conformations": 4
+    }
+  },
+  "torsion_optimisation": {
+    "type": "ForceBalanceFitting",
+    "penalty_type": "L1",
+    "job_type": "optimize",
+    "max_iterations": 10,
+    "convergence_step_criteria": 0.01,
+    "convergence_objective_criteria": 0.01,
+    "convergence_gradient_criteria": 0.01,
+    "n_criteria": 1,
+    "eig_lowerbound": 0.01,
+    "finite_difference_h": 0.01,
+    "penalty_additive": 0.1,
+    "constrain_charge": false,
+    "initial_trust_radius": -0.25,
+    "minimum_trust_radius": 0.05,
+    "error_tolerance": 1.0,
+    "adaptive_factor": 0.2,
+    "adaptive_damping": 1.0,
+    "normalize_weights": false,
+    "extras": {},
+    "priors": {
+      "Proper_k": 6.0
+    },
+    "targets": {
+      "TorsionProfile_OpenFF": {
+        "target_name": "TorsionProfile_SMIRNOFF",
+        "description": "Relaxed energy and RMSD fitting for torsion drives only.",
+        "writelevel": 2,
+        "keywords": {},
+        "openmm_platform": "Reference",
+        "energy_denom": 1.0,
+        "energy_upper": 10.0,
+        "attenuate": true,
+        "restrain_k": 1.0
+      }
+    }
+  }
+}

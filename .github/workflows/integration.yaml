@@ -1,0 +1,63 @@
+name: Integration tests
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
+  schedule:
+    - cron: "0 0 * * *"
+
+defaults:
+  run:
+    shell: bash -l {0}
+
+jobs:
+  test:
+    name: 🖥️ ${{ matrix.os }}, 🐍 ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.8"]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Additional info about the build
+        run: |
+          uname -a
+          df -h
+          ulimit -a
+
+      - name: Create Environment
+        uses: conda-incubator/setup-miniconda@v2.1.1
+        with:
+          activate-environment: test
+          environment-file: devtools/conda-envs/everything.yaml
+          python-version: ${{ matrix.python-version }}
+          auto-update-conda: true
+          auto-activate-base: false
+          show-channel-urls: true
+          mamba-version: "*"
+          miniforge-version: latest
+          miniforge-variant: Mambaforge
+          use-mamba: true
+
+      - name: Install QUBEKit
+        run: |
+          pip install -e .
+
+      - name: Environment Information
+        run: |
+          conda info
+          conda list --show-channel-urls
+
+      - name: Integration test
+        run: |
+          export OMP_NUM_THREADS=1 
+          qubekit run -sm "CCO" -n "ethanol" -c qubekit/data/integration_workflow.json
