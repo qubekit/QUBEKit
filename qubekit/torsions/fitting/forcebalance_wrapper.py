@@ -5,7 +5,7 @@ import abc
 import os
 import socket
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, PositiveFloat, PositiveInt
 from qcelemental.util import which_import
@@ -335,26 +335,42 @@ class ForceBalanceFitting(StageBase):
 
             # back to fitting folder
             os.chdir(fitting_folder)
+            # total number of torsion targets
+            total_targets = sum(len(torsions) for torsions in fitting_targets.values())
+            # if we have 1 target only use one worker as its faster
+            max_workers = min([total_targets, local_options.cores])
+            # aysnc used for more than one target/worker only
+            use_workers = True if max_workers > 1 else False
             # now we can make the optimize in file
-            wq_port = self.generate_optimise_in(target_data=fitting_targets)
+            wq_port = self.generate_optimise_in(
+                target_data=fitting_targets, use_workers=use_workers
+            )
             # now make the forcefield file
             self.generate_forcefield(molecule=molecule)
 
             # now execute forcebalance
             with open("log.txt", "w") as log:
-                import work_queue
+                if use_workers:
+                    import work_queue
 
-                workers = work_queue.Factory(
-                    "local", manager_host_port=f"localhost:{wq_port}"
-                )
-                # the optimisation takes space in gas, so 1 core for each OpenMM is good enough most likely
-                workers.cores = 1
-                # divide the memory for each worker
-                workers.memory = local_options.memory / local_options.cores
-                workers.min_workers = 1
-                workers.max_workers = local_options.cores
+                    workers = work_queue.Factory(
+                        "local", manager_host_port=f"localhost:{wq_port}"
+                    )
+                    # the optimisation takes space in gas, so 1 core for each OpenMM is good enough most likely
+                    workers.cores = 1
+                    # divide the memory for each worker
+                    workers.memory = local_options.memory / max_workers
+                    workers.min_workers = 1
+                    workers.max_workers = max_workers
 
-                with workers:
+                    with workers:
+                        subprocess.run(
+                            "ForceBalance optimize.in",
+                            shell=True,
+                            stdout=log,
+                            stderr=log,
+                        )
+                else:
                     subprocess.run(
                         "ForceBalance optimize.in", shell=True, stdout=log, stderr=log
                     )
@@ -383,7 +399,9 @@ class ForceBalanceFitting(StageBase):
             file_name=os.path.join("forcefield", "bespoke.offxml"), h_constraints=False
         )
 
-    def generate_optimise_in(self, target_data: Dict[str, List[str]]) -> None:
+    def generate_optimise_in(
+        self, target_data: Dict[str, List[str]], use_workers: bool
+    ) -> Optional[int]:
         """
         For the given list of targets and entries produce an optimize.in file which contains all of the run time settings to be used in the optimization.
         this uses jinja templates to generate the required file from the template distributed with qubekit.
@@ -405,11 +423,17 @@ class ForceBalanceFitting(StageBase):
             target_options[target.target_name] = target.fb_options()
         data["target_options"] = target_options
 
-        # select an empty socket and bind it
-        sock = socket.socket()
-        sock.bind(("localhost", 0))
-        wq_port = sock.getsockname()[1]
-        data["wq_port"] = wq_port
+        wq_port = None
+
+        if use_workers:
+            # add the async settings
+            data["asynchronous"] = True
+            # select an empty socket and bind it
+            sock = socket.socket()
+            sock.bind(("localhost", 0))
+            wq_port = sock.getsockname()[1]
+            sock.close()
+            data["wq_port"] = wq_port
 
         rendered_template = template.render(**data)
 
