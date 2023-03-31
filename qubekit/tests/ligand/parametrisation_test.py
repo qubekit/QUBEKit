@@ -576,6 +576,23 @@ def test_offxml_round_trip(tmpdir, openff, molecule):
                     assert energy == pytest.approx(qube_e, abs=2e-3)
 
 
+def test_no_ub_terms_default(methanol):
+    """Make sure the default xml has no UB handler when there are no UB terms."""
+
+    # make sure methanol has no us terms
+    assert methanol.UreyBradleyForce.n_parameters == 0
+    ff = methanol._build_forcefield().getroot()
+    force = ff.find("AmoebaUreyBradleyForce")
+    assert force is None
+
+    # add them in and make sure they are present
+    for angle in methanol.angles:
+        methanol.UreyBradleyForce.create_parameter(angle, k=1, d=2)
+    ff = methanol._build_forcefield().getroot()
+    force = ff.find("AmoebaUreyBradleyForce")
+    assert force.tag == "AmoebaUreyBradleyForce"
+
+
 @pytest.mark.parametrize(
     "molecule",
     [
