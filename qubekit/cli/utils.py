@@ -185,11 +185,11 @@ class QUBEKitHandler(vdWHandler):
                     raise SMIRNOFFSpecError(
                         f"Parameter {parameter.smirks} matched with {ref_mol} but the whole molecule was not covered!"
                     )
-
-                for atom in matches[0]:
-                    qb_mol.atoms[atom].aim.volume = parameter.volume[
-                        atom
-                    ].value_in_unit(unit.bohr**3)
+                if matches:
+                    for atom in matches[0]:
+                        qb_mol.atoms[atom].aim.volume = parameter.volume[
+                            atom
+                        ].value_in_unit(unit.bohr**3)
             # make sure all atoms in the molecule have volumes, assign dummy values
             for i in range(qb_mol.n_atoms):
                 atom = qb_mol.atoms[i]

@@ -1,7 +1,9 @@
 import openmm
 import pytest
+from chemper.graphs.cluster_graph import ClusterGraph
 from openff.toolkit.topology import Molecule, Topology
 from openff.toolkit.typing.engines.smirnoff import ForceField
+from openff.toolkit.utils.exceptions import SMIRNOFFSpecError
 from openmm import unit
 
 from qubekit.cli.combine import _add_water_model
@@ -223,3 +225,17 @@ def test_multi_bbc_correction(openff, tmpdir):
                 ) == charge.value_in_unit(
                     unit.elementary_charge
                 )
+
+
+def test_wrong_number_of_volumes(methanol):
+    """Make sure an error is raised if we make a parameter with the wrong number of volumes"""
+    ff = ForceField(load_plugins=True)
+    qube = ff.get_parameter_handler("QUBEKitvdWTS")
+    graph = ClusterGraph(
+        mols=[methanol.to_rdkit()],
+        smirks_atoms_lists=[[list([i for i in range(methanol.n_atoms)])]],
+        layers="all",
+    )
+    volume_data = {"volume1": 32 * unit.bohr**3, "smirks": graph.as_smirks()}
+    with pytest.raises(SMIRNOFFSpecError):
+        qube.add_parameter(parameter_kwargs=volume_data)
