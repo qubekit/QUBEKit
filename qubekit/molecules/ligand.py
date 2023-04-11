@@ -1629,6 +1629,23 @@ class Molecule(SchemaBase):
         charge_data["smirks"] = graph.as_smirks()
         library_charges.add_parameter(parameter_kwargs=charge_data)
 
+    def _build_offxml_volumes(self, offxml: ForceField):
+        """Edit the offxml in place by adding the atomic volumes using the plugin handler"""
+
+        rdkit_mol = self.to_rdkit()
+        qube_handler = offxml.get_parameter_handler("QUBEKitvdWTS")
+        volume_data = dict(
+            (f"volume{atom.atom_index + 1}", atom.aim.volume * unit.bohr**3)
+            for atom in self.atoms
+        )
+        graph = ClusterGraph(
+            mols=[rdkit_mol],
+            smirks_atoms_lists=[[list([i for i in range(self.n_atoms)])]],
+            layers="all",
+        )
+        volume_data["smirks"] = graph.as_smirks()
+        qube_handler.add_parameter(parameter_kwargs=volume_data)
+
     def _build_offxml_vs(self, offxml: ForceField):
         """Edit the offxml in place adding any virtual sites via our custom plugin handler."""
 
