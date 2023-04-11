@@ -335,7 +335,7 @@ def test_combine_cli_all_offxml(
             )
             # make sure we have used the plugin method
             vdw_handler = ff.get_parameter_handler("QUBEKitvdWTS")
-            assert len(vdw_handler.parameters) == 32
+            assert len(vdw_handler.parameters) == 2
             assert "parameterize" in vdw_handler._cosmetic_attribs
             assert len(getattr(vdw_handler, "_parameterize").split(",")) == expected
         else:
@@ -951,7 +951,7 @@ def test_combine_molecules_offxml_plugin_deepdiff(tmpdir, coumarin, rfree_data):
         vdw = offxml.get_parameter_handler("QUBEKitvdWTS")
         # make sure we have the parameterize tags
         assert len(vdw._cosmetic_attribs) == 1
-        assert len(vdw.parameters) == 28
+        assert len(vdw.parameters) == 1
 
         alpha = rfree_data.pop("alpha")
         beta = rfree_data.pop("beta")

@@ -228,36 +228,31 @@ def _combine_molecules_offxml(
             molecule._build_offxml_rb_torsions(offxml=offxml)
         molecule._build_offxml_charges(offxml=offxml)
         molecule._build_offxml_vs(offxml=offxml)
+        if using_plugin:
+            molecule._build_offxml_volumes(offxml=offxml)
+            for i in range(molecule.n_atoms):
+                rfree_code = _get_parameter_code(molecule=molecule, atom_index=i)
+                if rfree_code in parameters or fit_ab:
+                    rfree_codes.add(rfree_code)
+        else:
+            # we need a smirks per atom type for the sigma and epsilon
+            atom_types = {}
+            rdkit_mol = molecule.to_rdkit()
 
-        atom_types = {}
-        rdkit_mol = molecule.to_rdkit()
+            for atom_index, cip_type in molecule.atom_types.items():
+                atom_types.setdefault(cip_type, []).append((atom_index,))
+            for sym_set in atom_types.values():
+                graph = ClusterGraph(
+                    mols=[rdkit_mol], smirks_atoms_lists=[sym_set], layers="all"
+                )
+                qube_non_bond = molecule.NonbondedForce[sym_set[0]]
+                atom_data = {
+                    "smirks": graph.as_smirks(),
+                    "epsilon": qube_non_bond.epsilon * unit.kilojoule_per_mole,
+                    "sigma": qube_non_bond.sigma * unit.nanometers,
+                }
 
-        for atom_index, cip_type in molecule.atom_types.items():
-            atom_types.setdefault(cip_type, []).append((atom_index,))
-        for sym_set in atom_types.values():
-            graph = ClusterGraph(
-                mols=[rdkit_mol], smirks_atoms_lists=[sym_set], layers="all"
-            )
-            qube_non_bond = molecule.NonbondedForce[sym_set[0]]
-            rfree_code = _get_parameter_code(
-                molecule=molecule, atom_index=sym_set[0][0]
-            )
-            atom_data = {
-                "smirks": graph.as_smirks(),
-            }
-
-            if rfree_code in parameters or fit_ab:
-                # keep track of present codes to optimise
-                rfree_codes.add(rfree_code)
-            if using_plugin:
-                # this is to be refit
-                atom = molecule.atoms[qube_non_bond.atoms[0]]
-                atom_data["volume"] = atom.aim.volume * unit.bohr**3
-            else:
-                atom_data["epsilon"] = qube_non_bond.epsilon * unit.kilojoule_per_mole
-                atom_data["sigma"] = qube_non_bond.sigma * unit.nanometers
-
-            vdw_handler.add_parameter(parameter_kwargs=atom_data)
+                vdw_handler.add_parameter(parameter_kwargs=atom_data)
 
     # now loop over all the parameters to be fit and add them as cosmetic attributes
     to_parameterize = []

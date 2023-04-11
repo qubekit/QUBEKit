@@ -24,7 +24,8 @@ from openff.toolkit.typing.engines.smirnoff.parameters import (
     _allow_only,
     vdWHandler,
 )
-from openff.toolkit.utils.exceptions import NotBondedError
+from openff.toolkit.utils.exceptions import NotBondedError, SMIRNOFFSpecError
+from openff.toolkit.utils.toolkits import GLOBAL_TOOLKIT_REGISTRY
 from openmm import openmm, unit
 
 from qubekit.molecules import Ligand
@@ -93,7 +94,19 @@ class QUBEKitHandler(vdWHandler):
         _VALENCE_TYPE = "Atom"  # ChemicalEnvironment valence type expected for SMARTS
         _ELEMENT_NAME = "Atom"
 
-        volume = ParameterAttribute(unit=unit.bohr**3)
+        name = ParameterAttribute(default=None)
+        volume = IndexedParameterAttribute(unit=unit.bohr**3)
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            unique_tags, connectivity = GLOBAL_TOOLKIT_REGISTRY.call(
+                "get_tagged_smarts_connectivity", self.smirks
+            )
+            if len(self.volume) != len(unique_tags):
+                raise SMIRNOFFSpecError(
+                    f"QUBEKitHandler {self} was initialized with unequal number of "
+                    f"tagged atoms and volumes"
+                )
 
     _TAGNAME = "QUBEKitvdWTS"
     _INFOTYPE = QUBEKitvdWType
@@ -163,14 +176,20 @@ class QUBEKitHandler(vdWHandler):
                 ref_mol.generate_conformers(n_conformers=1)
 
             qb_mol = Ligand.from_rdkit(ref_mol.to_rdkit())
+            # each parameter should cover the whole molecule
             for parameter in self.parameters:
                 matches = ref_mol.chemical_environment_matches(
-                    parameter.smirks, unique=False
+                    parameter.smirks, unique=True
                 )
-                for match in matches:
-                    qb_mol.atoms[match[0]].aim.volume = parameter.volume.value_in_unit(
-                        unit.bohr**3
+                if matches and len(matches[0]) != qb_mol.n_atoms:
+                    raise SMIRNOFFSpecError(
+                        f"Parameter {parameter.smirks} matched with {ref_mol} but the whole molecule was not covered!"
                     )
+                if matches:
+                    for atom in matches[0]:
+                        qb_mol.atoms[atom].aim.volume = parameter.volume[
+                            atom
+                        ].value_in_unit(unit.bohr**3)
             # make sure all atoms in the molecule have volumes, assign dummy values
             for i in range(qb_mol.n_atoms):
                 atom = qb_mol.atoms[i]
