@@ -38,6 +38,10 @@ jobs:
             python-version: 3.9
             os: macOS-latest
 
+          - conda-env: basic
+            python-version: 3.10
+            os: ubuntu-latest
+
     env:
       CI_OS: ${{ matrix.cfg.os }}
       ENV: ${{ matrix.cfg.conda-env }}
