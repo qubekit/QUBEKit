@@ -26,6 +26,10 @@ jobs:
 #            python-version: 3.7
 #            os: macOS-latest
 
+          - conda-env: basic
+            python-version: 3.8
+            os: ubuntu-latest
+
           - conda-env: everything
             python-version: 3.8
             os: ubuntu-latest
@@ -34,7 +38,15 @@ jobs:
             python-version: 3.9
             os: ubuntu-latest
 
+          - conda-env: everything
+            python-version: 3.9
+            os: ubuntu-latest
+
           - conda-env: basic
+            python-version: 3.9
+            os: macOS-latest
+
+          - conda-env: everything
             python-version: 3.9
             os: macOS-latest
 
