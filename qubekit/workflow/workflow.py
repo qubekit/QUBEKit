@@ -318,9 +318,14 @@ class WorkFlow(SchemaBase):
         # write out final parameters
         with folder_setup("final_parameters"):
             molecule.to_file(file_name=f"{molecule.name}.pdb")
+            molecule.to_file(file_name=f"{molecule.name}.sdf")
             molecule.write_parameters(file_name=f"{molecule.name}.xml")
             # write out the offxml with h-bond constraints
             molecule.to_offxml(file_name=f"{molecule.name}.offxml", h_constraints=True)
+            # write without h-constraints
+            molecule.to_offxml(
+                file_name=f"{molecule.name}_unconstrained.offxml", h_constraints=False
+            )
 
         return results
 
