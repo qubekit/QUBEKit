@@ -94,29 +94,32 @@ class WBOFragmentation(StageBase, WBOFragmenter):
 
     @staticmethod
     def _group_subfragments_together(fragments):
-        # modifies the fragments
-        # some fragments are subfragments of other fragments, group together
-        # sort first by size, largest first
-        # f.to_rdkit().HasSubstructMatch()
-        sorted_frags = sorted(fragments, key=lambda f: len(f.atoms), reverse=True)
+        """
+        When a fragment is contained by another, merge them into the bigger one.
+        Warning: Modifies the list of fragments (and some fragments).
+        """
+
+        # sort first by size in decreasing order
         from rdkit import Chem
+        sorted_frags = sorted(fragments, key=lambda f: len(f.atoms), reverse=True)
 
         substructures = []
         for i, f_larger in enumerate(sorted_frags):
-            # if this fragment already is a substructure of another fragment,
-            # then it does not matter that it is a superstructure to another fragment
+            # if this fragment already is contained by another fragment,
+            # then it does not matter that if it contains other fragments
             if i in substructures:
                 continue
 
             for j, f_smaller in enumerate(sorted_frags[i+1:], start=i+1):
+                # ignore the hydrogens
                 if Chem.RemoveHs(f_larger.to_rdkit()).HasSubstructMatch(Chem.RemoveHs(f_smaller.to_rdkit())):
-                    # avoid considering this fragment as a parent to another fragment
+                    # mark that this fragment is contained by another one
                     substructures.append(j)
 
                     # merge the smaller structure into the larger structure
                     f_larger.bond_indices.extend(f_smaller.bond_indices)
 
-        # return fragments without the substructures
+        # return the fragments without the "subfragments"
         fragments_without_substructures = [fragment for i, fragment in enumerate(sorted_frags)
                                            if i not in substructures]
         return fragments_without_substructures
@@ -177,7 +180,7 @@ class WBOFragmentation(StageBase, WBOFragmenter):
 
         # check if the fragments are substructures of other fragmetns, if they are, use the larger fragments instead,
         # and add to them the bond_indices from the smaller fragments,
-        grouped_fragments = self._group_subfragments_together(unique_fragments)
+        grouped_fragments = WBOFragmentation._group_subfragments_together(unique_fragments)
 
         # re number the unique fragments
         for i, fragment in enumerate(grouped_fragments):
