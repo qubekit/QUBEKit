@@ -178,8 +178,7 @@ class WBOFragmentation(StageBase, WBOFragmenter):
             ]
             unique_fragments.append(fragments_assymetry[0])
 
-        # check if the fragments are substructures of other fragmetns, if they are, use the larger fragments instead,
-        # and add to them the bond_indices from the smaller fragments,
+        # join any fragments that are subsets to other fragments
         grouped_fragments = WBOFragmentation._group_subfragments_together(unique_fragments)
 
         # re number the unique fragments
