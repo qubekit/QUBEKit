@@ -178,7 +178,7 @@ class WBOFragmentation(StageBase, WBOFragmenter):
             ]
             unique_fragments.append(fragments_assymetry[0])
 
-        # join any fragments that are subsets to other fragments
+        # merge any fragments that are subsets into the larger fragment
         grouped_fragments = WBOFragmentation._group_subfragments_together(unique_fragments)
 
         # re number the unique fragments
