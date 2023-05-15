@@ -101,6 +101,7 @@ class WBOFragmentation(StageBase, WBOFragmenter):
 
         # sort first by size in decreasing order
         from rdkit import Chem
+
         sorted_frags = sorted(fragments, key=lambda f: len(f.atoms), reverse=True)
 
         substructures = []
@@ -110,9 +111,11 @@ class WBOFragmentation(StageBase, WBOFragmenter):
             if i in substructures:
                 continue
 
-            for j, f_smaller in enumerate(sorted_frags[i+1:], start=i+1):
+            for j, f_smaller in enumerate(sorted_frags[i + 1 :], start=i + 1):
                 # ignore the hydrogens
-                if Chem.RemoveHs(f_larger.to_rdkit()).HasSubstructMatch(Chem.RemoveHs(f_smaller.to_rdkit())):
+                if Chem.RemoveHs(f_larger.to_rdkit()).HasSubstructMatch(
+                    Chem.RemoveHs(f_smaller.to_rdkit())
+                ):
                     # mark that this fragment is contained by another one
                     substructures.append(j)
 
@@ -120,8 +123,11 @@ class WBOFragmentation(StageBase, WBOFragmenter):
                     f_larger.bond_indices.extend(f_smaller.bond_indices)
 
         # return the fragments without the "subfragments"
-        fragments_without_substructures = [fragment for i, fragment in enumerate(sorted_frags)
-                                           if i not in substructures]
+        fragments_without_substructures = [
+            fragment
+            for i, fragment in enumerate(sorted_frags)
+            if i not in substructures
+        ]
         return fragments_without_substructures
 
     def _deduplicate_fragments(
@@ -179,7 +185,9 @@ class WBOFragmentation(StageBase, WBOFragmenter):
             unique_fragments.append(fragments_assymetry[0])
 
         # merge any fragments that are subsets into the larger fragment
-        grouped_fragments = WBOFragmentation._group_subfragments_together(unique_fragments)
+        grouped_fragments = WBOFragmentation._group_subfragments_together(
+            unique_fragments
+        )
 
         # re number the unique fragments
         for i, fragment in enumerate(grouped_fragments):
