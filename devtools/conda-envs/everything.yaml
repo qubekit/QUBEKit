@@ -40,8 +40,7 @@ dependencies:
   # Optional
   - xtb-python
   - torchani
-  - psi4=1.5
-  - dftd3
+  - psi4
   - intel-openmp!=2019.5
   - msgpack-python
   - chemper
