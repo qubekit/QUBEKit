@@ -28,6 +28,7 @@ import networkx as nx
 import numpy as np
 import qcelemental as qcel
 from chemper.graphs.cluster_graph import ClusterGraph
+from chemper.graphs.single_graph import SingleGraph
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.toolkit.utils.exceptions import ParameterLookupError
 from openmm import unit
@@ -890,11 +891,12 @@ class Molecule(SchemaBase):
         atom_types = self.atom_types
         improper_symmetry_classes = {}
         for dihedral in self.improper_torsions:
+            # sort the neighbour atom types to get correct clustering, keep central atom first
+            neighbours = [atom_types[dihedral[i]] for i in range(1, 4)]
+            neighbours.sort()
             improper_symmetry_classes[tuple(dihedral)] = (
                 atom_types[dihedral[0]],
-                atom_types[dihedral[1]],
-                atom_types[dihedral[2]],
-                atom_types[dihedral[3]],
+                *neighbours,
             )
 
         improper_types = {}
@@ -1381,9 +1383,7 @@ class Molecule(SchemaBase):
         bond_types = self.bond_types
         # for each bond type collection create a single smirks pattern
         for bonds in bond_types.values():
-            graph = ClusterGraph(
-                mols=[rdkit_mol], smirks_atoms_lists=[bonds], layers="all"
-            )
+            graph = SingleGraph(mol=rdkit_mol, smirks_atoms=bonds[0], layers="all")
             qube_bond = self.BondForce[bonds[0]]
             bond_handler.add_parameter(
                 parameter_kwargs={
@@ -1405,9 +1405,9 @@ class Molecule(SchemaBase):
 
         angle_types = self.angle_types
         for angles in angle_types.values():
-            graph = ClusterGraph(
-                mols=[rdkit_mol],
-                smirks_atoms_lists=[angles],
+            graph = SingleGraph(
+                mol=rdkit_mol,
+                smirks_atoms=angles[0],
                 layers="all",
             )
             qube_angle = self.AngleForce[angles[0]]
@@ -1451,9 +1451,9 @@ class Molecule(SchemaBase):
         for dihedrals in torsion_types.values():
             try:
                 qube_dihedral = self.TorsionForce[dihedrals[0]]
-                graph = ClusterGraph(
-                    mols=[rdkit_mol],
-                    smirks_atoms_lists=[dihedrals],
+                graph = SingleGraph(
+                    mol=rdkit_mol,
+                    smirks_atoms=dihedrals[0],
                     layers="all",
                 )
                 torsion_data = {
@@ -1523,9 +1523,9 @@ class Molecule(SchemaBase):
         for dihedrals in torsion_types.values():
             try:
                 rb_torsion = self.RBTorsionForce[dihedrals[0]]
-                graph = ClusterGraph(
-                    mols=[rdkit_mol],
-                    smirks_atoms_lists=[dihedrals],
+                graph = SingleGraph(
+                    mol=rdkit_mol,
+                    smirks_atoms=dihedrals[0],
                     layers="all",
                 )
                 proper_torsions.add_parameter(
@@ -1553,9 +1553,7 @@ class Molecule(SchemaBase):
             impropers = [
                 (improper[1], improper[0], *improper[2:]) for improper in torsions
             ]
-            graph = ClusterGraph(
-                mols=[rdkit_mol], smirks_atoms_lists=[impropers], layers="all"
-            )
+            graph = SingleGraph(mol=rdkit_mol, smirks_atoms=impropers[0], layers="all")
             qube_improper = self.ImproperTorsionForce[torsions[0]]
             # we need to multiply each k value by 3 as they will be applied as trefoil see
             # <https://openforcefield.github.io/standards/standards/smirnoff/#impropertorsions> for more details
@@ -1578,9 +1576,7 @@ class Molecule(SchemaBase):
         for atom_index, cip_type in self.atom_types.items():
             atom_types.setdefault(cip_type, []).append((atom_index,))
         for sym_set in atom_types.values():
-            graph = ClusterGraph(
-                mols=[rdkit_mol], smirks_atoms_lists=[sym_set], layers="all"
-            )
+            graph = SingleGraph(mol=rdkit_mol, smirks_atoms=sym_set[0], layers="all")
             qube_non_bond = self.NonbondedForce[sym_set[0]]
             vdw_handler.add_parameter(
                 parameter_kwargs={
@@ -1621,9 +1617,9 @@ class Molecule(SchemaBase):
             (f"charge{param.atoms[0] + 1}", param.charge * unit.elementary_charge)
             for param in self.NonbondedForce
         )
-        graph = ClusterGraph(
-            mols=[rdkit_mol],
-            smirks_atoms_lists=[[list([i for i in range(self.n_atoms)])]],
+        graph = SingleGraph(
+            mol=rdkit_mol,
+            smirks_atoms=list([i for i in range(self.n_atoms)]),
             layers="all",
         )
         charge_data["smirks"] = graph.as_smirks()
@@ -1638,9 +1634,9 @@ class Molecule(SchemaBase):
             (f"volume{atom.atom_index + 1}", atom.aim.volume * unit.bohr**3)
             for atom in self.atoms
         )
-        graph = ClusterGraph(
-            mols=[rdkit_mol],
-            smirks_atoms_lists=[[list([i for i in range(self.n_atoms)])]],
+        graph = SingleGraph(
+            mol=rdkit_mol,
+            smirks_atoms=list([i for i in range(self.n_atoms)]),
             layers="all",
         )
         volume_data["smirks"] = graph.as_smirks()
@@ -1662,9 +1658,9 @@ class Molecule(SchemaBase):
             if site_type == "local4p":
                 atoms.append(site.closest_c_index)
 
-            graph = ClusterGraph(
-                mols=[rdkit_mol],
-                smirks_atoms_lists=[[atoms]],
+            graph = SingleGraph(
+                mol=rdkit_mol,
+                smirks_atoms=atoms,
                 layers="all",
             )
             vsite_parameter = local_vsites._INFOTYPE(
@@ -1745,7 +1741,7 @@ class Ligand(Fragment):
 
     def _build_transferable_torsions(self, fragment: Fragment, offxml: ForceField):
         """Edit an offxml in place by adding proper torsions from the fragment molecule and for scanned torsions create
-        a trasferable smirks pattern."""
+        a transferable smirks pattern."""
         parent_rdkit = self.to_rdkit()
         fragment_rdkit = fragment.to_rdkit()
         proper_torsions = offxml.get_parameter_handler("ProperTorsions")
@@ -1755,6 +1751,27 @@ class Ligand(Fragment):
         ]
         for dihedrals in fragment_torsion_types.values():
             qube_dihedral = fragment.TorsionForce[dihedrals[0]]
+
+            # build the kwargs
+            torsion_data = {
+                "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
+                "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
+                "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
+                "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
+                "periodicity1": qube_dihedral.periodicity1,
+                "periodicity2": qube_dihedral.periodicity2,
+                "periodicity3": qube_dihedral.periodicity3,
+                "periodicity4": qube_dihedral.periodicity4,
+                "phase1": qube_dihedral.phase1 * unit.radians,
+                "phase2": qube_dihedral.phase2 * unit.radians,
+                "phase3": qube_dihedral.phase3 * unit.radians,
+                "phase4": qube_dihedral.phase4 * unit.radians,
+                "idivf1": 1,
+                "idivf2": 1,
+                "idivf3": 1,
+                "idivf4": 1,
+            }
+
             mols = [fragment_rdkit]
             smirks_atoms_lists = [dihedrals]
 
@@ -1788,35 +1805,23 @@ class Ligand(Fragment):
                     )
                 smirks_atoms_lists.append(corresponding_parent_dihedrals)
 
-            graph = ClusterGraph(
-                mols=mols,
-                smirks_atoms_lists=smirks_atoms_lists,
-                layers="all",
-            )
-
-            # build the kwargs
-            torsion_data = {
-                "smirks": graph.as_smirks(),
-                "k1": qube_dihedral.k1 * unit.kilojoule_per_mole,
-                "k2": qube_dihedral.k2 * unit.kilojoule_per_mole,
-                "k3": qube_dihedral.k3 * unit.kilojoule_per_mole,
-                "k4": qube_dihedral.k4 * unit.kilojoule_per_mole,
-                "periodicity1": qube_dihedral.periodicity1,
-                "periodicity2": qube_dihedral.periodicity2,
-                "periodicity3": qube_dihedral.periodicity3,
-                "periodicity4": qube_dihedral.periodicity4,
-                "phase1": qube_dihedral.phase1 * unit.radians,
-                "phase2": qube_dihedral.phase2 * unit.radians,
-                "phase3": qube_dihedral.phase3 * unit.radians,
-                "phase4": qube_dihedral.phase4 * unit.radians,
-                "idivf1": 1,
-                "idivf2": 1,
-                "idivf3": 1,
-                "idivf4": 1,
-            }
-            if include_parent:
+                joint_graph = ClusterGraph(
+                    mols=mols,
+                    smirks_atoms_lists=smirks_atoms_lists,
+                    layers="all",
+                )
                 # add the tags to mark as optimisable
+                torsion_data["smirks"] = joint_graph.as_smirks()
                 torsion_data["parameterize"] = "k1, k2, k3, k4"
                 torsion_data["allow_cosmetic_attributes"] = True
+                torsion_data["fragment"] = fragment.name
+
+            else:
+                # use a single graph to create the torsions for on dihedral in the fragment symmetry group
+                # this should transfer to all instances
+                single_graph = SingleGraph(
+                    mol=fragment_rdkit, smirks_atoms=dihedrals[0], layers="all"
+                )
+                torsion_data["smirks"] = single_graph.as_smirks()
 
             proper_torsions.add_parameter(parameter_kwargs=torsion_data)

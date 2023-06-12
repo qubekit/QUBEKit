@@ -235,24 +235,8 @@ def _combine_molecules_offxml(
                 if rfree_code in parameters or fit_ab:
                     rfree_codes.add(rfree_code)
         else:
-            # we need a smirks per atom type for the sigma and epsilon
-            atom_types = {}
-            rdkit_mol = molecule.to_rdkit()
-
-            for atom_index, cip_type in molecule.atom_types.items():
-                atom_types.setdefault(cip_type, []).append((atom_index,))
-            for sym_set in atom_types.values():
-                graph = ClusterGraph(
-                    mols=[rdkit_mol], smirks_atoms_lists=[sym_set], layers="all"
-                )
-                qube_non_bond = molecule.NonbondedForce[sym_set[0]]
-                atom_data = {
-                    "smirks": graph.as_smirks(),
-                    "epsilon": qube_non_bond.epsilon * unit.kilojoule_per_mole,
-                    "sigma": qube_non_bond.sigma * unit.nanometers,
-                }
-
-                vdw_handler.add_parameter(parameter_kwargs=atom_data)
+            # add normal vdw sigma and epsilon types
+            molecule._build_offxml_vdw(offxml=offxml)
 
     # now loop over all the parameters to be fit and add them as cosmetic attributes
     to_parameterize = []

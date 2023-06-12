@@ -999,3 +999,62 @@ def test_parameterizable_offxml_fragments(biphenyl_fragments, tmpdir):
                         raise RuntimeError(
                             f"parent torsion {parent_torsion} not matched by smirks {parent_matches}"
                         )
+
+
+def test_offxml_clustered_types(biphenyl, openff, tmpdir):
+    """
+    Test that using a chemper SingleGraph to create the smirks types for a single instance of an interaction (bond, angle)
+    from a cluster of similar terms hits all intended targets. This was swapped as using ClusterGraph created too general
+    terms which caused duplicate parameter errors.
+    """
+
+    with tmpdir.as_cwd():
+        openff.run(biphenyl)
+        file_name = "biphenyl.offxml"
+        biphenyl.to_offxml(file_name=file_name, h_constraints=False)
+        ff = ForceField(file_name, load_plugins=True, allow_cosmetic_attributes=True)
+        # for each handler ensure that each smirks term hits all atoms of the same interaction type
+        bonds = ff.get_parameter_handler("Bonds")
+        for parameter, expected_matches in zip(
+            bonds.parameters, biphenyl.bond_types.values()
+        ):
+            matches = biphenyl.get_smarts_matches(smirks=parameter.smirks)
+            for match in expected_matches:
+                assert match in matches
+
+        angles = ff.get_parameter_handler("Angles")
+        for parameter, expected_matches in zip(
+            angles.parameters, biphenyl.angle_types.values()
+        ):
+            matches = biphenyl.get_smarts_matches(smirks=parameter.smirks)
+            for match in expected_matches:
+                assert match in matches
+
+        impropers = ff.get_parameter_handler("ImproperTorsions")
+        for parameter, expected_matches in zip(
+            impropers.parameters, biphenyl.improper_types.values()
+        ):
+            matches = biphenyl.get_smarts_matches(smirks=parameter.smirks)
+            for match in expected_matches:
+                # improper SMIRKS have the central atom second but internal lists have it first
+                # so swap the atoms before checking
+                assert (match[1], match[0], *match[2:]) in matches
+
+        dihedrals = ff.get_parameter_handler("ProperTorsions")
+        for parameter, expected_matches in zip(
+            dihedrals.parameters, biphenyl.dihedral_types.values()
+        ):
+            matches = biphenyl.get_smarts_matches(smirks=parameter.smirks)
+            for match in expected_matches:
+                assert match in matches or tuple(reversed(match)) in matches
+
+        vdw = ff.get_parameter_handler("vdW")
+        # group the atom types
+        atom_types = {}
+        for atom_idx, atom_cip in biphenyl.atom_types.items():
+            atom_types.setdefault(atom_cip, []).append(atom_idx)
+        for parameter, expected_matches in zip(vdw.parameters, atom_types.values()):
+            matches = biphenyl.get_smarts_matches(smirks=parameter.smirks)
+            for match in expected_matches:
+                # turn the match into a tuple
+                assert (match,) in matches
