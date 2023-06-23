@@ -1276,10 +1276,10 @@ class Molecule(SchemaBase):
         """
         import copy
 
-        # make sure we have a conformer
-        if self.coordinates == [] or self.coordinates is None:
+        # make sure we have a valid conformer
+        if self.coordinates is None or self.coordinates.shape != (self.n_atoms, 3):
             raise ConformerError(
-                "The molecule must have a conformation to make a qcschema molecule."
+                "The molecule must have a valid conformation to make a qcschema molecule."
             )
         coords = copy.deepcopy(self.coordinates)
         # input must be in bohr
