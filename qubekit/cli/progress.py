@@ -43,31 +43,46 @@ def progress():
                 "Param",
                 "Opt",
                 "Hessian",
-                "Bonded",
                 "Charges",
                 "VSites",
                 "Non-Bond",
+                "Bonded",
                 "Tor Scan",
                 "Tor Opt",
             )
         )
 
+        # make sure the status is in the same order as the headings
+        report_ordering = [
+            "fragmentation",
+            "parametrisation",
+            "optimisation",
+            "hessian",
+            "charges",
+            "virtual_sites",
+            "non_bonded",
+            "bonded_parameters",
+            "torsion_scanner",
+            "torsion_optimisation",
+        ]
+
         for name, result in results.items():
             print(f"{name[:13]:15}", end=" ")
-            for s in result.values():
-                if s == Status.Done:
+            for stage_name in report_ordering:
+                stage_status = result[stage_name]
+                if stage_status == Status.Done:
                     stat = "\u2713"
                     print(f"{COLOURS.green}{stat:>9}{COLOURS.end}", end=" ")
-                elif s == Status.Error:
+                elif stage_status == Status.Error:
                     stat = "E"
                     print(f"{COLOURS.red}{stat:>9}{COLOURS.end}", end=" ")
-                elif s == Status.Skip:
+                elif stage_status == Status.Skip:
                     stat = "S"
                     print(f"{COLOURS.blue}{stat:>9}{COLOURS.end}", end=" ")
-                elif s == Status.Running:
+                elif stage_status == Status.Running:
                     stat = "R"
                     print(f"{COLOURS.orange}{stat:>9}{COLOURS.end}", end=" ")
-                elif s == Status.Waiting:
+                elif stage_status == Status.Waiting:
                     stat = "~"
                     print(f"{COLOURS.purple}{stat:>9}{COLOURS.end}", end=" ")
 
