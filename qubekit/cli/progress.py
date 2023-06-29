@@ -63,7 +63,7 @@ def progress():
             "non_bonded",
             "bonded_parameters",
             "torsion_scanner",
-            "torsion_optimisation"
+            "torsion_optimisation",
         ]
 
         for name, result in results.items():
