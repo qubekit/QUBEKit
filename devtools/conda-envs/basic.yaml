@@ -14,7 +14,7 @@ dependencies:
   # Core deps
   - openff-toolkit-base >=0.10.7, <0.11
   - openff-fragmenter
-  - pydantic
+  - pydantic >1, <2
   - rdkit
   - torsiondrive
   - numpy >=1.18.1

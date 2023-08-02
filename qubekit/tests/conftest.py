@@ -128,3 +128,11 @@ def biphenyl():
     )
     mol.add_qm_scan(scan_data=td_data)
     return mol
+
+
+@pytest.fixture()
+def cyclohexylamine():
+    """
+    Load up Cyclohexylamine as a molecule with improper torsions formally but no improper torsion parameters assigned.
+    """
+    return Ligand.from_smiles("NC1CCCCC1", "cyclohexylamine")

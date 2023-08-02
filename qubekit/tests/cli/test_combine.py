@@ -988,6 +988,36 @@ def test_combine_molecules_offxml_plugin_deepdiff(tmpdir, coumarin, rfree_data):
             assert item["@k"] == "0"
 
 
+def test_combine_offxml_no_improper_terms(
+    methanol, cyclohexylamine, tmpdir, rfree_data, openff
+):
+    """
+    Make sure we can combine molecules which have improper torsions formally but no parameters like NC1CCCCC1 as its
+    not conjugated it currently does not receive improper torsion terms using smirnoff force fields as of 2023-08-02.
+    """
+    with tmpdir.as_cwd():
+        # run smirnoff, no improper should be assigned
+        openff.run(cyclohexylamine)
+        openff.run(methanol)
+
+        assert cyclohexylamine.ImproperTorsionForce.n_parameters == 0
+
+        _combine_molecules_offxml(
+            molecules=[cyclohexylamine, methanol],
+            parameters=[],
+            rfree_data=rfree_data,
+            filename="combined.offxml",
+            h_constraints=False,
+            water_model="tip3p",
+        )
+
+        # label cyclohexylamine and make sure no improper were assigned
+        ff = ForceField("combined.offxml")
+        off_mol = Molecule.from_rdkit(cyclohexylamine.to_rdkit())
+        labels = ff.label_molecules(off_mol.to_topology())[0]
+        assert len(labels["ImproperTorsions"]) == 0
+
+
 def test_get_water_fail():
     """Make sure an error is rasied if we requested a non-supported water model"""
 

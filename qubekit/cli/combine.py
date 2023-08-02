@@ -223,7 +223,8 @@ def _combine_molecules_offxml(
         molecule._build_offxml_bonds(offxml=offxml)
         molecule._build_offxml_angles(offxml=offxml)
         molecule._build_offxml_torsions(offxml=offxml, parameterize=False)
-        molecule._build_offxml_improper_torsions(offxml=offxml)
+        if molecule.ImproperTorsionForce.n_parameters > 0:
+            molecule._build_offxml_improper_torsions(offxml=offxml)
         if molecule.RBTorsionForce.n_parameters > 0:
             molecule._build_offxml_rb_torsions(offxml=offxml)
         molecule._build_offxml_charges(offxml=offxml)

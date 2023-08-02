@@ -18,7 +18,7 @@ dependencies:
   - pytorch
   - openff-fragmenter=0.1.2
   - ambertools
-  - pydantic
+  - pydantic >1, <2
   - forcebalance=1.9.3
   - pymbar=3.0.7
   - rdkit
