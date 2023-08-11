@@ -1,7 +1,8 @@
 name: test
 channels:
-  - psi4
+  - conda-forge/label/libint_dev
   - conda-forge
+
 dependencies:
     # Base deps
   - python
@@ -14,7 +15,6 @@ dependencies:
 
     # Core deps
   - openff-toolkit-base >=0.10.7, <0.11
-  - _openmp_mutex=4.5=2_gnu #required by psi4 ie intel-openmp it seems
   - pytorch
   - openff-fragmenter=0.1.2
   - ambertools
@@ -34,15 +34,13 @@ dependencies:
   - qcelemental >=0.19.0
   - jinja2
   - typing-extensions
-  - pcmsolver >=1.2.1
+  - pcmsolver
   - ndcctools
 
   # Optional
   - xtb-python
   - torchani
-  - psi4=1.5
-  - libint2=*=hc9558a2_9
-  - dftd3
+  - psi4
   - intel-openmp!=2019.5
   - msgpack-python
   - chemper
