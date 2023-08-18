@@ -387,11 +387,11 @@ class LennardJones612Delta(_LennardJonesBase):
             )
             # convert from angstroms to nanometers
             sigma *= constants.SIGMA_CONVERSION
-            # create beta from delta
-            beta = 2 - (6 * self.delta)
+            # convert to a volume scaling
+            volume_scaling = 2 - (6 * self.delta)
             epsilon = (
                 self.alpha
-                * (volume_ratio**beta)
+                * (volume_ratio**volume_scaling)
                 * self.free_parameters[atomic_symbol].b_free
             )
             epsilon /= 128 * self.free_parameters[atomic_symbol].r_free ** 6
