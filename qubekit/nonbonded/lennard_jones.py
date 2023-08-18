@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import math
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Set, Tuple
 
 from pydantic import Field
 from typing_extensions import Literal
@@ -11,18 +11,88 @@ from qubekit.utils.datastructures import StageBase
 from qubekit.utils.exceptions import MissingRfreeError
 
 if TYPE_CHECKING:
-    from qubekit.molecules import Ligand
+    from qubekit.molecules import Atom, Ligand
 
 
-class LennardJones612(StageBase):
+class _LennardJonesBase(StageBase):
+    """
+    A general base class for element based QM-MM mapping of atomic volumes.
+    """
+
+    type: Literal["_LennardJonesBase"] = "_LennardJonesBase"
+
+    free_parameters: Dict[str, FreeParams] = Field(
+        ...,
+        description="The Rfree parameters used to derive the Lennard Jones terms.",
+    )
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """This class should always be available."""
+        return True
+
+    def start_message(self, **kwargs) -> str:
+        return "Calculating Lennard-Jones parameters for a 12-6 potential."
+
+    def finish_message(self, **kwargs) -> str:
+        return "Lennard-Jones 12-6 parameters calculated."
+
+    def covered_elements(self) -> Set[str]:
+        """
+        Return symbols of the covered elements from the free parameters dictionary.
+        """
+        return set([e.lower() for e in self.free_parameters.keys()])
+
+    def check_element_coverage(self, molecule: "Ligand"):
+        """
+        For the given molecule check that we have Rfree parameters for all of the present elements.
+
+        Note:
+            If polar hydrogens are to have LJ terms an Rfree must be given for element X
+        """
+        target_elements = set([atom.atomic_symbol.lower() for atom in molecule.atoms])
+        covered_elements = self.covered_elements()
+        missing_elements = target_elements.difference(covered_elements)
+        if missing_elements != set():
+            raise MissingRfreeError(
+                "The following elements have no reference Rfree values which are required to "
+                f"parameterise the molecule {missing_elements}"
+            )
+
+    @staticmethod
+    def _get_h_type(h_atom: "Atom", molecule: "Ligand") -> str:
+        """For the hydrogen atom work out if it is polar and return X if it is else H."""
+
+        bonded_index = h_atom.bonds[0]
+        if molecule.atoms[bonded_index].atomic_symbol in ["N", "S", "O"]:
+            return "X"
+        else:
+            return "H"
+
+    @staticmethod
+    def _update_molecule_parameters(
+        non_bonded_data: Dict[int, Tuple[float, float]], molecule: "Ligand"
+    ):
+        """
+        Update the sigma and epsilon parameters on a molecule in place from the calculated values.
+        """
+
+        # update the Nonbonded force using api
+        for atom_index, (sigma, epsilon) in non_bonded_data.items():
+            nonbond_data = {
+                "sigma": sigma,
+                "epsilon": epsilon,
+            }
+            parameter = molecule.NonbondedForce[(atom_index,)]
+            # update only the nonbonded parts in place
+            parameter.update(**nonbond_data)
+
+
+class LennardJones612(_LennardJonesBase):
     type: Literal["LennardJones612"] = "LennardJones612"
     lj_on_polar_h: bool = Field(
         True,
         description="If polar hydrogen should keep their LJ values `True`, rather than transfer them to the parent atom `False`.",
-    )
-    free_parameters: Dict[str, FreeParams] = Field(
-        ...,
-        description="The Rfree parameters used to derive the Lennard Jones terms.",
     )
     # If left as 1, 0, then no change will be made to final calc (multiply by 1 and to power of 0)
     alpha: float = Field(
@@ -34,34 +104,10 @@ class LennardJones612(StageBase):
         description="The power by which the aim/free volume should raised. Note this will be 2 + beta.",
     )
 
-    def start_message(self, **kwargs) -> str:
-        return "Calculating Lennard-Jones parameters for a 12-6 potential."
-
-    def finish_message(self, **kwargs) -> str:
-        return "Lennard-Jones 12-6 parameters calculated."
-
-    @classmethod
-    def is_available(cls) -> bool:
-        """This class should always be available."""
-        return True
-
     def check_element_coverage(self, molecule: "Ligand"):
-        """
-        For the given molecule check that we have Rfree parameters for all of the present elements.
-
-        Note:
-            If polar hydrogens are to have LJ terms an Rfree must be given for element X
-        """
-        target_elements = set([atom.atomic_symbol.lower() for atom in molecule.atoms])
-        covered_elements = set([e.lower() for e in self.free_parameters.keys()])
-        missing_elements = target_elements.difference(covered_elements)
-        if missing_elements != set():
-            raise MissingRfreeError(
-                "The following elements have no reference Rfree values which are required to "
-                f"parameterise the molecule {missing_elements}"
-            )
-
-        if self.lj_on_polar_h and "x" not in covered_elements:
+        # run the normal check
+        super().check_element_coverage(molecule=molecule)
+        if self.lj_on_polar_h and "x" not in self.covered_elements():
             raise MissingRfreeError(
                 "Please supply Rfree data for polar hydrogen using the symbol X is `lj_on_polar_h` is True"
             )
@@ -89,16 +135,10 @@ class LennardJones612(StageBase):
 
         # Use the a_is and b_is to calculate the non_bonded_force dict
         non_bonded_forces = self._calculate_sig_eps(lj_data, molecule=molecule)
-
-        # update the Nonbonded force using api
-        for atom_index, (sigma, epsilon) in non_bonded_forces.items():
-            nonbond_data = {
-                "sigma": sigma,
-                "epsilon": epsilon,
-            }
-            parameter = molecule.NonbondedForce[(atom_index,)]
-            # update only the nonbonded parts in place
-            parameter.update(**nonbond_data)
+        # update the parameters on the molecule
+        LennardJones612._update_molecule_parameters(
+            non_bonded_data=non_bonded_forces, molecule=molecule
+        )
 
         return molecule
 
@@ -116,18 +156,11 @@ class LennardJones612(StageBase):
                 atomic_symbol, atom_vol = atom.atomic_symbol, atom.aim.volume
 
                 # Find polar Hydrogens and allocate their new name: X
-                if atomic_symbol == "H":
-                    bonded_index = atom.bonds[0]
-                    if (
-                        molecule.atoms[bonded_index].atomic_symbol
-                        in [
-                            "N",
-                            "O",
-                            "S",
-                        ]
-                        and self.lj_on_polar_h
-                    ):
-                        atomic_symbol = "X"
+                if atomic_symbol == "H" and self.lj_on_polar_h:
+                    # will return X if polar if not will stay as H
+                    atomic_symbol = LennardJones612._get_h_type(
+                        h_atom=atom, molecule=molecule
+                    )
 
                 # r_aim = r_free * ((vol / v_free) ** (1 / 3))
                 r_aim = self.free_parameters[atomic_symbol].r_free * (
@@ -298,3 +331,73 @@ class LennardJones612(StageBase):
             non_bonded_forces[atom.atom_index] = (sigma, epsilon)
 
         return non_bonded_forces
+
+
+class LennardJones612Delta(_LennardJonesBase):
+    """
+    An experimental QM to MM atom mapping function which allows flexibility in the scaling of the volume ratio when
+    calculating sigma not for production yet, also does not allow for polar H transfer.
+    """
+
+    type: Literal["LennardJones612Delta"] = "LennardJones612Delta"
+
+    alpha: float = Field(
+        default=1.0,
+        description="The amount by which the aim/free volume ration should be scaled.",
+    )
+    delta: float = Field(
+        1 / 3,
+        description="The amount by which the volume ratio should be scaled when calculating sigma",
+    )
+
+    def _run(self, molecule: "Ligand", *args, **kwargs) -> "Ligand":
+        """Calculate the sigma and epsilon based on the delta scaling relation."""
+
+        # check we can parameterize the molecule
+        self.check_element_coverage(molecule=molecule)
+
+        # calculate sigma and epsilon
+        non_bonded_data = self._calculate_sig_eps(molecule=molecule)
+        # update the parameters
+        LennardJones612Delta._update_molecule_parameters(
+            non_bonded_data=non_bonded_data, molecule=molecule
+        )
+        return molecule
+
+    def _calculate_sig_eps(self, molecule: "Ligand") -> Dict[int, Tuple[float, float]]:
+        """
+        Calculate the sigma and epsilon parameters for each atom and return a dict to update the molecule with.
+        """
+        sigma_and_eps = {}
+
+        for atom in molecule.atoms:
+            atomic_symbol, atom_vol = atom.atomic_symbol, atom.aim.volume
+
+            # check if we have a separate Rfree for polar H stored as X
+            if "X" in self.free_parameters and atomic_symbol == "H":
+                atomic_symbol = LennardJones612Delta._get_h_type(
+                    h_atom=atom, molecule=molecule
+                )
+
+            volume_ratio = atom_vol / self.free_parameters[atomic_symbol].v_free
+            sigma = (
+                (2 ** (5 / 6))
+                * (volume_ratio**self.delta)
+                * self.free_parameters[atomic_symbol].r_free
+            )
+            # convert from angstroms to nanometers
+            sigma *= constants.SIGMA_CONVERSION
+            # create beta from delta
+            beta = 2 - (6 * self.delta)
+            epsilon = (
+                self.alpha
+                * (volume_ratio**beta)
+                * self.free_parameters[atomic_symbol].b_free
+            )
+            epsilon /= 128 * self.free_parameters[atomic_symbol].r_free ** 6
+            # convert from Hartrees to KJ / mol
+            epsilon *= constants.EPSILON_CONVERSION
+
+            sigma_and_eps[atom.atom_index] = (sigma, epsilon)
+
+        return sigma_and_eps
