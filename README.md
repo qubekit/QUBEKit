@@ -172,6 +172,31 @@ In the case of a smiles string, the molecule must also be named with the `--name
 
     qubekit run -sm CO -n methanol
 
+#### Protocols
+
+QUBEKit has several protocols in order to modify forcefield generation process. Built-in protocols may be selected by running `qubekit run` with `-p model` parameter (for possible values of `model` see below).
+
+You may configure your own protocol and provide it as a file through `-c` parameter. Custom protocol may be based on the existing one. To do so, create protocol file by `qubekit config create your_protocol_filename -p default_protocol_you_want` and modify it.
+
+List of built-in protocols is given below (for details check with [ref. 1](https://pubs.rsc.org/en/content/articlelanding/2022/CP/D2CP02864F)). Default model is `0`
+
+| Model | QM method | Solvent | V-Sites | AIM | LJ | MUE (density, g/cm<sup>3</sup>) | MUE (heat of vaporisation, kcal∙mol<sup>−1</sup> |
+| ----- | --------- | ------- | ------- | --- | -- | ------------------------------- | ------------------------------------------------ |
+| 0 | ωB97X-D/6-311++G(d,p) | IPCM, ε = 4 | No | DDEC6 | TS | 0.0274 | 0.766 |
+| 1a | B3LYP-D3(BJ)/DZVP | IPCM, ε = 4 | No | DDEC6 | TS | 0.0271 | 0.726 |
+| 1b | HF/6-31G(d) | None | No | DDEC6 | TS | 0.0248 | 0.731 |
+| 2a | ωB97X-D/6-311++G(d,p) | IPCM, ε = 2 | No | DDEC6 | TS | 0.0296 | 0.772 |
+| 2b | ωB97X-D/6-311++G(d,p) | IPCM, ε = 10 | No | DDEC6 | TS | 0.0237 | 0.783 |
+| 2c | ωB97X-D/6-311++G(d,p) | IPCM, ε = 20 | No | DDEC6 | TS | 0.0285 | 0.678 |
+| 3a | ωB97X-D/6-311++G(d,p) | IPCM, ε = 4 | No | DDEC3 | TS | 0.0213 | 0.475 |
+| 3b | B3LYP-D3(BJ)/DZVP | Chloroform | No | MBIS | TS | 0.0159 | 0.578 |
+| 4a | ωB97X-D/6-311++G(d,p) | IPCM, ε = 4 | No | DDEC6 | H0 | 0.0235 | 0.896 |
+| 4b | ωB97X-D/6-311++G(d,p) | IPCM, ε = 4 | No | DDEC6 | α, β | 0.0206 | 0.587 |
+| 5a | ωB97X-D/6-311++G(d,p) | IPCM, ε = 4 | Yes | DDEC6 | TS | 0.0190 | 0.441 |
+| 5b | ωB97X-D/6-311++G(d,p) | IPCM, ε = 4 | Yes | DDEC6 | α, β | 0.0209 | 0.244 |
+| 5c | ωB97X-D/6-311++G(d,p) | IPCM, ε = 4 | Yes | DDEC3 | TS | 0.0163 | 0.357 |
+| 5d | B3LYP-D3(BJ)/DZVP | IPCM, ε = 4 | Yes | DDEC6 | TS | 0.0141 | 0.450 |
+| 5e | B3LYP-D3(BJ)/DZVP | Chloroform | Yes | MBIS | α, β | 0.0175 | 0.480 |
 
 ### QUBEKit Commands: High Throughput
 
