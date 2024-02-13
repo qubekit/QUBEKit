@@ -4,7 +4,7 @@ Torsion Scan set up and run tests.
 
 import numpy as np
 import pytest
-from openff.toolkit.typing.chemistry import SMIRKSParsingError
+from qubekit.utils.environment import SMIRKSParsingError
 
 from qubekit.engines import TorsionDriver
 from qubekit.molecules import Ligand

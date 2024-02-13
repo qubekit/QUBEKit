@@ -1,4 +1,4 @@
-name: test
+name: qubekit-basic
 channels:
   - conda-forge
 dependencies:
@@ -9,31 +9,29 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
+  - pytest-xdist
   - deepdiff >=5.8.0
 
   # Core deps
-  - openff-toolkit-base >=0.10.7, <0.11
+  - openmm
+  - openff-toolkit-base =0.15
+  - openff-interchange-base >=0.3.18
   - openff-fragmenter
-  - pydantic >1, <2
+  - pydantic =1
   - rdkit
   - torsiondrive
-  - numpy >=1.18.1
+  - numpy
   - scipy
-  - networkx >=2.4
+  - networkx
   - matplotlib-base
-  - qcengine >=0.18.0
+  - qcengine
   - click
   - chargemol
-  - qcelemental >=0.19.0
-  - forcebalance=1.9.3
-  - pymbar=3.0.7
+  - qcelemental
+  - forcebalance
+  - pymbar
   - jinja2
-  - typing-extensions
   - tqdm
   - ndcctools
 
-  # Optional
-  - xtb-python
-  - torchani
-  - ambertools
   - chemper

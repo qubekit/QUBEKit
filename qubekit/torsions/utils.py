@@ -3,7 +3,7 @@ import os
 import re
 from typing import Tuple
 
-from openff.toolkit.typing.chemistry import ChemicalEnvironment, SMIRKSParsingError
+from qubekit.utils.environment import ChemicalEnvironment, SMIRKSParsingError
 from pydantic import Field, validator
 
 from qubekit.molecules import Atom, Bond, Ligand
