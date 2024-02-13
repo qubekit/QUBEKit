@@ -81,7 +81,7 @@ jobs:
       - name: PyTest
         shell: bash -l {0}
         run: |
-          pytest -v --cov=qubekit --cov-config=setup.cfg qubekit/tests/ --cov-report=xml
+          pytest -v -n logical --cov=qubekit --cov-config=setup.cfg qubekit/tests/ --cov-report=xml
 
       - name: Codecov
         uses: codecov/codecov-action@v1

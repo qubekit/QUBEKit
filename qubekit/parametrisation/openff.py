@@ -9,7 +9,7 @@ from qubekit.parametrisation.base_parametrisation import Parametrisation
 from qubekit.utils.helpers import hide_warnings
 
 with hide_warnings():
-    from openff.toolkit.topology import Molecule
+    from openff.toolkit import Molecule, ForceField
     from openff.toolkit.typing.engines.smirnoff import (
         AngleHandler,
         BondHandler,
@@ -18,7 +18,7 @@ with hide_warnings():
         get_available_force_fields,
         vdWHandler,
     )
-    from openff.toolkit.typing.engines.smirnoff.parameters import (
+    from openff.toolkit.utils.exceptions import (
         UnassignedAngleParameterException,
         UnassignedBondParameterException,
         UnassignedMoleculeChargeException,

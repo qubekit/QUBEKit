@@ -4,9 +4,6 @@ from typing import Dict, List, Tuple
 from openff.toolkit.topology import (
     Molecule,
     Topology,
-    TopologyAtom,
-    TopologyVirtualSite,
-    VirtualSite,
 )
 from openff.toolkit.typing.engines.smirnoff.parameters import (
     AngleHandler,
@@ -26,7 +23,8 @@ from openff.toolkit.typing.engines.smirnoff.parameters import (
 )
 from openff.toolkit.utils.exceptions import NotBondedError, SMIRNOFFSpecError
 from openff.toolkit.utils.toolkits import GLOBAL_TOOLKIT_REGISTRY
-from openmm import openmm, unit
+import openmm
+from openff.units import unit, Quantity
 
 from qubekit.molecules import Ligand
 from qubekit.nonbonded import LennardJones612
@@ -145,19 +143,19 @@ class QUBEKitHandler(vdWHandler):
 
         lj = LennardJones612(
             free_parameters={
-                "H": h_base(r_free=self.hfree.value_in_unit(unit.angstroms)),
-                "C": c_base(r_free=self.cfree.value_in_unit(unit.angstroms)),
-                "X": h_base(r_free=self.xfree.value_in_unit(unit.angstroms)),
-                "O": o_base(r_free=self.ofree.value_in_unit(unit.angstroms)),
-                "N": n_base(r_free=self.nfree.value_in_unit(unit.angstroms)),
-                "Cl": cl_base(r_free=self.clfree.value_in_unit(unit.angstroms)),
-                "S": s_base(r_free=self.sfree.value_in_unit(unit.angstroms)),
-                "F": f_base(r_free=self.ffree.value_in_unit(unit.angstroms)),
-                "Br": br_base(r_free=self.brfree.value_in_unit(unit.angstroms)),
-                "I": i_base(r_free=self.ifree.value_in_unit(unit.angstroms)),
-                "P": p_base(r_free=self.ifree.value_in_unit(unit.angstroms)),
-                "B": b_base(r_free=self.bfree.value_in_unit(unit.angstroms)),
-                "Si": si_base(r_free=self.sifree.value_in_unit(unit.angstroms)),
+                "H": h_base(r_free=self.hfree.m_as(unit.angstroms)),
+                "C": c_base(r_free=self.cfree.m_as(unit.angstroms)),
+                "X": h_base(r_free=self.xfree.m_as(unit.angstroms)),
+                "O": o_base(r_free=self.ofree.m_as(unit.angstroms)),
+                "N": n_base(r_free=self.nfree.m_as(unit.angstroms)),
+                "Cl": cl_base(r_free=self.clfree.m_as(unit.angstroms)),
+                "S": s_base(r_free=self.sfree.m_as(unit.angstroms)),
+                "F": f_base(r_free=self.ffree.m_as(unit.angstroms)),
+                "Br": br_base(r_free=self.brfree.m_as(unit.angstroms)),
+                "I": i_base(r_free=self.ifree.m_as(unit.angstroms)),
+                "P": p_base(r_free=self.ifree.m_as(unit.angstroms)),
+                "B": b_base(r_free=self.bfree.m_as(unit.angstroms)),
+                "Si": si_base(r_free=self.sifree.m_as(unit.angstroms)),
             },
             alpha=self.alpha,
             beta=self.beta,
@@ -189,7 +187,7 @@ class QUBEKitHandler(vdWHandler):
                     for atom in matches[0]:
                         qb_mol.atoms[atom].aim.volume = parameter.volume[
                             atom
-                        ].value_in_unit(unit.bohr**3)
+                        ].m_as(unit.bohr**3)
             # make sure all atoms in the molecule have volumes, assign dummy values
             for i in range(qb_mol.n_atoms):
                 atom = qb_mol.atoms[i]
@@ -202,46 +200,37 @@ class QUBEKitHandler(vdWHandler):
             lj.run(qb_mol)
 
             # assign to all copies in the system
-            for topology_molecule in topology._reference_molecule_to_topology_molecules[
-                ref_mol
-            ]:
-                for topology_particle in topology_molecule.atoms:
-                    if type(topology_particle) is TopologyAtom:
-                        ref_mol_particle_index = (
-                            topology_particle.atom.molecule_particle_index
-                        )
-                    elif type(topology_particle) is TopologyVirtualSite:
-                        ref_mol_particle_index = (
-                            topology_particle.virtual_site.molecule_particle_index
-                        )
-                    else:
-                        raise ValueError(
-                            f"Particles of type {type(topology_particle)} are not supported"
+            for unique_molecule in topology.unique_molecules:
+                for atom in unique_molecule.atoms:
+                    unique_molecule_atom_index = unique_molecule.atom_index(atom)
+                    # TODO: Figure out how to finagle virtual sites back in after
+                    #       they were removed from the toolkit API
+
+                    # Everything below here needs to be wrapped up into a collection plugin
+                    if False:
+                        topology_particle_index = topology_particle.topology_particle_index
+                        particle_parameters = qb_mol.NonbondedForce[
+                            (ref_mol_particle_index,)
+                        ]
+                        # get the current particle charge as we do not want to change this
+                        charge, _, _ = force.getParticleParameters(topology_particle_index)
+                        # Set the nonbonded force parameters
+                        force.setParticleParameters(
+                            topology_particle_index,
+                            charge,  # set with the existing charge do not use the dummy qubekit value!
+                            particle_parameters.sigma,
+                            particle_parameters.epsilon,
                         )
 
-                    topology_particle_index = topology_particle.topology_particle_index
-                    particle_parameters = qb_mol.NonbondedForce[
-                        (ref_mol_particle_index,)
-                    ]
-                    # get the current particle charge as we do not want to change this
-                    charge, _, _ = force.getParticleParameters(topology_particle_index)
-                    # Set the nonbonded force parameters
-                    force.setParticleParameters(
-                        topology_particle_index,
-                        charge,  # set with the existing charge do not use the dummy qubekit value!
-                        particle_parameters.sigma,
-                        particle_parameters.epsilon,
-                    )
 
-
-class LocalVirtualSite(VirtualSite):
+class LocalVirtualSite:
     """A particle to represent a local virtual site type"""
 
     def __init__(
         self,
-        p1: unit.Quantity,
-        p2: unit.Quantity,
-        p3: unit.Quantity,
+        p1: Quantity,
+        p2: Quantity,
+        p3: Quantity,
         name: str,
         o_weights: List[float],
         x_weights: List[float],
@@ -293,9 +282,9 @@ class LocalVirtualSite(VirtualSite):
     @property
     def local_frame_position(self):
         return [
-            self._p1.value_in_unit(unit.nanometer),
-            self._p2.value_in_unit(unit.nanometer),
-            self._p3.value_in_unit(unit.nanometer),
+            self._p1.m_as(unit.nanometer),
+            self._p2.m_as(unit.nanometer),
+            self._p3.m_as(unit.nanometer),
         ] * unit.nanometer
 
     def get_openmm_virtual_site(self, atoms: Tuple[int, ...]):

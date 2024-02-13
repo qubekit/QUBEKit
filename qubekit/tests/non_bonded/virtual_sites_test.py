@@ -5,11 +5,10 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 import openmm
+import openmm.app
 import pytest
-from openff.toolkit.topology import Molecule
-from openff.toolkit.typing.engines.smirnoff import ForceField
-from openmm import app, unit
-
+from openff.toolkit import Molecule, ForceField
+from openff.units import unit
 from qubekit.charges import DDECCharges, ExtractChargeData
 from qubekit.forcefield import VirtualSite3Point, VirtualSite4Point
 from qubekit.molecules import Ligand
@@ -360,7 +359,7 @@ def test_amine_special_case(tmpdir, vs):
         off_mol = Molecule.from_rdkit(mol.to_rdkit())
         # check the sites are constructed at a random conformation
         off_mol.generate_conformers(n_conformers=1, clear_existing=True)
-        positions = off_mol.conformers[0].value_in_unit(unit.angstroms)
+        positions = off_mol.conformers[0].m_as(unit.angstroms)
         # pad with dummy space
         padded_pos = np.vstack([positions, [0, 0, 0], [0, 0, 0]])
         off_system = offxml.create_openmm_system(off_mol.to_topology())
@@ -371,10 +370,10 @@ def test_amine_special_case(tmpdir, vs):
         off_context.setPositions(padded_pos * unit.angstroms)
         off_context.computeVirtualSites()
         off_state = off_context.getState(getPositions=True)
-        off_site_pos = off_state.getPositions().value_in_unit(unit.angstroms)
+        off_site_pos = off_state.getPositions().m_as(unit.angstroms)
 
-        xml_ff = app.ForceField("sites.xml")
-        modeller = app.Modeller(
+        xml_ff = openmm.app.ForceField("sites.xml")
+        modeller = openmm.app.Modeller(
             topology=mol.to_openmm_topology(), positions=off_mol.conformers[0]
         )
         modeller.addExtraParticles(forcefield=xml_ff)
@@ -386,6 +385,6 @@ def test_amine_special_case(tmpdir, vs):
         xml_context.setPositions(modeller.positions)
         xml_context.computeVirtualSites()
         xml_state = xml_context.getState(getPositions=True)
-        xml_site_pos = xml_state.getPositions().value_in_unit(unit.angstroms)
+        xml_site_pos = xml_state.getPositions().m_as(unit.angstroms)
 
         assert np.allclose(off_site_pos, xml_site_pos)
