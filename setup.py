@@ -32,6 +32,7 @@ setup(
         ],
         "openff.toolkit.plugins.handlers": [
             "QUBEKitvdWTS = qubekit.cli.utils:QUBEKitHandler",
+            "QUBEKitDeltaHandler = qubekit.cli.utils:QUBEKitDeltaHandler",
             "LocalCoordinateVirtualSites = qubekit.cli.utils:LocalCoordinateVirtualSiteHandler",
             "UreyBradley = qubekit.cli.utils:UreyBradleyHandler",
             "ProperRyckhaertBellemans = qubekit.cli.utils:ProperRyckhaertBellemansHandler",
