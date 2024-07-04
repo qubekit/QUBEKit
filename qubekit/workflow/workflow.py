@@ -10,7 +10,12 @@ from qubekit.bonded import ModSeminario, QForceHessianFitting
 from qubekit.charges import DDECCharges, MBISCharges
 from qubekit.fragmentation import WBOFragmentation
 from qubekit.molecules import Ligand
-from qubekit.nonbonded import LennardJones612, VirtualSites, get_protocol
+from qubekit.nonbonded import (
+    LennardJones612,
+    LennardJones612Delta,
+    VirtualSites,
+    get_protocol,
+)
 from qubekit.parametrisation import XML, AnteChamber, OpenFF
 from qubekit.torsions import ForceBalanceFitting, TorsionScan1D
 from qubekit.utils.datastructures import LocalResource, QCOptions, SchemaBase, StageBase
@@ -50,7 +55,7 @@ class WorkFlow(SchemaBase):
         VirtualSites(),
         description="The method that should be used to fit virtual sites if they are requested.",
     )
-    non_bonded: LennardJones612 = Field(
+    non_bonded: Union[LennardJones612, LennardJones612Delta] = Field(
         get_protocol(protocol_name="0"),
         description="The method that should be used to calculate the non-bonded non-charge parameters and their functional form.",
     )

@@ -3,7 +3,7 @@ import pytest
 
 from qubekit.charges import DDECCharges, ExtractChargeData
 from qubekit.molecules import Ligand
-from qubekit.nonbonded import LennardJones612, get_protocol
+from qubekit.nonbonded import LennardJones612, LennardJones612Delta, get_protocol
 from qubekit.nonbonded.protocols import (
     b_base,
     br_base,
@@ -245,3 +245,77 @@ def test_element_base(base_func, expected):
         *expected,
         rfree,
     )
+
+
+def test_lennard_jones_delta_default(methanol):
+    """
+    Make sure that the LennardJones612Delta handler computes the same
+    values as the LennardJones612 handler with no beta when delta = 1/3 and a different value for anything else.
+    """
+    # copy before we run the LJ
+    copy_methanol = methanol.copy(deep=True)
+
+    # get a protocol with alpha = 1 and beta = 0
+    lj_protocol = get_protocol(protocol_name="0")
+    lj_protocol.run(molecule=methanol)
+
+    # crate a delta handler with the same free parameters
+    lj_delta = LennardJones612Delta(
+        free_parameters=lj_protocol.free_parameters, delta=1 / 3
+    )
+    # set every sigma and epsilon to 0 to make sure the Delta handler is applying the parameters
+    for i in range(copy_methanol.n_atoms):
+        copy_methanol.NonbondedForce[(i,)].update(**{"sigma": 0, "epsilon": 0})
+
+    lj_delta.run(molecule=copy_methanol)
+    # compare each atoms parameters
+    for i in range(methanol.n_atoms):
+        # use pytest approx to get around precision issues
+        print(methanol.NonbondedForce[(i,)])
+        assert methanol.NonbondedForce[(i,)].sigma == pytest.approx(
+            copy_methanol.NonbondedForce[(i,)].sigma
+        )
+        assert methanol.NonbondedForce[(i,)].epsilon == pytest.approx(
+            copy_methanol.NonbondedForce[(i,)].epsilon
+        )
+
+    # change delta and compute again
+    lj_delta.delta = 0.25
+    lj_delta.run(molecule=copy_methanol)
+
+    # compare each atoms parameters
+    for i in range(methanol.n_atoms):
+        # we expect all parameters to now be different
+        assert methanol.NonbondedForce[(i,)].sigma != pytest.approx(
+            copy_methanol.NonbondedForce[(i,)].sigma
+        )
+        assert methanol.NonbondedForce[(i,)].epsilon != pytest.approx(
+            copy_methanol.NonbondedForce[(i,)].epsilon
+        )
+
+
+def test_lennard_jones_delta(methanol):
+    """Make sure we get the expected hand calculated values when using the LennardJones612Delta scaling."""
+
+    # create a set of Rfree based on initial curve fit data to the slater based potential
+    free_params = {
+        "X": h_base(r_free=2.1816),
+        "H": h_base(r_free=2.1816),
+        "C": c_base(r_free=1.9685),
+        "O": o_base(r_free=1.6261),
+    }
+
+    # crate a delta handler with the same free parameters
+    lj_delta = LennardJones612Delta(
+        free_parameters=free_params, delta=0.533, alpha=1.5322
+    )
+    lj_delta.run(molecule=methanol)
+    # check the oxygen
+    oxygen_parameter = methanol.NonbondedForce[(0,)]
+    assert oxygen_parameter.sigma == 0.3134804406826384
+    assert oxygen_parameter.epsilon == 0.7114503103860083
+
+    # check polar h
+    polar_h = methanol.NonbondedForce[(5,)]
+    assert polar_h.sigma == 0.20432125635505788
+    assert polar_h.epsilon == 0.17660397698656533

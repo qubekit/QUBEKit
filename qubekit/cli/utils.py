@@ -1,3 +1,4 @@
+import abc
 from copy import deepcopy
 from typing import Dict, List, Tuple
 
@@ -29,7 +30,7 @@ from openff.toolkit.utils.toolkits import GLOBAL_TOOLKIT_REGISTRY
 from openmm import openmm, unit
 
 from qubekit.molecules import Ligand
-from qubekit.nonbonded import LennardJones612
+from qubekit.nonbonded import LennardJones612, LennardJones612Delta
 from qubekit.nonbonded.protocols import (
     b_base,
     br_base,
@@ -66,8 +67,38 @@ def _get_nonbonded_force(
     return force
 
 
-class QUBEKitHandler(vdWHandler):
-    """A plugin handler to enable the fitting of Rfree parameters using evaluator"""
+class QUBEKitvdWType(ParameterType):
+    """A dummy vdw type which just stores the volumes to be used with QUBEKit LJ612 handlers."""
+
+    _VALENCE_TYPE = "Atom"  # ChemicalEnvironment valence type expected for SMARTS
+    _ELEMENT_NAME = "Atom"
+
+    name = ParameterAttribute(default=None)
+    volume = IndexedParameterAttribute(unit=unit.bohr**3)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        unique_tags, connectivity = GLOBAL_TOOLKIT_REGISTRY.call(
+            "get_tagged_smarts_connectivity", self.smirks
+        )
+        if len(self.volume) != len(unique_tags):
+            raise SMIRNOFFSpecError(
+                f"QUBEKitHandler {self} was initialized with unequal number of "
+                f"tagged atoms and volumes"
+            )
+
+
+class _BaseQUBEKit612Handler(vdWHandler, abc.ABC):
+    """
+    A basic QUBEKit LJ-612 handler from which different QM->MM mappings can be implemented.
+    """
+
+    _INFOTYPE = QUBEKitvdWType
+    # vdW must go first as we need to overwrite the blank parameters
+    _DEPENDENCIES = [
+        vdWHandler,
+        ElectrostaticsHandler,
+    ]  # we might need to depend on vdW if present
 
     hfree = ParameterAttribute(0 * unit.angstroms, unit=unit.angstroms)
     xfree = ParameterAttribute(0 * unit.angstroms, unit=unit.angstroms)
@@ -82,39 +113,14 @@ class QUBEKitHandler(vdWHandler):
     ifree = ParameterAttribute(0 * unit.angstroms, unit=unit.angstroms)
     bfree = ParameterAttribute(0 * unit.angstroms, unit=unit.angstroms)
     sifree = ParameterAttribute(0 * unit.angstroms, unit=unit.angstroms)
-    alpha = ParameterAttribute(1)
-    beta = ParameterAttribute(0)
-    lj_on_polar_h = ParameterAttribute(
-        default="True", converter=_allow_only(["True", "False"])
-    )
 
-    class QUBEKitvdWType(ParameterType):
-        """A dummy vdw type which just stores the volume and so we can build the system correctly"""
-
-        _VALENCE_TYPE = "Atom"  # ChemicalEnvironment valence type expected for SMARTS
-        _ELEMENT_NAME = "Atom"
-
-        name = ParameterAttribute(default=None)
-        volume = IndexedParameterAttribute(unit=unit.bohr**3)
-
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-            unique_tags, connectivity = GLOBAL_TOOLKIT_REGISTRY.call(
-                "get_tagged_smarts_connectivity", self.smirks
-            )
-            if len(self.volume) != len(unique_tags):
-                raise SMIRNOFFSpecError(
-                    f"QUBEKitHandler {self} was initialized with unequal number of "
-                    f"tagged atoms and volumes"
-                )
-
-    _TAGNAME = "QUBEKitvdWTS"
-    _INFOTYPE = QUBEKitvdWType
-    # vdW must go first as we need to overwrite the blank parameters
-    _DEPENDENCIES = [
-        vdWHandler,
-        ElectrostaticsHandler,
-    ]  # we might need to depend on vdW if present
+    @abc.abstractmethod
+    def _create_qubekit_handler(self):
+        """
+        Create the corresponding QUBEKit parameter handler which will be used to calculate the MM parameters from the
+        volumes.
+        """
+        ...
 
     def create_force(self, system, topology, **kwargs):
         """over write the force creation to use qubekit"""
@@ -143,26 +149,8 @@ class QUBEKitHandler(vdWHandler):
                 force.setUseDispersionCorrection(True)
                 force.setCutoffDistance(self.cutoff)
 
-        lj = LennardJones612(
-            free_parameters={
-                "H": h_base(r_free=self.hfree.value_in_unit(unit.angstroms)),
-                "C": c_base(r_free=self.cfree.value_in_unit(unit.angstroms)),
-                "X": h_base(r_free=self.xfree.value_in_unit(unit.angstroms)),
-                "O": o_base(r_free=self.ofree.value_in_unit(unit.angstroms)),
-                "N": n_base(r_free=self.nfree.value_in_unit(unit.angstroms)),
-                "Cl": cl_base(r_free=self.clfree.value_in_unit(unit.angstroms)),
-                "S": s_base(r_free=self.sfree.value_in_unit(unit.angstroms)),
-                "F": f_base(r_free=self.ffree.value_in_unit(unit.angstroms)),
-                "Br": br_base(r_free=self.brfree.value_in_unit(unit.angstroms)),
-                "I": i_base(r_free=self.ifree.value_in_unit(unit.angstroms)),
-                "P": p_base(r_free=self.ifree.value_in_unit(unit.angstroms)),
-                "B": b_base(r_free=self.bfree.value_in_unit(unit.angstroms)),
-                "Si": si_base(r_free=self.sifree.value_in_unit(unit.angstroms)),
-            },
-            alpha=self.alpha,
-            beta=self.beta,
-            lj_on_polar_h=self.lj_on_polar_h,
-        )
+        # get the specific qubekit method for this handler
+        lj = self._create_qubekit_handler()
 
         water = Molecule.from_smiles("O")
 
@@ -232,6 +220,69 @@ class QUBEKitHandler(vdWHandler):
                         particle_parameters.sigma,
                         particle_parameters.epsilon,
                     )
+
+
+class QUBEKitHandler(_BaseQUBEKit612Handler):
+    """A plugin handler to enable the fitting of Rfree parameters using evaluator"""
+
+    alpha = ParameterAttribute(1)
+    beta = ParameterAttribute(0)
+    lj_on_polar_h = ParameterAttribute(
+        default="True", converter=_allow_only(["True", "False"])
+    )
+    # the name in the offxml
+    _TAGNAME = "QUBEKitvdWTS"
+
+    def _create_qubekit_handler(self):
+        return LennardJones612(
+            free_parameters={
+                "H": h_base(r_free=self.hfree.value_in_unit(unit.angstroms)),
+                "C": c_base(r_free=self.cfree.value_in_unit(unit.angstroms)),
+                "X": h_base(r_free=self.xfree.value_in_unit(unit.angstroms)),
+                "O": o_base(r_free=self.ofree.value_in_unit(unit.angstroms)),
+                "N": n_base(r_free=self.nfree.value_in_unit(unit.angstroms)),
+                "Cl": cl_base(r_free=self.clfree.value_in_unit(unit.angstroms)),
+                "S": s_base(r_free=self.sfree.value_in_unit(unit.angstroms)),
+                "F": f_base(r_free=self.ffree.value_in_unit(unit.angstroms)),
+                "Br": br_base(r_free=self.brfree.value_in_unit(unit.angstroms)),
+                "I": i_base(r_free=self.ifree.value_in_unit(unit.angstroms)),
+                "P": p_base(r_free=self.ifree.value_in_unit(unit.angstroms)),
+                "B": b_base(r_free=self.bfree.value_in_unit(unit.angstroms)),
+                "Si": si_base(r_free=self.sifree.value_in_unit(unit.angstroms)),
+            },
+            alpha=self.alpha,
+            beta=self.beta,
+            lj_on_polar_h=self.lj_on_polar_h,
+        )
+
+
+class QUBEKitDeltaHandler(_BaseQUBEKit612Handler):
+
+    alpha = ParameterAttribute()
+    delta = ParameterAttribute()
+    # the name in the offxml
+    _TAGNAME = "QUBEKitDeltaHandler"
+
+    def _create_qubekit_handler(self):
+        return LennardJones612Delta(
+            free_parameters={
+                "H": h_base(r_free=self.hfree.value_in_unit(unit.angstroms)),
+                "C": c_base(r_free=self.cfree.value_in_unit(unit.angstroms)),
+                "X": h_base(r_free=self.xfree.value_in_unit(unit.angstroms)),
+                "O": o_base(r_free=self.ofree.value_in_unit(unit.angstroms)),
+                "N": n_base(r_free=self.nfree.value_in_unit(unit.angstroms)),
+                "Cl": cl_base(r_free=self.clfree.value_in_unit(unit.angstroms)),
+                "S": s_base(r_free=self.sfree.value_in_unit(unit.angstroms)),
+                "F": f_base(r_free=self.ffree.value_in_unit(unit.angstroms)),
+                "Br": br_base(r_free=self.brfree.value_in_unit(unit.angstroms)),
+                "I": i_base(r_free=self.ifree.value_in_unit(unit.angstroms)),
+                "P": p_base(r_free=self.ifree.value_in_unit(unit.angstroms)),
+                "B": b_base(r_free=self.bfree.value_in_unit(unit.angstroms)),
+                "Si": si_base(r_free=self.sifree.value_in_unit(unit.angstroms)),
+            },
+            alpha=self.alpha,
+            delta=self.delta
+        )
 
 
 class LocalVirtualSite(VirtualSite):
