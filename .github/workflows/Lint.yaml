@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9]
+        python-version: [3.10]
 
     steps:
       - uses: actions/checkout@v2
@@ -17,18 +17,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Create Enviroment
+      - name: Create Environment
         shell: bash
         run: |
           python -m pip install --upgrade pip
           python setup.py develop --no-deps
 
-      - name: Install black
+      - name: Install ruff
         shell: bash
         run: |
-          pip install black
+          pip install ruff
 
-      - name: Run black
+      - name: Run ruff lint
         shell: bash
         run: |
-          black qubekit --check
+          ruff check qubekit
+
+      - name: Run ruff format
+        shell: bash
+        run: |
+          ruff format --check qubekit

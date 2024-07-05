@@ -27,15 +27,15 @@ jobs:
 #            os: macOS-latest
 
           - conda-env: everything
-            python-version: 3.8
+            python-version: 3.10
             os: ubuntu-latest
 
           - conda-env: basic
-            python-version: 3.9
+            python-version: 3.10
             os: ubuntu-latest
 
           - conda-env: basic
-            python-version: 3.9
+            python-version: 3.10
             os: macOS-latest
 
     env:
@@ -76,7 +76,7 @@ jobs:
       - name: Install QUBEKit
         shell: bash -l {0}
         run: |
-          python setup.py develop --no-deps
+          python install -e .
 
       - name: PyTest
         shell: bash -l {0}

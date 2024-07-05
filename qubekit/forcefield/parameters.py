@@ -1,6 +1,7 @@
 """
 Build up a list of forcefield objects to be stored in the main forcefield model
 """
+
 import abc
 import decimal
 from typing import Dict, Set, Tuple
@@ -265,7 +266,7 @@ class VirtualSite3Point(BasicParameterModel):
     )
     closest_b_index: int = Field(
         ...,
-        description="The index of the 2 closest atom which should be used to construct the site possition.",
+        description="The index of the 2 closest atom which should be used to construct the site position.",
     )
     o_weights: Point3 = Field(
         ..., description="The weights that should be used to build the origin point."

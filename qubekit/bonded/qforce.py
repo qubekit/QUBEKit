@@ -1,4 +1,5 @@
 """An interface to the QForce program for bonded parameter derivation via internal hessian fitting."""
+
 from io import StringIO
 from typing import TYPE_CHECKING, Any, Dict
 

@@ -426,9 +426,9 @@ def _combine_molecules(
                     molecule.RBTorsionForce.openmm_group(),
                     attrib=molecule.RBTorsionForce.xml_data(),
                 )
-                force_by_type[
-                    molecule.RBTorsionForce.openmm_group()
-                ] = new_rb_torsion_force
+                force_by_type[molecule.RBTorsionForce.openmm_group()] = (
+                    new_rb_torsion_force
+                )
 
             RBTorsion = force_by_type[molecule.RBTorsionForce.openmm_group()]
             for parameter in molecule.RBTorsionForce:
