@@ -76,7 +76,7 @@ jobs:
       - name: Install QUBEKit
         shell: bash -l {0}
         run: |
-          python install -e .
+          python -m pip install -e .
 
       - name: PyTest
         shell: bash -l {0}
