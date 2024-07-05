@@ -27,15 +27,15 @@ jobs:
 #            os: macOS-latest
 
           - conda-env: everything
-            python-version: 3.10
+            python-version: "3.10"
             os: ubuntu-latest
 
           - conda-env: basic
-            python-version: 3.10
+            python-version: "3.10"
             os: ubuntu-latest
 
           - conda-env: basic
-            python-version: 3.10
+            python-version: "3.10"
             os: macOS-latest
 
     env:

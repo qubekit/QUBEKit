@@ -4,7 +4,7 @@ Torsion Scan set up and run tests.
 
 import numpy as np
 import pytest
-from openff.toolkit.typing.chemistry import SMIRKSParsingError
+from openff.toolkit.utils.exceptions import SMIRKSParsingError
 
 from qubekit.engines import TorsionDriver
 from qubekit.molecules import Ligand
@@ -56,11 +56,24 @@ def test_adding_torsions():
 
 
 def test_adding_torsions_bad():
-    """Make sure an error is raised when adding a bad torsion."""
+    """Make sure an error is raised when adding a bad torsion with missing numerical tags."""
 
     t_scan = TorsionScan1D()
-    with pytest.raises(SMIRKSParsingError):
+    with pytest.raises(
+        SMIRKSParsingError,
+        match="The smirks pattern provided has the wrong number of tagged atoms;",
+    ):
         t_scan.add_special_torsion(smirks="[C]-[C]", scan_range=(0, 180))
+
+
+def test_adding_torsion_bad_smirks():
+    """Make sure an error is raised if we provide an invalid smarts string"""
+    t_scan = TorsionScan1D()
+    with pytest.raises(
+        SMIRKSParsingError,
+        match="A valid query molecule could not be made from smirks: kesbfs",
+    ):
+        t_scan.add_special_torsion(smirks="kesbfs")
 
 
 def test_adding_avoided_torsion():
