@@ -3,6 +3,7 @@
 """
 Should be very little calculation here, simply file reading and some small validations / checks
 """
+
 import contextlib
 import os
 

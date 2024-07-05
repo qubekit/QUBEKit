@@ -1,6 +1,7 @@
 """
 Test the torsiondrive json api interface.
 """
+
 from typing import Any, Dict
 
 import numpy as np

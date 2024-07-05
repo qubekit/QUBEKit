@@ -3,11 +3,12 @@ import os
 import re
 from typing import Tuple
 
-from openff.toolkit.typing.chemistry import ChemicalEnvironment, SMIRKSParsingError
+from openff.toolkit.utils.exceptions import SMIRKSParsingError
 from pydantic import Field, validator
 
 from qubekit.molecules import Atom, Bond, Ligand
 from qubekit.utils.datastructures import SchemaBase
+from rdkit import Chem
 
 
 class AvoidedTorsion(SchemaBase):
@@ -24,7 +25,12 @@ class AvoidedTorsion(SchemaBase):
         Also make sure either two or 4 atoms are tagged for the dihedral.
         """
         # validate the smarts with the toolkit
-        ChemicalEnvironment.validate_smirks(smirks=smirks)
+        valid_mol = Chem.MolFromSmarts(smirks)
+        if valid_mol is None:
+            raise SMIRKSParsingError(
+                f"A valid query molecule could not be made from smirks: {smirks}"
+            )
+
         # look for tags
         tags = re.findall(":[0-9]]", smirks)
         if len(tags) == 2 or len(tags) == 4:

@@ -16,7 +16,6 @@ from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
 
 # DO NOT REMOVE THIS IMPORT. ALTHOUGH IT IS NOT EXPLICITLY CALLED, IT IS NEEDED FOR 3D PLOTTING.
-from mpl_toolkits.mplot3d import Axes3D
 from pydantic import Field, PrivateAttr
 from scipy.optimize import minimize
 from typing_extensions import Literal

@@ -3,18 +3,15 @@ from io import StringIO
 import pytest
 
 from qubekit.bonded import QForceHessianFitting
+import importlib
 
 
 def test_is_available():
     """
     Make sure we can correctly detect when qforce is installed.
     """
-    try:
-        import qforce
-
+    if importlib.util.find_spec("qforce") is not None:
         assert QForceHessianFitting.is_available() is True
-    except (ModuleNotFoundError, ImportError):
-        pass
 
 
 def test_generate_qforce_settings():

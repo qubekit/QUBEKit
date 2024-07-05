@@ -346,8 +346,8 @@ def test_amine_special_case(tmpdir, vs):
         # we should two sites the first a 4point the second 3 point special case
         assert mol.extra_sites.n_sites == 2
         sites = mol.extra_sites[1]
-        assert type(sites[0]) == VirtualSite4Point
-        assert type(sites[1]) == VirtualSite3Point
+        assert isinstance(sites[0], VirtualSite4Point)
+        assert isinstance(sites[1], VirtualSite3Point)
         # make sure the second site only depends on Hs
         assert mol.atoms[sites[1].closest_a_index].atomic_symbol == "H"
         assert mol.atoms[sites[1].closest_b_index].atomic_symbol == "H"

@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime
@@ -163,9 +164,7 @@ def _combine_molecules_offxml(
             "RBTorsions improper can not yet be safely converted into offxml format yet."
         )
 
-    try:
-        from chemper.graphs.cluster_graph import ClusterGraph
-    except ModuleNotFoundError:
+    if importlib.util.find_spec("chemper") is None:
         raise ModuleNotFoundError(
             "chemper is required to make an offxml, please install with `conda install chemper -c conda-forge`."
         )
@@ -426,9 +425,9 @@ def _combine_molecules(
                     molecule.RBTorsionForce.openmm_group(),
                     attrib=molecule.RBTorsionForce.xml_data(),
                 )
-                force_by_type[
-                    molecule.RBTorsionForce.openmm_group()
-                ] = new_rb_torsion_force
+                force_by_type[molecule.RBTorsionForce.openmm_group()] = (
+                    new_rb_torsion_force
+                )
 
             RBTorsion = force_by_type[molecule.RBTorsionForce.openmm_group()]
             for parameter in molecule.RBTorsionForce:

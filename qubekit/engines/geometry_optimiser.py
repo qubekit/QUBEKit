@@ -3,6 +3,7 @@
 """
 A class which handles general geometry optimisation tasks.
 """
+
 import copy
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 

@@ -1,6 +1,7 @@
 """
 A Charge derivation base class.
 """
+
 import abc
 from typing import TYPE_CHECKING, Any, Dict, Optional, TypeVar
 

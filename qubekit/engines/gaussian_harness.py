@@ -3,6 +3,7 @@
 """
 A custom gaussian harness for QCEngine which should be registered with qcengine.
 """
+
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np

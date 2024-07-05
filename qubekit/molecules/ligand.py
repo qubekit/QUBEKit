@@ -983,8 +983,8 @@ class Molecule(SchemaBase):
             qb_atom = self.atoms[index]
             if qb_atom.stereochemistry is not None:
                 with _assert_wrapper(StereoChemistryError):
-                    assert qb_atom.stereochemistry == rd_atom.GetProp(
-                        "_CIPCode"
+                    assert (
+                        qb_atom.stereochemistry == rd_atom.GetProp("_CIPCode")
                     ), f"StereoChemistry incorrect expected {qb_atom.stereochemistry} got {rd_atom.GetProp('_CIPCode')} for atom {qb_atom}"
 
         for rd_bond in rd_mol.GetBonds():

@@ -222,9 +222,7 @@ def test_multi_bbc_correction(openff, tmpdir):
                     mol.NonbondedForce[(atom_add,)].charge
                 ) + parameter.charge_correction.value_in_unit(
                     unit.elementary_charge
-                ) == charge.value_in_unit(
-                    unit.elementary_charge
-                )
+                ) == charge.value_in_unit(unit.elementary_charge)
 
 
 def test_wrong_number_of_volumes(methanol):
